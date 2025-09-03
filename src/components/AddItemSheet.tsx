@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo, useCallback, useState } from 'react';
+import React, { forwardRef, useMemo, useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,13 @@ import {
   Alert,
   ScrollView,
   Clipboard,
+  Keyboard,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
+  InputAccessoryView,
+  Button,
+  Dimensions,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -33,9 +40,46 @@ const AddItemSheet = observer(
     const isDarkMode = themeStore.isDarkMode.get();
     const [selectedType, setSelectedType] = useState('bookmark');
     const [url, setUrl] = useState('');
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
     
-    // Snap points for the bottom sheet - initial view shows only URL and actions
-    const snapPoints = useMemo(() => ['30%', '75%'], []);
+    // Snap points for the bottom sheet
+    // Using percentages - 30% for initial, 75% when keyboard shows
+    const snapPoints = useMemo(() => {
+      const points = ['30%', '75%'];
+      console.log('Snap points set to:', points);
+      return points;
+    }, []);
+
+    // Keyboard event listeners
+    useEffect(() => {
+      console.log('Setting up keyboard listeners');
+      
+      const keyboardWillShow = Keyboard.addListener(
+        Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+        (e) => {
+          console.log('Keyboard will/did show, height:', e.endCoordinates.height);
+          setKeyboardHeight(e.endCoordinates.height);
+          setIsKeyboardVisible(true);
+          // Don't snap here - let onFocus handle it
+        }
+      );
+
+      const keyboardWillHide = Keyboard.addListener(
+        Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+        () => {
+          console.log('Keyboard will/did hide');
+          setKeyboardHeight(0);
+          setIsKeyboardVisible(false);
+          // Don't auto-snap back - let user control sheet position
+        }
+      );
+
+      return () => {
+        keyboardWillShow.remove();
+        keyboardWillHide.remove();
+      };
+    }, [ref]);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -87,14 +131,19 @@ const AddItemSheet = observer(
       // TODO: Implement actual save logic
       console.log('Saving item:', { type: selectedType, url });
       
+      // Dismiss keyboard first
+      Keyboard.dismiss();
+      
       // Reset form
       setUrl('');
       setSelectedType('bookmark');
       
-      // Close sheet
-      if (ref && 'current' in ref && ref.current) {
-        ref.current.close();
-      }
+      // Close sheet after keyboard dismisses
+      setTimeout(() => {
+        if (ref && 'current' in ref && ref.current) {
+          ref.current.close();
+        }
+      }, 100);
       
       if (onItemAdded) {
         onItemAdded();
@@ -109,6 +158,7 @@ const AddItemSheet = observer(
         index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
+        enableDynamicSizing={false}
         backdropComponent={renderBackdrop}
         backgroundStyle={[
           styles.sheetBackground,
@@ -118,6 +168,12 @@ const AddItemSheet = observer(
           styles.handleIndicator,
           isDarkMode && styles.handleIndicatorDark,
         ]}
+        keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        onChange={(index) => {
+          console.log('Sheet index changed to:', index);
+        }}
       >
         <View style={styles.header}>
           <Text style={[styles.title, isDarkMode && styles.titleDark]}>
@@ -135,8 +191,18 @@ const AddItemSheet = observer(
         <BottomSheetScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => {
+            console.log('Scroll began - dismissing keyboard');
+            Keyboard.dismiss();
+          }}
+          scrollEnabled={true}
         >
           {/* Primary Input Field */}
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
           <View style={styles.section}>
             <TextInput
               style={[styles.input, styles.primaryInput, isDarkMode && styles.inputDark]}
@@ -151,13 +217,41 @@ const AddItemSheet = observer(
               autoCorrect={false}
               multiline
               numberOfLines={3}
+              onFocus={() => {
+                console.log('Input focused - snapping to index 1');
+                // Manually snap to higher position when input is focused
+                setTimeout(() => {
+                  if (ref && 'current' in ref && ref.current) {
+                    console.log('Attempting to snap to index 1, snapPoints:', snapPoints);
+                    ref.current.snapToIndex(1);
+                    // Force expand if snap doesn't work
+                    setTimeout(() => {
+                      if (ref && 'current' in ref && ref.current) {
+                        console.log('Force expanding sheet');
+                        ref.current.expand();
+                      }
+                    }, 200);
+                  } else {
+                    console.log('Ref not available');
+                  }
+                }, 150);
+              }}
+              onBlur={() => console.log('Input blurred')}
+              inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory' : undefined}
             />
           </View>
+          </KeyboardAvoidingView>
 
           {/* Quick Actions */}
           <View style={styles.section}>
             <View style={styles.quickActions}>
-              <TouchableOpacity style={styles.quickAction}>
+              <TouchableOpacity 
+                style={styles.quickAction}
+                onPress={() => {
+                  console.log('Camera pressed - dismissing keyboard');
+                  Keyboard.dismiss();
+                }}
+              >
                 <MaterialIcons
                   name="camera-alt"
                   size={28}
@@ -237,6 +331,21 @@ const AddItemSheet = observer(
             </ScrollView>
           </View>
         </BottomSheetScrollView>
+        
+        {/* iOS Keyboard Done Button */}
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID="doneAccessory">
+            <View style={styles.inputAccessory}>
+              <Button
+                onPress={() => {
+                  console.log('Done button pressed');
+                  Keyboard.dismiss();
+                }}
+                title="Done"
+              />
+            </View>
+          </InputAccessoryView>
+        )}
       </BottomSheet>
     );
   })
@@ -368,6 +477,15 @@ const styles = StyleSheet.create({
   },
   typeSection: {
     marginTop: 30,
+  },
+  inputAccessory: {
+    backgroundColor: '#F2F2F7',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E5E7',
   },
 });
 
