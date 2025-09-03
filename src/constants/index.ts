@@ -1,0 +1,98 @@
+import { ContentType } from '../types';
+
+// Content type configurations
+export const CONTENT_TYPES: Record<ContentType, { label: string; icon: string }> = {
+  bookmark: { label: 'Bookmark', icon: 'link' },
+  youtube: { label: 'YouTube', icon: 'video-library' },
+  x: { label: 'X/Twitter', icon: 'chat' },
+  github: { label: 'GitHub', icon: 'code' },
+  instagram: { label: 'Instagram', icon: 'photo-camera' },
+  tiktok: { label: 'TikTok', icon: 'music-video' },
+  reddit: { label: 'Reddit', icon: 'forum' },
+  amazon: { label: 'Amazon', icon: 'shopping-cart' },
+  linkedin: { label: 'LinkedIn', icon: 'business' },
+  image: { label: 'Image', icon: 'image' },
+  pdf: { label: 'PDF', icon: 'picture-as-pdf' },
+  video: { label: 'Video', icon: 'videocam' },
+  audio: { label: 'Audio', icon: 'audiotrack' },
+  note: { label: 'Note', icon: 'note' },
+  article: { label: 'Article', icon: 'article' },
+  product: { label: 'Product', icon: 'shopping-bag' },
+  book: { label: 'Book', icon: 'book' },
+  course: { label: 'Course', icon: 'school' },
+};
+
+// UI Constants
+export const UI = {
+  ITEM_GRID_COLUMNS: 2,
+  ITEMS_PER_PAGE: 20,
+  SEARCH_DEBOUNCE_MS: 300,
+  ANIMATION_DURATION: 300,
+  BORDER_RADIUS: 8,
+  SPACING: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+  },
+};
+
+// Colors
+export const COLORS = {
+  primary: '#007AFF',
+  secondary: '#5856D6',
+  success: '#34C759',
+  warning: '#FF9500',
+  danger: '#FF3B30',
+  background: {
+    light: '#FFFFFF',
+    dark: '#000000',
+  },
+  text: {
+    light: '#333333',
+    dark: '#FFFFFF',
+  },
+  border: {
+    light: '#E5E5EA',
+    dark: '#38383A',
+  },
+};
+
+// Supabase configuration
+export const SUPABASE = {
+  URL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
+  ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+};
+
+// Debug: Log environment variables (remove in production)
+console.log('🔍 SUPABASE URL:', SUPABASE.URL ? '✅ Set' : '❌ Empty');
+console.log('🔍 SUPABASE KEY:', SUPABASE.ANON_KEY ? '✅ Set' : '❌ Empty');
+
+// App configuration
+export const APP = {
+  NAME: 'Memex: Second Brain',
+  VERSION: '1.0.0',
+  BUNDLE_ID: 'com.memex.secondbrain',
+};
+
+// External API services (client-side)
+export const API = {
+  OPENAI_API_KEY: process.env.EXPO_PUBLIC_OPENAI_API_KEY || '',
+  // Note: Most API functionality will be handled directly via Supabase
+  // or client-side external API calls
+};
+
+// Storage keys
+export const STORAGE_KEYS = {
+  USER_SESSION: 'user_session',
+  THEME: 'theme',
+  LAST_SYNC: 'last_sync',
+  OFFLINE_QUEUE: 'offline_queue',
+};
+
+// Share extension
+export const SHARE_EXTENSION = {
+  GROUP_IDENTIFIER: 'group.com.memex.secondbrain',
+  MAX_ITEMS: 10,
+};

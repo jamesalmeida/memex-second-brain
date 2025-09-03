@@ -1,29 +1,53 @@
 {
   "expo": {
-    "name": "memex-second-brain",
+    "name": "Memex: Second Brain",
     "slug": "memex-second-brain",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "scheme": "memex",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.memex.secondbrain",
+      "buildNumber": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.memex.secondbrain",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-share-extension",
+        {
+          "ios": {
+            "activationRules": {
+              "NSExtensionActivationSupportsText": true,
+              "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+              "NSExtensionActivationSupportsImageWithMaxCount": 1,
+              "NSExtensionActivationSupportsMovieWithMaxCount": 1,
+              "NSExtensionActivationSupportsFileWithMaxCount": 1
+            },
+            "groupIdentifier": "group.com.memex.secondbrain"
+          }
+        }
+      ]
+    ]
   }
 }

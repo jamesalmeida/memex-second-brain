@@ -1,0 +1,150 @@
+import { API } from '../constants';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ChatCompletion {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    message: ChatMessage;
+    finish_reason: string;
+  }>;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+// OpenAI API helpers
+export const openai = {
+  async createChatCompletion(
+    messages: ChatMessage[],
+    options: {
+      model?: string;
+      temperature?: number;
+      max_tokens?: number;
+    } = {}
+  ): Promise<ChatCompletion | null> {
+    if (!API.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not configured');
+      return null;
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: options.model || 'gpt-3.5-turbo',
+          messages,
+          temperature: options.temperature || 0.7,
+          max_tokens: options.max_tokens || 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('OpenAI API error:', error);
+      return null;
+    }
+  },
+
+  // Generate tags for content
+  async generateTags(content: string, contentType: string): Promise<string[]> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: 'You are a helpful assistant that generates relevant tags for content. Return only a comma-separated list of tags, no other text.',
+      },
+      {
+        role: 'user',
+        content: `Generate 5-10 relevant tags for this ${contentType} content:\n\n${content.substring(0, 1000)}`,
+      },
+    ];
+
+    const result = await this.createChatCompletion(messages, {
+      model: 'gpt-3.5-turbo',
+      temperature: 0.3,
+      max_tokens: 100,
+    });
+
+    if (result && result.choices[0]) {
+      const tagsString = result.choices[0].message.content;
+      return tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    }
+
+    return [];
+  },
+
+  // Generate summary for transcripts or long content
+  async summarizeContent(content: string, contentType: string): Promise<string> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: 'You are a helpful assistant that creates concise summaries. Keep summaries under 200 words.',
+      },
+      {
+        role: 'user',
+        content: `Please provide a concise summary of this ${contentType}:\n\n${content.substring(0, 2000)}`,
+      },
+    ];
+
+    const result = await this.createChatCompletion(messages, {
+      model: 'gpt-3.5-turbo',
+      temperature: 0.3,
+      max_tokens: 300,
+    });
+
+    if (result && result.choices[0]) {
+      return result.choices[0].message.content;
+    }
+
+    return 'Summary not available';
+  },
+
+  // Chat with item/space content as context
+  async chatWithContext(
+    context: string,
+    userMessage: string,
+    previousMessages: ChatMessage[] = []
+  ): Promise<string> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: `You are a helpful assistant with access to the following content as context. Use this context to provide accurate and relevant responses to user questions.\n\nContext:\n${context}`,
+      },
+      ...previousMessages,
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ];
+
+    const result = await this.createChatCompletion(messages, {
+      model: 'gpt-3.5-turbo',
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    if (result && result.choices[0]) {
+      return result.choices[0].message.content;
+    }
+
+    return 'I apologize, but I could not generate a response at this time.';
+  },
+};

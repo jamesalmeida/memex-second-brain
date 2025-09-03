@@ -1,7 +1,7 @@
 {
   "name": "memex-second-brain",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -9,10 +9,32 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@gorhom/bottom-sheet": "^5.2.4",
+    "@legendapp/state": "^2.1.15",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-navigation/native": "^7.1.17",
+    "@react-navigation/native-stack": "^7.3.26",
+    "@supabase/supabase-js": "^2.57.0",
     "expo": "~53.0.22",
+    "expo-auth-session": "~6.2.1",
+    "expo-av": "~15.1.7",
+    "expo-crypto": "^14.1.5",
+    "expo-file-system": "~18.1.11",
+    "expo-image": "~2.4.0",
+    "expo-linking": "~7.1.7",
+    "expo-notifications": "~0.31.4",
+    "expo-router": "~5.1.5",
+    "expo-secure-store": "~14.2.4",
+    "expo-share-extension": "^4.0.1",
+    "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
+    "expo-web-browser": "^14.2.0",
+    "fuse.js": "^7.1.0",
     "react": "19.0.0",
-    "react-native": "0.79.6"
+    "react-native": "0.79.6",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-svg": "15.11.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
