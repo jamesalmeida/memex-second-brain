@@ -149,7 +149,6 @@ const AddItemSheet = observer(
               }}
               autoCapitalize="none"
               autoCorrect={false}
-              autoFocus
               multiline
               numberOfLines={3}
             />

@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, Keyboard } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet from '@gorhom/bottom-sheet';
@@ -17,6 +17,11 @@ const TabLayout = observer(() => {
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<BottomSheet>(null);
+
+  // Dismiss keyboard on mount
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, []);
 
   const handleSettingsPress = () => {
     settingsSheetRef.current?.expand();
