@@ -25,8 +25,8 @@ const SettingsSheet = observer(
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
     
-    // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['25%', '50%', '90%'], []);
+    // Snap points for the bottom sheet - single point at 75%
+    const snapPoints = useMemo(() => ['75%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
