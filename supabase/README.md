@@ -78,7 +78,3 @@ Once your schema is imported:
 3. 📱 Start building the actual features (Home screen, etc.)
 
 **Ready to import the schema?** Let me know when you've run it and I can help you verify everything is working correctly!
-
-
-Run locally:
-npx expo start --clear

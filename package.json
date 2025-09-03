@@ -33,8 +33,10 @@
     "fuse.js": "^7.1.0",
     "react": "19.0.0",
     "react-native": "0.79.6",
+    "react-native-gesture-handler": "^2.28.0",
     "react-native-reanimated": "~3.17.4",
-    "react-native-svg": "15.11.2"
+    "react-native-svg": "15.11.2",
+    "expo-blur": "~14.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
