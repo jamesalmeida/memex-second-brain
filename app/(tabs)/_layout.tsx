@@ -1,12 +1,20 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { observer } from '@legendapp/state/react';
+import { themeStore } from '../../src/stores/theme';
 
-export default function TabLayout() {
+const TabLayout = observer(() => {
+  const isDarkMode = themeStore.isDarkMode.get();
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarInactiveTintColor: isDarkMode ? '#666' : '#8E8E93',
+        tabBarStyle: {
+          backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF',
+          borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5E7',
+        },
         headerShown: false,
       }}>
       <Tabs.Screen
@@ -38,4 +46,6 @@ export default function TabLayout() {
       />
     </Tabs>
   );
-}
+});
+
+export default TabLayout;

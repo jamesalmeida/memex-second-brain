@@ -50,6 +50,7 @@ export const COLORS = {
     dark: '#000000',
   },
   text: {
+    primary: '#333333',
     light: '#333333',
     dark: '#FFFFFF',
   },

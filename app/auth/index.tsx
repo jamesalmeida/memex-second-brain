@@ -11,14 +11,17 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { observer } from '@legendapp/state/react';
 import { auth } from '../../src/services/supabase';
 import { COLORS, UI } from '../../src/constants';
+import { themeStore } from '../../src/stores/theme';
 
-export default function AuthScreen() {
+const AuthScreen = observer(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const isDarkMode = themeStore.isDarkMode.get();
 
   const handleAuth = async () => {
     if (!email.trim() || !password.trim()) {
@@ -63,7 +66,7 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container} 
+      style={[styles.container, isDarkMode && styles.containerDark]} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
@@ -71,17 +74,18 @@ export default function AuthScreen() {
           <MaterialIcons name="library-books" size={80} color={COLORS.primary} />
         </View>
 
-        <Text style={styles.title}>Welcome to Memex</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, isDarkMode && styles.titleDark]}>Welcome to Memex</Text>
+        <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
           {isSignUp ? 'Create your account' : 'Sign in to your account'}
         </Text>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <MaterialIcons name="email" size={20} color="#666" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
+            <MaterialIcons name="email" size={20} color={isDarkMode ? "#AAA" : "#666"} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, isDarkMode && styles.inputDark]}
               placeholder="Email"
+              placeholderTextColor={isDarkMode ? "#666" : "#999"}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -90,11 +94,12 @@ export default function AuthScreen() {
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <MaterialIcons name="lock" size={20} color="#666" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
+            <MaterialIcons name="lock" size={20} color={isDarkMode ? "#AAA" : "#666"} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, isDarkMode && styles.inputDark]}
               placeholder="Password"
+              placeholderTextColor={isDarkMode ? "#666" : "#999"}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -121,24 +126,29 @@ export default function AuthScreen() {
             onPress={() => setIsSignUp(!isSignUp)}
             disabled={isLoading}
           >
-            <Text style={styles.switchButtonText}>
+            <Text style={[styles.switchButtonText, isDarkMode && styles.switchButtonTextDark]}>
               {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.terms}>
+        <Text style={[styles.terms, isDarkMode && styles.termsDark]}>
           By continuing, you agree to our Terms of Service and Privacy Policy.
         </Text>
       </View>
     </KeyboardAvoidingView>
   );
-}
+});
+
+export default AuthScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background.light,
+  },
+  containerDark: {
+    backgroundColor: '#000000',
   },
   content: {
     flex: 1,
@@ -153,11 +163,17 @@ const styles = StyleSheet.create({
     marginBottom: UI.SPACING.sm,
     color: COLORS.text.light,
   },
+  titleDark: {
+    color: COLORS.text.dark,
+  },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: UI.SPACING.xl,
     color: '#666',
+  },
+  subtitleDark: {
+    color: '#AAA',
   },
   description: {
     fontSize: 18,
@@ -189,6 +205,10 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 15,
   },
+  inputContainerDark: {
+    backgroundColor: '#1C1C1E',
+    borderColor: '#3A3A3C',
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -215,6 +235,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  switchButtonTextDark: {
+    color: '#4BA3FF',
+  },
   label: {
     fontSize: 16,
     fontWeight: '500',
@@ -226,6 +249,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     color: COLORS.text.primary,
+  },
+  inputDark: {
+    color: '#FFFFFF',
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
@@ -289,5 +315,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
     lineHeight: 18,
+  },
+  termsDark: {
+    color: '#AAA',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { useObservable } from '@legendapp/state/react';
+import { observer } from '@legendapp/state/react';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -23,13 +23,16 @@ import { COLORS, UI, APP } from '../../src/constants';
 import { SettingsSection } from '../../src/components/SettingsSection';
 import { SettingsItem } from '../../src/components/SettingsItem';
 
-export default function SettingsScreen() {
+const SettingsScreen = observer(() => {
   const { user, signOut } = useAuth();
-  const isDarkMode = useObservable(themeStore.isDarkMode);
+  const isDarkMode = themeStore.isDarkMode.get();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Debug logging
+  console.log('🔧 Settings Screen - isDarkMode from store:', isDarkMode);
 
   const containerStyle = [
     styles.container,
@@ -184,17 +187,37 @@ export default function SettingsScreen() {
         <SettingsSection title="Appearance" isDarkMode={isDarkMode}>
           <SettingsItem
             title="Dark Mode"
-            subtitle="Toggle between light and dark theme"
+            subtitle={`Toggle between light and dark theme (Current: ${isDarkMode ? 'Dark' : 'Light'})`}
             rightComponent={
               <Switch
                 value={isDarkMode}
-                onValueChange={themeActions.toggleTheme}
+                onValueChange={(value) => {
+                  console.log('🔧 Switch onValueChange called with:', value);
+                  themeActions.setDarkMode(value);
+                }}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
                 thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
               />
             }
             isDarkMode={isDarkMode}
             showArrow={false}
+          />
+          
+          <SettingsItem
+            title="Debug Info"
+            subtitle={`Theme is: ${isDarkMode ? 'Dark' : 'Light'}`}
+            isDarkMode={isDarkMode}
+            showArrow={false}
+          />
+          
+          <SettingsItem
+            title="Reset Theme"
+            subtitle="Clear theme preference (Debug)"
+            onPress={async () => {
+              await themeActions.clearThemePreference();
+              Alert.alert('Theme Reset', 'Theme preference cleared. App is now in light mode.');
+            }}
+            isDarkMode={isDarkMode}
           />
         </SettingsSection>
 
@@ -307,7 +330,9 @@ export default function SettingsScreen() {
       </ScrollView>
     </View>
   );
-}
+});
+
+export default SettingsScreen;
 
 const styles = StyleSheet.create({
   container: {
