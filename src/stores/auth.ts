@@ -42,7 +42,11 @@ export const authActions = {
   },
 
   reset: () => {
-    authStore.set(initialState);
+    authStore.user.set(null);
+    authStore.isAuthenticated.set(false);
+    authStore.session.set(null);
+    // Don't reset isLoading to true - we're not loading, we're signed out
+    authStore.isLoading.set(false);
   },
 
   updateUser: (updates: Partial<User>) => {

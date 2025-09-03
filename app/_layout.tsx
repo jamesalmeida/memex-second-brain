@@ -6,7 +6,7 @@ import { authStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
 
 const RootLayoutContent = observer(() => {
-  // Initialize auth hook to trigger authentication logic
+  // Initialize auth - but only once due to the global flag in useAuth
   useAuth();
   
   const isLoading = authStore.isLoading.get();
@@ -32,16 +32,16 @@ const RootLayoutContent = observer(() => {
 
   console.log('✅ LOADING COMPLETE - Current route should be determined by auth state');
   console.log('🔍 Auth state:', { isAuthenticated, isLoading });
-  
+
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen 
-          name="auth" 
+        <Stack.Screen
+          name="auth"
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="(tabs)" 
+        <Stack.Screen
+          name="(tabs)"
           options={{ headerShown: false }}
         />
       </Stack>

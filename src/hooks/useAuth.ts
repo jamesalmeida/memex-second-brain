@@ -1,15 +1,30 @@
-import { useEffect } from 'react';
-import { router } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { router, useSegments } from 'expo-router';
 import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
+
+// Global flag to ensure auth initialization happens only once
+let isAuthInitialized = false;
 
 export function useAuth() {
   // Direct access to Legend-State observables
   const isAuthenticated = authStore.isAuthenticated.get();
   const isLoading = authStore.isLoading.get();
   const user = authStore.user.get();
+  const segments = useSegments();
+
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple initializations
+    if (isAuthInitialized || hasInitialized.current) {
+      console.log('🚀 useAuth: Already initialized, skipping...');
+      return;
+    }
+
+    isAuthInitialized = true;
+    hasInitialized.current = true;
+    
     console.log('🚀 useAuth hook initialized');
 
     // Get initial session
@@ -52,27 +67,10 @@ export function useAuth() {
 
     getInitialSession();
 
-
-
-    // DIAGNOSTIC: Periodically check for session changes
-    const sessionChecker = setInterval(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && !authStore.isAuthenticated.get()) {
-        console.log('🚨 DIAGNOSTIC: Found session but not authenticated!', session.user?.email);
-      }
-    }, 5000);
-
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
-        console.log('🔍 DIAGNOSTIC: Full auth event details:', {
-          event,
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          accessToken: session?.access_token ? 'present' : 'missing',
-          refreshToken: session?.refresh_token ? 'present' : 'missing'
-        });
 
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in successfully!');
@@ -83,16 +81,15 @@ export function useAuth() {
           authActions.setSession(session);
           authActions.setLoading(false);
 
-          // Navigate to home screen
-          console.log('🔄 Navigating to main app...');
-          router.replace('/(tabs)');
+          // Navigate to home screen - the state change will trigger navigation
+          console.log('🔄 User authenticated, state updated');
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           authActions.reset();
           authActions.setLoading(false);
 
-          // Navigate to auth screen
-          router.replace('/auth');
+          // Navigate to auth screen - the state change will trigger navigation
+          console.log('🔄 User signed out, state updated');
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('🔄 Token refreshed');
           authActions.setSession(session);
@@ -112,46 +109,48 @@ export function useAuth() {
 
     return () => {
       clearTimeout(loadingTimeout);
-      clearInterval(sessionChecker);
       subscription.unsubscribe();
     };
   }, []);
 
-  // Redirect logic
+  // Handle navigation based on auth state changes
   useEffect(() => {
-    console.log('🔄 Redirect logic running:', {
-      isLoading,
-      isAuthenticated,
-      pathname: router.pathname || 'undefined',
-      currentTime: new Date().toISOString()
+    if (isLoading) {
+      console.log('🔄 Navigation check: Still loading, skipping navigation');
+      return; // Don't navigate while loading
+    }
+
+    const inAuthGroup = segments[0] === 'auth';
+    const inTabsGroup = segments[0] === '(tabs)';
+
+    console.log('🔄 Navigation check:', { 
+      isAuthenticated, 
+      isLoading, 
+      segments: segments.join('/'),
+      inAuthGroup,
+      inTabsGroup,
+      shouldGoToTabs: isAuthenticated && !inTabsGroup,
+      shouldGoToAuth: !isAuthenticated && !inAuthGroup
     });
 
-    if (!isLoading) {
-      const currentPath = router.pathname || '';
-      console.log('🔍 Current pathname:', currentPath);
-      
-      if (isAuthenticated) {
-        // User is authenticated, ensure we're on the main app
-        if (currentPath.startsWith('/auth') || currentPath === '') {
-          console.log('🔄 Redirecting authenticated user to tabs');
-          router.replace('/(tabs)');
-        }
-      } else {
-        // User is not authenticated, ensure we're on auth screen
-        if (!currentPath.startsWith('/auth')) {
-          console.log('🔄 Redirecting unauthenticated user to auth');
-          console.log('🚨 SHOULD REDIRECT TO AUTH SCREEN');
-          router.replace('/auth');
-        }
-      }
+    if (isAuthenticated && !inTabsGroup) {
+      console.log('✅ Navigating authenticated user to tabs');
+      router.replace('/(tabs)');
+    } else if (!isAuthenticated && !inAuthGroup) {
+      console.log('✅ Navigating unauthenticated user to auth');
+      router.replace('/auth');
+    } else {
+      console.log('✅ User is already on the correct screen');
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, segments]);
 
   const signOut = async () => {
     try {
+      console.log('🚪 Starting sign out process...');
       await auth.signOut();
+      console.log('🚪 Sign out completed');
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('❌ Error signing out:', error);
     }
   };
 
