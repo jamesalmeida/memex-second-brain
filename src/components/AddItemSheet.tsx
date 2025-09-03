@@ -7,6 +7,7 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Clipboard,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -31,12 +32,10 @@ const AddItemSheet = observer(
   forwardRef<BottomSheet, AddItemSheetProps>(({ onItemAdded }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const [selectedType, setSelectedType] = useState('bookmark');
-    const [title, setTitle] = useState('');
     const [url, setUrl] = useState('');
-    const [notes, setNotes] = useState('');
     
-    // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['40%', '75%'], []);
+    // Snap points for the bottom sheet - initial view shows only URL and actions
+    const snapPoints = useMemo(() => ['30%', '75%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -51,19 +50,45 @@ const AddItemSheet = observer(
       []
     );
 
+    const handlePaste = async () => {
+      try {
+        const clipboardContent = await Clipboard.getString();
+        if (clipboardContent) {
+          setUrl(clipboardContent);
+          // Auto-detect content type from URL pattern
+          detectContentType(clipboardContent);
+        }
+      } catch (error) {
+        console.error('Failed to paste from clipboard:', error);
+      }
+    };
+
+    const detectContentType = (urlString: string) => {
+      const lowerUrl = urlString.toLowerCase();
+      if (lowerUrl.includes('youtube.com') || lowerUrl.includes('vimeo.com')) {
+        setSelectedType('video');
+      } else if (lowerUrl.match(/\.(jpg|jpeg|png|gif|svg|webp)/i)) {
+        setSelectedType('image');
+      } else if (lowerUrl.includes('amazon.com') || lowerUrl.includes('ebay.com')) {
+        setSelectedType('product');
+      } else if (lowerUrl.includes('medium.com') || lowerUrl.includes('blog')) {
+        setSelectedType('article');
+      } else {
+        setSelectedType('bookmark');
+      }
+    };
+
     const handleSave = () => {
-      if (!title.trim()) {
-        Alert.alert('Error', 'Please enter a title');
+      if (!url.trim()) {
+        Alert.alert('Error', 'Please enter a URL');
         return;
       }
 
       // TODO: Implement actual save logic
-      console.log('Saving item:', { type: selectedType, title, url, notes });
+      console.log('Saving item:', { type: selectedType, url });
       
       // Reset form
-      setTitle('');
       setUrl('');
-      setNotes('');
       setSelectedType('bookmark');
       
       // Close sheet
@@ -99,9 +124,9 @@ const AddItemSheet = observer(
             Save New Item
           </Text>
           <TouchableOpacity
-            style={[styles.saveButton, !title.trim() && styles.saveButtonDisabled]}
+            style={[styles.saveButton, !url.trim() && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={!title.trim()}
+            disabled={!url.trim()}
           >
             <Text style={styles.saveButtonText}>Save</Text>
           </TouchableOpacity>
@@ -111,10 +136,67 @@ const AddItemSheet = observer(
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Content Type Selection */}
+          {/* Primary Input Field */}
           <View style={styles.section}>
+            <TextInput
+              style={[styles.input, styles.primaryInput, isDarkMode && styles.inputDark]}
+              placeholder="Type a note or paste something here..."
+              placeholderTextColor={isDarkMode ? '#666' : '#999'}
+              value={url}
+              onChangeText={(text) => {
+                setUrl(text);
+                detectContentType(text);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <View style={styles.quickActions}>
+              <TouchableOpacity style={styles.quickAction}>
+                <MaterialIcons
+                  name="camera-alt"
+                  size={28}
+                  color="#FF6B35"
+                />
+                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
+                  Camera
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.quickAction}>
+                <MaterialIcons
+                  name="photo-library"
+                  size={28}
+                  color="#FF6B35"
+                />
+                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
+                  Gallery
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.quickAction} onPress={handlePaste}>
+                <MaterialIcons
+                  name="content-paste"
+                  size={28}
+                  color="#FF6B35"
+                />
+                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
+                  Paste
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Content Type Selection - Hidden below fold */}
+          <View style={[styles.section, styles.typeSection]}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Type
+              Type (Auto-detected)
             </Text>
             <ScrollView 
               horizontal 
@@ -154,92 +236,6 @@ const AddItemSheet = observer(
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
-
-          {/* Title Input */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Title
-            </Text>
-            <TextInput
-              style={[styles.input, isDarkMode && styles.inputDark]}
-              placeholder="Enter title..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={title}
-              onChangeText={setTitle}
-            />
-          </View>
-
-          {/* URL Input */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              URL (Optional)
-            </Text>
-            <TextInput
-              style={[styles.input, isDarkMode && styles.inputDark]}
-              placeholder="https://..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={url}
-              onChangeText={setUrl}
-              keyboardType="url"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Notes Input */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Notes (Optional)
-            </Text>
-            <TextInput
-              style={[styles.input, styles.notesInput, isDarkMode && styles.inputDark]}
-              placeholder="Add notes..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Quick Actions */}
-          <View style={styles.section}>
-            <View style={styles.quickActions}>
-              <TouchableOpacity style={styles.quickAction}>
-                <MaterialIcons
-                  name="camera-alt"
-                  size={24}
-                  color="#FF6B35"
-                />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
-                  Camera
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.quickAction}>
-                <MaterialIcons
-                  name="photo-library"
-                  size={24}
-                  color="#FF6B35"
-                />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
-                  Gallery
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.quickAction}>
-                <MaterialIcons
-                  name="content-paste"
-                  size={24}
-                  color="#FF6B35"
-                />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
-                  Paste
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
@@ -346,13 +342,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
   },
+  primaryInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
   inputDark: {
     backgroundColor: '#2C2C2E',
     color: '#FFFFFF',
-  },
-  notesInput: {
-    minHeight: 100,
-    paddingTop: 12,
   },
   quickActions: {
     flexDirection: 'row',
@@ -360,7 +356,8 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     alignItems: 'center',
-    padding: 12,
+    padding: 16,
+    flex: 1,
   },
   quickActionText: {
     fontSize: 12,
@@ -369,6 +366,9 @@ const styles = StyleSheet.create({
   },
   quickActionTextDark: {
     color: '#AAAAAA',
+  },
+  typeSection: {
+    marginTop: 30,
   },
 });
 

@@ -23,7 +23,7 @@ const TabLayout = observer(() => {
   };
 
   const handleAddPress = () => {
-    addItemSheetRef.current?.expand();
+    addItemSheetRef.current?.snapToIndex(0);
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
