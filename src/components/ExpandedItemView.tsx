@@ -65,25 +65,39 @@ const ExpandedItemView = observer(({
   const [showSpaceSelector, setShowSpaceSelector] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [spaces] = useState<Space[]>(generateMockSpaces());
+  const [modalVisible, setModalVisible] = useState(false);
+  const [displayItem, setDisplayItem] = useState<Item | null>(null);
 
   useEffect(() => {
-    if (isVisible) {
-      // Animate in - faster with higher stiffness and lower damping
-      animationProgress.value = withSpring(1, {
-        damping: 15,
-        stiffness: 150,
-        mass: 0.8,
-      });
-      opacity.value = withTiming(1, { duration: 150 });
-    } else {
-      // Animate out - slightly slower for smooth close
+    if (isVisible && item) {
+      // Store the item for display
+      setDisplayItem(item);
+      // Show modal first, then animate in
+      setModalVisible(true);
+      setTimeout(() => {
+        animationProgress.value = withSpring(1, {
+          damping: 15,
+          stiffness: 150,
+          mass: 0.8,
+        });
+        opacity.value = withTiming(1, { duration: 150 });
+      }, 50);
+    } else if (!isVisible && modalVisible) {
+      // Animate out first, then hide modal
+      // Keep displayItem during animation
       animationProgress.value = withSpring(0, {
         damping: 18,
         stiffness: 120,
+      }, (finished) => {
+        'worklet';
+        if (finished) {
+          runOnJS(setModalVisible)(false);
+          runOnJS(setDisplayItem)(null);
+        }
       });
       opacity.value = withTiming(0, { duration: 180 });
     }
-  }, [isVisible]);
+  }, [isVisible, item]);
 
   const pan = Gesture.Pan()
     .onUpdate((e) => {
@@ -148,10 +162,13 @@ const ExpandedItemView = observer(({
     opacity: opacity.value,
   }));
 
-  if (!item) return null;
+  // Use displayItem which persists during closing animation
+  if (!displayItem && !modalVisible) return null;
+  
+  const itemToDisplay = displayItem || item;
 
   const getContentTypeIcon = () => {
-    switch (item.content_type) {
+    switch (itemToDisplay?.content_type) {
       case 'youtube': return '▶️';
       case 'x': return '𝕏';
       case 'github': return '⚡';
@@ -175,9 +192,9 @@ const ExpandedItemView = observer(({
   };
 
   const getDomain = () => {
-    if (!item.url) return null;
+    if (!itemToDisplay?.url) return null;
     try {
-      const url = new URL(item.url);
+      const url = new URL(itemToDisplay.url);
       return url.hostname.replace('www.', '');
     } catch {
       return null;
@@ -186,7 +203,7 @@ const ExpandedItemView = observer(({
 
   return (
     <Modal
-      visible={isVisible}
+      visible={modalVisible}
       transparent
       animationType="none"
       statusBarTranslucent
@@ -215,9 +232,9 @@ const ExpandedItemView = observer(({
               <Animated.View style={[contentStyle]}>
                 {/* Hero Image/Thumbnail with Close Button Overlay */}
                 <View style={styles.heroContainer}>
-                  {item.thumbnail_url ? (
+                  {itemToDisplay?.thumbnail_url ? (
                     <Image
-                      source={{ uri: item.thumbnail_url }}
+                      source={{ uri: itemToDisplay.thumbnail_url }}
                       style={styles.heroImage}
                       resizeMode="cover"
                     />
@@ -241,7 +258,7 @@ const ExpandedItemView = observer(({
                 <View style={styles.content}>
                   {/* Title and Metadata */}
                   <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-                    {item.title}
+                    {itemToDisplay?.title}
                   </Text>
 
                   <View style={styles.metadata}>
@@ -254,7 +271,7 @@ const ExpandedItemView = observer(({
                     )}
                     <View style={styles.metaItem}>
                       <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-                        {formatDate(item.created_at)}
+                        {formatDate(itemToDisplay?.created_at || '')}
                       </Text>
                     </View>
                   </View>
@@ -299,7 +316,7 @@ const ExpandedItemView = observer(({
                           ]}
                           onPress={() => {
                             setSelectedSpaceId(null);
-                            onSpaceChange?.(item, null);
+                            onSpaceChange?.(itemToDisplay!, null);
                             setShowSpaceSelector(false);
                           }}
                         >
@@ -316,7 +333,7 @@ const ExpandedItemView = observer(({
                             ]}
                             onPress={() => {
                               setSelectedSpaceId(space.id);
-                              onSpaceChange?.(item, space.id);
+                              onSpaceChange?.(itemToDisplay!, space.id);
                               setShowSpaceSelector(false);
                             }}
                           >
@@ -338,26 +355,26 @@ const ExpandedItemView = observer(({
                   </View>
 
                   {/* Description */}
-                  {item.desc && (
+                  {itemToDisplay?.desc && (
                     <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
-                      {item.desc}
+                      {itemToDisplay.desc}
                     </Text>
                   )}
 
                   {/* Full Content */}
-                  {item.content && (
+                  {itemToDisplay?.content && (
                     <View style={styles.fullContent}>
                       <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
-                        {item.content}
+                        {itemToDisplay.content}
                       </Text>
                     </View>
                   )}
 
                   {/* Raw Text (for articles) */}
-                  {item.raw_text && (
+                  {itemToDisplay?.raw_text && (
                     <View style={styles.fullContent}>
                       <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
-                        {item.raw_text}
+                        {itemToDisplay.raw_text}
                       </Text>
                     </View>
                   )}
@@ -366,7 +383,7 @@ const ExpandedItemView = observer(({
                   <View style={styles.actions}>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.primaryAction]}
-                      onPress={() => onChat?.(item)}
+                      onPress={() => onChat?.(itemToDisplay!)}
                       activeOpacity={0.7}
                     >
                       <Text style={styles.actionButtonTextPrimary}>💬 Chat</Text>
@@ -375,7 +392,7 @@ const ExpandedItemView = observer(({
                     <View style={styles.secondaryActions}>
                       <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={() => onEdit?.(item)}
+                        onPress={() => onEdit?.(itemToDisplay!)}
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
@@ -385,7 +402,7 @@ const ExpandedItemView = observer(({
 
                       <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={() => onShare?.(item)}
+                        onPress={() => onShare?.(itemToDisplay!)}
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
@@ -395,7 +412,7 @@ const ExpandedItemView = observer(({
 
                       <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={() => onArchive?.(item)}
+                        onPress={() => onArchive?.(itemToDisplay!)}
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
@@ -405,7 +422,7 @@ const ExpandedItemView = observer(({
 
                       <TouchableOpacity
                         style={[styles.actionButton, styles.deleteButton]}
-                        onPress={() => onDelete?.(item)}
+                        onPress={() => onDelete?.(itemToDisplay!)}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.deleteButtonText}>🗑️ Delete</Text>

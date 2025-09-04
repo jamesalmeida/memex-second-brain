@@ -120,8 +120,9 @@ const HomeScreen = observer(() => {
         isVisible={!!selectedItem}
         cardPosition={cardPosition}
         onClose={() => {
+          // Just set selectedItem to null to trigger closing animation
+          // The component will handle the rest
           setSelectedItem(null);
-          setCardPosition(undefined);
         }}
         onChat={(item) => console.log('Chat with item:', item.title)}
         onEdit={(item) => console.log('Edit item:', item.title)}
