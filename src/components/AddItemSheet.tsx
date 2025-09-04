@@ -69,15 +69,14 @@ const AddItemSheet = observer(
       }
     }, []);
     
-    // Snap points for the bottom sheet
-    // Using percentages - 30% for initial, 75% when keyboard shows
+    // Snap points for the bottom sheet - just 75% height
     const snapPoints = useMemo(() => {
-      const points = ['30%', '75%'];
+      const points = ['75%'];
       console.log('Snap points set to:', points);
       return points;
     }, []);
 
-    // Keyboard event listeners
+    // Keyboard event listeners for height tracking
     useEffect(() => {
       console.log('Setting up keyboard listeners');
       
@@ -87,7 +86,6 @@ const AddItemSheet = observer(
           console.log('Keyboard will/did show, height:', e.endCoordinates.height);
           setKeyboardHeight(e.endCoordinates.height);
           setIsKeyboardVisible(true);
-          // Don't snap here - let onFocus handle it
         }
       );
 
@@ -97,7 +95,6 @@ const AddItemSheet = observer(
           console.log('Keyboard will/did hide');
           setKeyboardHeight(0);
           setIsKeyboardVisible(false);
-          // Don't auto-snap back - let user control sheet position
         }
       );
 
@@ -105,7 +102,7 @@ const AddItemSheet = observer(
         keyboardWillShow.remove();
         keyboardWillHide.remove();
       };
-    }, [ref]);
+    }, []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -322,23 +319,8 @@ const AddItemSheet = observer(
                 multiline
                 numberOfLines={3}
                 onFocus={() => {
-                  console.log('Input focused - snapping to index 1');
-                  // Manually snap to higher position when input is focused
-                  setTimeout(() => {
-                    if (ref && 'current' in ref && ref.current) {
-                      console.log('Attempting to snap to index 1, snapPoints:', snapPoints);
-                      ref.current.snapToIndex(1);
-                      // Force expand if snap doesn't work
-                      setTimeout(() => {
-                        if (ref && 'current' in ref && ref.current) {
-                          console.log('Force expanding sheet');
-                          ref.current.expand();
-                        }
-                      }, 200);
-                    } else {
-                      console.log('Ref not available');
-                    }
-                  }, 150);
+                  console.log('Input focused');
+                  // Sheet is already at 75%, no need to snap
                 }}
                 onBlur={() => console.log('Input blurred')}
                 inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory' : undefined}
