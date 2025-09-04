@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
 import { BlurView } from 'expo-blur';
 
@@ -28,13 +29,14 @@ const BottomNavigation = observer(({
   onAddPress,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
       <BlurView 
         intensity={80} 
         tint={isDarkMode ? 'dark' : 'light'}
-        style={styles.blurContainer}
+        style={[styles.blurContainer, { paddingBottom: insets.bottom }]}
       >
         <View style={styles.navigationContent}>
           {/* Settings Button */}
@@ -109,8 +111,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: Platform.OS === 'ios' ? 100 : 80,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
   },
   blurContainer: {
     flex: 1,
@@ -118,12 +118,13 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   navigationContent: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 30,
     paddingTop: 10,
+    paddingBottom: 10,
+    minHeight: 60,
   },
   circleButton: {
     width: 46,

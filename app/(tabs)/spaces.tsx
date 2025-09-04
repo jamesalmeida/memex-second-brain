@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 4,
-    paddingBottom: 120, // Increased to account for overlaying nav bar
+    paddingBottom: 80, // Account for nav bar height
   },
   emptyContainer: {
     flex: 1,
