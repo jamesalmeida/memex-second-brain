@@ -167,6 +167,7 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
 // Extract metadata using Jina.ai
 const extractWithJina = async (url: string): Promise<URLMetadata> => {
   if (!isAPIConfigured.jina()) {
+    console.error('Jina API not configured - check EXPO_PUBLIC_JINA_AI_API_KEY in .env.local');
     return {
       url,
       contentType: detectURLType(url),
@@ -175,28 +176,42 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
   }
 
   try {
-    const response = await fetch(`${API_CONFIG.JINA_AI.BASE_URL}/${encodeURIComponent(url)}`, {
+    console.log('Calling Jina.ai API for:', url);
+    const jinaUrl = `${API_CONFIG.JINA_AI.BASE_URL}/${encodeURIComponent(url)}`;
+    
+    const response = await fetch(jinaUrl, {
       headers: {
         'Authorization': `Bearer ${API_CONFIG.JINA_AI.API_KEY}`,
         'Accept': 'application/json',
+        'X-With-Images-Summary': 'true',
+        'X-With-Links-Summary': 'true',
       },
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Jina API error response:', response.status, errorText);
       throw new Error(`Jina API error: ${response.status}`);
     }
     
     const data = await response.json();
+    console.log('Jina.ai response data:', data);
+    
+    // Extract the best available image
+    const image = data.images?.[0]?.url || 
+                  data.image || 
+                  data.ogImage ||
+                  data.screenshot;
     
     return {
       url,
-      title: data.title,
-      description: data.description || data.excerpt,
-      image: data.image || data.ogImage,
-      siteName: data.siteName,
-      favicon: data.favicon,
-      author: data.author,
-      publishedDate: data.publishedTime,
+      title: data.title || data.ogTitle || 'No title',
+      description: data.description || data.excerpt || data.ogDescription || data.text?.slice(0, 200),
+      image,
+      siteName: data.siteName || data.publisher || new URL(url).hostname,
+      favicon: data.favicon || data.icon,
+      author: data.author || data.authors?.[0],
+      publishedDate: data.publishedTime || data.datePublished,
       contentType: detectURLType(url),
     };
   } catch (error) {
@@ -211,10 +226,13 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
 
 // Main extraction function
 export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
+  console.log('Extracting metadata for URL:', url);
+  
   // Validate URL
   try {
     new URL(url);
   } catch {
+    console.log('Invalid URL format');
     return {
       url,
       contentType: 'note',
@@ -223,17 +241,21 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
   }
 
   const urlType = detectURLType(url);
+  console.log('Detected URL type:', urlType);
   
   // Route to appropriate extractor
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    console.log('Using YouTube extractor');
     return extractYouTubeMetadata(url);
   }
   
   if (url.includes('twitter.com') || url.includes('x.com')) {
+    console.log('Using Twitter extractor');
     return extractTwitterMetadata(url);
   }
   
   // Use Jina for all other URLs
+  console.log('Using Jina.ai for general URL extraction');
   return extractWithJina(url);
 };
 
