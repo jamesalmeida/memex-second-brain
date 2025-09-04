@@ -68,19 +68,20 @@ const ExpandedItemView = observer(({
 
   useEffect(() => {
     if (isVisible) {
-      // Animate in
+      // Animate in - faster with higher stiffness and lower damping
       animationProgress.value = withSpring(1, {
-        damping: 20,
-        stiffness: 90,
+        damping: 15,
+        stiffness: 150,
+        mass: 0.8,
       });
-      opacity.value = withTiming(1, { duration: 200 });
+      opacity.value = withTiming(1, { duration: 150 });
     } else {
-      // Animate out
+      // Animate out - slightly slower for smooth close
       animationProgress.value = withSpring(0, {
-        damping: 20,
-        stiffness: 90,
+        damping: 18,
+        stiffness: 120,
       });
-      opacity.value = withTiming(0, { duration: 200 });
+      opacity.value = withTiming(0, { duration: 180 });
     }
   }, [isVisible]);
 
@@ -205,18 +206,6 @@ const ExpandedItemView = observer(({
         <GestureDetector gesture={pan}>
           <Animated.View style={[containerStyle]}>
             <View style={[styles.container, isDarkMode && styles.containerDark]}>
-              {/* Header with Close Button */}
-              <View style={styles.header}>
-                <View style={styles.dragIndicator} />
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={onClose}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.closeButtonText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
               <ScrollView
                 style={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
@@ -224,18 +213,29 @@ const ExpandedItemView = observer(({
               >
 
               <Animated.View style={[contentStyle]}>
-                {/* Hero Image/Thumbnail */}
-                {item.thumbnail_url ? (
-                  <Image
-                    source={{ uri: item.thumbnail_url }}
-                    style={styles.heroImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
-                    <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
-                  </View>
-                )}
+                {/* Hero Image/Thumbnail with Close Button Overlay */}
+                <View style={styles.heroContainer}>
+                  {item.thumbnail_url ? (
+                    <Image
+                      source={{ uri: item.thumbnail_url }}
+                      style={styles.heroImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
+                      <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
+                    </View>
+                  )}
+                  
+                  {/* Close Button Overlay */}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={onClose}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* Content */}
                 <View style={styles.content}>
@@ -456,33 +456,25 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#1C1C1E',
   },
-  header: {
-    alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  dragIndicator: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#C0C0C0',
-    borderRadius: 2,
-    marginBottom: 8,
+  heroContainer: {
+    position: 'relative',
   },
   closeButton: {
     position: 'absolute',
-    top: 12,
-    right: 20,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
   },
   closeButtonText: {
-    fontSize: 18,
-    color: '#333',
-    fontWeight: '300',
+    fontSize: 20,
+    color: '#FFFFFF',
+    fontWeight: '400',
   },
   heroImage: {
     width: '100%',
