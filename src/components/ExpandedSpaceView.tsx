@@ -3,7 +3,6 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  FlatList, 
   TouchableOpacity, 
   RefreshControl,
   SafeAreaView,
@@ -11,6 +10,7 @@ import {
   Dimensions,
   Modal
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { MaterialIcons } from '@expo/vector-icons';
 import Animated, {
@@ -178,14 +178,11 @@ const ExpandedSpaceView = observer(({
     console.log('Chat with space:', displaySpace?.name);
   };
 
-  const renderItem = ({ item, index }: { item: Item; index: number }) => (
+  const renderItem = ({ item }: { item: Item }) => (
     <View 
-      style={[
-        styles.itemContainer,
-        index % 2 === 0 ? styles.leftColumn : styles.rightColumn
-      ]}
       ref={(ref) => cardRefs.current[item.id] = ref}
       collapsable={false}
+      style={styles.itemWrapper}
     >
       <ItemCard 
         item={item} 
@@ -281,12 +278,13 @@ const ExpandedSpaceView = observer(({
               </View>
 
               {/* Items Grid */}
-              <FlatList
+              <FlashList
                 data={filteredItems}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
+                masonry
                 numColumns={2}
-                columnWrapperStyle={styles.row}
+                estimatedItemSize={200}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={EmptyState}
@@ -429,19 +427,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 100,
   },
-  row: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
-  },
-  itemContainer: {
+  itemWrapper: {
     flex: 1,
-    maxWidth: (SCREEN_WIDTH - 36) / 2,
-  },
-  leftColumn: {
-    marginRight: 6,
-  },
-  rightColumn: {
-    marginLeft: 6,
+    padding: 6,
   },
   emptyContainer: {
     flex: 1,
