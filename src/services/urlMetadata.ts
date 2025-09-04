@@ -8,6 +8,7 @@ export interface URLMetadata {
   title?: string;
   description?: string;
   image?: string;
+  images?: string[]; // For multiple images
   videoUrl?: string; // Add video URL for Twitter/X videos
   siteName?: string;
   favicon?: string;
@@ -126,11 +127,13 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
     }
     description += `\n\n${metricsText} · ${timeAgo}`;
     
-    // Get media - prioritize video, then image
+    // Get media - separate videos and images
     const videoMedia = tweetData.media?.find(m => m.type === 'video' || m.type === 'animated_gif');
-    const firstImage = tweetData.media?.find(m => m.type === 'photo')?.url || 
-                       tweetData.media?.[0]?.previewUrl ||
-                       tweetData.author.profileImage;
+    const photoMedia = tweetData.media?.filter(m => m.type === 'photo') || [];
+    
+    // Get all image URLs
+    const imageUrls = photoMedia.map(m => m.url);
+    const firstImage = imageUrls[0] || tweetData.author.profileImage;
     
     // Debug logging
     if (videoMedia) {
@@ -142,11 +145,16 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
       });
     }
     
+    if (imageUrls.length > 1) {
+      console.log(`Multiple images found: ${imageUrls.length} images`);
+    }
+    
     return {
       url,
       title,
       description,
-      image: videoMedia?.previewUrl || firstImage, // Use video preview or image
+      image: videoMedia?.previewUrl || firstImage, // Use video preview or first image
+      images: imageUrls.length > 0 ? imageUrls : undefined, // All image URLs
       videoUrl: videoMedia?.url, // Add video URL if available
       author: `${tweetData.author.name} (@${tweetData.author.username})`,
       contentType: 'x',

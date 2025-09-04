@@ -214,6 +214,7 @@ const AddItemSheet = observer(
         url: selectedType !== 'note' ? url : undefined,
         thumbnail_url: metadata?.image || undefined,
         video_url: metadata?.videoUrl || undefined,
+        image_urls: metadata?.images || undefined,
         content_type: selectedType as ContentType,
         space_id: selectedSpaceId || undefined,
         tags: tags.length > 0 ? tags : undefined,

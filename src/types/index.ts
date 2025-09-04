@@ -35,6 +35,7 @@ export interface Item {
   desc?: string;
   thumbnail_url?: string;
   video_url?: string;
+  image_urls?: string[]; // For multiple images (e.g., X posts with multiple photos)
   raw_text?: string;
   created_at: string;
   updated_at: string;

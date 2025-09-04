@@ -87,6 +87,8 @@ const ExpandedItemView = observer(({
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Set up video player if item has video
   const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
@@ -274,6 +276,45 @@ const ExpandedItemView = observer(({
                       allowsFullscreen={true}
                       showsTimecodes={true}
                     />
+                  ) : itemToDisplay?.image_urls && itemToDisplay.image_urls.length > 1 ? (
+                    // Show carousel for multiple images
+                    <View style={{ position: 'relative' }}>
+                      <ScrollView
+                        ref={scrollViewRef}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onMomentumScrollEnd={(event) => {
+                          const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                          setCurrentImageIndex(newIndex);
+                        }}
+                        scrollEventThrottle={16}
+                      >
+                        {itemToDisplay.image_urls.map((imageUrl, index) => (
+                          <Image
+                            key={index}
+                            source={{ uri: imageUrl }}
+                            style={[
+                              styles.heroMedia,
+                              { width: SCREEN_WIDTH }
+                            ]}
+                            resizeMode="contain"
+                          />
+                        ))}
+                      </ScrollView>
+                      {/* Dots indicator */}
+                      <View style={styles.dotsContainer}>
+                        {itemToDisplay.image_urls.map((_, index) => (
+                          <View
+                            key={index}
+                            style={[
+                              styles.dot,
+                              index === currentImageIndex && styles.activeDot
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </View>
                   ) : itemToDisplay?.thumbnail_url ? (
                     // Show image for non-video items
                     <Image
@@ -957,5 +998,27 @@ const styles = StyleSheet.create({
   },
   typeOptionTextDark: {
     color: '#FFF',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

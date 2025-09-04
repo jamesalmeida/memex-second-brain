@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
@@ -17,6 +17,8 @@ interface ItemCardProps {
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Set up video player if item has video
   const player = useVideoPlayer(item.video_url ? item.video_url : null, player => {
@@ -26,6 +28,10 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       player.play();
     }
   });
+  
+  // Check if item has multiple images
+  const hasMultipleImages = item.image_urls && item.image_urls.length > 1;
+  const cardWidth = screenWidth / 2 - 18;
 
   const getContentTypeIcon = () => {
     switch (item.content_type) {
@@ -130,6 +136,54 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
             <View style={styles.playButton}>
               <Text style={styles.playButtonIcon}>▶️</Text>
             </View>
+          </View>
+        </View>
+      ) : hasMultipleImages ? (
+        // Show carousel for multiple images
+        <View style={{ position: 'relative' }}>
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+              setCurrentImageIndex(newIndex);
+            }}
+            scrollEventThrottle={16}
+            style={{ width: '100%' }}
+          >
+            {item.image_urls!.map((imageUrl, index) => (
+              <Image
+                key={index}
+                source={{ uri: imageUrl }}
+                style={[
+                  styles.thumbnail,
+                  { width: cardWidth, height: imageHeight || 200 }
+                ]}
+                contentFit="cover"
+                onLoad={(e: any) => {
+                  if (index === 0 && e.source && e.source.width && e.source.height) {
+                    const aspectRatio = e.source.height / e.source.width;
+                    const calculatedHeight = cardWidth * aspectRatio;
+                    const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                    setImageHeight(finalHeight);
+                  }
+                }}
+              />
+            ))}
+          </ScrollView>
+          {/* Dots indicator */}
+          <View style={styles.dotsContainer}>
+            {item.image_urls!.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  index === currentImageIndex && styles.activeDot
+                ]}
+              />
+            ))}
           </View>
         </View>
       ) : item.thumbnail_url ? (
@@ -331,5 +385,27 @@ const styles = StyleSheet.create({
   },
   textDark: {
     color: '#CCCCCC',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 3,
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
