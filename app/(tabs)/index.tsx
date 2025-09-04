@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, RefreshControl, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
@@ -7,6 +8,9 @@ import ItemCard from '../../src/components/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
+
+const { width: screenWidth } = Dimensions.get('window');
+const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 
 const HomeScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
@@ -70,11 +74,11 @@ const HomeScreen = observer(() => {
     console.log('Item long pressed:', item.title);
   };
 
-  const renderItem = ({ item, index }: { item: Item; index: number }) => (
+  const renderItem = ({ item }: { item: Item }) => (
     <View 
-      style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}
       ref={(ref) => cardRefs.current[item.id] = ref}
       collapsable={false}
+      style={{ width: '100%', paddingHorizontal: 6, paddingBottom: 12 }}
     >
       <ItemCard 
         item={item} 
@@ -113,12 +117,13 @@ const HomeScreen = observer(() => {
       </View>
 
       {/* Items Grid */}
-      <FlatList
+      <FlashList
         data={displayItems}
         renderItem={renderItem}
         keyExtractor={item => item.id}
+        masonry
         numColumns={2}
-        columnWrapperStyle={styles.row}
+        estimatedItemSize={200}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
@@ -206,18 +211,13 @@ const styles = StyleSheet.create({
   searchInputDark: {
     color: '#FFFFFF',
   },
+  gridContainer: {
+    flex: 1,
+    paddingHorizontal: 12,
+  },
   listContent: {
     paddingHorizontal: 12,
     paddingBottom: 100,
-  },
-  row: {
-    justifyContent: 'space-between',
-  },
-  leftColumn: {
-    marginRight: 6,
-  },
-  rightColumn: {
-    marginLeft: 6,
   },
   emptyContainer: {
     flex: 1,

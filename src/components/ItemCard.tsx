@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { Item } from '../types';
 
 const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 
 interface ItemCardProps {
   item: Item;
@@ -15,6 +15,7 @@ interface ItemCardProps {
 
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
 
   const getContentTypeIcon = () => {
     switch (item.content_type) {
@@ -87,8 +88,22 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       {item.thumbnail_url ? (
         <Image
           source={{ uri: item.thumbnail_url }}
-          style={styles.thumbnail}
-          resizeMode="cover"
+          style={[
+            styles.thumbnail, 
+            imageHeight ? { height: imageHeight } : null
+          ]}
+          contentFit="cover"
+          onLoad={(e: any) => {
+            // Calculate height based on image aspect ratio
+            if (e.source && e.source.width && e.source.height) {
+              const aspectRatio = e.source.height / e.source.width;
+              const cardWidth = screenWidth / 2 - 18; // Approximate card width
+              const calculatedHeight = cardWidth * aspectRatio;
+              // Cap maximum height to prevent overly tall cards
+              const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+              setImageHeight(finalHeight);
+            }
+          }}
         />
       ) : item.content ? (
         <View style={[styles.textPreview, { backgroundColor: getContentTypeColor() + '15' }]}>
@@ -143,7 +158,7 @@ export default ItemCard;
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
@@ -160,12 +175,12 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     width: '100%',
-    height: CARD_WIDTH * 0.65,
+    minHeight: 100,
     backgroundColor: '#F0F0F0',
   },
   textPreview: {
     width: '100%',
-    height: CARD_WIDTH * 0.65,
+    height: 120,
     padding: 12,
     justifyContent: 'center',
   },
@@ -176,7 +191,7 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: '100%',
-    height: CARD_WIDTH * 0.65,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
   },
