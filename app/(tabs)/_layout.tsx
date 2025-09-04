@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard, SafeAreaView } from 'react-native';
+import { View, StyleSheet, Keyboard } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
+import { BlurView } from 'expo-blur';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import BottomNavigation from '../../src/components/BottomNavigation';
@@ -12,6 +14,7 @@ import SpacesScreen from './spaces';
 
 const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const insets = useSafeAreaInsets();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   
   // Bottom sheet refs
@@ -42,11 +45,21 @@ const TabLayout = observer(() => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Main Content */}
-      <View style={styles.content}>
+    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      {/* Main Content - extends full screen */}
+      <View style={styles.fullScreenContent}>
         {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
       </View>
+
+      {/* Blurred top safe area overlay - matching nav bar */}
+      <BlurView 
+        intensity={80} 
+        tint={isDarkMode ? 'dark' : 'light'}
+        style={[
+          styles.topSafeAreaOverlay, 
+          { height: insets.top }
+        ]}
+      />
 
       {/* Custom Bottom Navigation */}
       <BottomNavigation
@@ -60,7 +73,7 @@ const TabLayout = observer(() => {
       <SettingsSheet ref={settingsSheetRef} />
       <AddItemSheet ref={addItemSheetRef} />
       <CreateSpaceSheet ref={createSpaceSheetRef} />
-    </SafeAreaView>
+    </View>
   );
 });
 
@@ -72,8 +85,21 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#000000',
   },
-  content: {
-    flex: 1,
+  fullScreenContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  topSafeAreaOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
 });
 

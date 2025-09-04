@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, RefreshControl, Dimensions } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import ItemCard from '../../src/components/ItemCard';
@@ -14,6 +15,7 @@ const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 
 const HomeScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const insets = useSafeAreaInsets();
   const showMockData = themeStore.showMockData.get();
   const allItems = itemsStore.items.get();
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,19 +106,7 @@ const HomeScreen = observer(() => {
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark]}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
-          placeholder="Search your second brain..."
-          placeholderTextColor={isDarkMode ? '#666' : '#999'}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      {/* Items Grid */}
+      {/* Items Grid - extends full height */}
       <FlashList
         data={displayItems}
         renderItem={renderItem}
@@ -124,7 +114,7 @@ const HomeScreen = observer(() => {
         masonry
         numColumns={2}
         estimatedItemSize={200}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 60 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
         refreshControl={
@@ -135,6 +125,24 @@ const HomeScreen = observer(() => {
           />
         }
       />
+
+      {/* Floating Search Bar */}
+      <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark, { 
+        position: 'absolute',
+        top: insets.top + 8,
+        left: 8,
+        right: 8,
+        zIndex: 10,
+      }]}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
+          placeholder="Search your second brain..."
+          placeholderTextColor={isDarkMode ? '#666' : '#999'}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
 
       {/* Floating Action Button */}
       <TouchableOpacity 
@@ -217,7 +225,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 4,
-    paddingBottom: 100,
+    paddingBottom: 120, // Increased to account for overlaying nav bar
   },
   emptyContainer: {
     flex: 1,

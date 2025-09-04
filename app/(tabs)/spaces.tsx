@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../../src/stores/theme';
 import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spaces';
 import SpaceCard from '../../src/components/SpaceCard';
@@ -12,6 +13,7 @@ import { generateMockSpaces, getSpaceItemCount, getEmptyStateMessage } from '../
 
 const SpacesScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const insets = useSafeAreaInsets();
   const showDemoContent = themeStore.showMockData.get();
   const router = useRouter();
   const allSpaces = spacesComputed.spaces();
@@ -87,17 +89,7 @@ const SpacesScreen = observer(() => {
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>
-          Your Spaces
-        </Text>
-        <Text style={[styles.headerSubtitle, isDarkMode && styles.headerSubtitleDark]}>
-          Organize your knowledge into collections
-        </Text>
-      </View>
-
-      {/* Spaces Grid */}
+      {/* Spaces Grid - extends full height */}
       <FlashList
         data={spaces}
         renderItem={renderItem}
@@ -105,7 +97,7 @@ const SpacesScreen = observer(() => {
         masonry
         numColumns={2}
         estimatedItemSize={150}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 100 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
         refreshControl={
@@ -116,6 +108,16 @@ const SpacesScreen = observer(() => {
           />
         }
       />
+
+      {/* Floating Header */}
+      <View style={[styles.floatingHeader, { paddingTop: insets.top + 16 }, isDarkMode && styles.floatingHeaderDark]}>
+        <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>
+          Your Spaces
+        </Text>
+        <Text style={[styles.headerSubtitle, isDarkMode && styles.headerSubtitleDark]}>
+          Organize your knowledge into collections
+        </Text>
+      </View>
 
       {/* Floating Action Button */}
       <TouchableOpacity 
@@ -153,10 +155,18 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#000000',
   },
-  header: {
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 12,
-    paddingTop: 16,
     paddingBottom: 12,
+    backgroundColor: 'rgba(245, 245, 245, 0.95)',
+    zIndex: 10,
+  },
+  floatingHeaderDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   headerTitle: {
     fontSize: 24,
@@ -176,7 +186,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 4,
-    paddingBottom: 100,
+    paddingBottom: 120, // Increased to account for overlaying nav bar
   },
   emptyContainer: {
     flex: 1,
