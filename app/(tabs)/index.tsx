@@ -145,15 +145,6 @@ const HomeScreen = observer(() => {
         />
       </View>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => console.log('Open add item sheet')}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
-
       {/* Expanded Item View */}
       <ExpandedItemView
         item={selectedItem}

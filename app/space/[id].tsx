@@ -285,15 +285,6 @@ const SpaceDetailScreen = observer(() => {
                   />
                 }
               />
-
-              {/* Floating Action Button */}
-              <TouchableOpacity 
-                style={[styles.fab, { backgroundColor: space.color }]}
-                onPress={() => console.log('Add item to space')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.fabIcon}>+</Text>
-              </TouchableOpacity>
             </Animated.View>
           </View>
         </Animated.View>
@@ -453,25 +444,5 @@ const styles = StyleSheet.create({
   },
   emptySubtitleDark: {
     color: '#999',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  fabIcon: {
-    fontSize: 28,
-    color: '#FFFFFF',
-    fontWeight: '300',
   },
 });
