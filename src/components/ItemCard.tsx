@@ -79,6 +79,23 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
 
   const getDomain = () => {
     if (!item.url) return null;
+    
+    // For X posts, extract username from description
+    if (item.content_type === 'x' && item.desc) {
+      // Look for "by @username" pattern in description
+      const match = item.desc.match(/by @(\w+)$/m);
+      if (match) {
+        return `@${match[1]}`;
+      }
+      // Fallback: try to extract from title if it exists
+      if (item.title) {
+        const titleMatch = item.title.match(/@(\w+)/);
+        if (titleMatch) {
+          return `@${titleMatch[1]}`;
+        }
+      }
+    }
+    
     try {
       const url = new URL(item.url);
       return url.hostname.replace('www.', '');
