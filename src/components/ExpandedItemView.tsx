@@ -25,10 +25,24 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
-import { Item, Space } from '../types';
+import { Item, Space, ContentType } from '../types';
 import { generateMockSpaces } from '../utils/mockData';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const contentTypeOptions: { type: ContentType; label: string; icon: string }[] = [
+  { type: 'bookmark', label: 'Bookmark', icon: '🔖' },
+  { type: 'note', label: 'Note', icon: '📝' },
+  { type: 'youtube', label: 'YouTube', icon: '▶️' },
+  { type: 'x', label: 'X/Twitter', icon: '𝕏' },
+  { type: 'github', label: 'GitHub', icon: '⚡' },
+  { type: 'article', label: 'Article', icon: '📄' },
+  { type: 'image', label: 'Image', icon: '🖼️' },
+  { type: 'video', label: 'Video', icon: '🎥' },
+  { type: 'audio', label: 'Audio', icon: '🎵' },
+  { type: 'pdf', label: 'PDF', icon: '📑' },
+  { type: 'product', label: 'Product', icon: '🛍️' },
+];
 
 interface ExpandedItemViewProps {
   item: Item | null;
@@ -67,11 +81,14 @@ const ExpandedItemView = observer(({
   const [spaces] = useState<Space[]>(generateMockSpaces());
   const [modalVisible, setModalVisible] = useState(false);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
 
   useEffect(() => {
     if (isVisible && item) {
       // Store the item for display
       setDisplayItem(item);
+      setSelectedType(item.content_type);
       // Show modal first, then animate in
       setModalVisible(true);
       setTimeout(() => {
@@ -308,7 +325,10 @@ const ExpandedItemView = observer(({
                     </Text>
                     <TouchableOpacity
                       style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
-                      onPress={() => setShowSpaceSelector(!showSpaceSelector)}
+                      onPress={() => {
+                        setShowSpaceSelector(!showSpaceSelector);
+                        setShowTypeSelector(false); // Close type selector if open
+                      }}
                       activeOpacity={0.7}
                     >
                       {selectedSpaceId ? (
@@ -371,6 +391,62 @@ const ExpandedItemView = observer(({
                               />
                               <Text style={[styles.spaceOptionText, isDarkMode && styles.spaceOptionTextDark]}>
                                 {space.name}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Type Selector */}
+                  <View style={styles.typeSection}>
+                    <Text style={[styles.typeSectionLabel, isDarkMode && styles.typeSectionLabelDark]}>
+                      Type
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
+                      onPress={() => {
+                        setShowTypeSelector(!showTypeSelector);
+                        setShowSpaceSelector(false); // Close space selector if open
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.selectedType}>
+                        <Text style={styles.typeIcon}>
+                          {contentTypeOptions.find(t => t.type === selectedType)?.icon || '📎'}
+                        </Text>
+                        <Text style={[styles.typeName, isDarkMode && styles.typeNameDark]}>
+                          {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
+                        </Text>
+                      </View>
+                      <Text style={styles.chevron}>{showTypeSelector ? '▲' : '▼'}</Text>
+                    </TouchableOpacity>
+
+                    {/* Type Options */}
+                    {showTypeSelector && (
+                      <View style={[styles.typeOptions, isDarkMode && styles.typeOptionsDark]}>
+                        {contentTypeOptions.map((option) => (
+                          <TouchableOpacity
+                            key={option.type}
+                            style={[
+                              styles.typeOption,
+                              selectedType === option.type && styles.typeOptionSelected
+                            ]}
+                            onPress={() => {
+                              setSelectedType(option.type);
+                              // Update the item's type
+                              if (itemToDisplay) {
+                                itemToDisplay.content_type = option.type;
+                                // TODO: Call onEdit or update function to persist the change
+                              }
+                              setShowTypeSelector(false);
+                            }}
+                          >
+                            <View style={styles.typeOptionContent}>
+                              <Text style={styles.typeOptionIcon}>{option.icon}</Text>
+                              <Text style={[styles.typeOptionText, isDarkMode && styles.typeOptionTextDark]}>
+                                {option.label}
                               </Text>
                             </View>
                           </TouchableOpacity>
@@ -687,6 +763,84 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   spaceOptionTextDark: {
+    color: '#FFF',
+  },
+  // Type Selector Styles
+  typeSection: {
+    marginBottom: 20,
+  },
+  typeSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  typeSectionLabelDark: {
+    color: '#999',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  typeSelectorDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  selectedType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typeIcon: {
+    fontSize: 16,
+  },
+  typeName: {
+    fontSize: 16,
+    color: '#000',
+  },
+  typeNameDark: {
+    color: '#FFF',
+  },
+  typeOptions: {
+    marginTop: 8,
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  typeOptionsDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  typeOption: {
+    padding: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E0E0E0',
+  },
+  typeOptionSelected: {
+    backgroundColor: '#F0F0F0',
+  },
+  typeOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  typeOptionIcon: {
+    fontSize: 16,
+  },
+  typeOptionText: {
+    fontSize: 15,
+    color: '#000',
+  },
+  typeOptionTextDark: {
     color: '#FFF',
   },
 });
