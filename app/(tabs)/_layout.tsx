@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard } from 'react-native';
+import { View, StyleSheet, Keyboard, SafeAreaView } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet from '@gorhom/bottom-sheet';
@@ -37,7 +37,7 @@ const TabLayout = observer(() => {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         {/* Main Content */}
         <View style={styles.content}>
           {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
@@ -54,7 +54,7 @@ const TabLayout = observer(() => {
         {/* Bottom Sheets */}
         <SettingsSheet ref={settingsSheetRef} />
         <AddItemSheet ref={addItemSheetRef} />
-      </View>
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 });

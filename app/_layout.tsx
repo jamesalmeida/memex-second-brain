@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, SafeAreaView } from 'react-native';
 import { observer, useObservable } from '@legendapp/state/react';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
@@ -20,15 +20,18 @@ const RootLayoutContent = observer(() => {
   if (isLoading || isThemeLoading) {
     console.log('⏳ SHOWING LOADING SCREEN - auth or theme loading');
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#000000' : '#ffffff' }}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={{ marginTop: 20, color: isDarkMode ? '#AAA' : '#666', fontSize: 16 }}>
-          Checking authentication...
-        </Text>
-        <Text style={{ marginTop: 10, color: isDarkMode ? '#777' : '#999', fontSize: 12 }}>
-          Loading: {isLoading ? 'true' : 'false'}, Auth: {isAuthenticated ? 'true' : 'false'}
-        </Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#ffffff' }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={{ marginTop: 20, color: isDarkMode ? '#AAA' : '#666', fontSize: 16 }}>
+            Checking authentication...
+          </Text>
+          <Text style={{ marginTop: 10, color: isDarkMode ? '#777' : '#999', fontSize: 12 }}>
+            Loading: {isLoading ? 'true' : 'false'}, Auth: {isAuthenticated ? 'true' : 'false'}
+          </Text>
+        </View>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+      </SafeAreaView>
     );
   }
 

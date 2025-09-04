@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -65,11 +66,12 @@ const AuthScreen = observer(() => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, isDarkMode && styles.containerDark]} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.content}>
         <View style={styles.logoContainer}>
           <MaterialIcons name="library-books" size={80} color={COLORS.primary} />
         </View>
@@ -136,7 +138,8 @@ const AuthScreen = observer(() => {
           By continuing, you agree to our Terms of Service and Privacy Policy.
         </Text>
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 });
 
@@ -149,6 +152,9 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: '#000000',
+  },
+  keyboardView: {
+    flex: 1,
   },
   content: {
     flex: 1,
