@@ -18,9 +18,13 @@ import {
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
+import { spacesComputed } from '../stores/spaces';
+import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
 import { COLORS, UI } from '../constants';
+import { Space } from '../types';
 
 interface AddItemSheetProps {
   onItemAdded?: () => void;
@@ -29,19 +33,28 @@ interface AddItemSheetProps {
 const contentTypes = [
   { id: 'bookmark', icon: 'bookmark', label: 'Bookmark' },
   { id: 'note', icon: 'note', label: 'Note' },
-  { id: 'image', icon: 'image', label: 'Image' },
+  { id: 'youtube', icon: 'ondemand-video', label: 'YouTube' },
   { id: 'video', icon: 'videocam', label: 'Video' },
+  { id: 'image', icon: 'image', label: 'Image' },
   { id: 'article', icon: 'article', label: 'Article' },
   { id: 'product', icon: 'shopping-bag', label: 'Product' },
+  { id: 'twitter', icon: 'tag', label: 'X/Twitter' },
 ];
 
 const AddItemSheet = observer(
   forwardRef<BottomSheet, AddItemSheetProps>(({ onItemAdded }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
+    const spaces = spacesComputed.spaces();
     const [selectedType, setSelectedType] = useState('bookmark');
     const [url, setUrl] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+    const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
+    const [metadata, setMetadata] = useState<URLMetadata | null>(null);
+    const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+    const [isGeneratingTags, setIsGeneratingTags] = useState(false);
     
     // Snap points for the bottom sheet
     // Using percentages - 30% for initial, 75% when keyboard shows
@@ -108,28 +121,84 @@ const AddItemSheet = observer(
     };
 
     const detectContentType = (urlString: string) => {
-      const lowerUrl = urlString.toLowerCase();
-      if (lowerUrl.includes('youtube.com') || lowerUrl.includes('vimeo.com')) {
-        setSelectedType('video');
-      } else if (lowerUrl.match(/\.(jpg|jpeg|png|gif|svg|webp)/i)) {
-        setSelectedType('image');
-      } else if (lowerUrl.includes('amazon.com') || lowerUrl.includes('ebay.com')) {
-        setSelectedType('product');
-      } else if (lowerUrl.includes('medium.com') || lowerUrl.includes('blog')) {
-        setSelectedType('article');
-      } else {
-        setSelectedType('bookmark');
+      const detectedType = detectURLType(urlString);
+      setSelectedType(detectedType);
+    };
+
+    // Extract metadata when URL is detected
+    useEffect(() => {
+      const timeoutId = setTimeout(() => {
+        if (url.trim() && url.startsWith('http')) {
+          setIsLoadingMetadata(true);
+          extractURLMetadata(url.trim())
+            .then(data => {
+              setMetadata(data);
+              setIsLoadingMetadata(false);
+              // Update content type based on metadata
+              if (data.contentType) {
+                setSelectedType(data.contentType);
+              }
+            })
+            .catch(err => {
+              console.error('Metadata extraction failed:', err);
+              setIsLoadingMetadata(false);
+            });
+        } else {
+          setMetadata(null);
+        }
+      }, 800); // Debounce for 800ms
+
+      return () => clearTimeout(timeoutId);
+    }, [url]);
+
+    const handleAddTag = () => {
+      const trimmedTag = tagInput.trim();
+      if (trimmedTag && !tags.includes(trimmedTag)) {
+        setTags([...tags, trimmedTag]);
+        setTagInput('');
+      }
+    };
+
+    const handleRemoveTag = (tagToRemove: string) => {
+      setTags(tags.filter(tag => tag !== tagToRemove));
+    };
+
+    const handleGenerateTags = async () => {
+      if (!url.trim()) return;
+      
+      setIsGeneratingTags(true);
+      try {
+        const generatedTags = await generateTags(url, metadata || undefined);
+        // Add generated tags to existing tags (avoiding duplicates)
+        const newTags = [...tags];
+        generatedTags.forEach(tag => {
+          if (!newTags.includes(tag)) {
+            newTags.push(tag);
+          }
+        });
+        setTags(newTags);
+      } catch (error) {
+        console.error('Tag generation failed:', error);
+        Alert.alert('Error', 'Failed to generate tags');
+      } finally {
+        setIsGeneratingTags(false);
       }
     };
 
     const handleSave = () => {
       if (!url.trim()) {
-        Alert.alert('Error', 'Please enter a URL');
+        Alert.alert('Error', 'Please enter some content');
         return;
       }
 
-      // TODO: Implement actual save logic
-      console.log('Saving item:', { type: selectedType, url });
+      // TODO: Implement actual save logic with database
+      console.log('Saving item:', { 
+        type: selectedType, 
+        url,
+        metadata,
+        spaceId: selectedSpaceId,
+        tags,
+      });
       
       // Dismiss keyboard first
       Keyboard.dismiss();
@@ -137,6 +206,10 @@ const AddItemSheet = observer(
       // Reset form
       setUrl('');
       setSelectedType('bookmark');
+      setSelectedSpaceId(null);
+      setTags([]);
+      setTagInput('');
+      setMetadata(null);
       
       // Close sheet after keyboard dismisses
       setTimeout(() => {
@@ -241,6 +314,155 @@ const AddItemSheet = observer(
             />
           </View>
           </KeyboardAvoidingView>
+
+          {/* Metadata Preview */}
+          {isLoadingMetadata && (
+            <View style={[styles.section, styles.metadataSection]}>
+              <View style={[styles.metadataCard, isDarkMode && styles.metadataCardDark]}>
+                <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>
+                  Loading metadata...
+                </Text>
+              </View>
+            </View>
+          )}
+          
+          {metadata && !isLoadingMetadata && (
+            <View style={[styles.section, styles.metadataSection]}>
+              <View style={[styles.metadataCard, isDarkMode && styles.metadataCardDark]}>
+                {metadata.image && (
+                  <Image 
+                    source={{ uri: metadata.image }}
+                    style={styles.metadataImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                )}
+                <View style={styles.metadataContent}>
+                  <Text style={[styles.metadataTitle, isDarkMode && styles.metadataTitleDark]} numberOfLines={2}>
+                    {metadata.title || 'No title'}
+                  </Text>
+                  {metadata.description && (
+                    <Text style={[styles.metadataDescription, isDarkMode && styles.metadataDescriptionDark]} numberOfLines={2}>
+                      {metadata.description}
+                    </Text>
+                  )}
+                  <View style={styles.metadataFooter}>
+                    {metadata.siteName && (
+                      <Text style={[styles.metadataSite, isDarkMode && styles.metadataSiteDark]}>
+                        {metadata.siteName}
+                      </Text>
+                    )}
+                    {metadata.duration && (
+                      <Text style={[styles.metadataDuration, isDarkMode && styles.metadataDurationDark]}>
+                        {metadata.duration}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Space Selector */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              Space
+            </Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.spaceScroll}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.spaceButton,
+                  isDarkMode && styles.spaceButtonDark,
+                  selectedSpaceId === null && styles.spaceButtonActive,
+                ]}
+                onPress={() => setSelectedSpaceId(null)}
+              >
+                <Text style={[
+                  styles.spaceLabel,
+                  isDarkMode && styles.spaceLabelDark,
+                  selectedSpaceId === null && styles.spaceLabelActive,
+                ]}>
+                  No Space
+                </Text>
+              </TouchableOpacity>
+              {spaces.map((space) => (
+                <TouchableOpacity
+                  key={space.id}
+                  style={[
+                    styles.spaceButton,
+                    isDarkMode && styles.spaceButtonDark,
+                    selectedSpaceId === space.id && styles.spaceButtonActive,
+                    selectedSpaceId === space.id && { backgroundColor: space.color },
+                  ]}
+                  onPress={() => setSelectedSpaceId(space.id)}
+                >
+                  <View style={[styles.spaceIndicator, { backgroundColor: space.color }]} />
+                  <Text style={[
+                    styles.spaceLabel,
+                    isDarkMode && styles.spaceLabelDark,
+                    selectedSpaceId === space.id && styles.spaceLabelActive,
+                  ]}>
+                    {space.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Tags */}
+          <View style={styles.section}>
+            <View style={styles.tagsHeader}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+                Tags
+              </Text>
+              <TouchableOpacity
+                style={[styles.generateTagsButton, isGeneratingTags && styles.generateTagsButtonDisabled]}
+                onPress={handleGenerateTags}
+                disabled={isGeneratingTags || !url.trim()}
+              >
+                <MaterialIcons name="auto-awesome" size={16} color="#FF6B35" />
+                <Text style={styles.generateTagsText}>
+                  {isGeneratingTags ? 'Generating...' : 'Generate with AI'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.tagInputContainer}>
+              <TextInput
+                style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
+                placeholder="Add a tag..."
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                value={tagInput}
+                onChangeText={setTagInput}
+                onSubmitEditing={handleAddTag}
+                returnKeyType="done"
+              />
+              {tagInput.trim().length > 0 && (
+                <TouchableOpacity style={styles.addTagButton} onPress={handleAddTag}>
+                  <MaterialIcons name="add" size={20} color="#FF6B35" />
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            {tags.length > 0 && (
+              <View style={styles.tagsContainer}>
+                {tags.map((tag, index) => (
+                  <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
+                    <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
+                      {tag}
+                    </Text>
+                    <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
+                      <MaterialIcons name="close" size={16} color={isDarkMode ? '#999' : '#666'} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
 
           {/* Quick Actions */}
           <View style={styles.section}>
@@ -486,6 +708,179 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5E5E7',
+  },
+  // Metadata styles
+  metadataSection: {
+    paddingTop: 10,
+  },
+  metadataCard: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+  },
+  metadataCardDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  metadataImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  metadataContent: {
+    flex: 1,
+  },
+  metadataTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 4,
+  },
+  metadataTitleDark: {
+    color: '#FFFFFF',
+  },
+  metadataDescription: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 4,
+  },
+  metadataDescriptionDark: {
+    color: '#AAAAAA',
+  },
+  metadataSite: {
+    fontSize: 12,
+    color: '#999999',
+  },
+  metadataSiteDark: {
+    color: '#777777',
+  },
+  metadataFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metadataDuration: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '600',
+  },
+  metadataDurationDark: {
+    color: '#AAAAAA',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  loadingTextDark: {
+    color: '#AAAAAA',
+  },
+  // Space selector styles
+  spaceScroll: {
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  spaceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 10,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 20,
+  },
+  spaceButtonDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  spaceButtonActive: {
+    backgroundColor: '#FF6B35',
+  },
+  spaceIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  spaceLabel: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  spaceLabelDark: {
+    color: '#AAAAAA',
+  },
+  spaceLabelActive: {
+    color: '#FFFFFF',
+  },
+  // Tags styles
+  tagsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  generateTagsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FFF5F0',
+    borderRadius: 12,
+  },
+  generateTagsButtonDisabled: {
+    opacity: 0.5,
+  },
+  generateTagsText: {
+    fontSize: 12,
+    color: '#FF6B35',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  tagInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  tagInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#000000',
+  },
+  tagInputDark: {
+    color: '#FFFFFF',
+  },
+  addTagButton: {
+    padding: 4,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagChipDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  tagText: {
+    fontSize: 14,
+    color: '#333333',
+    marginRight: 6,
+  },
+  tagTextDark: {
+    color: '#FFFFFF',
   },
 });
 

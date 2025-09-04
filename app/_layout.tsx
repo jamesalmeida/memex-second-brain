@@ -1,7 +1,10 @@
+// Import YouTube polyfills first - must be at the top
+import '../src/services/youtube';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, Text, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { observer, useObservable } from '@legendapp/state/react';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
@@ -59,8 +62,10 @@ const RootLayoutContent = observer(() => {
 export default function RootLayout() {
   console.log('🏗️ Root layout component rendered');
   return (
-    <SafeAreaProvider>
-      <RootLayoutContent />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <RootLayoutContent />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Keyboard, SafeAreaView } from 'react-native';
 import { observer } from '@legendapp/state/react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import BottomNavigation from '../../src/components/BottomNavigation';
@@ -36,26 +35,24 @@ const TabLayout = observer(() => {
   };
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-        {/* Main Content */}
-        <View style={styles.content}>
-          {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
-        </View>
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      {/* Main Content */}
+      <View style={styles.content}>
+        {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
+      </View>
 
-        {/* Custom Bottom Navigation */}
-        <BottomNavigation
-          currentView={currentView}
-          onViewChange={handleViewChange}
-          onSettingsPress={handleSettingsPress}
-          onAddPress={handleAddPress}
-        />
+      {/* Custom Bottom Navigation */}
+      <BottomNavigation
+        currentView={currentView}
+        onViewChange={handleViewChange}
+        onSettingsPress={handleSettingsPress}
+        onAddPress={handleAddPress}
+      />
 
-        {/* Bottom Sheets */}
-        <SettingsSheet ref={settingsSheetRef} />
-        <AddItemSheet ref={addItemSheetRef} />
-      </SafeAreaView>
-    </GestureHandlerRootView>
+      {/* Bottom Sheets */}
+      <SettingsSheet ref={settingsSheetRef} />
+      <AddItemSheet ref={addItemSheetRef} />
+    </SafeAreaView>
   );
 });
 

@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useRouter } from 'expo-router';
 import { themeStore } from '../../src/stores/theme';
+import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spaces';
 import SpaceCard from '../../src/components/SpaceCard';
 import ExpandedSpaceView from '../../src/components/ExpandedSpaceView';
 import { Space } from '../../src/types';
@@ -11,17 +12,24 @@ import { generateMockSpaces, getSpaceItemCount, getEmptyStateMessage } from '../
 const SpacesScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const router = useRouter();
-  const [spaces, setSpaces] = useState<Space[]>(generateMockSpaces());
+  const spaces = spacesComputed.spaces();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
 
+  // Initialize spaces with mock data if empty
+  useEffect(() => {
+    if (spaces.length === 0) {
+      spacesActions.setSpaces(generateMockSpaces());
+    }
+  }, []);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     // Simulate refresh
     setTimeout(() => {
-      setSpaces(generateMockSpaces());
+      spacesActions.setSpaces(generateMockSpaces());
       setRefreshing(false);
     }, 1500);
   }, []);
