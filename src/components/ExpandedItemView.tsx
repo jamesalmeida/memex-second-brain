@@ -15,6 +15,9 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { WebView } from 'react-native-webview';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -89,6 +92,8 @@ const ExpandedItemView = observer(({
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [showTools, setShowTools] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   // Set up video player if item has video
   const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
@@ -222,6 +227,57 @@ const ExpandedItemView = observer(({
       minute: '2-digit',
     });
   };
+  
+  // Extract YouTube video ID from URL
+  const getYouTubeVideoId = (url?: string) => {
+    if (!url) return null;
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+      /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+  
+  // Download thumbnail to device
+  const downloadThumbnail = async () => {
+    if (!itemToDisplay?.thumbnail_url) {
+      Alert.alert('Error', 'No thumbnail to download');
+      return;
+    }
+    
+    try {
+      setIsDownloading(true);
+      
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Need permission to save images');
+        return;
+      }
+      
+      // Download the image
+      const filename = `youtube_thumbnail_${Date.now()}.jpg`;
+      const result = await FileSystem.downloadAsync(
+        itemToDisplay.thumbnail_url,
+        FileSystem.documentDirectory + filename
+      );
+      
+      // Save to media library
+      const asset = await MediaLibrary.createAssetAsync(result.uri);
+      await MediaLibrary.createAlbumAsync('Memex', asset, false);
+      
+      Alert.alert('Success', 'Thumbnail saved to your photo library');
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download thumbnail');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const getDomain = () => {
     if (!itemToDisplay?.url) return null;
@@ -264,7 +320,37 @@ const ExpandedItemView = observer(({
               <Animated.View style={[contentStyle]}>
                 {/* Hero Image/Video with Close Button Overlay */}
                 <View style={styles.heroContainer}>
-                  {itemToDisplay?.video_url && videoPlayer ? (
+                  {itemToDisplay?.content_type === 'youtube' && getYouTubeVideoId(itemToDisplay?.url) ? (
+                    // YouTube video embed
+                    <View style={styles.youtubeEmbed}>
+                      <WebView
+                        source={{
+                          uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?autoplay=0&modestbranding=1&rel=0&playsinline=1&controls=1&disablekb=0`
+                        }}
+                        style={styles.webView}
+                        allowsFullscreenVideo={true}
+                        allowsInlineMediaPlayback={true}
+                        mediaPlaybackRequiresUserAction={false}
+                        javaScriptEnabled
+                        injectedJavaScript={`
+                          // Hide Watch on YouTube and Share buttons
+                          const style = document.createElement('style');
+                          style.innerHTML = \`
+                            .ytp-watch-later-button,
+                            .ytp-share-button,
+                            .ytp-youtube-button,
+                            .ytp-watermark,
+                            .ytp-chrome-top-buttons {
+                              display: none !important;
+                            }
+                          \`;
+                          document.head.appendChild(style);
+                          
+                          true; // Note: this is required for injectedJavaScript to work
+                        `}
+                      />
+                    </View>
+                  ) : itemToDisplay?.video_url && videoPlayer ? (
                     // Show video player for Twitter/X videos
                     <VideoView
                       player={videoPlayer}
@@ -557,6 +643,54 @@ const ExpandedItemView = observer(({
                       </View>
                     )}
                   </View>
+
+                  {/* Tools Section (for YouTube) */}
+                  {itemToDisplay?.content_type === 'youtube' && (
+                    <View style={styles.toolsSection}>
+                      <TouchableOpacity
+                        style={[styles.toolsHeader, isDarkMode && styles.toolsHeaderDark]}
+                        onPress={() => setShowTools(!showTools)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.toolsTitle, isDarkMode && styles.toolsTitleDark]}>
+                          🛠️ Tools
+                        </Text>
+                        <Text style={styles.chevron}>{showTools ? '▲' : '▼'}</Text>
+                      </TouchableOpacity>
+                      
+                      {showTools && (
+                        <View style={[styles.toolsContent, isDarkMode && styles.toolsContentDark]}>
+                          {/* Thumbnail Preview */}
+                          <View style={styles.toolItem}>
+                            <Text style={[styles.toolLabel, isDarkMode && styles.toolLabelDark]}>
+                              Thumbnail
+                            </Text>
+                            {itemToDisplay.thumbnail_url && (
+                              <View>
+                                <Image
+                                  source={{ uri: itemToDisplay.thumbnail_url }}
+                                  style={styles.toolThumbnail}
+                                  resizeMode="cover"
+                                />
+                                <TouchableOpacity
+                                  style={[styles.downloadButton, isDownloading && styles.downloadButtonDisabled]}
+                                  onPress={downloadThumbnail}
+                                  disabled={isDownloading}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.downloadButtonText}>
+                                    {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </View>
+                          
+                          {/* More tools can be added here later */}
+                        </View>
+                      )}
+                    </View>
+                  )}
 
                   {/* Action Buttons */}
                   <View style={styles.actions}>
@@ -1020,5 +1154,85 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  // YouTube embed styles
+  youtubeEmbed: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio
+    backgroundColor: '#000',
+  },
+  webView: {
+    flex: 1,
+  },
+  // Tools section styles
+  toolsSection: {
+    marginBottom: 20,
+  },
+  toolsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  toolsHeaderDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  toolsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+  },
+  toolsTitleDark: {
+    color: '#FFF',
+  },
+  toolsContent: {
+    marginTop: 8,
+    padding: 16,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  toolsContentDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  toolItem: {
+    marginBottom: 16,
+  },
+  toolLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  toolLabelDark: {
+    color: '#999',
+  },
+  toolThumbnail: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  downloadButton: {
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  downloadButtonDisabled: {
+    backgroundColor: '#999',
+  },
+  downloadButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

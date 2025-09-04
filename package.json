@@ -33,7 +33,7 @@
     "expo-share-extension": "^4.0.1",
     "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
-    "expo-web-browser": "^14.2.0",
+    "expo-web-browser": "~14.2.0",
     "fuse.js": "^7.1.0",
     "openai": "^5.19.1",
     "react": "19.0.0",
@@ -48,7 +48,9 @@
     "web-streams-polyfill": "^3.3.3",
     "youtubei.js": "^15.0.1",
     "expo-clipboard": "~7.1.5",
-    "expo-video": "~2.2.2"
+    "expo-video": "~2.2.2",
+    "react-native-webview": "13.13.5",
+    "expo-media-library": "~17.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
