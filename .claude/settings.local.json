@@ -5,7 +5,9 @@
       "Bash(npx expo install:*)",
       "Bash(npx expo:*)",
       "Bash(mkdir:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm info:*)"
     ],
     "deny": [],
     "ask": []

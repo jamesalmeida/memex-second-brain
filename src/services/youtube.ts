@@ -13,9 +13,55 @@ if (!global.atob) {
   global.atob = decode;
 }
 
-import {MMKV} from 'react-native-mmkv';
+// Ensure fetch is available
+if (!global.fetch) {
+  console.warn('fetch not available, this might cause issues with YouTube.js');
+}
+
+// Use AsyncStorage instead of MMKV for Expo Go compatibility
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Create a mock MMKV class that uses AsyncStorage
+class MockMMKV {
+  constructor() {
+    // Constructor doesn't need to do anything
+  }
+  
+  getString(key: string): string | undefined {
+    // This needs to be synchronous for MMKV compatibility
+    // We'll return undefined and handle async separately
+    console.warn('MockMMKV getString called - returning undefined (async not supported in sync call)');
+    return undefined;
+  }
+  
+  set(key: string, value: string): void {
+    // Fire and forget async operation
+    AsyncStorage.setItem(key, value).catch(error => {
+      console.error('AsyncStorage set error:', error);
+    });
+  }
+  
+  delete(key: string): void {
+    // Fire and forget async operation
+    AsyncStorage.removeItem(key).catch(error => {
+      console.error('AsyncStorage delete error:', error);
+    });
+  }
+  
+  contains(key: string): boolean {
+    // This needs to be synchronous - we'll return false for simplicity
+    console.warn('MockMMKV contains called - returning false (async not supported in sync call)');
+    return false;
+  }
+  
+  getAllKeys(): string[] {
+    // Return empty array for simplicity
+    return [];
+  }
+}
+
 // @ts-expect-error to avoid typings' fuss
-global.mmkvStorage = MMKV as any;
+global.mmkvStorage = MockMMKV;
 
 // See https://github.com/nodejs/node/issues/40678#issuecomment-1126944677
 class CustomEvent extends Event {
@@ -41,32 +87,75 @@ let innertubeInstance: Innertube | null = null;
 
 export const getInnertubeInstance = async (): Promise<Innertube> => {
   if (!innertubeInstance) {
-    innertubeInstance = await Innertube.create({
-      cache: new UniversalCache(false),
-      generate_session_locally: true,
-    });
+    try {
+      console.log('Creating new Innertube instance...');
+      // Try without cache first for Expo Go compatibility
+      innertubeInstance = await Innertube.create({
+        // Disable cache for Expo Go
+        cache: undefined,
+        generate_session_locally: true,
+        fetch: fetch,
+      });
+      console.log('Innertube instance created successfully');
+    } catch (error) {
+      console.error('Failed to create Innertube instance:', error);
+      throw error;
+    }
   }
   return innertubeInstance;
 };
 
+// Test function to verify YouTube.js is working
+export const testYouTubeJS = async () => {
+  try {
+    console.log('Testing YouTube.js setup...');
+    const youtube = await getInnertubeInstance();
+    console.log('✅ YouTube.js initialized successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ YouTube.js initialization failed:', error);
+    return false;
+  }
+};
+
 export const extractYouTubeData = async (url: string) => {
   try {
-    const youtube = await getInnertubeInstance();
+    console.log('Starting YouTube extraction for URL:', url);
     
-    // Extract video ID from URL
-    const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    if (!videoIdMatch) {
-      throw new Error('Invalid YouTube URL');
+    // More comprehensive URL patterns
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+      /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    ];
+    
+    let videoId = null;
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        videoId = match[1];
+        break;
+      }
     }
     
-    const videoId = videoIdMatch[1].split('?')[0]; // Remove any query params after the ID
+    if (!videoId) {
+      throw new Error(`Invalid YouTube URL: ${url}`);
+    }
+    
+    console.log('Extracted video ID:', videoId);
+    
+    const youtube = await getInnertubeInstance();
+    console.log('Got Innertube instance');
+    
     const info = await youtube.getInfo(videoId);
+    console.log('Got video info from YouTube');
     
     // Get the best quality thumbnail
     const thumbnail = info.basic_info.thumbnail?.[0]?.url || 
                      info.basic_info.thumbnail?.[info.basic_info.thumbnail.length - 1]?.url;
     
-    return {
+    const result = {
       title: info.basic_info.title,
       description: info.basic_info.short_description,
       thumbnail,
@@ -75,8 +164,12 @@ export const extractYouTubeData = async (url: string) => {
       viewCount: info.basic_info.view_count,
       videoId,
     };
+    
+    console.log('YouTube extraction successful:', result.title);
+    return result;
   } catch (error) {
-    console.error('YouTube extraction error:', error);
+    console.error('YouTube extraction error details:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     throw error;
   }
 };
