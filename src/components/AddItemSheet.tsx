@@ -21,8 +21,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import { spacesComputed } from '../stores/spaces';
+import { spacesComputed, spacesActions } from '../stores/spaces';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
+import { generateMockSpaces } from '../utils/mockData';
 import { COLORS, UI } from '../constants';
 import { Space } from '../types';
 
@@ -55,6 +56,17 @@ const AddItemSheet = observer(
     const [metadata, setMetadata] = useState<URLMetadata | null>(null);
     const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
     const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+    
+    // Initialize spaces if empty
+    useEffect(() => {
+      console.log('AddItemSheet spaces check:', spaces.length, spaces);
+      if (spaces.length === 0) {
+        console.log('Initializing spaces in AddItemSheet');
+        const mockSpaces = generateMockSpaces();
+        console.log('Generated mock spaces:', mockSpaces);
+        spacesActions.setSpaces(mockSpaces);
+      }
+    }, []);
     
     // Snap points for the bottom sheet
     // Using percentages - 30% for initial, 75% when keyboard shows
@@ -271,47 +283,97 @@ const AddItemSheet = observer(
           }}
           scrollEnabled={true}
         >
-          {/* Primary Input Field */}
+          {/* Primary Input Field and Quick Actions */}
           <KeyboardAvoidingView 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
           >
           <View style={styles.section}>
-            <TextInput
-              style={[styles.input, styles.primaryInput, isDarkMode && styles.inputDark]}
-              placeholder="Type a note or paste something here..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={url}
-              onChangeText={(text) => {
-                setUrl(text);
-                detectContentType(text);
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-              numberOfLines={3}
-              onFocus={() => {
-                console.log('Input focused - snapping to index 1');
-                // Manually snap to higher position when input is focused
-                setTimeout(() => {
-                  if (ref && 'current' in ref && ref.current) {
-                    console.log('Attempting to snap to index 1, snapPoints:', snapPoints);
-                    ref.current.snapToIndex(1);
-                    // Force expand if snap doesn't work
-                    setTimeout(() => {
-                      if (ref && 'current' in ref && ref.current) {
-                        console.log('Force expanding sheet');
-                        ref.current.expand();
-                      }
-                    }, 200);
-                  } else {
-                    console.log('Ref not available');
-                  }
-                }, 150);
-              }}
-              onBlur={() => console.log('Input blurred')}
-              inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory' : undefined}
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, styles.primaryInput, isDarkMode && styles.inputDark]}
+                placeholder="Type a note or paste something here..."
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                value={url}
+                onChangeText={(text) => {
+                  setUrl(text);
+                  detectContentType(text);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                multiline
+                numberOfLines={3}
+                onFocus={() => {
+                  console.log('Input focused - snapping to index 1');
+                  // Manually snap to higher position when input is focused
+                  setTimeout(() => {
+                    if (ref && 'current' in ref && ref.current) {
+                      console.log('Attempting to snap to index 1, snapPoints:', snapPoints);
+                      ref.current.snapToIndex(1);
+                      // Force expand if snap doesn't work
+                      setTimeout(() => {
+                        if (ref && 'current' in ref && ref.current) {
+                          console.log('Force expanding sheet');
+                          ref.current.expand();
+                        }
+                      }, 200);
+                    } else {
+                      console.log('Ref not available');
+                    }
+                  }, 150);
+                }}
+                onBlur={() => console.log('Input blurred')}
+                inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory' : undefined}
+              />
+              
+              {/* Clear Button - Always present when there's text */}
+              {url.trim().length > 0 && (
+                <TouchableOpacity
+                  style={[styles.clearButton, isDarkMode && styles.clearButtonDark]}
+                  onPress={() => {
+                    setUrl('');
+                    setSelectedType('bookmark');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={18}
+                    color={isDarkMode ? '#999' : '#666'}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            {/* Quick Actions - Right below textarea */}
+            <View style={styles.quickActionsCompact}>
+              <TouchableOpacity 
+                style={[styles.quickActionCompact, isDarkMode && styles.quickActionCompactDark]}
+                onPress={() => {
+                  console.log('Camera pressed - dismissing keyboard');
+                  Keyboard.dismiss();
+                }}
+              >
+                <MaterialIcons name="camera-alt" size={20} color="#FF6B35" />
+                <Text style={[styles.quickActionTextCompact, isDarkMode && styles.quickActionTextDarkCompact]}>
+                  Camera
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={[styles.quickActionCompact, isDarkMode && styles.quickActionCompactDark]}>
+                <MaterialIcons name="photo-library" size={20} color="#FF6B35" />
+                <Text style={[styles.quickActionTextCompact, isDarkMode && styles.quickActionTextDarkCompact]}>
+                  Gallery
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={[styles.quickActionCompact, isDarkMode && styles.quickActionCompactDark]} onPress={handlePaste}>
+                <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
+                <Text style={[styles.quickActionTextCompact, isDarkMode && styles.quickActionTextDarkCompact]}>
+                  Paste
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
           </KeyboardAvoidingView>
 
@@ -396,11 +458,12 @@ const AddItemSheet = observer(
                     styles.spaceButton,
                     isDarkMode && styles.spaceButtonDark,
                     selectedSpaceId === space.id && styles.spaceButtonActive,
-                    selectedSpaceId === space.id && { backgroundColor: space.color },
                   ]}
                   onPress={() => setSelectedSpaceId(space.id)}
                 >
-                  <View style={[styles.spaceIndicator, { backgroundColor: space.color }]} />
+                  {selectedSpaceId !== space.id && (
+                    <View style={[styles.spaceIndicator, { backgroundColor: space.color }]} />
+                  )}
                   <Text style={[
                     styles.spaceLabel,
                     isDarkMode && styles.spaceLabelDark,
@@ -464,49 +527,6 @@ const AddItemSheet = observer(
             )}
           </View>
 
-          {/* Quick Actions */}
-          <View style={styles.section}>
-            <View style={styles.quickActions}>
-              <TouchableOpacity 
-                style={styles.quickAction}
-                onPress={() => {
-                  console.log('Camera pressed - dismissing keyboard');
-                  Keyboard.dismiss();
-                }}
-              >
-                <MaterialIcons
-                  name="camera-alt"
-                  size={28}
-                  color="#FF6B35"
-                />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
-                  Camera
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.quickAction}>
-                <MaterialIcons
-                  name="photo-library"
-                  size={28}
-                  color="#FF6B35"
-                />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
-                  Gallery
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.quickAction} onPress={handlePaste}>
-                <MaterialIcons
-                  name="content-paste"
-                  size={28}
-                  color="#FF6B35"
-                />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>
-                  Paste
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           {/* Content Type Selection - Hidden below fold */}
           <View style={[styles.section, styles.typeSection]}>
@@ -665,10 +685,14 @@ const styles = StyleSheet.create({
   typeLabelActive: {
     color: '#FFFFFF',
   },
+  inputContainer: {
+    position: 'relative',
+  },
   input: {
     backgroundColor: '#F2F2F7',
     borderRadius: 12,
     padding: 12,
+    paddingRight: 40, // Make room for clear button
     fontSize: 16,
     color: '#000000',
   },
@@ -679,6 +703,20 @@ const styles = StyleSheet.create({
   inputDark: {
     backgroundColor: '#2C2C2E',
     color: '#FFFFFF',
+  },
+  clearButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   quickActions: {
     flexDirection: 'row',
@@ -695,6 +733,32 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   quickActionTextDark: {
+    color: '#AAAAAA',
+  },
+  // Compact quick actions styles
+  quickActionsCompact: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 8,
+  },
+  quickActionCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  quickActionCompactDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  quickActionTextCompact: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  quickActionTextDarkCompact: {
     color: '#AAAAAA',
   },
   typeSection: {
