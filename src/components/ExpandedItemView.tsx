@@ -12,6 +12,7 @@ import {
   Platform,
   SafeAreaView,
   Alert,
+  Linking,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -569,23 +570,43 @@ const ExpandedItemView = observer(({
 
                   {/* URL Display */}
                   {itemToDisplay?.url && (
-                    <TouchableOpacity
-                      style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
-                      onPress={async () => {
-                        if (itemToDisplay?.url) {
-                          await Clipboard.setStringAsync(itemToDisplay.url);
-                          Alert.alert('Link Copied', 'The URL has been copied to your clipboard');
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.urlLabel, isDarkMode && styles.urlLabelDark]}>
+                    <View style={styles.urlSection}>
+                      <Text style={[styles.urlSectionLabel, isDarkMode && styles.urlSectionLabelDark]}>
                         URL
                       </Text>
-                      <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={1}>
-                        {itemToDisplay.url}
-                      </Text>
-                    </TouchableOpacity>
+                      <View style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}>
+                        <View style={styles.urlContent}>
+                          <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
+                            {itemToDisplay.url}
+                          </Text>
+                        </View>
+                        <View style={styles.urlActions}>
+                          <TouchableOpacity
+                            style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
+                            onPress={async () => {
+                              if (itemToDisplay?.url) {
+                                await Clipboard.setStringAsync(itemToDisplay.url);
+                                Alert.alert('Copied', 'URL copied to clipboard');
+                              }
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.urlActionIcon}>📋</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
+                            onPress={async () => {
+                              if (itemToDisplay?.url) {
+                                await Linking.openURL(itemToDisplay.url);
+                              }
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.urlActionIcon}>🔗</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
                   )}
 
                   {/* Type Selector */}
@@ -858,11 +879,26 @@ const styles = StyleSheet.create({
   metaLabelDark: {
     color: '#999',
   },
+  urlSection: {
+    marginBottom: 20,
+  },
+  urlSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  urlSectionLabelDark: {
+    color: '#999',
+  },
   urlContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F5F5F5',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
@@ -870,15 +906,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
     borderColor: '#3A3A3C',
   },
-  urlLabel: {
-    fontSize: 10,
-    color: '#666',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  urlContent: {
+    flex: 1,
+    marginRight: 8,
   },
-  urlLabelDark: {
-    color: '#999',
+  urlActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  urlActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  urlActionButtonDark: {
+    backgroundColor: '#3A3A3C',
+  },
+  urlActionIcon: {
+    fontSize: 18,
   },
   urlText: {
     fontSize: 14,
