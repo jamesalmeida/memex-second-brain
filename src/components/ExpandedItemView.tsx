@@ -11,7 +11,9 @@ import {
   StatusBar,
   Platform,
   SafeAreaView,
+  Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -293,6 +295,27 @@ const ExpandedItemView = observer(({
                     </View>
                   </View>
 
+                  {/* URL Display */}
+                  {itemToDisplay?.url && (
+                    <TouchableOpacity
+                      style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
+                      onPress={async () => {
+                        if (itemToDisplay?.url) {
+                          await Clipboard.setStringAsync(itemToDisplay.url);
+                          Alert.alert('Link Copied', 'The URL has been copied to your clipboard');
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.urlLabel, isDarkMode && styles.urlLabelDark]}>
+                        URL
+                      </Text>
+                      <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={1}>
+                        {itemToDisplay.url}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
                   {/* Description */}
                   {itemToDisplay?.desc && (
                     <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
@@ -486,6 +509,23 @@ const ExpandedItemView = observer(({
                         </Text>
                       </TouchableOpacity>
 
+                      {itemToDisplay?.url && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={async () => {
+                            if (itemToDisplay?.url) {
+                              await Clipboard.setStringAsync(itemToDisplay.url);
+                              Alert.alert('Link Copied', 'The URL has been copied to your clipboard');
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
+                            🔗 Copy Link
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
                       <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => onArchive?.(itemToDisplay!)}
@@ -614,6 +654,36 @@ const styles = StyleSheet.create({
   },
   metaLabelDark: {
     color: '#999',
+  },
+  urlContainer: {
+    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  urlContainerDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  urlLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  urlLabelDark: {
+    color: '#999',
+  },
+  urlText: {
+    fontSize: 14,
+    color: '#007AFF',
+    textDecorationLine: 'underline',
+  },
+  urlTextDark: {
+    color: '#5AC8FA',
   },
   description: {
     fontSize: 16,

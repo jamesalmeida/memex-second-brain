@@ -46,7 +46,8 @@
     "react-native-url-polyfill": "^2.0.0",
     "text-encoding-polyfill": "^0.6.7",
     "web-streams-polyfill": "^3.3.3",
-    "youtubei.js": "^15.0.1"
+    "youtubei.js": "^15.0.1",
+    "expo-clipboard": "~7.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
