@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npx expo install:*)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

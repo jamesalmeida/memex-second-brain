@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useRouter } from 'expo-router';
 import { themeStore } from '../../src/stores/theme';
 import SpaceCard from '../../src/components/SpaceCard';
+import ExpandedSpaceView from '../../src/components/ExpandedSpaceView';
 import { Space } from '../../src/types';
 import { generateMockSpaces, getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
 
@@ -12,6 +13,9 @@ const SpacesScreen = observer(() => {
   const router = useRouter();
   const [spaces, setSpaces] = useState<Space[]>(generateMockSpaces());
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
+  const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
+  const cardRefs = useRef<{ [key: string]: any }>({});
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -23,13 +27,25 @@ const SpacesScreen = observer(() => {
   }, []);
 
   const handleSpacePress = (space: Space) => {
-    // Navigate to space detail screen (to be created)
-    console.log('Space pressed:', space.name);
-    // router.push(`/space/${space.id}`);
+    // Get the position of the card for animation
+    const cardRef = cardRefs.current[space.id];
+    if (cardRef) {
+      cardRef.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+        setCardPosition({ x: pageX, y: pageY, width, height });
+        setSelectedSpace(space);
+      });
+    } else {
+      // Fallback if ref not available
+      setSelectedSpace(space);
+    }
   };
 
   const renderItem = ({ item, index }: { item: Space; index: number }) => (
-    <View style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}>
+    <View 
+      style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}
+      ref={(ref) => cardRefs.current[item.id] = ref}
+      collapsable={false}
+    >
       <SpaceCard 
         space={item} 
         itemCount={getSpaceItemCount(item.id)}
@@ -92,6 +108,20 @@ const SpacesScreen = observer(() => {
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
+
+      {/* Expanded Space View */}
+      <ExpandedSpaceView
+        space={selectedSpace}
+        isVisible={!!selectedSpace}
+        cardPosition={cardPosition}
+        onClose={() => {
+          setSelectedSpace(null);
+          // Keep cardPosition for closing animation
+          setTimeout(() => {
+            setCardPosition(undefined);
+          }, 300);
+        }}
+      />
     </View>
   );
 });
