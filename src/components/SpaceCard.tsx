@@ -41,18 +41,20 @@ const SpaceCard = observer(({ space, itemCount, onPress }: SpaceCardProps) => {
           </Text>
         )}
 
+        {/* Bottom Footer with emoji on left and item count on right */}
         <View style={styles.footer}>
+          {/* Space Icon/Emoji */}
+          <View style={[styles.iconContainer, { backgroundColor: space.color + '15' }]}>
+            <Text style={styles.icon}>{space.icon || '📁'}</Text>
+          </View>
+          
+          {/* Item Count */}
           <View style={[styles.itemCountBadge, { backgroundColor: space.color + '20' }]}>
             <Text style={[styles.itemCount, { color: space.color }]}>
               {itemCount} {itemCount === 1 ? 'item' : 'items'}
             </Text>
           </View>
         </View>
-      </View>
-
-      {/* Space Icon/Emoji */}
-      <View style={[styles.iconContainer, { backgroundColor: space.color + '15' }]}>
-        <Text style={styles.icon}>{space.icon || '📁'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -110,9 +112,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
   },
   itemCountBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -122,16 +127,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   iconContainer: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   icon: {
-    fontSize: 20,
+    fontSize: 18,
   },
 });
