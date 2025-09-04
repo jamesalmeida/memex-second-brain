@@ -95,6 +95,7 @@ const ExpandedItemView = observer(({
   const scrollViewRef = useRef<ScrollView>(null);
   const [showTools, setShowTools] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [expandedDescription, setExpandedDescription] = useState(false);
   
   // Set up video player if item has video
   const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
@@ -464,9 +465,33 @@ const ExpandedItemView = observer(({
 
                   {/* Description */}
                   {itemToDisplay?.desc && (
-                    <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
-                      {itemToDisplay.desc}
-                    </Text>
+                    <View style={styles.descriptionSection}>
+                      <Text style={[styles.descriptionSectionLabel, isDarkMode && styles.descriptionSectionLabelDark]}>
+                        DESCRIPTION
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.descriptionContainer, isDarkMode && styles.descriptionContainerDark]}
+                        onPress={() => setExpandedDescription(!expandedDescription)}
+                        activeOpacity={0.7}
+                      >
+                        <Text 
+                          style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]} 
+                          numberOfLines={expandedDescription ? undefined : 6}
+                        >
+                          {itemToDisplay.desc}
+                        </Text>
+                        {(!expandedDescription && itemToDisplay.desc.length > 300) && (
+                          <Text style={[styles.expandToggle, isDarkMode && styles.expandToggleDark]}>
+                            Show more ▼
+                          </Text>
+                        )}
+                        {expandedDescription && (
+                          <Text style={[styles.expandToggle, isDarkMode && styles.expandToggleDark]}>
+                            Show less ▲
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   )}
 
                   {/* Full Content */}
@@ -612,7 +637,7 @@ const ExpandedItemView = observer(({
                   {/* Type Selector */}
                   <View style={styles.typeSection}>
                     <Text style={[styles.typeSectionLabel, isDarkMode && styles.typeSectionLabelDark]}>
-                      Type
+                      CONTENT TYPE
                     </Text>
                     <TouchableOpacity
                       style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
@@ -936,14 +961,46 @@ const styles = StyleSheet.create({
   urlTextDark: {
     color: '#5AC8FA',
   },
-  description: {
-    fontSize: 16,
-    color: '#333',
-    lineHeight: 24,
+  descriptionSection: {
     marginBottom: 20,
   },
-  descriptionDark: {
+  descriptionSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  descriptionSectionLabelDark: {
+    color: '#999',
+  },
+  descriptionContainer: {
+    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  descriptionContainerDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 22,
+  },
+  descriptionTextDark: {
     color: '#CCC',
+  },
+  expandToggle: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  expandToggleDark: {
+    color: '#5AC8FA',
   },
   fullContent: {
     marginBottom: 20,
