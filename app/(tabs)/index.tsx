@@ -114,7 +114,7 @@ const HomeScreen = observer(() => {
         masonry
         numColumns={2}
         estimatedItemSize={200}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 60 }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 53 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
         refreshControl={
@@ -129,15 +129,16 @@ const HomeScreen = observer(() => {
       {/* Floating Search Bar */}
       <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark, { 
         position: 'absolute',
-        top: insets.top + 8,
-        left: 8,
-        right: 8,
+        top: insets.top - 12,
+        left: 4,
+        right: 4,
         zIndex: 10,
+        // REMOVE THIS AFTER TESTING
+        // backgroundColor: 'red',
       }]}>
-        <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
-          placeholder="Search your second brain..."
+          placeholder="Search Everything..."
           placeholderTextColor={isDarkMode ? '#666' : '#999'}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -192,29 +193,27 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    margin: 8,
-    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+    marginHorizontal: 4,
+    marginTop: 8,
+    paddingHorizontal: 4,
     paddingVertical: 8,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FF6B35',
   },
   searchContainerDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    backgroundColor: 'transparent',
+    borderBottomColor: '#FF6B35',
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
     color: '#000000',
-    padding: 4,
+    paddingLeft: 6,
+    paddingRight: 6,
+    paddingTop: 6,
+    paddingBottom: 0,
+    fontSize: 18,
+    fontFamily: 'Times New Roman',
   },
   searchInputDark: {
     color: '#FFFFFF',

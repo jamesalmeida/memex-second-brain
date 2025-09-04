@@ -57,7 +57,7 @@ const TabLayout = observer(() => {
         tint={isDarkMode ? 'dark' : 'light'}
         style={[
           styles.topSafeAreaOverlay, 
-          { height: insets.top + 60 }
+          { height: insets.top + 40 }
         ]}
       />
 
@@ -100,6 +100,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    // REMOVE THIS AFTER TESTING
+    // backgroundColor: 'green',
   },
 });
 
