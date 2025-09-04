@@ -19,6 +19,11 @@ export interface TwitterMetadata {
     type: 'photo' | 'video' | 'animated_gif';
     url: string;
     previewUrl?: string;
+    variants?: Array<{
+      bit_rate?: number;
+      content_type: string;
+      url: string;
+    }>;
   }>;
   quotedTweet?: {
     text: string;
@@ -56,7 +61,7 @@ export const fetchTweetData = async (tweetId: string): Promise<TwitterMetadata> 
   const params = new URLSearchParams({
     'tweet.fields': 'created_at,author_id,public_metrics,referenced_tweets,attachments',
     'user.fields': 'name,username,profile_image_url',
-    'media.fields': 'url,preview_image_url,type,duration_ms,height,width',
+    'media.fields': 'url,preview_image_url,type,duration_ms,height,width,variants',
     'expansions': 'author_id,attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id',
   });
 
@@ -86,11 +91,29 @@ export const fetchTweetData = async (tweetId: string): Promise<TwitterMetadata> 
     // Process media attachments
     let processedMedia: TwitterMetadata['media'] = undefined;
     if (media && media.length > 0) {
-      processedMedia = media.map((m: any) => ({
-        type: m.type,
-        url: m.url || m.preview_image_url,
-        previewUrl: m.preview_image_url,
-      }));
+      processedMedia = media.map((m: any) => {
+        // For videos, get the best quality variant
+        let videoUrl = m.url || m.preview_image_url;
+        if (m.type === 'video' || m.type === 'animated_gif') {
+          if (m.variants && m.variants.length > 0) {
+            // Filter for mp4 variants and sort by bitrate
+            const mp4Variants = m.variants
+              .filter((v: any) => v.content_type === 'video/mp4')
+              .sort((a: any, b: any) => (b.bit_rate || 0) - (a.bit_rate || 0));
+            
+            if (mp4Variants.length > 0) {
+              videoUrl = mp4Variants[0].url;
+            }
+          }
+        }
+        
+        return {
+          type: m.type,
+          url: videoUrl,
+          previewUrl: m.preview_image_url,
+          variants: m.variants,
+        };
+      });
     }
 
     // Check for quoted tweets

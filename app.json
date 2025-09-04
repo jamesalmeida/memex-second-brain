@@ -47,7 +47,8 @@
             "groupIdentifier": "group.com.memex.secondbrain"
           }
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

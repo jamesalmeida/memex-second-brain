@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { Item } from '../types';
@@ -16,6 +17,15 @@ interface ItemCardProps {
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
+  
+  // Set up video player if item has video
+  const player = useVideoPlayer(item.video_url ? item.video_url : null, player => {
+    if (player && item.video_url) {
+      player.loop = true;
+      player.muted = true;
+      player.play();
+    }
+  });
 
   const getContentTypeIcon = () => {
     switch (item.content_type) {
@@ -85,26 +95,48 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       activeOpacity={0.7}
     >
       {/* Thumbnail or Content Preview */}
-      {item.thumbnail_url ? (
-        <Image
-          source={{ uri: item.thumbnail_url }}
-          style={[
-            styles.thumbnail, 
-            imageHeight ? { height: imageHeight } : null
-          ]}
-          contentFit="cover"
-          onLoad={(e: any) => {
-            // Calculate height based on image aspect ratio
-            if (e.source && e.source.width && e.source.height) {
-              const aspectRatio = e.source.height / e.source.width;
-              const cardWidth = screenWidth / 2 - 18; // Approximate card width
-              const calculatedHeight = cardWidth * aspectRatio;
-              // Cap maximum height to prevent overly tall cards
-              const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-              setImageHeight(finalHeight);
-            }
-          }}
-        />
+      {item.video_url && player ? (
+        // Show video player for items with video
+        <View style={{ position: 'relative' }}>
+          <VideoView
+            player={player}
+            style={[
+              styles.thumbnail,
+              { height: 200 }
+            ]}
+            contentFit="cover"
+            allowsFullscreen={false}
+            showsTimecodes={false}
+          />
+          {/* Show play button overlay to indicate video */}
+          <View style={styles.playButtonOverlay} pointerEvents="none">
+            <View style={styles.playButton}>
+              <Text style={styles.playButtonIcon}>▶️</Text>
+            </View>
+          </View>
+        </View>
+      ) : item.thumbnail_url ? (
+        <View>
+          <Image
+            source={{ uri: item.thumbnail_url }}
+            style={[
+              styles.thumbnail, 
+              imageHeight ? { height: imageHeight } : null
+            ]}
+            contentFit="cover"
+            onLoad={(e: any) => {
+              // Calculate height based on image aspect ratio
+              if (e.source && e.source.width && e.source.height) {
+                const aspectRatio = e.source.height / e.source.width;
+                const cardWidth = screenWidth / 2 - 18; // Approximate card width
+                const calculatedHeight = cardWidth * aspectRatio;
+                // Cap maximum height to prevent overly tall cards
+                const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                setImageHeight(finalHeight);
+              }
+            }}
+          />
+        </View>
       ) : item.content ? (
         <View style={[styles.textPreview, { backgroundColor: getContentTypeColor() + '15' }]}>
           <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
@@ -214,6 +246,28 @@ const styles = StyleSheet.create({
   },
   typeBadgeTextWhite: {
     color: '#FFFFFF',
+  },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  playButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButtonIcon: {
+    fontSize: 20,
+    marginLeft: 3,
   },
   cardContent: {
     padding: 12,

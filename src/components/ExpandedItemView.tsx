@@ -14,6 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -85,6 +86,16 @@ const ExpandedItemView = observer(({
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+  
+  // Set up video player if item has video
+  const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
+    if (player && displayItem?.video_url) {
+      player.loop = true;
+      player.muted = false; // Allow sound in expanded view
+      player.play();
+    }
+  });
 
   useEffect(() => {
     if (isVisible && item) {
@@ -249,15 +260,43 @@ const ExpandedItemView = observer(({
               >
 
               <Animated.View style={[contentStyle]}>
-                {/* Hero Image/Thumbnail with Close Button Overlay */}
+                {/* Hero Image/Video with Close Button Overlay */}
                 <View style={styles.heroContainer}>
-                  {itemToDisplay?.thumbnail_url ? (
+                  {itemToDisplay?.video_url && videoPlayer ? (
+                    // Show video player for Twitter/X videos
+                    <VideoView
+                      player={videoPlayer}
+                      style={[
+                        styles.heroMedia,
+                        { height: SCREEN_WIDTH / (16/9) } // Set aspect ratio for videos
+                      ]}
+                      contentFit="contain"
+                      allowsFullscreen={true}
+                      showsTimecodes={true}
+                    />
+                  ) : itemToDisplay?.thumbnail_url ? (
+                    // Show image for non-video items
                     <Image
                       source={{ uri: itemToDisplay.thumbnail_url }}
-                      style={styles.heroImage}
-                      resizeMode="cover"
+                      style={[
+                        styles.heroMedia,
+                        imageAspectRatio ? {
+                          width: SCREEN_WIDTH,
+                          height: SCREEN_WIDTH / imageAspectRatio,
+                          maxHeight: SCREEN_HEIGHT * 0.6
+                        } : {}
+                      ]}
+                      resizeMode="contain"
+                      onLoad={(e: any) => {
+                        // Dynamically adjust height based on image aspect ratio
+                        if (e.source && e.source.width && e.source.height) {
+                          const ratio = e.source.width / e.source.height;
+                          setImageAspectRatio(ratio);
+                        }
+                      }}
                     />
                   ) : (
+                    // Placeholder when no media
                     <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
                       <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
                     </View>
@@ -613,6 +652,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 250,
     backgroundColor: '#F0F0F0',
+  },
+  heroMedia: {
+    width: SCREEN_WIDTH,
+    minHeight: 250,
+    maxHeight: SCREEN_HEIGHT * 0.6,
+    backgroundColor: '#000000',
   },
   placeholderHero: {
     width: '100%',

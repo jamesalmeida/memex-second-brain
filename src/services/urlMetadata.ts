@@ -8,6 +8,7 @@ export interface URLMetadata {
   title?: string;
   description?: string;
   image?: string;
+  videoUrl?: string; // Add video URL for Twitter/X videos
   siteName?: string;
   favicon?: string;
   contentType: string;
@@ -125,16 +126,28 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
     }
     description += `\n\n${metricsText} · ${timeAgo}`;
     
-    // Get the first image from media if available
+    // Get media - prioritize video, then image
+    const videoMedia = tweetData.media?.find(m => m.type === 'video' || m.type === 'animated_gif');
     const firstImage = tweetData.media?.find(m => m.type === 'photo')?.url || 
                        tweetData.media?.[0]?.previewUrl ||
                        tweetData.author.profileImage;
+    
+    // Debug logging
+    if (videoMedia) {
+      console.log('Video media found:', {
+        type: videoMedia.type,
+        url: videoMedia.url,
+        previewUrl: videoMedia.previewUrl,
+        hasVariants: !!videoMedia.variants
+      });
+    }
     
     return {
       url,
       title,
       description,
-      image: firstImage,
+      image: videoMedia?.previewUrl || firstImage, // Use video preview or image
+      videoUrl: videoMedia?.url, // Add video URL if available
       author: `${tweetData.author.name} (@${tweetData.author.username})`,
       contentType: 'x',
       siteName: 'X (Twitter)',

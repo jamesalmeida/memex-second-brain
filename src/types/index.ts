@@ -34,6 +34,7 @@ export interface Item {
   content?: string;
   desc?: string;
   thumbnail_url?: string;
+  video_url?: string;
   raw_text?: string;
   created_at: string;
   updated_at: string;

@@ -47,7 +47,8 @@
     "text-encoding-polyfill": "^0.6.7",
     "web-streams-polyfill": "^3.3.3",
     "youtubei.js": "^15.0.1",
-    "expo-clipboard": "~7.1.5"
+    "expo-clipboard": "~7.1.5",
+    "expo-video": "~2.2.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
