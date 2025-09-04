@@ -51,13 +51,13 @@ const TabLayout = observer(() => {
         {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
       </View>
 
-      {/* Blurred top safe area overlay - matching nav bar */}
+      {/* Blurred top safe area overlay - extends behind search bar */}
       <BlurView 
         intensity={80} 
         tint={isDarkMode ? 'dark' : 'light'}
         style={[
           styles.topSafeAreaOverlay, 
-          { height: insets.top }
+          { height: insets.top + 60 }
         ]}
       />
 
