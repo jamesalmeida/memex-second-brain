@@ -36,7 +36,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const getContentTypeIcon = () => {
     switch (item.content_type) {
       case 'youtube':
-        return '▶️';
+        return '▶';
       case 'x':
         return '𝕏';
       case 'github':
@@ -134,7 +134,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
           {/* Show play button overlay to indicate video */}
           <View style={styles.playButtonOverlay} pointerEvents="none">
             <View style={styles.playButton}>
-              <Text style={styles.playButtonIcon}>▶️</Text>
+              <Text style={styles.playButtonIcon}>▶</Text>
             </View>
           </View>
         </View>
@@ -224,7 +224,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor() }]}>
         <Text style={[
           styles.typeBadgeText,
-          item.content_type === 'x' && styles.typeBadgeTextWhite
+          (item.content_type === 'x' || item.content_type === 'youtube') && styles.typeBadgeTextWhite
         ]}>
           {getContentTypeIcon()}
         </Text>
@@ -339,6 +339,7 @@ const styles = StyleSheet.create({
   playButtonIcon: {
     fontSize: 20,
     marginLeft: 3,
+    color: '#FFFFFF',
   },
   cardContent: {
     padding: 12,
