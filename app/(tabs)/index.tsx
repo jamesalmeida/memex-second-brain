@@ -78,7 +78,7 @@ const HomeScreen = observer(() => {
     <View 
       ref={(ref) => cardRefs.current[item.id] = ref}
       collapsable={false}
-      style={{ width: '100%', paddingHorizontal: 6, paddingBottom: 12 }}
+      style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}
     >
       <ItemCard 
         item={item} 
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    margin: 12,
+    margin: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   listContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     paddingBottom: 100,
   },
   emptyContainer: {

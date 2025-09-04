@@ -20,7 +20,7 @@ interface CreateSpaceSheetProps {
   onSpaceCreated?: (space: Space) => void;
 }
 
-const EMOJI_OPTIONS = ['📁', '🚀', '💡', '📚', '🎨', '🔬', '🎯', '💼', '🌟', '🔥', '⚡', '🌈'];
+const EMOJI_OPTIONS = [null, '📁', '🚀', '💡', '📚', '🎨', '🔬', '🎯', '💼', '🌟', '🔥', '⚡'];
 const COLOR_OPTIONS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#DDA0DD',
   '#FF8C94', '#98D8C8', '#6C5CE7', '#55A3FF', '#FD79A8', '#A29BFE',
@@ -31,7 +31,7 @@ const CreateSpaceSheet = observer(
     const isDarkMode = themeStore.isDarkMode.get();
     const [spaceName, setSpaceName] = useState('');
     const [spaceDescription, setSpaceDescription] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState('📁');
+    const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
     const [selectedColor, setSelectedColor] = useState('#4ECDC4');
     
     // Snap points for the bottom sheet
@@ -61,7 +61,7 @@ const CreateSpaceSheet = observer(
         name: spaceName.trim(),
         description: spaceDescription.trim(),
         color: selectedColor,
-        icon: selectedEmoji,
+        icon: selectedEmoji || undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         item_count: 0,
@@ -74,7 +74,7 @@ const CreateSpaceSheet = observer(
       // Reset form
       setSpaceName('');
       setSpaceDescription('');
-      setSelectedEmoji('📁');
+      setSelectedEmoji(null);
       setSelectedColor('#4ECDC4');
       
       // Close sheet
@@ -84,7 +84,7 @@ const CreateSpaceSheet = observer(
     const handleCancel = () => {
       setSpaceName('');
       setSpaceDescription('');
-      setSelectedEmoji('📁');
+      setSelectedEmoji(null);
       setSelectedColor('#4ECDC4');
       (ref as any)?.current?.close();
     };
@@ -146,9 +146,9 @@ const CreateSpaceSheet = observer(
               CHOOSE AN EMOJI
             </Text>
             <View style={styles.emojiGrid}>
-              {EMOJI_OPTIONS.map((emoji) => (
+              {EMOJI_OPTIONS.map((emoji, index) => (
                 <TouchableOpacity
-                  key={emoji}
+                  key={index}
                   style={[
                     styles.emojiOption,
                     selectedEmoji === emoji && styles.emojiOptionSelected,
@@ -156,7 +156,11 @@ const CreateSpaceSheet = observer(
                   ]}
                   onPress={() => setSelectedEmoji(emoji)}
                 >
-                  <Text style={styles.emojiText}>{emoji}</Text>
+                  {emoji === null ? (
+                    <Text style={[styles.noEmojiText, isDarkMode && styles.noEmojiTextDark]}>None</Text>
+                  ) : (
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -209,10 +213,12 @@ const CreateSpaceSheet = observer(
               PREVIEW
             </Text>
             <View style={[styles.previewCard, isDarkMode && styles.previewCardDark]}>
-              <View style={[styles.previewIcon, { backgroundColor: selectedColor }]}>
-                <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
-              </View>
-              <View style={styles.previewContent}>
+              {selectedEmoji && (
+                <View style={[styles.previewIcon, { backgroundColor: selectedColor }]}>
+                  <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
+                </View>
+              )}
+              <View style={[styles.previewContent, !selectedEmoji && { marginLeft: 0 }]}>
                 <Text style={[styles.previewName, isDarkMode && styles.previewNameDark]}>
                   {spaceName || 'Space Name'}
                 </Text>
@@ -337,6 +343,14 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 24,
+  },
+  noEmojiText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  noEmojiTextDark: {
+    color: '#999',
   },
   colorGrid: {
     flexDirection: 'row',

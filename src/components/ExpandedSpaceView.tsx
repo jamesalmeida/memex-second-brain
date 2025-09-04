@@ -424,12 +424,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   listContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     paddingBottom: 100,
   },
   itemWrapper: {
     flex: 1,
-    padding: 6,
+    padding: 4,
   },
   emptyContainer: {
     flex: 1,

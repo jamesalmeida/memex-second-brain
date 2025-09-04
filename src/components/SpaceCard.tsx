@@ -5,7 +5,6 @@ import { themeStore } from '../stores/theme';
 import { Space } from '../types';
 
 const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 
 interface SpaceCardProps {
   space: Space;
@@ -43,10 +42,12 @@ const SpaceCard = observer(({ space, itemCount, onPress }: SpaceCardProps) => {
 
         {/* Bottom Footer with emoji on left and item count on right */}
         <View style={styles.footer}>
-          {/* Space Icon/Emoji */}
-          <View style={[styles.iconContainer, { backgroundColor: space.color + '15' }]}>
-            <Text style={styles.icon}>{space.icon || '📁'}</Text>
-          </View>
+          {/* Space Icon/Emoji - only show if icon exists */}
+          {space.icon && (
+            <View style={[styles.iconContainer, { backgroundColor: space.color + '15' }]}>
+              <Text style={styles.icon}>{space.icon}</Text>
+            </View>
+          )}
           
           {/* Item Count */}
           <View style={[styles.itemCountBadge, { backgroundColor: space.color + '20' }]}>
@@ -64,11 +65,10 @@ export default SpaceCard;
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

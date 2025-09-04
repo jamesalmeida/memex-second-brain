@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useRouter } from 'expo-router';
 import { themeStore } from '../../src/stores/theme';
@@ -55,9 +56,9 @@ const SpacesScreen = observer(() => {
     }
   };
 
-  const renderItem = ({ item, index }: { item: Space; index: number }) => (
+  const renderItem = ({ item }: { item: Space }) => (
     <View 
-      style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}
+      style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}
       ref={(ref) => cardRefs.current[item.id] = ref}
       collapsable={false}
     >
@@ -97,12 +98,13 @@ const SpacesScreen = observer(() => {
       </View>
 
       {/* Spaces Grid */}
-      <FlatList
+      <FlashList
         data={spaces}
         renderItem={renderItem}
         keyExtractor={item => item.id}
+        masonry
         numColumns={2}
-        columnWrapperStyle={styles.row}
+        estimatedItemSize={150}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingTop: 16,
     paddingBottom: 12,
   },
@@ -173,17 +175,8 @@ const styles = StyleSheet.create({
     color: '#999999',
   },
   listContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     paddingBottom: 100,
-  },
-  row: {
-    justifyContent: 'space-between',
-  },
-  leftColumn: {
-    marginRight: 6,
-  },
-  rightColumn: {
-    marginLeft: 6,
   },
   emptyContainer: {
     flex: 1,
