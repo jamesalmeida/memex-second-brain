@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, Text, SafeAreaView } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { observer, useObservable } from '@legendapp/state/react';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
@@ -57,5 +58,9 @@ const RootLayoutContent = observer(() => {
 
 export default function RootLayout() {
   console.log('🏗️ Root layout component rendered');
-  return <RootLayoutContent />;
+  return (
+    <SafeAreaProvider>
+      <RootLayoutContent />
+    </SafeAreaProvider>
+  );
 }

@@ -36,7 +36,8 @@
     "react-native-gesture-handler": "^2.28.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-svg": "15.11.2",
-    "expo-blur": "~14.1.5"
+    "expo-blur": "~14.1.5",
+    "react-native-safe-area-context": "5.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

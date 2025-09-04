@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../src/stores/theme';
 import ItemCard from '../../src/components/ItemCard';
+import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
 
@@ -12,6 +13,8 @@ const HomeScreen = observer(() => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
+  const cardRefs = useRef<{ [key: string]: any }>({});
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -23,9 +26,17 @@ const HomeScreen = observer(() => {
   }, []);
 
   const handleItemPress = (item: Item) => {
-    // TODO: Implement expanding card animation
-    console.log('Item pressed:', item.title);
-    setSelectedItem(item);
+    // Get the position of the card for animation
+    const cardRef = cardRefs.current[item.id];
+    if (cardRef) {
+      cardRef.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+        setCardPosition({ x: pageX, y: pageY, width, height });
+        setSelectedItem(item);
+      });
+    } else {
+      // Fallback if ref not available
+      setSelectedItem(item);
+    }
   };
 
   const handleItemLongPress = (item: Item) => {
@@ -34,7 +45,11 @@ const HomeScreen = observer(() => {
   };
 
   const renderItem = ({ item, index }: { item: Item; index: number }) => (
-    <View style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}>
+    <View 
+      style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}
+      ref={(ref) => cardRefs.current[item.id] = ref}
+      collapsable={false}
+    >
       <ItemCard 
         item={item} 
         onPress={handleItemPress}
@@ -98,6 +113,28 @@ const HomeScreen = observer(() => {
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
+
+      {/* Expanded Item View */}
+      <ExpandedItemView
+        item={selectedItem}
+        isVisible={!!selectedItem}
+        cardPosition={cardPosition}
+        onClose={() => {
+          setSelectedItem(null);
+          setCardPosition(undefined);
+        }}
+        onChat={(item) => console.log('Chat with item:', item.title)}
+        onEdit={(item) => console.log('Edit item:', item.title)}
+        onArchive={(item) => console.log('Archive item:', item.title)}
+        onDelete={(item) => {
+          console.log('Delete item:', item.title);
+          setItems(prev => prev.filter(i => i.id !== item.id));
+          setSelectedItem(null);
+        }}
+        onShare={(item) => console.log('Share item:', item.title)}
+        onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
+        currentSpaceId={null}
+      />
     </View>
   );
 });
