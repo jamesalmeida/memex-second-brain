@@ -38,12 +38,14 @@
   - Back navigation to home/spaces.  
   - Option to initiate AI chat with space content as context (via bottom sheet).  
   - Offline: Cached space items; queue edits.  
-- **Item Detail Modal**: Full-screen modal for item details (title, content, metadata, media). Actions:  
-  - Edit title/desc/metadata.  
-  - Archive, delete, or move to another space.  
-  - Initiate AI chat with item content as context (via bottom sheet).  
-  - Download media (if applicable) or open external URL.  
-  - Offline: View cached details; queue edits/deletes.  
+- **Item Detail Expanded Card**: Full-screen expanding card animation for item details (title, content, metadata, media). Features:  
+  - Expands from grid position to full screen with hero animation (like iOS App Store)  
+  - Smooth reverse animation back to original grid position on close  
+  - Swipe-down or tap X to dismiss  
+  - Actions: Edit title/desc/metadata, archive, delete, move to another space  
+  - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)  
+  - Download media (if applicable) or open external URL  
+  - Offline: View cached details; queue edits/deletes  
 - **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out.  
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
@@ -156,14 +158,16 @@
 - **Navigation**:  
   - Expo Router for file-based navigation.  
   - Bottom tab navigator: Home (Everything), Spaces, Settings.  
-  - Stack navigator for Space Detail, Item Detail (modal), Capture (modal), and Chat (bottom sheet).  
+  - Stack navigator for Space Detail, Capture (modal), and Chat (bottom sheet).  
+  - Item Detail uses expanding card animation (not modal) with hero transitions.  
 - **Layouts**:  
-  - Mobile: Bottom tab bar; FAB for capture; modals for item detail/capture; bottom sheet for chat.  
+  - Mobile: Bottom tab bar; FAB for capture; expanding cards for item detail; modals for capture; bottom sheet for chat.  
   - Tablet: Optional split-screen layout (e.g., spaces list + item grid).  
 - **Components**:  
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).  
   - **SpaceCard**: Displays name, desc, color, item count.  
-  - **Modals**: Capture, Item Detail, New Space, Settings (dismiss via swipe or button).  
+  - **Modals**: Capture, New Space, Settings (dismiss via swipe or button).  
+  - **ExpandedItemView**: Full-screen card expansion with hero animation, gesture dismissal, and action buttons.  
   - **Chat Bottom Sheet**: `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.  
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.  
 - **iOS Sharesheet** (via `expo-share-extension`):  
