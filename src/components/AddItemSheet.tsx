@@ -21,7 +21,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import { spacesComputed, spacesActions } from '../stores/spaces';
+import { spacesStore, spacesComputed, spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
 import { generateMockSpaces } from '../utils/mockData';
@@ -213,7 +213,7 @@ const AddItemSheet = observer(
         video_url: metadata?.videoUrl || undefined,
         image_urls: metadata?.images || undefined,
         content_type: selectedType as ContentType,
-        space_id: selectedSpaceId || undefined,
+        space_ids: selectedSpaceId ? [selectedSpaceId] : undefined,
         tags: tags.length > 0 ? tags : undefined,
         is_archived: false,
         created_at: new Date().toISOString(),
@@ -224,6 +224,17 @@ const AddItemSheet = observer(
       // Add to the items store
       const currentItems = itemsStore.items.get();
       itemsActions.setItems([newItem, ...currentItems]);
+      
+      // Update space item count if item was added to a space
+      if (selectedSpaceId) {
+        const spaces = spacesStore.spaces.get();
+        const space = spaces.find(s => s.id === selectedSpaceId);
+        if (space) {
+          spacesActions.updateSpace(selectedSpaceId, { 
+            item_count: (space.item_count || 0) + 1 
+          });
+        }
+      }
       
       console.log('Item saved:', newItem);
       

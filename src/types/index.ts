@@ -40,6 +40,7 @@ export interface Item {
   created_at: string;
   updated_at: string;
   is_archived: boolean;
+  space_ids?: string[]; // Array of space IDs this item belongs to
 }
 
 export interface ItemMetadata {
@@ -61,8 +62,13 @@ export interface Space {
   id: string;
   user_id: string;
   name: string;
-  desc?: string;
+  description?: string;
+  desc?: string; // Kept for backward compatibility
   color: string;
+  icon?: string;
+  created_at?: string;
+  updated_at?: string;
+  item_count?: number;
 }
 
 export interface ItemSpace {

@@ -35,9 +35,9 @@ const SpaceCard = observer(({ space, itemCount, onPress }: SpaceCardProps) => {
           {space.name}
         </Text>
         
-        {space.desc && (
+        {(space.description || space.desc) && (
           <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
-            {space.desc}
+            {space.description || space.desc}
           </Text>
         )}
 
@@ -50,9 +50,9 @@ const SpaceCard = observer(({ space, itemCount, onPress }: SpaceCardProps) => {
         </View>
       </View>
 
-      {/* Space Icon/Emoji (optional, could be added later) */}
+      {/* Space Icon/Emoji */}
       <View style={[styles.iconContainer, { backgroundColor: space.color + '15' }]}>
-        <Text style={styles.icon}>📁</Text>
+        <Text style={styles.icon}>{space.icon || '📁'}</Text>
       </View>
     </TouchableOpacity>
   );

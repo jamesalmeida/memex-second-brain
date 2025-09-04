@@ -11,25 +11,32 @@ import { generateMockSpaces, getSpaceItemCount, getEmptyStateMessage } from '../
 
 const SpacesScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const showDemoContent = themeStore.showMockData.get();
   const router = useRouter();
-  const spaces = spacesComputed.spaces();
+  const allSpaces = spacesComputed.spaces();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
+  const [demoSpaces] = useState<Space[]>(generateMockSpaces());
 
-  // Initialize spaces with mock data if empty
+  // Filter spaces based on showDemoContent setting
+  const spaces = showDemoContent 
+    ? [...allSpaces, ...demoSpaces] 
+    : allSpaces.filter(space => !space.id.startsWith('demo-'));
+
+  // Initialize with demo spaces if showDemoContent is on
   useEffect(() => {
-    if (spaces.length === 0) {
-      spacesActions.setSpaces(generateMockSpaces());
+    if (showDemoContent && allSpaces.length === 0) {
+      // Don't actually add demo spaces to the store, just show them in UI
     }
-  }, []);
+  }, [showDemoContent]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate refresh
+    // Simulate refresh - in production this would fetch from API
     setTimeout(() => {
-      spacesActions.setSpaces(generateMockSpaces());
+      // Don't regenerate spaces, just refresh the view
       setRefreshing(false);
     }, 1500);
   }, []);
@@ -56,7 +63,7 @@ const SpacesScreen = observer(() => {
     >
       <SpaceCard 
         space={item} 
-        itemCount={getSpaceItemCount(item.id)}
+        itemCount={item.item_count || 0}
         onPress={handleSpacePress}
       />
     </View>

@@ -23,14 +23,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
+import { itemsStore } from '../stores/items';
 import ItemCard from './ItemCard';
 import ExpandedItemView from './ExpandedItemView';
 import { Item, Space } from '../types';
-import { 
-  generateMockItems, 
-  getItemsForSpace, 
-  getEmptyStateMessage 
-} from '../utils/mockData';
+import { getEmptyStateMessage } from '../utils/mockData';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,7 +54,6 @@ const ExpandedSpaceView = observer(({
   const [displaySpace, setDisplaySpace] = useState<Space | null>(null);
   
   // State for items
-  const allItems = generateMockItems(30);
   const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -65,11 +61,18 @@ const ExpandedSpaceView = observer(({
   const [itemCardPosition, setItemCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
 
+  // Get items for this space from the store
+  const getSpaceItems = (spaceId: string): Item[] => {
+    const allItems = itemsStore.items.get();
+    // Filter items that belong to this space
+    return allItems.filter(item => item.space_ids?.includes(spaceId) || false);
+  };
+
   useEffect(() => {
     if (isVisible && space) {
       // Store the space for display
       setDisplaySpace(space);
-      setItems(getItemsForSpace(space.id, allItems));
+      setItems(getSpaceItems(space.id));
       // Show modal first, then animate in
       setModalVisible(true);
       setTimeout(() => {
@@ -145,8 +148,8 @@ const ExpandedSpaceView = observer(({
     if (!displaySpace) return;
     setRefreshing(true);
     setTimeout(() => {
-      const newItems = generateMockItems(30);
-      setItems(getItemsForSpace(displaySpace.id, newItems));
+      // Refresh items from store
+      setItems(getSpaceItems(displaySpace.id));
       setRefreshing(false);
     }, 1500);
   }, [displaySpace]);
@@ -177,7 +180,10 @@ const ExpandedSpaceView = observer(({
 
   const renderItem = ({ item, index }: { item: Item; index: number }) => (
     <View 
-      style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}
+      style={[
+        styles.itemContainer,
+        index % 2 === 0 ? styles.leftColumn : styles.rightColumn
+      ]}
       ref={(ref) => cardRefs.current[item.id] = ref}
       collapsable={false}
     >
@@ -425,6 +431,11 @@ const styles = StyleSheet.create({
   },
   row: {
     justifyContent: 'space-between',
+    paddingHorizontal: 0,
+  },
+  itemContainer: {
+    flex: 1,
+    maxWidth: (SCREEN_WIDTH - 36) / 2,
   },
   leftColumn: {
     marginRight: 6,

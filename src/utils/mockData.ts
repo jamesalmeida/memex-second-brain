@@ -149,7 +149,7 @@ export const generateMockItems = (count: number = 20): Item[] => {
 // Generate mock spaces
 export const generateMockSpaces = (): Space[] => {
   return spaceNames.map((space, index) => ({
-    id: generateId(),
+    id: `demo-${generateId()}`,
     user_id: 'mock-user-id',
     name: space.name,
     desc: space.desc,

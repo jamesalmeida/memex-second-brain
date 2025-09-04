@@ -1,4 +1,5 @@
 import { observable } from '@legendapp/state';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Space } from '../types';
 
 interface SpacesState {
@@ -14,6 +15,32 @@ const initialState: SpacesState = {
 };
 
 export const spacesStore = observable(initialState);
+
+const STORAGE_KEY = '@memex_spaces';
+
+// Load spaces from storage on initialization
+const loadSpaces = async () => {
+  try {
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      spacesStore.spaces.set(data.spaces || []);
+    }
+  } catch (error) {
+    console.error('Failed to load spaces:', error);
+  }
+};
+
+// Save spaces to storage whenever they change
+spacesStore.spaces.onChange(() => {
+  const spaces = spacesStore.spaces.get();
+  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ spaces })).catch(error => {
+    console.error('Failed to save spaces:', error);
+  });
+});
+
+// Load spaces on initialization
+loadSpaces();
 
 // Computed values
 export const spacesComputed = {

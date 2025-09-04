@@ -6,6 +6,7 @@ import { themeStore } from '../../src/stores/theme';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
 import AddItemSheet from '../../src/components/AddItemSheet';
+import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
 
@@ -16,6 +17,7 @@ const TabLayout = observer(() => {
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<BottomSheet>(null);
+  const createSpaceSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
@@ -27,7 +29,12 @@ const TabLayout = observer(() => {
   };
 
   const handleAddPress = () => {
-    addItemSheetRef.current?.snapToIndex(0);
+    // Show different sheet based on current view
+    if (currentView === 'spaces') {
+      createSpaceSheetRef.current?.snapToIndex(0);
+    } else {
+      addItemSheetRef.current?.snapToIndex(0);
+    }
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
@@ -52,6 +59,7 @@ const TabLayout = observer(() => {
       {/* Bottom Sheets */}
       <SettingsSheet ref={settingsSheetRef} />
       <AddItemSheet ref={addItemSheetRef} />
+      <CreateSpaceSheet ref={createSpaceSheetRef} />
     </SafeAreaView>
   );
 });

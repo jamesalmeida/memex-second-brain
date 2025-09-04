@@ -29,9 +29,11 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { observer } from '@legendapp/state/react';
+import { observer, useObservable } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
+import { spacesStore, spacesActions } from '../stores/spaces';
+import { itemsStore, itemsActions } from '../stores/items';
 import { Item, Space, ContentType } from '../types';
 import { generateMockSpaces } from '../utils/mockData';
 
@@ -84,8 +86,11 @@ const ExpandedItemView = observer(({
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
   const [showSpaceSelector, setShowSpaceSelector] = useState(false);
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
-  const [spaces] = useState<Space[]>(generateMockSpaces());
+  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
+  const showDemoContent = useObservable(themeStore.showMockData);
+  const [demoSpaces] = useState<Space[]>(generateMockSpaces());
+  const userSpaces = useObservable(spacesStore.spaces);
+  const spaces = showDemoContent ? [...userSpaces, ...demoSpaces] : userSpaces;
   const [modalVisible, setModalVisible] = useState(false);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -111,6 +116,8 @@ const ExpandedItemView = observer(({
       // Store the item for display
       setDisplayItem(item);
       setSelectedType(item.content_type);
+      // Initialize selected spaces from item's space_ids
+      setSelectedSpaceIds(item.space_ids || []);
       // Show modal first, then animate in
       setModalVisible(true);
       setTimeout(() => {
@@ -515,7 +522,7 @@ const ExpandedItemView = observer(({
                   {/* Space Selector */}
                   <View style={styles.spaceSection}>
                     <Text style={[styles.spaceSectionLabel, isDarkMode && styles.spaceSectionLabelDark]}>
-                      Space
+                      SPACES
                     </Text>
                     <TouchableOpacity
                       style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
@@ -525,21 +532,33 @@ const ExpandedItemView = observer(({
                       }}
                       activeOpacity={0.7}
                     >
-                      {selectedSpaceId ? (
-                        <View style={styles.selectedSpace}>
-                          <View
-                            style={[
-                              styles.spaceColorDot,
-                              { backgroundColor: spaces.find(s => s.id === selectedSpaceId)?.color || '#999' }
-                            ]}
-                          />
-                          <Text style={[styles.spaceName, isDarkMode && styles.spaceNameDark]}>
-                            {spaces.find(s => s.id === selectedSpaceId)?.name || 'Unknown'}
-                          </Text>
+                      {selectedSpaceIds.length > 0 ? (
+                        <View style={styles.selectedSpaces}>
+                          {selectedSpaceIds.slice(0, 3).map(spaceId => {
+                            const space = spaces.find(s => s.id === spaceId);
+                            return space ? (
+                              <View key={spaceId} style={styles.selectedSpaceTag}>
+                                <View
+                                  style={[
+                                    styles.spaceTagDot,
+                                    { backgroundColor: space.color }
+                                  ]}
+                                />
+                                <Text style={[styles.spaceTagText, isDarkMode && styles.spaceTagTextDark]}>
+                                  {space.name}
+                                </Text>
+                              </View>
+                            ) : null;
+                          })}
+                          {selectedSpaceIds.length > 3 && (
+                            <Text style={[styles.moreSpaces, isDarkMode && styles.moreSpacesDark]}>
+                              +{selectedSpaceIds.length - 3} more
+                            </Text>
+                          )}
                         </View>
                       ) : (
                         <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>
-                          No space assigned
+                          No spaces assigned
                         </Text>
                       )}
                       <Text style={styles.chevron}>{showSpaceSelector ? '▲' : '▼'}</Text>
@@ -548,35 +567,56 @@ const ExpandedItemView = observer(({
                     {/* Space Options */}
                     {showSpaceSelector && (
                       <View style={[styles.spaceOptions, isDarkMode && styles.spaceOptionsDark]}>
-                        <TouchableOpacity
-                          style={[
-                            styles.spaceOption,
-                            selectedSpaceId === null && styles.spaceOptionSelected
-                          ]}
-                          onPress={() => {
-                            setSelectedSpaceId(null);
-                            onSpaceChange?.(itemToDisplay!, null);
-                            setShowSpaceSelector(false);
-                          }}
-                        >
-                          <Text style={[styles.spaceOptionText, isDarkMode && styles.spaceOptionTextDark]}>
-                            ✕ No space
-                          </Text>
-                        </TouchableOpacity>
                         {spaces.map((space) => (
                           <TouchableOpacity
                             key={space.id}
-                            style={[
-                              styles.spaceOption,
-                              selectedSpaceId === space.id && styles.spaceOptionSelected
-                            ]}
+                            style={styles.spaceOption}
                             onPress={() => {
-                              setSelectedSpaceId(space.id);
-                              onSpaceChange?.(itemToDisplay!, space.id);
-                              setShowSpaceSelector(false);
+                              const newSelectedIds = selectedSpaceIds.includes(space.id)
+                                ? selectedSpaceIds.filter(id => id !== space.id)
+                                : [...selectedSpaceIds, space.id];
+                              setSelectedSpaceIds(newSelectedIds);
+                              
+                              // Update the item with new space assignments
+                              if (itemToDisplay) {
+                                const updatedItem = { ...itemToDisplay, space_ids: newSelectedIds };
+                                itemsActions.updateItem(itemToDisplay.id, { space_ids: newSelectedIds });
+                                setDisplayItem(updatedItem);
+                                
+                                // Update space item counts
+                                newSelectedIds.forEach(spaceId => {
+                                  const space = spaces.find(s => s.id === spaceId);
+                                  if (space && !itemToDisplay.space_ids?.includes(spaceId)) {
+                                    spacesActions.updateSpace(spaceId, { 
+                                      item_count: (space.item_count || 0) + 1 
+                                    });
+                                  }
+                                });
+                                
+                                // Decrease count for removed spaces
+                                itemToDisplay.space_ids?.forEach(spaceId => {
+                                  if (!newSelectedIds.includes(spaceId)) {
+                                    const space = spaces.find(s => s.id === spaceId);
+                                    if (space) {
+                                      spacesActions.updateSpace(spaceId, { 
+                                        item_count: Math.max(0, (space.item_count || 0) - 1)
+                                      });
+                                    }
+                                  }
+                                });
+                              }
                             }}
                           >
                             <View style={styles.spaceOptionContent}>
+                              <View style={[
+                                styles.checkbox,
+                                selectedSpaceIds.includes(space.id) && styles.checkboxSelected,
+                                selectedSpaceIds.includes(space.id) && { backgroundColor: space.color }
+                              ]}>
+                                {selectedSpaceIds.includes(space.id) && (
+                                  <Text style={styles.checkmark}>✓</Text>
+                                )}
+                              </View>
                               <View
                                 style={[
                                   styles.spaceColorDot,
@@ -589,6 +629,35 @@ const ExpandedItemView = observer(({
                             </View>
                           </TouchableOpacity>
                         ))}
+                        {selectedSpaceIds.length > 0 && (
+                          <TouchableOpacity
+                            style={[styles.clearButton]}
+                            onPress={() => {
+                              // Update item to remove from all spaces
+                              if (itemToDisplay && itemToDisplay.space_ids) {
+                                // Decrease count for all current spaces
+                                itemToDisplay.space_ids.forEach(spaceId => {
+                                  const space = spaces.find(s => s.id === spaceId);
+                                  if (space) {
+                                    spacesActions.updateSpace(spaceId, { 
+                                      item_count: Math.max(0, (space.item_count || 0) - 1)
+                                    });
+                                  }
+                                });
+                                
+                                // Update item
+                                const updatedItem = { ...itemToDisplay, space_ids: [] };
+                                itemsActions.updateItem(itemToDisplay.id, { space_ids: [] });
+                                setDisplayItem(updatedItem);
+                              }
+                              setSelectedSpaceIds([]);
+                            }}
+                          >
+                            <Text style={[styles.clearButtonText, isDarkMode && styles.clearButtonTextDark]}>
+                              Clear All
+                            </Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     )}
                   </View>
@@ -1082,9 +1151,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
     borderColor: '#3C3C3E',
   },
-  selectedSpace: {
+  selectedSpaces: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  selectedSpaceTag: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  spaceTagDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  spaceTagText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  spaceTagTextDark: {
+    color: '#FFF',
+  },
+  moreSpaces: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  moreSpacesDark: {
+    color: '#999',
   },
   spaceColorDot: {
     width: 12,
@@ -1135,6 +1236,40 @@ const styles = StyleSheet.create({
   spaceOptionContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    borderColor: 'transparent',
+  },
+  checkmark: {
+    fontSize: 12,
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+  clearButton: {
+    padding: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    marginTop: 8,
+  },
+  clearButtonText: {
+    fontSize: 14,
+    color: '#FF3B30',
+    fontWeight: '500',
+  },
+  clearButtonTextDark: {
+    color: '#FF6B6B',
   },
   spaceOptionText: {
     fontSize: 14,
