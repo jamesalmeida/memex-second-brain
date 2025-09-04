@@ -154,6 +154,28 @@ const SettingsSheet = observer(
                 thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
               />
             </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="science"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Show Demo Content
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Display example items for testing
+                </Text>
+              </View>
+              <Switch
+                value={themeStore.showMockData.get()}
+                onValueChange={(value) => themeActions.setShowMockData(value)}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={themeStore.showMockData.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
           </View>
 
           {/* About Section */}

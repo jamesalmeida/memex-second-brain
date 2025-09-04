@@ -28,7 +28,7 @@ export const detectURLType = (url: string): string => {
   }
   // Twitter/X detection  
   if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
-    return 'twitter';
+    return 'x';
   }
   // Image detection
   if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)/i)) {
@@ -97,7 +97,7 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
     const metadata = await extractWithJina(url);
     return {
       ...metadata,
-      contentType: 'twitter',
+      contentType: 'x',
       siteName: 'X (Twitter)',
     };
   }
@@ -136,7 +136,7 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
       description,
       image: firstImage,
       author: `${tweetData.author.name} (@${tweetData.author.username})`,
-      contentType: 'twitter',
+      contentType: 'x',
       siteName: 'X (Twitter)',
       publishedDate: tweetData.createdAt,
     };
@@ -149,14 +149,14 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
       const metadata = await extractWithJina(url);
       return {
         ...metadata,
-        contentType: 'twitter',
+        contentType: 'x',
         siteName: 'X (Twitter)',
       };
     } catch (jinaError) {
       console.error('Jina fallback also failed:', jinaError);
       return {
         url,
-        contentType: 'twitter',
+        contentType: 'x',
         siteName: 'X (Twitter)',
         error: 'Failed to extract Twitter metadata',
       };

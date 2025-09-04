@@ -87,6 +87,7 @@ export const generateMockItems = (count: number = 20): Item[] => {
       created_at: generateRecentDate(),
       updated_at: generateRecentDate(),
       is_archived: false,
+      isMockData: true,
     };
 
     // Set content based on type

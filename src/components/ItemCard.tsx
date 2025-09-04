@@ -41,7 +41,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       case 'youtube':
         return '#FF0000';
       case 'x':
-        return '#1DA1F2';
+        return '#000000';  // Black background for X
       case 'github':
         return '#24292e';
       case 'note':
@@ -104,7 +104,12 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
 
       {/* Content Type Badge */}
       <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor() }]}>
-        <Text style={styles.typeBadgeText}>{getContentTypeIcon()}</Text>
+        <Text style={[
+          styles.typeBadgeText,
+          item.content_type === 'x' && styles.typeBadgeTextWhite
+        ]}>
+          {getContentTypeIcon()}
+        </Text>
       </View>
 
       {/* Card Content */}
@@ -191,6 +196,9 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: {
     fontSize: 14,
+  },
+  typeBadgeTextWhite: {
+    color: '#FFFFFF',
   },
   cardContent: {
     padding: 12,

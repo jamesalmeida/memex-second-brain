@@ -1,5 +1,7 @@
 import { observable } from '@legendapp/state';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Item, SearchFilters } from '../types';
+import { STORAGE_KEYS } from '../constants';
 
 interface ItemsState {
   items: Item[];
@@ -40,31 +42,56 @@ export const itemsComputed = {
 
 // Actions
 export const itemsActions = {
-  setItems: (items: Item[]) => {
+  setItems: async (items: Item[]) => {
     itemsStore.items.set(items);
     itemsStore.filteredItems.set(items);
+    // Save to AsyncStorage
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
+    } catch (error) {
+      console.error('Error saving items to storage:', error);
+    }
   },
 
-  addItems: (newItems: Item[]) => {
+  addItems: async (newItems: Item[]) => {
     const currentItems = itemsStore.items.get();
-    itemsStore.items.set([...currentItems, ...newItems]);
-    itemsStore.filteredItems.set([...currentItems, ...newItems]);
+    const updatedItems = [...currentItems, ...newItems];
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems);
+    // Save to AsyncStorage
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+    } catch (error) {
+      console.error('Error saving items to storage:', error);
+    }
   },
 
-  updateItem: (id: string, updates: Partial<Item>) => {
+  updateItem: async (id: string, updates: Partial<Item>) => {
     const currentItems = itemsStore.items.get();
     const updatedItems = currentItems.map(item =>
       item.id === id ? { ...item, ...updates } : item
     );
     itemsStore.items.set(updatedItems);
     itemsStore.filteredItems.set(updatedItems);
+    // Save to AsyncStorage
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+    } catch (error) {
+      console.error('Error saving items to storage:', error);
+    }
   },
 
-  removeItem: (id: string) => {
+  removeItem: async (id: string) => {
     const currentItems = itemsStore.items.get();
     const filteredItems = currentItems.filter(item => item.id !== id);
     itemsStore.items.set(filteredItems);
     itemsStore.filteredItems.set(filteredItems);
+    // Save to AsyncStorage
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
+    } catch (error) {
+      console.error('Error saving items to storage:', error);
+    }
   },
 
   setLoading: (loading: boolean) => {
@@ -132,4 +159,21 @@ export const itemsActions = {
     itemsStore.searchQuery.set('');
     itemsStore.filteredItems.set(itemsStore.items.get());
   },
+
+  loadItems: async () => {
+    try {
+      const savedItems = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
+      if (savedItems) {
+        const items = JSON.parse(savedItems) as Item[];
+        itemsStore.items.set(items);
+        itemsStore.filteredItems.set(items);
+        console.log('📚 Loaded', items.length, 'items from storage');
+      }
+    } catch (error) {
+      console.error('Error loading items from storage:', error);
+    }
+  },
 };
+
+// Load items on app start
+itemsActions.loadItems();

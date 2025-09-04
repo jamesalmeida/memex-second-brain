@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../src/stores/theme';
+import { itemsStore, itemsActions } from '../../src/stores/items';
 import ItemCard from '../../src/components/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
@@ -9,18 +10,43 @@ import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockDat
 
 const HomeScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
-  const [items, setItems] = useState<Item[]>(generateMockItems(20));
+  const showMockData = themeStore.showMockData.get();
+  const allItems = itemsStore.items.get();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
 
+  // Initialize items on first load
+  useEffect(() => {
+    const initializeItems = async () => {
+      // Load items from storage first
+      await itemsActions.loadItems();
+      
+      // If no items exist after loading, generate mock items
+      if (itemsStore.items.get().length === 0) {
+        const mockItems = generateMockItems(20);
+        await itemsActions.setItems(mockItems);
+      }
+    };
+    
+    initializeItems();
+  }, []);
+
+  // Filter items based on showMockData toggle
+  const displayItems = useMemo(() => {
+    if (showMockData) {
+      return allItems; // Show all items including mock
+    } else {
+      return allItems.filter(item => !item.isMockData); // Only show real items
+    }
+  }, [allItems, showMockData]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate refresh
+    // TODO: Refresh from backend
     setTimeout(() => {
-      setItems(generateMockItems(20));
       setRefreshing(false);
     }, 1500);
   }, []);
@@ -88,7 +114,7 @@ const HomeScreen = observer(() => {
 
       {/* Items Grid */}
       <FlatList
-        data={items}
+        data={displayItems}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         numColumns={2}
@@ -129,7 +155,7 @@ const HomeScreen = observer(() => {
         onArchive={(item) => console.log('Archive item:', item.title)}
         onDelete={(item) => {
           console.log('Delete item:', item.title);
-          setItems(prev => prev.filter(i => i.id !== item.id));
+          itemsActions.removeItem(item.id);
           setSelectedItem(null);
         }}
         onShare={(item) => console.log('Share item:', item.title)}

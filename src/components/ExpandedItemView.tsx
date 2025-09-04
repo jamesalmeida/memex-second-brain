@@ -276,6 +276,31 @@ const ExpandedItemView = observer(({
                     </View>
                   </View>
 
+                  {/* Description */}
+                  {itemToDisplay?.desc && (
+                    <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
+                      {itemToDisplay.desc}
+                    </Text>
+                  )}
+
+                  {/* Full Content */}
+                  {itemToDisplay?.content && (
+                    <View style={styles.fullContent}>
+                      <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
+                        {itemToDisplay.content}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Raw Text (for articles) */}
+                  {itemToDisplay?.raw_text && (
+                    <View style={styles.fullContent}>
+                      <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
+                        {itemToDisplay.raw_text}
+                      </Text>
+                    </View>
+                  )}
+
                   {/* Space Selector */}
                   <View style={styles.spaceSection}>
                     <Text style={[styles.spaceSectionLabel, isDarkMode && styles.spaceSectionLabelDark]}>
@@ -353,31 +378,6 @@ const ExpandedItemView = observer(({
                       </View>
                     )}
                   </View>
-
-                  {/* Description */}
-                  {itemToDisplay?.desc && (
-                    <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
-                      {itemToDisplay.desc}
-                    </Text>
-                  )}
-
-                  {/* Full Content */}
-                  {itemToDisplay?.content && (
-                    <View style={styles.fullContent}>
-                      <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
-                        {itemToDisplay.content}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Raw Text (for articles) */}
-                  {itemToDisplay?.raw_text && (
-                    <View style={styles.fullContent}>
-                      <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
-                        {itemToDisplay.raw_text}
-                      </Text>
-                    </View>
-                  )}
 
                   {/* Action Buttons */}
                   <View style={styles.actions}>

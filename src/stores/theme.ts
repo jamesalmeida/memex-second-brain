@@ -4,11 +4,13 @@ import { STORAGE_KEYS } from '../constants';
 
 interface ThemeState {
   isDarkMode: boolean;
+  showMockData: boolean;
   isLoading: boolean;
 }
 
 const initialState: ThemeState = {
   isDarkMode: false,
+  showMockData: true,
   isLoading: true,
 };
 
@@ -20,10 +22,29 @@ export const themeActions = {
     try {
       console.log('🎨 Setting dark mode to:', isDark);
       themeStore.isDarkMode.set(isDark);
-      await AsyncStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify({ isDarkMode: isDark }));
+      const currentSettings = {
+        isDarkMode: isDark,
+        showMockData: themeStore.showMockData.get(),
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(currentSettings));
       console.log('🎨 Theme saved successfully');
     } catch (error) {
       console.error('Error saving theme preference:', error);
+    }
+  },
+
+  setShowMockData: async (show: boolean) => {
+    try {
+      console.log('📦 Setting show mock data to:', show);
+      themeStore.showMockData.set(show);
+      const currentSettings = {
+        isDarkMode: themeStore.isDarkMode.get(),
+        showMockData: show,
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(currentSettings));
+      console.log('📦 Mock data preference saved successfully');
+    } catch (error) {
+      console.error('Error saving mock data preference:', error);
     }
   },
   
@@ -32,7 +53,8 @@ export const themeActions = {
       console.log('🎨 Clearing theme preference...');
       await AsyncStorage.removeItem(STORAGE_KEYS.THEME);
       themeStore.isDarkMode.set(false);
-      console.log('🎨 Theme cleared, reset to light mode');
+      themeStore.showMockData.set(true);
+      console.log('🎨 Theme cleared, reset to defaults');
     } catch (error) {
       console.error('Error clearing theme preference:', error);
     }
@@ -44,11 +66,13 @@ export const themeActions = {
       const saved = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
       console.log('🎨 Saved theme data:', saved);
       if (saved) {
-        const { isDarkMode } = JSON.parse(saved);
-        console.log('🎨 Setting dark mode to:', isDarkMode);
-        themeStore.isDarkMode.set(isDarkMode);
+        const settings = JSON.parse(saved);
+        console.log('🎨 Setting dark mode to:', settings.isDarkMode);
+        console.log('📦 Setting show mock data to:', settings.showMockData);
+        themeStore.isDarkMode.set(settings.isDarkMode);
+        themeStore.showMockData.set(settings.showMockData ?? true);
       } else {
-        console.log('🎨 No saved theme preference, using default (light)');
+        console.log('🎨 No saved theme preference, using defaults');
       }
     } catch (error) {
       console.error('Error loading theme preference:', error);

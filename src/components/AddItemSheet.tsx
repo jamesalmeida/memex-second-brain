@@ -22,10 +22,11 @@ import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
+import { itemsStore, itemsActions } from '../stores/items';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
 import { generateMockSpaces } from '../utils/mockData';
 import { COLORS, UI } from '../constants';
-import { Space } from '../types';
+import { Space, Item, ContentType } from '../types';
 
 interface AddItemSheetProps {
   onItemAdded?: () => void;
@@ -203,14 +204,29 @@ const AddItemSheet = observer(
         return;
       }
 
-      // TODO: Implement actual save logic with database
-      console.log('Saving item:', { 
-        type: selectedType, 
-        url,
-        metadata,
-        spaceId: selectedSpaceId,
-        tags,
-      });
+      // Create the new item
+      const newItem: Item = {
+        id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        user_id: 'current-user', // TODO: Get from auth store
+        title: metadata?.title || url.slice(0, 50),
+        desc: metadata?.description || undefined,
+        content: selectedType === 'note' ? url : undefined,
+        url: selectedType !== 'note' ? url : undefined,
+        thumbnail_url: metadata?.image || undefined,
+        content_type: selectedType as ContentType,
+        space_id: selectedSpaceId || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        is_archived: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        isMockData: false, // This is a real saved item
+      };
+      
+      // Add to the items store
+      const currentItems = itemsStore.items.get();
+      itemsActions.setItems([newItem, ...currentItems]);
+      
+      console.log('Item saved:', newItem);
       
       // Dismiss keyboard first
       Keyboard.dismiss();

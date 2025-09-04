@@ -90,6 +90,7 @@ export const STORAGE_KEYS = {
   THEME: 'theme',
   LAST_SYNC: 'last_sync',
   OFFLINE_QUEUE: 'offline_queue',
+  ITEMS: 'items',
 };
 
 // Share extension
