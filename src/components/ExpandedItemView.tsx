@@ -461,27 +461,6 @@ const ExpandedItemView = observer(({
                     </View>
                   </View>
 
-                  {/* URL Display */}
-                  {itemToDisplay?.url && (
-                    <TouchableOpacity
-                      style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
-                      onPress={async () => {
-                        if (itemToDisplay?.url) {
-                          await Clipboard.setStringAsync(itemToDisplay.url);
-                          Alert.alert('Link Copied', 'The URL has been copied to your clipboard');
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.urlLabel, isDarkMode && styles.urlLabelDark]}>
-                        URL
-                      </Text>
-                      <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={1}>
-                        {itemToDisplay.url}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
                   {/* Description */}
                   {itemToDisplay?.desc && (
                     <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
@@ -587,6 +566,27 @@ const ExpandedItemView = observer(({
                       </View>
                     )}
                   </View>
+
+                  {/* URL Display */}
+                  {itemToDisplay?.url && (
+                    <TouchableOpacity
+                      style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
+                      onPress={async () => {
+                        if (itemToDisplay?.url) {
+                          await Clipboard.setStringAsync(itemToDisplay.url);
+                          Alert.alert('Link Copied', 'The URL has been copied to your clipboard');
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.urlLabel, isDarkMode && styles.urlLabelDark]}>
+                        URL
+                      </Text>
+                      <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={1}>
+                        {itemToDisplay.url}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
                   {/* Type Selector */}
                   <View style={styles.typeSection}>
@@ -722,23 +722,6 @@ const ExpandedItemView = observer(({
                           📤 Share
                         </Text>
                       </TouchableOpacity>
-
-                      {itemToDisplay?.url && (
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={async () => {
-                            if (itemToDisplay?.url) {
-                              await Clipboard.setStringAsync(itemToDisplay.url);
-                              Alert.alert('Link Copied', 'The URL has been copied to your clipboard');
-                            }
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                            🔗 Copy Link
-                          </Text>
-                        </TouchableOpacity>
-                      )}
 
                       <TouchableOpacity
                         style={styles.actionButton}
