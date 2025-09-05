@@ -8,6 +8,7 @@ import { themeStore } from '../../src/stores/theme';
 import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spaces';
 import SpaceCard from '../../src/components/SpaceCard';
 import ExpandedSpaceView from '../../src/components/ExpandedSpaceView';
+import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import { Space } from '../../src/types';
 import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
 
@@ -20,6 +21,7 @@ const SpacesScreen = observer(() => {
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
+  const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -42,6 +44,10 @@ const SpacesScreen = observer(() => {
       // Fallback if ref not available
       setSelectedSpace(space);
     }
+  };
+
+  const handleSpaceEdit = (space: Space) => {
+    editSpaceSheetRef.current?.openWithSpace(space);
   };
 
   const renderItem = ({ item }: { item: Space }) => (
@@ -116,6 +122,25 @@ const SpacesScreen = observer(() => {
           setTimeout(() => {
             setCardPosition(undefined);
           }, 300);
+        }}
+        onEdit={() => {
+          if (selectedSpace) {
+            handleSpaceEdit(selectedSpace);
+            setSelectedSpace(null);
+          }
+        }}
+      />
+      
+      {/* Edit Space Sheet */}
+      <EditSpaceSheet
+        ref={editSpaceSheetRef}
+        onSpaceUpdated={(space) => {
+          // Refresh the spaces list if needed
+          console.log('Space updated:', space.name);
+        }}
+        onSpaceDeleted={(spaceId) => {
+          // Refresh the spaces list if needed
+          console.log('Space deleted:', spaceId);
         }}
       />
     </View>

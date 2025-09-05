@@ -36,6 +36,7 @@ interface ExpandedSpaceViewProps {
   isVisible: boolean;
   cardPosition?: { x: number; y: number; width: number; height: number };
   onClose: () => void;
+  onEdit?: () => void;
 }
 
 const ExpandedSpaceView = observer(({
@@ -43,6 +44,7 @@ const ExpandedSpaceView = observer(({
   isVisible,
   cardPosition,
   onClose,
+  onEdit,
 }: ExpandedSpaceViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -171,7 +173,9 @@ const ExpandedSpaceView = observer(({
   };
 
   const handleEditSpace = () => {
-    console.log('Edit space:', displaySpace?.name);
+    if (onEdit) {
+      onEdit();
+    }
   };
 
   const handleChatWithSpace = () => {
