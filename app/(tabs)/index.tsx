@@ -3,15 +3,19 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, RefreshControl, Di
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import ItemCard from '../../src/components/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
+import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
+
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const HomeScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
@@ -23,6 +27,19 @@ const HomeScreen = observer(() => {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
+  
+  // Dynamic contrast for search bar
+  const {
+    handleScroll,
+    animatedTextStyle,
+    placeholderColor,
+    shouldUseDarkText,
+  } = useDynamicTextContrast(isDarkMode, {
+    lightThreshold: 0.55,
+    darkThreshold: 0.45,
+    transitionDuration: 250,
+    scrollSampleRate: 50,
+  });
 
   // Initialize items on first load
   useEffect(() => {
@@ -117,6 +134,8 @@ const HomeScreen = observer(() => {
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 53 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -126,20 +145,19 @@ const HomeScreen = observer(() => {
         }
       />
 
-      {/* Floating Search Bar */}
-      <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark, { 
+      {/* Floating Search Bar with Dynamic Contrast */}
+      <View style={[styles.searchContainer, { 
         position: 'absolute',
         top: insets.top - 12,
         left: 4,
         right: 4,
         zIndex: 10,
-        // REMOVE THIS AFTER TESTING
-        // backgroundColor: 'red',
+        borderBottomColor: shouldUseDarkText ? '#FF6B35' : '#FF8A65',
       }]}>
-        <TextInput
-          style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
+        <AnimatedTextInput
+          style={[styles.searchInput, animatedTextStyle]}
           placeholder="Search Everything..."
-          placeholderTextColor={isDarkMode ? '#666' : '#999'}
+          placeholderTextColor={placeholderColor}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -190,24 +208,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#FF6B35',
-  },
-  searchContainerDark: {
-    backgroundColor: 'transparent',
-    borderBottomColor: '#FF6B35',
   },
   searchInput: {
     flex: 1,
-    color: '#000000',
     paddingLeft: 6,
     paddingRight: 6,
     paddingTop: 6,
     paddingBottom: 0,
     fontSize: 18,
     fontFamily: 'Times New Roman',
-  },
-  searchInputDark: {
-    color: '#FFFFFF',
   },
   gridContainer: {
     flex: 1,
