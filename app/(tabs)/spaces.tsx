@@ -1,9 +1,11 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, RefreshControl, TextInput, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
+import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spaces';
 import SpaceCard from '../../src/components/SpaceCard';
@@ -11,17 +13,53 @@ import ExpandedSpaceView from '../../src/components/ExpandedSpaceView';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import { Space } from '../../src/types';
 import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
+import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
+
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const SpacesScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const spaces = spacesComputed.spaces();
+  const allSpaces = spacesComputed.spaces();
+  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
+  
+  // Dynamic contrast for search bar
+  const {
+    handleScroll,
+    animatedTextStyle,
+    placeholderColor,
+    shouldUseDarkText,
+  } = useDynamicTextContrast(isDarkMode, {
+    lightThreshold: 0.55,
+    darkThreshold: 0.45,
+    transitionDuration: 250,
+    scrollSampleRate: 50,
+  });
+
+  // Clear search query
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+  
+  // Filter spaces based on search query
+  const filteredSpaces = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return allSpaces;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return allSpaces.filter(space => 
+      space.name.toLowerCase().includes(query) ||
+      (space.description && space.description.toLowerCase().includes(query)) ||
+      (space.desc && space.desc.toLowerCase().includes(query))
+    );
+  }, [allSpaces, searchQuery]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -83,15 +121,17 @@ const SpacesScreen = observer(() => {
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Spaces Grid - extends full height */}
       <FlashList
-        data={spaces}
+        data={filteredSpaces}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         masonry
         numColumns={2}
         estimatedItemSize={150}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 100 }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 53 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -101,14 +141,36 @@ const SpacesScreen = observer(() => {
         }
       />
 
-      {/* Floating Header */}
-      <View style={[styles.floatingHeader, { paddingTop: insets.top + 16 }, isDarkMode && styles.floatingHeaderDark]}>
-        <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>
-          Your Spaces
-        </Text>
-        <Text style={[styles.headerSubtitle, isDarkMode && styles.headerSubtitleDark]}>
-          Organize your knowledge into collections
-        </Text>
+      {/* Floating Search Bar with Dynamic Contrast */}
+      <View style={[styles.searchContainer, { 
+        position: 'absolute',
+        top: insets.top - 12,
+        left: 4,
+        right: 4,
+        zIndex: 10,
+        borderBottomColor: shouldUseDarkText ? '#FF6B35' : '#FF8A65',
+      }]}>
+        <AnimatedTextInput
+          style={[styles.searchInput, animatedTextStyle]}
+          placeholder="Search Spaces..."
+          placeholderTextColor={placeholderColor}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={handleClearSearch}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialIcons 
+              name="close" 
+              size={20} 
+              color={shouldUseDarkText ? '#000000' : '#FFFFFF'} 
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Expanded Space View */}
@@ -218,5 +280,35 @@ const styles = StyleSheet.create({
   },
   emptySubtitleDark: {
     color: '#999',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    marginHorizontal: 4,
+    marginTop: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    borderBottomWidth: 0,
+  },
+  searchInput: {
+    flex: 1,
+    paddingLeft: 0,
+    paddingRight: 36, // Make room for clear button
+    paddingTop: 8,
+    paddingBottom: 0,
+    marginBottom: -12,
+    fontSize: 26,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 4,
+    top: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(150, 150, 150, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -40,15 +40,9 @@ const SpaceCard = observer(({ space, itemCount, onPress }: SpaceCardProps) => {
           </Text>
         )}
 
-        {/* Bottom Footer with emoji on left and item count on right */}
+        {/* Bottom Footer with item count on right */}
         <View style={styles.footer}>
-          {/* Space Icon/Emoji - only show if icon exists */}
-          {space.icon && (
-            <View style={[styles.iconContainer, { backgroundColor: space.color + '15' }]}>
-              <Text style={styles.icon}>{space.icon}</Text>
-            </View>
-          )}
-          
+          <View style={{ flex: 1 }} />
           {/* Item Count */}
           <View style={[styles.itemCountBadge, { backgroundColor: space.color + '20' }]}>
             <Text style={[styles.itemCount, { color: space.color }]}>
