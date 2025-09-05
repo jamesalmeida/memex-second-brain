@@ -3,7 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, RefreshControl, Di
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated from 'react-native-reanimated';
+import Animated, { 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withTiming,
+  withSpring,
+  interpolate
+} from 'react-native-reanimated';
+import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import ItemCard from '../../src/components/ItemCard';
@@ -55,6 +62,11 @@ const HomeScreen = observer(() => {
     };
     
     initializeItems();
+  }, []);
+
+  // Clear search query
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
   }, []);
 
   // Filter items based on showMockData toggle
@@ -161,6 +173,20 @@ const HomeScreen = observer(() => {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={handleClearSearch}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialIcons 
+              name="close" 
+              size={20} 
+              color={shouldUseDarkText ? '#000000' : '#FFFFFF'} 
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Expanded Item View */}
@@ -212,7 +238,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingLeft: 0,
-    paddingRight: 6,
+    paddingRight: 36, // Make room for clear button
     paddingTop: 8,
     paddingBottom: 0,
     marginBottom: -12,
@@ -220,6 +246,17 @@ const styles = StyleSheet.create({
     // fontFamily: 'System',
     // REMOVE THIS AFTER TESTING
     // backgroundColor: 'red',
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 4,
+    top: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(150, 150, 150, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gridContainer: {
     flex: 1,
