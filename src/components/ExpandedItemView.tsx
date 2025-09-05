@@ -108,6 +108,7 @@ const ExpandedItemView = observer(({
   const [showTranscript, setShowTranscript] = useState(false);
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [transcriptExists, setTranscriptExists] = useState(false);
+  const [transcriptStats, setTranscriptStats] = useState({ chars: 0, words: 0, readTime: 0 });
   const transcriptOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
   
@@ -120,6 +121,13 @@ const ExpandedItemView = observer(({
     }
   });
 
+  const calculateTranscriptStats = (text: string) => {
+    const chars = text.length;
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const readTime = Math.ceil(words / 200); // Average reading speed: 200 words per minute
+    return { chars, words, readTime };
+  };
+
   const checkForExistingTranscript = async (itemId: string) => {
     try {
       console.log('Checking for existing transcript for item:', itemId);
@@ -130,7 +138,9 @@ const ExpandedItemView = observer(({
       
       if (transcripts[itemId]) {
         console.log('Found transcript in local storage, length:', transcripts[itemId].transcript?.length);
-        setTranscript(transcripts[itemId].transcript);
+        const transcriptText = transcripts[itemId].transcript;
+        setTranscript(transcriptText);
+        setTranscriptStats(calculateTranscriptStats(transcriptText));
         setTranscriptExists(true);
         transcriptOpacity.value = 1;
         buttonOpacity.value = 0;
@@ -147,13 +157,16 @@ const ExpandedItemView = observer(({
         transcripts[itemId] = data;
         await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
         
-        setTranscript(data.transcript);
+        const transcriptText = data.transcript;
+        setTranscript(transcriptText);
+        setTranscriptStats(calculateTranscriptStats(transcriptText));
         setTranscriptExists(true);
         transcriptOpacity.value = 1;
         buttonOpacity.value = 0;
       } else {
         console.log('No existing transcript found');
         setTranscript('');
+        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
         setTranscriptExists(false);
         transcriptOpacity.value = 0;
         buttonOpacity.value = 1;
@@ -360,6 +373,7 @@ const ExpandedItemView = observer(({
       
       // Update local state
       setTranscript(fetchedTranscript);
+      setTranscriptStats(calculateTranscriptStats(fetchedTranscript));
       setTranscriptExists(true);
       
       // Animate transition from button to dropdown
@@ -987,6 +1001,13 @@ const ExpandedItemView = observer(({
                               >
                                 <Text style={styles.transcriptCopyButtonText}>📋</Text>
                               </TouchableOpacity>
+                              
+                              {/* Sticky Footer with Stats */}
+                              <View style={[styles.transcriptFooter, isDarkMode && styles.transcriptFooterDark]}>
+                                <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
+                                  {transcriptStats.chars.toLocaleString()} chars • {transcriptStats.words.toLocaleString()} words • ~{transcriptStats.readTime} min read
+                                </Text>
+                              </View>
                             </View>
                           )}
                         </Animated.View>
@@ -1711,6 +1732,7 @@ const styles = StyleSheet.create({
   },
   transcriptScrollView: {
     maxHeight: 300,
+    paddingBottom: 35, // Make room for sticky footer
   },
   transcriptText: {
     fontSize: 14,
@@ -1733,5 +1755,31 @@ const styles = StyleSheet.create({
   },
   transcriptCopyButtonText: {
     fontSize: 20,
+  },
+  transcriptFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(245, 245, 245, 0.95)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  transcriptFooterDark: {
+    backgroundColor: 'rgba(44, 44, 46, 0.98)',
+    borderTopColor: '#3A3A3C',
+  },
+  transcriptFooterText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  transcriptFooterTextDark: {
+    color: '#999',
   },
 });
