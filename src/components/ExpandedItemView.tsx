@@ -35,7 +35,6 @@ import { themeStore } from '../stores/theme';
 import { spacesStore, spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
 import { Item, Space, ContentType } from '../types';
-import { generateMockSpaces } from '../utils/mockData';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -87,10 +86,10 @@ const ExpandedItemView = observer(({
   const opacity = useSharedValue(0);
   const [showSpaceSelector, setShowSpaceSelector] = useState(false);
   const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
-  const showDemoContent = useObservable(themeStore.showMockData);
-  const [demoSpaces] = useState<Space[]>(generateMockSpaces());
-  const userSpaces = useObservable(spacesStore.spaces);
-  const spaces = showDemoContent ? [...userSpaces, ...demoSpaces] : userSpaces;
+  const allSpaces = spacesStore.spaces.get();
+  
+  // Just use all spaces without filtering
+  const spaces = allSpaces;
   const [modalVisible, setModalVisible] = useState(false);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [showTypeSelector, setShowTypeSelector] = useState(false);

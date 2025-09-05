@@ -24,7 +24,6 @@ import { themeStore } from '../stores/theme';
 import { spacesStore, spacesComputed, spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
-import { generateMockSpaces } from '../utils/mockData';
 import { COLORS, UI } from '../constants';
 import { Space, Item, ContentType } from '../types';
 
@@ -47,6 +46,7 @@ const AddItemSheet = observer(
   forwardRef<BottomSheet, AddItemSheetProps>(({ onItemAdded }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const spaces = spacesComputed.spaces();
+    
     const [selectedType, setSelectedType] = useState('bookmark');
     const [url, setUrl] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -57,17 +57,6 @@ const AddItemSheet = observer(
     const [metadata, setMetadata] = useState<URLMetadata | null>(null);
     const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
     const [isGeneratingTags, setIsGeneratingTags] = useState(false);
-    
-    // Initialize spaces if empty
-    useEffect(() => {
-      console.log('AddItemSheet spaces check:', spaces.length, spaces);
-      if (spaces.length === 0) {
-        console.log('Initializing spaces in AddItemSheet');
-        const mockSpaces = generateMockSpaces();
-        console.log('Generated mock spaces:', mockSpaces);
-        spacesActions.setSpaces(mockSpaces);
-      }
-    }, []);
     
     // Snap points for the bottom sheet - just 75% height
     const snapPoints = useMemo(() => {

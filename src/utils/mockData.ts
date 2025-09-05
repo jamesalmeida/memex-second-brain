@@ -146,16 +146,16 @@ export const generateMockItems = (count: number = 20): Item[] => {
   return items;
 };
 
-// Generate mock spaces
-export const generateMockSpaces = (): Space[] => {
-  return spaceNames.map((space, index) => ({
-    id: `demo-${generateId()}`,
-    user_id: 'mock-user-id',
-    name: space.name,
-    desc: space.desc,
-    color: space.color,
-  }));
-};
+// Generate mock spaces - DEPRECATED: We're not using mock spaces anymore
+// export const generateMockSpaces = (): Space[] => {
+//   return spaceNames.map((space, index) => ({
+//     id: `demo-${generateId()}`,
+//     user_id: 'mock-user-id',
+//     name: space.name,
+//     desc: space.desc,
+//     color: space.color,
+//   }));
+// };
 
 // Generate mock metadata for an item
 export const generateMockMetadata = (item: Item): ItemMetadata => {

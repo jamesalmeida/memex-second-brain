@@ -56,6 +56,10 @@ export const spacesComputed = {
 
 // Actions
 export const spacesActions = {
+  loadSpaces: async () => {
+    await loadSpaces();
+  },
+  
   setSpaces: (spaces: Space[]) => {
     spacesStore.spaces.set(spaces);
   },

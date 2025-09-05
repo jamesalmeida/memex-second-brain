@@ -9,31 +9,17 @@ import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spa
 import SpaceCard from '../../src/components/SpaceCard';
 import ExpandedSpaceView from '../../src/components/ExpandedSpaceView';
 import { Space } from '../../src/types';
-import { generateMockSpaces, getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
+import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
 
 const SpacesScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
-  const showDemoContent = themeStore.showMockData.get();
   const router = useRouter();
-  const allSpaces = spacesComputed.spaces();
+  const spaces = spacesComputed.spaces();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
-  const [demoSpaces] = useState<Space[]>(generateMockSpaces());
-
-  // Filter spaces based on showDemoContent setting
-  const spaces = showDemoContent 
-    ? [...allSpaces, ...demoSpaces] 
-    : allSpaces.filter(space => !space.id.startsWith('demo-'));
-
-  // Initialize with demo spaces if showDemoContent is on
-  useEffect(() => {
-    if (showDemoContent && allSpaces.length === 0) {
-      // Don't actually add demo spaces to the store, just show them in UI
-    }
-  }, [showDemoContent]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
