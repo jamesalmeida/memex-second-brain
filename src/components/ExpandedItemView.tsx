@@ -97,7 +97,7 @@ const ExpandedItemView = observer(({
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [showTools, setShowTools] = useState(false);
+  const [showThumbnail, setShowThumbnail] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   
@@ -758,49 +758,42 @@ const ExpandedItemView = observer(({
                     )}
                   </View>
 
-                  {/* Tools Section (for YouTube) */}
-                  {itemToDisplay?.content_type === 'youtube' && (
-                    <View style={styles.toolsSection}>
+                  {/* Thumbnail Section (for YouTube) */}
+                  {itemToDisplay?.content_type === 'youtube' && itemToDisplay?.thumbnail_url && (
+                    <View style={styles.thumbnailSection}>
+                      <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
+                        THUMBNAIL
+                      </Text>
                       <TouchableOpacity
-                        style={[styles.toolsHeader, isDarkMode && styles.toolsHeaderDark]}
-                        onPress={() => setShowTools(!showTools)}
+                        style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
+                        onPress={() => setShowThumbnail(!showThumbnail)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.toolsTitle, isDarkMode && styles.toolsTitleDark]}>
-                          🛠️ Tools
+                        <Text style={[styles.thumbnailSelectorText, isDarkMode && styles.thumbnailSelectorTextDark]}>
+                          {showThumbnail ? 'Hide Thumbnail' : 'View Thumbnail'}
                         </Text>
-                        <Text style={styles.chevron}>{showTools ? '▲' : '▼'}</Text>
+                        <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
+                          {showThumbnail ? '▲' : '▼'}
+                        </Text>
                       </TouchableOpacity>
                       
-                      {showTools && (
-                        <View style={[styles.toolsContent, isDarkMode && styles.toolsContentDark]}>
-                          {/* Thumbnail Preview */}
-                          <View style={styles.toolItem}>
-                            <Text style={[styles.toolLabel, isDarkMode && styles.toolLabelDark]}>
-                              Thumbnail
+                      {showThumbnail && (
+                        <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
+                          <Image
+                            source={{ uri: itemToDisplay.thumbnail_url }}
+                            style={styles.thumbnailImage}
+                            resizeMode="cover"
+                          />
+                          <TouchableOpacity
+                            style={[styles.thumbnailDownloadButton, isDownloading && styles.thumbnailDownloadButtonDisabled]}
+                            onPress={downloadThumbnail}
+                            disabled={isDownloading}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.thumbnailDownloadButtonText}>
+                              {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
                             </Text>
-                            {itemToDisplay.thumbnail_url && (
-                              <View>
-                                <Image
-                                  source={{ uri: itemToDisplay.thumbnail_url }}
-                                  style={styles.toolThumbnail}
-                                  resizeMode="cover"
-                                />
-                                <TouchableOpacity
-                                  style={[styles.downloadButton, isDownloading && styles.downloadButtonDisabled]}
-                                  onPress={downloadThumbnail}
-                                  disabled={isDownloading}
-                                  activeOpacity={0.7}
-                                >
-                                  <Text style={styles.downloadButtonText}>
-                                    {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
-                            )}
-                          </View>
-                          
-                          {/* More tools can be added here later */}
+                          </TouchableOpacity>
                         </View>
                       )}
                     </View>
@@ -1386,11 +1379,21 @@ const styles = StyleSheet.create({
   webView: {
     flex: 1,
   },
-  // Tools section styles
-  toolsSection: {
+  // Thumbnail section styles
+  thumbnailSection: {
     marginBottom: 20,
   },
-  toolsHeader: {
+  thumbnailSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  thumbnailSectionLabelDark: {
+    color: '#999',
+  },
+  thumbnailSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1400,19 +1403,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  toolsHeaderDark: {
+  thumbnailSelectorDark: {
     backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
+    borderColor: '#3C3C3E',
   },
-  toolsTitle: {
+  thumbnailSelectorText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
+    color: '#333',
+    fontWeight: '500',
   },
-  toolsTitleDark: {
+  thumbnailSelectorTextDark: {
     color: '#FFF',
   },
-  toolsContent: {
+  thumbnailContent: {
     marginTop: 8,
     padding: 16,
     backgroundColor: '#F9F9F9',
@@ -1420,39 +1423,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  toolsContentDark: {
+  thumbnailContentDark: {
     backgroundColor: '#2C2C2E',
     borderColor: '#3A3A3C',
   },
-  toolItem: {
-    marginBottom: 16,
-  },
-  toolLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  toolLabelDark: {
-    color: '#999',
-  },
-  toolThumbnail: {
+  thumbnailImage: {
     width: '100%',
     height: 180,
     borderRadius: 8,
     marginBottom: 12,
   },
-  downloadButton: {
+  thumbnailDownloadButton: {
     backgroundColor: '#007AFF',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  downloadButtonDisabled: {
+  thumbnailDownloadButtonDisabled: {
     backgroundColor: '#999',
   },
-  downloadButtonText: {
+  thumbnailDownloadButtonText: {
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
