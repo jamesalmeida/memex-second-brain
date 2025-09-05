@@ -173,3 +173,60 @@ export const extractYouTubeData = async (url: string) => {
     throw error;
   }
 };
+
+export const getYouTubeTranscript = async (videoId: string): Promise<{ transcript: string; language: string }> => {
+  try {
+    console.log('Fetching transcript for video ID:', videoId);
+    
+    const youtube = await getInnertubeInstance();
+    const info = await youtube.getInfo(videoId);
+    
+    // Get the transcript using the proper API
+    const transcriptInfo = await info.getTranscript();
+    
+    if (!transcriptInfo || !transcriptInfo.transcript) {
+      throw new Error('No transcript available for this video');
+    }
+    
+    // Navigate the proper structure: TranscriptInfo -> Transcript -> TranscriptSearchPanel -> TranscriptSegmentList
+    const segments = transcriptInfo.transcript.content?.body?.initial_segments;
+    
+    if (!segments || segments.length === 0) {
+      throw new Error('No transcript segments available');
+    }
+    
+    // Combine all transcript segments into a single text
+    // Use toString() method on Text objects for proper text extraction
+    const fullTranscript = segments
+      .filter((segment: any) => segment.snippet) // Filter out any non-transcript segments
+      .map((segment: any) => {
+        // Check if snippet has toString method (Text class) or direct text property
+        if (segment.snippet.toString) {
+          return segment.snippet.toString();
+        } else if (segment.snippet.text) {
+          return segment.snippet.text;
+        }
+        return '';
+      })
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    if (!fullTranscript) {
+      throw new Error('Transcript is empty');
+    }
+    
+    // Get the selected language using the proper getter
+    const language = transcriptInfo.selectedLanguage || 'en';
+    
+    console.log(`Transcript fetched successfully: ${fullTranscript.length} characters, language: ${language}`);
+    
+    return {
+      transcript: fullTranscript,
+      language,
+    };
+  } catch (error) {
+    console.error('Error fetching YouTube transcript:', error);
+    throw error;
+  }
+};

@@ -77,6 +77,17 @@ export interface ItemSpace {
   created_at: string;
 }
 
+export interface YouTubeTranscript {
+  id: string;
+  item_id: string;
+  transcript: string;
+  language: string;
+  duration?: number;
+  fetched_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ItemChat {
   id: string;
   item_id: string;
@@ -106,7 +117,8 @@ export type ActionType =
   | 'create_item'
   | 'update_item'
   | 'delete_item'
-  | 'create_capture';
+  | 'create_capture'
+  | 'save_transcript';
 
 export type QueueStatus = 'pending' | 'synced' | 'failed';
 

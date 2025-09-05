@@ -144,6 +144,44 @@ export const db = {
     return { error };
   },
 
+  // YouTube Transcripts
+  getTranscript: async (itemId: string) => {
+    const { data, error } = await supabase
+      .from('youtube_transcripts')
+      .select('*')
+      .eq('item_id', itemId)
+      .single();
+
+    return { data, error };
+  },
+
+  saveTranscript: async (transcript: {
+    item_id: string;
+    transcript: string;
+    language: string;
+    duration?: number;
+  }) => {
+    const { data, error } = await supabase
+      .from('youtube_transcripts')
+      .upsert({
+        ...transcript,
+        fetched_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  deleteTranscript: async (itemId: string) => {
+    const { error } = await supabase
+      .from('youtube_transcripts')
+      .delete()
+      .eq('item_id', itemId);
+
+    return { error };
+  },
+
   // Spaces
   getSpaces: async (userId: string) => {
     const { data, error } = await supabase

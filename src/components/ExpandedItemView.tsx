@@ -15,6 +15,10 @@ import {
   Linking,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getYouTubeTranscript } from '../services/youtube';
+import { db } from '../services/supabase';
+import { STORAGE_KEYS } from '../constants';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
@@ -100,6 +104,12 @@ const ExpandedItemView = observer(({
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
+  const [transcript, setTranscript] = useState<string>('');
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
+  const [transcriptExists, setTranscriptExists] = useState(false);
+  const transcriptOpacity = useSharedValue(0);
+  const buttonOpacity = useSharedValue(1);
   
   // Set up video player if item has video
   const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
@@ -110,6 +120,54 @@ const ExpandedItemView = observer(({
     }
   });
 
+  const checkForExistingTranscript = async (itemId: string) => {
+    try {
+      console.log('Checking for existing transcript for item:', itemId);
+      
+      // First check local storage
+      const transcriptsJson = await AsyncStorage.getItem(STORAGE_KEYS.TRANSCRIPTS);
+      const transcripts = transcriptsJson ? JSON.parse(transcriptsJson) : {};
+      
+      if (transcripts[itemId]) {
+        console.log('Found transcript in local storage, length:', transcripts[itemId].transcript?.length);
+        setTranscript(transcripts[itemId].transcript);
+        setTranscriptExists(true);
+        transcriptOpacity.value = 1;
+        buttonOpacity.value = 0;
+        return;
+      }
+      
+      // If not in local storage, check Supabase
+      const { data, error } = await db.getTranscript(itemId);
+      console.log('Supabase transcript check result:', { data, error });
+      
+      if (data && !error) {
+        console.log('Found transcript in Supabase, length:', data.transcript?.length);
+        // Save to local storage for future use
+        transcripts[itemId] = data;
+        await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
+        
+        setTranscript(data.transcript);
+        setTranscriptExists(true);
+        transcriptOpacity.value = 1;
+        buttonOpacity.value = 0;
+      } else {
+        console.log('No existing transcript found');
+        setTranscript('');
+        setTranscriptExists(false);
+        transcriptOpacity.value = 0;
+        buttonOpacity.value = 1;
+      }
+    } catch (error) {
+      console.error('Error checking for transcript:', error);
+      // Set default state on error
+      setTranscript('');
+      setTranscriptExists(false);
+      transcriptOpacity.value = 0;
+      buttonOpacity.value = 1;
+    }
+  };
+
   useEffect(() => {
     if (isVisible && item) {
       // Store the item for display
@@ -117,6 +175,12 @@ const ExpandedItemView = observer(({
       setSelectedType(item.content_type);
       // Initialize selected spaces from item's space_ids
       setSelectedSpaceIds(item.space_ids || []);
+      
+      // Check for existing transcript if YouTube video
+      if (item.content_type === 'youtube') {
+        checkForExistingTranscript(item.id);
+      }
+      
       // Show modal first, then animate in
       setModalVisible(true);
       setTimeout(() => {
@@ -251,6 +315,76 @@ const ExpandedItemView = observer(({
   };
   
   // Download thumbnail to device
+  const generateTranscript = async () => {
+    if (!itemToDisplay || itemToDisplay.content_type !== 'youtube' || !itemToDisplay.url) return;
+
+    setIsGeneratingTranscript(true);
+    
+    try {
+      // Extract video ID from URL
+      const videoIdMatch = itemToDisplay.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (!videoIdMatch) {
+        throw new Error('Invalid YouTube URL');
+      }
+      const videoId = videoIdMatch[1];
+
+      // Fetch transcript from YouTube
+      const { transcript: fetchedTranscript, language } = await getYouTubeTranscript(videoId);
+      
+      // Save to local storage first
+      console.log('Saving transcript to local storage for item:', itemToDisplay.id);
+      const transcriptsJson = await AsyncStorage.getItem(STORAGE_KEYS.TRANSCRIPTS);
+      const transcripts = transcriptsJson ? JSON.parse(transcriptsJson) : {};
+      
+      const transcriptData = {
+        item_id: itemToDisplay.id,
+        transcript: fetchedTranscript,
+        language,
+        duration: itemToDisplay.duration,
+        fetched_at: new Date().toISOString(),
+      };
+      
+      transcripts[itemToDisplay.id] = transcriptData;
+      await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
+      console.log('Transcript saved to local storage');
+      
+      // Try to save to database (but don't fail if it doesn't work)
+      try {
+        console.log('Attempting to save transcript to Supabase...');
+        const saveResult = await db.saveTranscript(transcriptData);
+        console.log('Supabase save result:', saveResult);
+      } catch (dbError) {
+        console.log('Failed to save to Supabase (will sync later):', dbError);
+        // Could add to offline queue here for later sync
+      }
+      
+      // Update local state
+      setTranscript(fetchedTranscript);
+      setTranscriptExists(true);
+      
+      // Animate transition from button to dropdown
+      buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
+        transcriptOpacity.value = withTiming(1, { duration: 150 });
+      });
+      
+      // Auto-expand dropdown after generation
+      setTimeout(() => setShowTranscript(true), 300);
+      
+    } catch (error) {
+      console.error('Error generating transcript:', error);
+      alert('Failed to generate transcript. The video may not have captions available.');
+    } finally {
+      setIsGeneratingTranscript(false);
+    }
+  };
+
+  const copyTranscriptToClipboard = async () => {
+    if (transcript) {
+      await Clipboard.setStringAsync(transcript);
+      // Could add a toast notification here
+    }
+  };
+
   const downloadThumbnail = async () => {
     if (!itemToDisplay?.thumbnail_url) {
       Alert.alert('Error', 'No thumbnail to download');
@@ -795,6 +929,67 @@ const ExpandedItemView = observer(({
                             </Text>
                           </TouchableOpacity>
                         </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Transcript Section (for YouTube) */}
+                  {itemToDisplay?.content_type === 'youtube' && (
+                    <View style={styles.transcriptSection}>
+                      <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
+                        TRANSCRIPT
+                      </Text>
+                      
+                      {/* Show button or dropdown based on transcript existence */}
+                      {!transcriptExists ? (
+                        <Animated.View style={{ opacity: buttonOpacity }}>
+                          <TouchableOpacity
+                            style={[
+                              styles.transcriptGenerateButton,
+                              isGeneratingTranscript && styles.transcriptGenerateButtonDisabled,
+                              isDarkMode && styles.transcriptGenerateButtonDark
+                            ]}
+                            onPress={generateTranscript}
+                            disabled={isGeneratingTranscript}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.transcriptGenerateButtonText}>
+                              {isGeneratingTranscript ? '⏳ Processing...' : '⚡ Generate'}
+                            </Text>
+                          </TouchableOpacity>
+                        </Animated.View>
+                      ) : (
+                        <Animated.View style={{ opacity: transcriptOpacity }}>
+                          <TouchableOpacity
+                            style={[styles.transcriptSelector, isDarkMode && styles.transcriptSelectorDark]}
+                            onPress={() => setShowTranscript(!showTranscript)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
+                              {showTranscript ? 'Hide Transcript' : 'View Transcript'}
+                            </Text>
+                            <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
+                              {showTranscript ? '▲' : '▼'}
+                            </Text>
+                          </TouchableOpacity>
+                          
+                          {showTranscript && (
+                            <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
+                              <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
+                                <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
+                                  {transcript}
+                                </Text>
+                              </ScrollView>
+                              <TouchableOpacity
+                                style={styles.transcriptCopyButton}
+                                onPress={copyTranscriptToClipboard}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.transcriptCopyButtonText}>📋</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </Animated.View>
                       )}
                     </View>
                   )}
@@ -1446,5 +1641,97 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Transcript section styles
+  transcriptSection: {
+    marginBottom: 20,
+  },
+  transcriptSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  transcriptSectionLabelDark: {
+    color: '#999',
+  },
+  transcriptGenerateButton: {
+    backgroundColor: '#007AFF',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transcriptGenerateButtonDark: {
+    backgroundColor: '#0A84FF',
+  },
+  transcriptGenerateButtonDisabled: {
+    backgroundColor: '#999',
+  },
+  transcriptGenerateButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  transcriptSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  transcriptSelectorDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3C3C3E',
+  },
+  transcriptSelectorText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  transcriptSelectorTextDark: {
+    color: '#FFF',
+  },
+  transcriptContent: {
+    marginTop: 8,
+    padding: 16,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    position: 'relative',
+  },
+  transcriptContentDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  transcriptScrollView: {
+    maxHeight: 300,
+  },
+  transcriptText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 22,
+  },
+  transcriptTextDark: {
+    color: '#CCC',
+  },
+  transcriptCopyButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transcriptCopyButtonText: {
+    fontSize: 20,
   },
 });
