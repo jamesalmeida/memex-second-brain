@@ -101,6 +101,8 @@ const ExpandedItemView = observer(({
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const mainScrollViewRef = useRef<ScrollView>(null);
+  const [transcriptSectionY, setTranscriptSectionY] = useState<number>(0);
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
@@ -382,7 +384,19 @@ const ExpandedItemView = observer(({
       });
       
       // Auto-expand dropdown after generation
-      setTimeout(() => setShowTranscript(true), 300);
+      setTimeout(() => {
+        setShowTranscript(true);
+        
+        // Auto-scroll to transcript section after dropdown opens
+        setTimeout(() => {
+          if (mainScrollViewRef.current && transcriptSectionY > 0) {
+            mainScrollViewRef.current.scrollTo({
+              y: transcriptSectionY,
+              animated: true
+            });
+          }
+        }, 400); // Allow time for dropdown animation
+      }, 300);
       
     } catch (error) {
       console.error('Error generating transcript:', error);
@@ -468,6 +482,7 @@ const ExpandedItemView = observer(({
           <Animated.View style={[containerStyle]}>
             <View style={[styles.container, isDarkMode && styles.containerDark]}>
               <ScrollView
+                ref={mainScrollViewRef}
                 style={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 bounces={true}
@@ -949,7 +964,13 @@ const ExpandedItemView = observer(({
 
                   {/* Transcript Section (for YouTube) */}
                   {itemToDisplay?.content_type === 'youtube' && (
-                    <View style={styles.transcriptSection}>
+                    <View 
+                      style={styles.transcriptSection}
+                      onLayout={(event) => {
+                        const { y } = event.nativeEvent.layout;
+                        setTranscriptSectionY(y);
+                      }}
+                    >
                       <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
                         TRANSCRIPT
                       </Text>
