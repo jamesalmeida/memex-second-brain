@@ -2,7 +2,7 @@
   "expo": {
     "name": "Memex: Second Brain",
     "slug": "memex-second-brain",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,8 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.memex.secondbrain",
-      "buildNumber": "1.0.0"
+      "bundleIdentifier": "com.jamesalmeida.memex",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
