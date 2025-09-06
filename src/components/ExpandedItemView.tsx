@@ -118,7 +118,8 @@ const ExpandedItemView = observer(({
   const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
     if (player && displayItem?.video_url) {
       player.loop = true;
-      player.muted = false; // Allow sound in expanded view
+      // Allow sound for all videos in expanded view
+      player.muted = false;
       player.play();
     }
   });
