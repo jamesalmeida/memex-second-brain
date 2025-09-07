@@ -1,11 +1,12 @@
 // Import YouTube polyfills first - must be at the top
 import '../src/services/youtube';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, Text, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { observer, useObservable } from '@legendapp/state/react';
+import { useEffect } from 'react';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
 
@@ -19,6 +20,24 @@ const RootLayoutContent = observer(() => {
   const isThemeLoading = themeStore.isLoading.get();
 
   console.log('📱 Root layout rendering:', { isLoading, isAuthenticated, isDarkMode, isThemeLoading, timestamp: Date.now() });
+
+  // Handle navigation based on auth state
+  useEffect(() => {
+    if (!isLoading && !isThemeLoading) {
+      console.log('🔄 Root layout navigation check:', { isAuthenticated, isLoading });
+      
+      // Use setTimeout to ensure navigation happens after the Stack is rendered
+      setTimeout(() => {
+        if (isAuthenticated) {
+          console.log('✅ Navigating to tabs from root layout');
+          router.replace('/(tabs)');
+        } else {
+          console.log('✅ Navigating to auth from root layout');
+          router.replace('/auth');
+        }
+      }, 0);
+    }
+  }, [isAuthenticated, isLoading, isThemeLoading]);
 
   // Show loading spinner while checking auth or theme
   if (isLoading || isThemeLoading) {
