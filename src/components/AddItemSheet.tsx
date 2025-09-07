@@ -276,8 +276,6 @@ const AddItemSheet = observer(
       if (onItemAdded) {
         onItemAdded();
       }
-      
-      Alert.alert('Success', 'Item saved successfully!');
     };
 
     return (
