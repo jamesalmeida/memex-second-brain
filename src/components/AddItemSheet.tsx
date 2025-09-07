@@ -308,11 +308,13 @@ const AddItemSheet = observer(
             Save New Item
           </Text>
           <TouchableOpacity
-            style={[styles.saveButton, !url.trim() && styles.saveButtonDisabled]}
+            style={[styles.saveButton, (!url.trim() || isLoadingMetadata) && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={!url.trim()}
+            disabled={!url.trim() || isLoadingMetadata}
           >
-            <Text style={styles.saveButtonText}>Save</Text>
+            <Text style={styles.saveButtonText}>
+              {isLoadingMetadata ? 'Processing...' : 'Save'}
+            </Text>
           </TouchableOpacity>
         </View>
 
