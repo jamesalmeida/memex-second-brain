@@ -16,7 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "This app needs local network access to connect to the Metro development server."
+      }
     },
     "android": {
       "adaptiveIcon": {
