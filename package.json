@@ -6,7 +6,11 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "ios:dev": "APP_VARIANT=development expo run:ios",
+    "ios:prod": "APP_VARIANT=production expo run:ios",
+    "android:dev": "APP_VARIANT=development expo run:android",
+    "android:prod": "APP_VARIANT=production expo run:android"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
