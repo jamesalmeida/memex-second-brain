@@ -144,10 +144,10 @@ export const db = {
     return { error };
   },
 
-  // YouTube Transcripts
-  getTranscript: async (itemId: string) => {
+  // Video Transcripts (supports multiple platforms)
+  getVideoTranscript: async (itemId: string) => {
     const { data, error } = await supabase
-      .from('youtube_transcripts')
+      .from('video_transcripts')
       .select('*')
       .eq('item_id', itemId)
       .single();
@@ -155,14 +155,25 @@ export const db = {
     return { data, error };
   },
 
-  saveTranscript: async (transcript: {
+  getVideoTranscriptsByPlatform: async (platform: string) => {
+    const { data, error } = await supabase
+      .from('video_transcripts')
+      .select('*')
+      .eq('platform', platform)
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  },
+
+  saveVideoTranscript: async (transcript: {
     item_id: string;
     transcript: string;
+    platform: string;
     language: string;
     duration?: number;
   }) => {
     const { data, error } = await supabase
-      .from('youtube_transcripts')
+      .from('video_transcripts')
       .upsert({
         ...transcript,
         fetched_at: new Date().toISOString(),
@@ -173,9 +184,9 @@ export const db = {
     return { data, error };
   },
 
-  deleteTranscript: async (itemId: string) => {
+  deleteVideoTranscript: async (itemId: string) => {
     const { error } = await supabase
-      .from('youtube_transcripts')
+      .from('video_transcripts')
       .delete()
       .eq('item_id', itemId);
 

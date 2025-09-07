@@ -95,7 +95,7 @@ export const STORAGE_KEYS = {
   ITEM_METADATA: 'item_metadata',
   ITEM_TYPE_METADATA: 'item_type_metadata',
   SPACES: 'spaces',
-  TRANSCRIPTS: 'transcripts',
+  VIDEO_TRANSCRIPTS: '@memex_video_transcripts',
   SYNC_STATUS: 'sync_status',
 };
 

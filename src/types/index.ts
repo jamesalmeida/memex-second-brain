@@ -80,10 +80,13 @@ export interface ItemSpace {
   created_at: string;
 }
 
-export interface YouTubeTranscript {
+export type VideoPlatform = 'youtube' | 'x' | 'tiktok' | 'instagram' | 'reddit';
+
+export interface VideoTranscript {
   id: string;
   item_id: string;
   transcript: string;
+  platform: VideoPlatform;
   language: string;
   duration?: number;
   fetched_at: string;
@@ -121,7 +124,10 @@ export type ActionType =
   | 'update_item'
   | 'delete_item'
   | 'create_capture'
-  | 'save_transcript';
+  | 'save_video_transcript'
+  | 'delete_video_transcript'
+  | 'add_item_to_space'
+  | 'remove_item_from_space';
 
 export type QueueStatus = 'pending' | 'synced' | 'failed';
 

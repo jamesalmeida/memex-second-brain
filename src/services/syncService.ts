@@ -4,9 +4,10 @@ import { spacesStore, spacesActions } from '../stores/spaces';
 import { itemSpacesStore, itemSpacesActions } from '../stores/itemSpaces';
 import { itemMetadataStore, itemMetadataActions } from '../stores/itemMetadata';
 import { itemTypeMetadataStore, itemTypeMetadataActions } from '../stores/itemTypeMetadata';
+import { videoTranscriptsStore, videoTranscriptsActions } from '../stores/videoTranscripts';
 import { offlineQueueStore, offlineQueueActions } from '../stores/offlineQueue';
 import { authStore } from '../stores/auth';
-import { Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, ContentType } from '../types';
+import { Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, ContentType, VideoTranscript } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
 
@@ -116,6 +117,10 @@ class SyncService {
       // 5. Sync item type metadata
       console.log('🎨 Syncing item type metadata...');
       await this.syncItemTypeMetadata(user.id);
+      
+      // 6. Sync video transcripts
+      console.log('📝 Syncing video transcripts...');
+      await this.syncVideoTranscripts(user.id);
 
       console.log('✅ Sync completed successfully');
 
@@ -399,6 +404,136 @@ class SyncService {
 
     if (newTypeMetadata.length > 0) {
       await itemTypeMetadataActions.setTypeMetadata([...localTypeMetadata, ...newTypeMetadata]);
+    }
+  }
+
+  // Sync video transcripts
+  private async syncVideoTranscripts(userId: string): Promise<void> {
+    const localTranscripts = videoTranscriptsStore.transcripts.get();
+    
+    // Get all item IDs for this user to filter transcripts
+    const { data: userItems } = await supabase
+      .from('items')
+      .select('id')
+      .eq('user_id', userId);
+    
+    if (!userItems || userItems.length === 0) return;
+    const userItemIds = userItems.map(item => item.id);
+    
+    const { data: remoteTranscripts, error } = await supabase
+      .from('video_transcripts')
+      .select('*')
+      .in('item_id', userItemIds);
+    
+    if (error) {
+      console.error('Error fetching video transcripts:', error);
+      return;
+    }
+
+    const localMap = new Map(localTranscripts.map(t => [t.item_id, t]));
+    const remoteMap = new Map((remoteTranscripts || []).map(t => [t.item_id, t]));
+
+    // Upload local transcripts not in remote
+    for (const localT of localTranscripts) {
+      if (!remoteMap.has(localT.item_id)) {
+        const { error } = await db.saveVideoTranscript({
+          item_id: localT.item_id,
+          transcript: localT.transcript,
+          platform: localT.platform,
+          language: localT.language,
+          duration: localT.duration,
+        });
+        if (error) console.error('Error uploading video transcript:', error);
+      }
+    }
+
+    // Download remote transcripts not in local
+    const newTranscripts: VideoTranscript[] = [];
+    for (const remoteT of (remoteTranscripts || [])) {
+      if (!localMap.has(remoteT.item_id)) {
+        newTranscripts.push(remoteT as VideoTranscript);
+      }
+    }
+
+    if (newTranscripts.length > 0) {
+      await videoTranscriptsActions.setTranscripts([...localTranscripts, ...newTranscripts]);
+    }
+  }
+
+  // Upload a single video transcript to Supabase
+  async uploadVideoTranscript(transcript: VideoTranscript): Promise<void> {
+    const isOnline = await this.checkConnection();
+    
+    if (!isOnline) {
+      // Add to offline queue
+      offlineQueueActions.addToQueue({
+        action_type: 'save_video_transcript',
+        data: transcript,
+      });
+      
+      // Update pending count
+      this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
+      this.notifyListeners();
+      return;
+    }
+    
+    try {
+      const { error } = await db.saveVideoTranscript({
+        item_id: transcript.item_id,
+        transcript: transcript.transcript,
+        platform: transcript.platform,
+        language: transcript.language,
+        duration: transcript.duration,
+      });
+      
+      if (error) throw error;
+      console.log(`✅ Uploaded video transcript for item ${transcript.item_id}`);
+    } catch (error: any) {
+      console.error('Error uploading video transcript:', error);
+      // Add to offline queue if upload fails
+      offlineQueueActions.addToQueue({
+        action_type: 'save_video_transcript',
+        data: transcript,
+      });
+      
+      // Update pending count
+      this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
+      this.notifyListeners();
+    }
+  }
+  
+  // Delete video transcript from Supabase
+  async deleteVideoTranscript(itemId: string): Promise<void> {
+    const isOnline = await this.checkConnection();
+    
+    if (!isOnline) {
+      // Add to offline queue
+      offlineQueueActions.addToQueue({
+        action_type: 'delete_video_transcript',
+        data: { item_id: itemId },
+      });
+      
+      // Update pending count
+      this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
+      this.notifyListeners();
+      return;
+    }
+    
+    try {
+      const { error } = await db.deleteVideoTranscript(itemId);
+      if (error) throw error;
+      console.log(`✅ Deleted video transcript for item ${itemId}`);
+    } catch (error: any) {
+      console.error('Error deleting video transcript:', error);
+      // Add to offline queue if delete fails
+      offlineQueueActions.addToQueue({
+        action_type: 'delete_video_transcript',
+        data: { item_id: itemId },
+      });
+      
+      // Update pending count
+      this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
+      this.notifyListeners();
     }
   }
 

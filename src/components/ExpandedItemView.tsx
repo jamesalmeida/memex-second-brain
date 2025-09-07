@@ -17,9 +17,11 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getYouTubeTranscript } from '../services/youtube';
-import { db } from '../services/supabase';
 import { STORAGE_KEYS } from '../constants';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { videoTranscriptsActions, videoTranscriptsComputed } from '../stores/videoTranscripts';
+import { VideoTranscript } from '../types';
+import uuid from 'react-native-uuid';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
@@ -141,13 +143,12 @@ const ExpandedItemView = observer(({
     try {
       console.log('Checking for existing transcript for item:', itemId);
       
-      // First check local storage
-      const transcriptsJson = await AsyncStorage.getItem(STORAGE_KEYS.TRANSCRIPTS);
-      const transcripts = transcriptsJson ? JSON.parse(transcriptsJson) : {};
+      // Check local store for transcript
+      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemId);
       
-      if (transcripts[itemId]) {
-        console.log('Found transcript in local storage, length:', transcripts[itemId].transcript?.length);
-        const transcriptText = transcripts[itemId].transcript;
+      if (existingTranscript) {
+        console.log('Found transcript in local store, length:', existingTranscript.transcript?.length);
+        const transcriptText = existingTranscript.transcript;
         setTranscript(transcriptText);
         setTranscriptStats(calculateTranscriptStats(transcriptText));
         setTranscriptExists(true);
@@ -156,30 +157,13 @@ const ExpandedItemView = observer(({
         return;
       }
       
-      // If not in local storage, check Supabase
-      const { data, error } = await db.getTranscript(itemId);
-      console.log('Supabase transcript check result:', { data, error });
-      
-      if (data && !error) {
-        console.log('Found transcript in Supabase, length:', data.transcript?.length);
-        // Save to local storage for future use
-        transcripts[itemId] = data;
-        await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
-        
-        const transcriptText = data.transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-        transcriptOpacity.value = 1;
-        buttonOpacity.value = 0;
-      } else {
-        console.log('No existing transcript found');
-        setTranscript('');
-        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
-        setTranscriptExists(false);
-        transcriptOpacity.value = 0;
-        buttonOpacity.value = 1;
-      }
+      // No transcript found
+      console.log('No existing transcript found for item:', itemId);
+      setTranscript('');
+      setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
+      setTranscriptExists(false);
+      transcriptOpacity.value = 0;
+      buttonOpacity.value = 1;
     } catch (error) {
       console.error('Error checking for transcript:', error);
       // Set default state on error
@@ -354,32 +338,23 @@ const ExpandedItemView = observer(({
       // Fetch transcript from YouTube
       const { transcript: fetchedTranscript, language } = await getYouTubeTranscript(videoId);
       
-      // Save to local storage first
-      console.log('Saving transcript to local storage for item:', itemToDisplay.id);
-      const transcriptsJson = await AsyncStorage.getItem(STORAGE_KEYS.TRANSCRIPTS);
-      const transcripts = transcriptsJson ? JSON.parse(transcriptsJson) : {};
-      
-      const transcriptData = {
+      // Create video transcript object
+      console.log('Creating video transcript for item:', itemToDisplay.id);
+      const transcriptData: VideoTranscript = {
+        id: uuid.v4() as string,
         item_id: itemToDisplay.id,
         transcript: fetchedTranscript,
+        platform: 'youtube', // Since this is YouTube content
         language,
         duration: itemToDisplay.duration,
         fetched_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       
-      transcripts[itemToDisplay.id] = transcriptData;
-      await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
-      console.log('Transcript saved to local storage');
-      
-      // Try to save to database (but don't fail if it doesn't work)
-      try {
-        console.log('Attempting to save transcript to Supabase...');
-        const saveResult = await db.saveTranscript(transcriptData);
-        console.log('Supabase save result:', saveResult);
-      } catch (dbError) {
-        console.log('Failed to save to Supabase (will sync later):', dbError);
-        // Could add to offline queue here for later sync
-      }
+      // Save to local store and sync to Supabase
+      await videoTranscriptsActions.addTranscript(transcriptData);
+      console.log('Transcript saved to local store and queued for sync');
       
       // Update local state
       setTranscript(fetchedTranscript);
