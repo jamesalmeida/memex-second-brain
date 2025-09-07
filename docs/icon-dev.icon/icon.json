@@ -1,12 +1,15 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.00000,0.47843,1.00000,1.00000"
+    "automatic-gradient" : "srgb:0.83742,0.83744,0.83743,1.00000"
   },
   "groups" : [
     {
       "layers" : [
         {
           "blend-mode" : "plus-darker",
+          "fill" : {
+            "automatic-gradient" : "srgb:0.57415,0.57416,0.57415,1.00000"
+          },
           "hidden" : false,
           "image-name" : "1-memex brain.svg",
           "name" : "1-memex brain",
@@ -21,7 +24,9 @@
         },
         {
           "blend-mode" : "normal",
-          "fill" : "automatic",
+          "fill" : {
+            "automatic-gradient" : "srgb:0.57415,0.57416,0.57415,1.00000"
+          },
           "glass" : true,
           "image-name" : "2-memex brain.svg",
           "name" : "2-memex brain",
