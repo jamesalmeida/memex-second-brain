@@ -73,8 +73,8 @@ console.log('🔍 SUPABASE KEY:', SUPABASE.ANON_KEY ? '✅ Set' : '❌ Empty');
 // App configuration
 export const APP = {
   NAME: 'Memex: Second Brain',
-  VERSION: '1.0.0',
-  BUNDLE_ID: 'com.memex.secondbrain',
+  VERSION: '0.1.0',
+  BUNDLE_ID: 'com.jamesalmeida.memex',
 };
 
 // External API services (client-side)
@@ -91,12 +91,16 @@ export const STORAGE_KEYS = {
   LAST_SYNC: 'last_sync',
   OFFLINE_QUEUE: 'offline_queue',
   ITEMS: 'items',
+  ITEM_SPACES: 'item_spaces',
+  ITEM_METADATA: 'item_metadata',
+  ITEM_TYPE_METADATA: 'item_type_metadata',
+  SPACES: 'spaces',
   TRANSCRIPTS: 'transcripts',
   SYNC_STATUS: 'sync_status',
 };
 
 // Share extension
 export const SHARE_EXTENSION = {
-  GROUP_IDENTIFIER: 'group.com.memex.secondbrain',
+  GROUP_IDENTIFIER: 'group.com.jamesalmeida.memex',
   MAX_ITEMS: 10,
 };

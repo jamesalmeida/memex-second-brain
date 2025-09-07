@@ -24,7 +24,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.memex.secondbrain",
+      "package": "com.jamesalmeida.memex",
       "versionCode": 1
     },
     "web": {
@@ -44,7 +44,7 @@
               "NSExtensionActivationSupportsMovieWithMaxCount": 1,
               "NSExtensionActivationSupportsFileWithMaxCount": 1
             },
-            "groupIdentifier": "group.com.memex.secondbrain"
+            "groupIdentifier": "group.com.jamesalmeida.memex"
           }
         }
       ],

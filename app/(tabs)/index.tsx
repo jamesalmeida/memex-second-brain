@@ -202,9 +202,9 @@ const HomeScreen = observer(() => {
         onChat={(item) => console.log('Chat with item:', item.title)}
         onEdit={(item) => console.log('Edit item:', item.title)}
         onArchive={(item) => console.log('Archive item:', item.title)}
-        onDelete={(item) => {
+        onDelete={async (item) => {
           console.log('Delete item:', item.title);
-          itemsActions.removeItem(item.id);
+          await itemsActions.removeItemWithSync(item.id);
           setSelectedItem(null);
         }}
         onShare={(item) => console.log('Share item:', item.title)}

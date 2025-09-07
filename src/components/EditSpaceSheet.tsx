@@ -16,6 +16,7 @@ import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
+import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { Space } from '../types';
 
 interface EditSpaceSheetProps {
@@ -106,15 +107,12 @@ const EditSpaceSheet = observer(
           {
             text: 'Delete',
             style: 'destructive',
-            onPress: () => {
-              // Remove space from all items that have it
-              const allItems = itemsStore.items.get();
-              allItems.forEach(item => {
-                if (item.space_ids?.includes(currentSpace.id)) {
-                  const updatedSpaceIds = item.space_ids.filter(id => id !== currentSpace.id);
-                  itemsActions.updateItem(item.id, { space_ids: updatedSpaceIds });
-                }
-              });
+            onPress: async () => {
+              // Remove all item-space relationships for this space
+              const itemIds = itemSpacesComputed.getItemIdsInSpace(currentSpace.id);
+              for (const itemId of itemIds) {
+                await itemSpacesActions.removeItemFromSpace(itemId, currentSpace.id);
+              }
               
               // Delete the space
               spacesActions.removeSpace(currentSpace.id);

@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
+import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { Item } from '../types';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -20,9 +21,13 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   
+  // Get video URL and image URLs from item type metadata
+  const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+  
   // Set up video player if item has video
-  const player = useVideoPlayer(item.video_url ? item.video_url : null, player => {
-    if (player && item.video_url) {
+  const player = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
       player.loop = true;
       player.muted = true;
       player.play();
@@ -30,7 +35,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   });
   
   // Check if item has multiple images
-  const hasMultipleImages = item.image_urls && item.image_urls.length > 1;
+  const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const cardWidth = screenWidth / 2 - 18;
 
   const getContentTypeIcon = () => {
@@ -118,7 +123,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       activeOpacity={0.7}
     >
       {/* Thumbnail or Content Preview */}
-      {item.video_url && player ? (
+      {videoUrl && player ? (
         // Show video player for items with video
         <View style={{ position: 'relative' }}>
           <VideoView
@@ -153,7 +158,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
             scrollEventThrottle={16}
             style={{ width: '100%' }}
           >
-            {item.image_urls!.map((imageUrl, index) => (
+            {imageUrls!.map((imageUrl, index) => (
               <Image
                 key={index}
                 source={{ uri: imageUrl }}
@@ -175,7 +180,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
           </ScrollView>
           {/* Dots indicator */}
           <View style={styles.dotsContainer}>
-            {item.image_urls!.map((_, index) => (
+            {imageUrls!.map((_, index) => (
               <View
                 key={index}
                 style={[

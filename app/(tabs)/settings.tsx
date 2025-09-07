@@ -18,7 +18,8 @@ import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
 import { themeStore, themeActions } from '../../src/stores/theme';
 import { authActions } from '../../src/stores/auth';
-import { syncStore, syncComputed, syncActions } from '../../src/stores/syncStore';
+import { syncStatusStore, syncStatusComputed, syncStatusActions } from '../../src/stores/syncStatus';
+import { syncService } from '../../src/services/syncService';
 import { itemsActions } from '../../src/stores/items';
 import { supabase } from '../../src/services/supabase';
 import { COLORS, UI, APP } from '../../src/constants';
@@ -34,13 +35,11 @@ const SettingsScreen = observer(() => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   
   // Sync status
-  const syncStatus = syncComputed.status();
-  const syncStatusText = syncComputed.statusText();
-  const syncStatusColor = syncComputed.statusColor();
-  const canSync = syncComputed.canSync();
-  const isSyncing = syncStore.isSyncing.get();
-  const pendingItems = syncStore.pendingItems.get();
-  const autoSync = syncStore.autoSync.get();
+  const syncStatusText = syncStatusComputed.statusText();
+  const syncStatusColor = syncStatusComputed.statusColor();
+  const isSyncing = syncStatusStore.isSyncing.get();
+  const pendingChanges = syncStatusStore.pendingChanges.get();
+  const isOnline = syncStatusStore.isOnline.get();
   
   // Debug logging
   console.log('🔧 Settings Screen - isDarkMode from store:', isDarkMode);
@@ -154,16 +153,20 @@ const SettingsScreen = observer(() => {
   };
 
   const handleForceSync = async () => {
-    if (!canSync) {
+    if (isSyncing || !isOnline) {
       Alert.alert('Cannot Sync', 'Already syncing or offline');
       return;
     }
     
     try {
-      await syncActions.forceSync();
-      Alert.alert('Success', 'Sync completed successfully');
-    } catch (error) {
-      Alert.alert('Sync Failed', 'Failed to sync. Please try again later.');
+      const result = await syncService.forceSync();
+      if (result.success) {
+        Alert.alert('Success', `Synced ${result.itemsSynced} items successfully`);
+      } else {
+        Alert.alert('Sync Failed', result.errors.join('\n'));
+      }
+    } catch (error: any) {
+      Alert.alert('Sync Failed', error.message || 'Failed to sync. Please try again later.');
     }
   };
 
@@ -225,7 +228,7 @@ const SettingsScreen = observer(() => {
                   }}
                 />
                 <Text style={[{ color: '#666' }, isDarkMode && { color: '#AAA' }]}>
-                  {syncStatus}
+                  {isOnline ? (isSyncing ? 'Syncing' : pendingChanges > 0 ? 'Pending' : 'Synced') : 'Offline'}
                 </Text>
               </View>
             }
@@ -233,29 +236,15 @@ const SettingsScreen = observer(() => {
             showArrow={false}
           />
 
-          {pendingItems > 0 && (
+          {pendingChanges > 0 && (
             <SettingsItem
-              title="Pending Items"
-              subtitle={`${pendingItems} items waiting to sync`}
+              title="Pending Changes"
+              subtitle={`${pendingChanges} changes waiting to sync`}
               isDarkMode={isDarkMode}
               showArrow={false}
             />
           )}
 
-          <SettingsItem
-            title="Auto Sync"
-            subtitle={`Automatically sync when online`}
-            rightComponent={
-              <Switch
-                value={autoSync}
-                onValueChange={(value) => syncActions.setAutoSync(value)}
-                trackColor={{ false: '#767577', true: COLORS.primary }}
-                thumbColor={autoSync ? '#fff' : '#f4f3f4'}
-              />
-            }
-            isDarkMode={isDarkMode}
-            showArrow={false}
-          />
 
           <SettingsItem
             title="Force Sync"

@@ -38,6 +38,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
 import { spacesStore, spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
+import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
+import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
+import { itemMetadataComputed } from '../stores/itemMetadata';
 import { Item, Space, ContentType } from '../types';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -114,9 +117,12 @@ const ExpandedItemView = observer(({
   const transcriptOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
   
+  // Get video URL from item type metadata
+  const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
+  
   // Set up video player if item has video
-  const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
-    if (player && displayItem?.video_url) {
+  const videoPlayer = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
       player.loop = true;
       // Allow sound for all videos in expanded view
       player.muted = false;
@@ -189,8 +195,9 @@ const ExpandedItemView = observer(({
       // Store the item for display
       setDisplayItem(item);
       setSelectedType(item.content_type);
-      // Initialize selected spaces from item's space_ids
-      setSelectedSpaceIds(item.space_ids || []);
+      // Initialize selected spaces from item_spaces relationships
+      const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
+      setSelectedSpaceIds(spaceIds);
       
       // Check for existing transcript if YouTube video
       if (item.content_type === 'youtube') {
@@ -522,7 +529,7 @@ const ExpandedItemView = observer(({
                         `}
                       />
                     </View>
-                  ) : itemToDisplay?.video_url && videoPlayer ? (
+                  ) : videoUrl && videoPlayer ? (
                     // Show video player for Twitter/X videos
                     <VideoView
                       player={videoPlayer}
@@ -534,35 +541,37 @@ const ExpandedItemView = observer(({
                       allowsFullscreen={true}
                       showsTimecodes={true}
                     />
-                  ) : itemToDisplay?.image_urls && itemToDisplay.image_urls.length > 1 ? (
-                    // Show carousel for multiple images
-                    <View style={{ position: 'relative' }}>
-                      <ScrollView
-                        ref={scrollViewRef}
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        onMomentumScrollEnd={(event) => {
-                          const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                          setCurrentImageIndex(newIndex);
-                        }}
-                        scrollEventThrottle={16}
-                      >
-                        {itemToDisplay.image_urls.map((imageUrl, index) => (
-                          <Image
-                            key={index}
-                            source={{ uri: imageUrl }}
-                            style={[
-                              styles.heroMedia,
-                              { width: SCREEN_WIDTH }
-                            ]}
-                            resizeMode="contain"
-                          />
-                        ))}
-                      </ScrollView>
-                      {/* Dots indicator */}
-                      <View style={styles.dotsContainer}>
-                        {itemToDisplay.image_urls.map((_, index) => (
+                  ) : (() => {
+                    const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
+                    return imageUrls && imageUrls.length > 1 ? (
+                      // Show carousel for multiple images
+                      <View style={{ position: 'relative' }}>
+                        <ScrollView
+                          ref={scrollViewRef}
+                          horizontal
+                          pagingEnabled
+                          showsHorizontalScrollIndicator={false}
+                          onMomentumScrollEnd={(event) => {
+                            const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                            setCurrentImageIndex(newIndex);
+                          }}
+                          scrollEventThrottle={16}
+                        >
+                          {imageUrls.map((imageUrl, index) => (
+                            <Image
+                              key={index}
+                              source={{ uri: imageUrl }}
+                              style={[
+                                styles.heroMedia,
+                                { width: SCREEN_WIDTH }
+                              ]}
+                              resizeMode="contain"
+                            />
+                          ))}
+                        </ScrollView>
+                        {/* Dots indicator */}
+                        <View style={styles.dotsContainer}>
+                          {imageUrls.map((_, index) => (
                           <View
                             key={index}
                             style={[
@@ -570,10 +579,11 @@ const ExpandedItemView = observer(({
                               index === currentImageIndex && styles.activeDot
                             ]}
                           />
-                        ))}
+                          ))}
+                        </View>
                       </View>
-                    </View>
-                  ) : itemToDisplay?.thumbnail_url ? (
+                    ) : null;
+                  })() || itemToDisplay?.thumbnail_url ? (
                     // Show image for non-video items
                     <Image
                       source={{ uri: itemToDisplay.thumbnail_url }}
@@ -734,7 +744,7 @@ const ExpandedItemView = observer(({
                           <TouchableOpacity
                             key={space.id}
                             style={styles.spaceOption}
-                            onPress={() => {
+                            onPress={async () => {
                               const newSelectedIds = selectedSpaceIds.includes(space.id)
                                 ? selectedSpaceIds.filter(id => id !== space.id)
                                 : [...selectedSpaceIds, space.id];
@@ -742,23 +752,25 @@ const ExpandedItemView = observer(({
                               
                               // Update the item with new space assignments
                               if (itemToDisplay) {
-                                const updatedItem = { ...itemToDisplay, space_ids: newSelectedIds };
-                                itemsActions.updateItem(itemToDisplay.id, { space_ids: newSelectedIds });
-                                setDisplayItem(updatedItem);
+                                const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
                                 
-                                // Update space item counts
-                                newSelectedIds.forEach(spaceId => {
-                                  const space = spaces.find(s => s.id === spaceId);
-                                  if (space && !itemToDisplay.space_ids?.includes(spaceId)) {
-                                    spacesActions.updateSpace(spaceId, { 
-                                      item_count: (space.item_count || 0) + 1 
-                                    });
+                                // Add new space relationships
+                                for (const spaceId of newSelectedIds) {
+                                  if (!currentSpaceIds.includes(spaceId)) {
+                                    await itemSpacesActions.addItemToSpace(itemToDisplay.id, spaceId);
+                                    const space = spaces.find(s => s.id === spaceId);
+                                    if (space) {
+                                      spacesActions.updateSpace(spaceId, { 
+                                        item_count: (space.item_count || 0) + 1 
+                                      });
+                                    }
                                   }
-                                });
+                                }
                                 
-                                // Decrease count for removed spaces
-                                itemToDisplay.space_ids?.forEach(spaceId => {
+                                // Remove old space relationships
+                                for (const spaceId of currentSpaceIds) {
                                   if (!newSelectedIds.includes(spaceId)) {
+                                    await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
                                     const space = spaces.find(s => s.id === spaceId);
                                     if (space) {
                                       spacesActions.updateSpace(spaceId, { 
@@ -766,7 +778,7 @@ const ExpandedItemView = observer(({
                                       });
                                     }
                                   }
-                                });
+                                }
                               }
                             }}
                           >
@@ -795,23 +807,21 @@ const ExpandedItemView = observer(({
                         {selectedSpaceIds.length > 0 && (
                           <TouchableOpacity
                             style={[styles.clearButton]}
-                            onPress={() => {
+                            onPress={async () => {
                               // Update item to remove from all spaces
-                              if (itemToDisplay && itemToDisplay.space_ids) {
-                                // Decrease count for all current spaces
-                                itemToDisplay.space_ids.forEach(spaceId => {
+                              if (itemToDisplay) {
+                                const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
+                                
+                                // Remove all space relationships
+                                for (const spaceId of currentSpaceIds) {
+                                  await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
                                   const space = spaces.find(s => s.id === spaceId);
                                   if (space) {
                                     spacesActions.updateSpace(spaceId, { 
                                       item_count: Math.max(0, (space.item_count || 0) - 1)
                                     });
                                   }
-                                });
-                                
-                                // Update item
-                                const updatedItem = { ...itemToDisplay, space_ids: [] };
-                                itemsActions.updateItem(itemToDisplay.id, { space_ids: [] });
-                                setDisplayItem(updatedItem);
+                                }
                               }
                               setSelectedSpaceIds([]);
                             }}

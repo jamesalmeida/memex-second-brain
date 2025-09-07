@@ -24,6 +24,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
 import { itemsStore } from '../stores/items';
+import { itemSpacesComputed } from '../stores/itemSpaces';
 import ItemCard from './ItemCard';
 import ExpandedItemView from './ExpandedItemView';
 import { Item, Space } from '../types';
@@ -66,8 +67,9 @@ const ExpandedSpaceView = observer(({
   // Get items for this space from the store
   const getSpaceItems = (spaceId: string): Item[] => {
     const allItems = itemsStore.items.get();
+    const itemIdsInSpace = itemSpacesComputed.getItemIdsInSpace(spaceId);
     // Filter items that belong to this space
-    return allItems.filter(item => item.space_ids?.includes(spaceId) || false);
+    return allItems.filter(item => itemIdsInSpace.includes(item.id));
   };
 
   useEffect(() => {

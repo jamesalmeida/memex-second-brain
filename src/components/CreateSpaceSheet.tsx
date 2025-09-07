@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { observer } from '@legendapp/state/react';
+import uuid from 'react-native-uuid';
 import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
+import { authComputed } from '../stores/auth';
 import { Space } from '../types';
 
 interface CreateSpaceSheetProps {
@@ -50,25 +52,30 @@ const CreateSpaceSheet = observer(
       []
     );
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
       if (!spaceName.trim()) {
         Alert.alert('Error', 'Please enter a space name');
         return;
       }
 
+      const userId = authComputed.userId();
+      if (!userId) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
       const newSpace: Space = {
-        id: `space-${Date.now()}`,
+        id: uuid.v4() as string,
         name: spaceName.trim(),
         description: spaceDescription.trim(),
         color: selectedColor,
         icon: selectedEmoji || undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        item_count: 0,
-        user_id: 'current-user', // This should come from auth context
+        user_id: userId,
       };
 
-      spacesActions.addSpace(newSpace);
+      await spacesActions.addSpaceWithSync(newSpace);
       onSpaceCreated?.(newSpace);
       
       // Reset form

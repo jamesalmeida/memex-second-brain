@@ -1,6 +1,9 @@
 import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Space } from '../types';
+import { STORAGE_KEYS } from '../constants';
+import { syncService } from '../services/syncService';
+import { authStore } from './auth';
 
 interface SpacesState {
   spaces: Space[];
@@ -16,15 +19,14 @@ const initialState: SpacesState = {
 
 export const spacesStore = observable(initialState);
 
-const STORAGE_KEY = '@memex_spaces';
-
 // Load spaces from storage on initialization
 const loadSpaces = async () => {
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    const stored = await AsyncStorage.getItem(STORAGE_KEYS.SPACES);
     if (stored) {
-      const data = JSON.parse(stored);
-      spacesStore.spaces.set(data.spaces || []);
+      const spaces = JSON.parse(stored);
+      spacesStore.spaces.set(spaces || []);
+      console.log('📚 Loaded', spaces?.length || 0, 'spaces from storage');
     }
   } catch (error) {
     console.error('Failed to load spaces:', error);
@@ -34,7 +36,7 @@ const loadSpaces = async () => {
 // Save spaces to storage whenever they change
 spacesStore.spaces.onChange(() => {
   const spaces = spacesStore.spaces.get();
-  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ spaces })).catch(error => {
+  AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(spaces)).catch(error => {
     console.error('Failed to save spaces:', error);
   });
 });
@@ -69,6 +71,25 @@ export const spacesActions = {
     spacesStore.spaces.set([...currentSpaces, space]);
   },
 
+  // Add space with Supabase sync
+  addSpaceWithSync: async (space: Space) => {
+    const currentSpaces = spacesStore.spaces.get();
+    spacesStore.spaces.set([...currentSpaces, space]);
+    
+    try {
+      // Save to AsyncStorage
+      await AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify([...currentSpaces, space]));
+      
+      // Sync with Supabase
+      const user = authStore.user.get();
+      if (user) {
+        await syncService.uploadSpace(space, user.id);
+      }
+    } catch (error) {
+      console.error('Error saving space:', error);
+    }
+  },
+
   updateSpace: (id: string, updates: Partial<Space>) => {
     const currentSpaces = spacesStore.spaces.get();
     const updatedSpaces = currentSpaces.map(space =>
@@ -93,5 +114,11 @@ export const spacesActions = {
 
   reset: () => {
     spacesStore.set(initialState);
+  },
+
+  clearAll: () => {
+    spacesStore.spaces.set([]);
+    spacesStore.selectedSpace.set(null);
+    console.log('📦 Cleared all spaces from store');
   },
 };

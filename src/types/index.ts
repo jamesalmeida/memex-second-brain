@@ -34,13 +34,12 @@ export interface Item {
   content?: string;
   desc?: string;
   thumbnail_url?: string;
-  video_url?: string;
-  image_urls?: string[]; // For multiple images (e.g., X posts with multiple photos)
   raw_text?: string;
   created_at: string;
   updated_at: string;
   is_archived: boolean;
-  space_ids?: string[]; // Array of space IDs this item belongs to
+  // Removed: video_url, image_urls, space_ids
+  // These are now in separate tables
 }
 
 export interface ItemMetadata {
@@ -55,7 +54,11 @@ export interface ItemMetadata {
 export interface ItemTypeMetadata {
   item_id: string;
   content_type: ContentType;
-  data: Record<string, any>;
+  data: {
+    video_url?: string;
+    image_urls?: string[];
+    [key: string]: any;
+  };
 }
 
 export interface Space {

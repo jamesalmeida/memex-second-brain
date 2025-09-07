@@ -10,7 +10,8 @@
       "Bash(npm info:*)",
       "Bash(cat:*)",
       "Bash(npx supabase db diff:*)",
-      "Bash(pod install:*)"
+      "Bash(pod install:*)",
+      "Bash(lsof:*)"
     ],
     "deny": [],
     "ask": []

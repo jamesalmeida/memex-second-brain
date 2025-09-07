@@ -218,6 +218,15 @@ export const itemsActions = {
     itemsStore.set(initialState);
   },
 
+  clearAll: () => {
+    // Clear items and filtered items
+    itemsStore.items.set([]);
+    itemsStore.filteredItems.set([]);
+    itemsStore.filters.set({});
+    itemsStore.searchQuery.set('');
+    console.log('📦 Cleared all items from store');
+  },
+
   clearFilters: () => {
     itemsStore.filters.set({});
     itemsStore.searchQuery.set('');
@@ -258,7 +267,7 @@ export const itemsActions = {
   syncWithSupabase: async () => {
     try {
       console.log('🔄 Starting Supabase sync...');
-      const result = await syncService.syncAll();
+      const result = await syncService.syncToCloud();
       
       if (result.success) {
         console.log(`✅ Synced ${result.itemsSynced} items with Supabase`);

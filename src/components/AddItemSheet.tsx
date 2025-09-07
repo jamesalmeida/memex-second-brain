@@ -24,6 +24,10 @@ import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { spacesStore, spacesComputed, spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
+import { itemSpacesActions } from '../stores/itemSpaces';
+import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
+import { itemMetadataActions } from '../stores/itemMetadata';
+import { authComputed } from '../stores/auth';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
 import { COLORS, UI } from '../constants';
 import { Space, Item, ContentType } from '../types';
@@ -191,31 +195,55 @@ const AddItemSheet = observer(
         return;
       }
 
-      // Create the new item
+      const userId = authComputed.userId();
+      if (!userId) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      // Create the new item with only fields that exist in the items table
       const newItem: Item = {
         id: uuid.v4() as string,
-        user_id: 'current-user', // TODO: Get from auth store
+        user_id: userId,
         title: metadata?.title || url.slice(0, 50),
         desc: metadata?.description || undefined,
         content: selectedType === 'note' ? url : undefined,
         url: selectedType !== 'note' ? url : undefined,
         thumbnail_url: metadata?.image || undefined,
-        video_url: metadata?.videoUrl || undefined,
-        image_urls: metadata?.images || undefined,
         content_type: selectedType as ContentType,
-        space_ids: selectedSpaceId ? [selectedSpaceId] : undefined,
-        tags: tags.length > 0 ? tags : undefined,
         is_archived: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        isMockData: false, // This is a real saved item
       };
       
       // Add to the items store with Supabase sync
       await itemsActions.addItemWithSync(newItem);
       
-      // Update space item count if item was added to a space
+      // Create item_type_metadata if we have video_url or image_urls
+      if (metadata?.videoUrl || metadata?.images) {
+        await itemTypeMetadataActions.upsertTypeMetadata({
+          item_id: newItem.id,
+          data: {
+            video_url: metadata?.videoUrl,
+            image_urls: metadata?.images,
+          },
+        });
+      }
+      
+      // Create item_metadata if we have author or domain info
+      if (metadata?.author || metadata?.domain) {
+        await itemMetadataActions.upsertMetadata({
+          item_id: newItem.id,
+          author: metadata?.author,
+          domain: metadata?.domain,
+        });
+      }
+      
+      // Create item_spaces relationship if item was added to a space
       if (selectedSpaceId) {
+        await itemSpacesActions.addItemToSpace(newItem.id, selectedSpaceId);
+        
+        // Update space item count
         const spaces = spacesStore.spaces.get();
         const space = spaces.find(s => s.id === selectedSpaceId);
         if (space) {
