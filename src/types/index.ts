@@ -3,6 +3,7 @@
 export type ContentType =
   | 'bookmark'
   | 'youtube'
+  | 'youtube_short'
   | 'x'
   | 'github'
   | 'instagram'

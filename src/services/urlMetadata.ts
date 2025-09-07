@@ -76,7 +76,7 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
       image: youtubeData.thumbnail,
       author: youtubeData.author,
       duration,
-      contentType: 'youtube',
+      contentType: youtubeData.isShort ? 'youtube_short' : 'youtube',
       siteName: 'YouTube',
     };
   } catch (error) {

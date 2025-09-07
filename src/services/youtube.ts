@@ -128,6 +128,7 @@ export const extractYouTubeData = async (url: string) => {
       /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
       /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
       /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
     ];
     
     let videoId = null;
@@ -155,6 +156,9 @@ export const extractYouTubeData = async (url: string) => {
     const thumbnail = info.basic_info.thumbnail?.[0]?.url || 
                      info.basic_info.thumbnail?.[info.basic_info.thumbnail.length - 1]?.url;
     
+    // Check if it's a YouTube Short
+    const isShort = url.includes('/shorts/') || (info.basic_info.duration && info.basic_info.duration <= 60);
+    
     const result = {
       title: info.basic_info.title,
       description: info.basic_info.short_description,
@@ -163,6 +167,7 @@ export const extractYouTubeData = async (url: string) => {
       duration: info.basic_info.duration,
       viewCount: info.basic_info.view_count,
       videoId,
+      isShort,
     };
     
     console.log('YouTube extraction successful:', result.title);

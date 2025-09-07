@@ -40,6 +40,7 @@ const contentTypes = [
   { id: 'bookmark', icon: 'bookmark', label: 'Bookmark' },
   { id: 'note', icon: 'note', label: 'Note' },
   { id: 'youtube', icon: 'ondemand-video', label: 'YouTube' },
+  { id: 'youtube_short', icon: 'movie', label: 'YT Short' },
   { id: 'video', icon: 'videocam', label: 'Video' },
   { id: 'image', icon: 'image', label: 'Image' },
   { id: 'article', icon: 'article', label: 'Article' },
