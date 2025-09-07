@@ -725,6 +725,79 @@ class SyncService {
     return this.syncStatus;
   }
 
+  // Update a space in Supabase
+  async updateSpace(space: Space): Promise<void> {
+    const isOnline = await this.checkConnection();
+    
+    if (!isOnline) {
+      console.log('📵 Offline - space update will sync later');
+      // TODO: Add to offline queue for update
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('spaces')
+        .update({
+          name: space.name,
+          description: space.description || space.desc || null,
+          color: space.color,
+          item_count: space.item_count || 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', space.id);
+      
+      if (error) {
+        console.error('Error updating space in Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ Space updated in Supabase:', space.name);
+    } catch (error) {
+      console.error('Failed to update space in Supabase:', error);
+      throw error;
+    }
+  }
+
+  // Delete a space from Supabase
+  async deleteSpace(spaceId: string): Promise<void> {
+    const isOnline = await this.checkConnection();
+    
+    if (!isOnline) {
+      console.log('📵 Offline - space deletion will sync later');
+      // TODO: Add to offline queue for deletion
+      return;
+    }
+    
+    try {
+      // First delete all item_spaces relationships for this space
+      const { error: itemSpacesError } = await supabase
+        .from('item_spaces')
+        .delete()
+        .eq('space_id', spaceId);
+      
+      if (itemSpacesError) {
+        console.error('Error deleting item_spaces relationships:', itemSpacesError);
+      }
+      
+      // Then delete the space itself
+      const { error } = await supabase
+        .from('spaces')
+        .delete()
+        .eq('id', spaceId);
+      
+      if (error) {
+        console.error('Error deleting space from Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ Space deleted from Supabase:', spaceId);
+    } catch (error) {
+      console.error('Failed to delete space from Supabase:', error);
+      throw error;
+    }
+  }
+
   // Upload a single space to Supabase
   async uploadSpace(space: Space, userId: string): Promise<void> {
     const isOnline = await this.checkConnection();

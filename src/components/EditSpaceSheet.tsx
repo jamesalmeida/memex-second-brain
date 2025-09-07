@@ -18,6 +18,7 @@ import { spacesActions } from '../stores/spaces';
 import { itemsStore, itemsActions } from '../stores/items';
 import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { Space } from '../types';
+import { syncService } from '../services/syncService';
 
 interface EditSpaceSheetProps {
   onSpaceUpdated?: (space: Space) => void;
@@ -28,7 +29,6 @@ export interface EditSpaceSheetRef {
   openWithSpace: (space: Space) => void;
 }
 
-const EMOJI_OPTIONS = [null, '📁', '🚀', '💡', '📚', '🎨', '🔬', '🎯', '💼', '🌟', '🔥', '⚡'];
 const COLOR_OPTIONS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#DDA0DD',
   '#FF8C94', '#98D8C8', '#6C5CE7', '#55A3FF', '#FD79A8', '#A29BFE',
@@ -41,7 +41,6 @@ const EditSpaceSheet = observer(
     const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
     const [spaceName, setSpaceName] = useState('');
     const [spaceDescription, setSpaceDescription] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
     const [selectedColor, setSelectedColor] = useState('#4ECDC4');
     
     // Expose methods to parent
@@ -50,7 +49,6 @@ const EditSpaceSheet = observer(
         setCurrentSpace(space);
         setSpaceName(space.name);
         setSpaceDescription(space.description || '');
-        setSelectedEmoji(space.icon || null);
         setSelectedColor(space.color);
         bottomSheetRef.current?.snapToIndex(0);
       }
@@ -72,7 +70,7 @@ const EditSpaceSheet = observer(
       []
     );
 
-    const handleUpdate = () => {
+    const handleUpdate = async () => {
       if (!currentSpace) return;
       
       if (!spaceName.trim()) {
@@ -85,15 +83,24 @@ const EditSpaceSheet = observer(
         name: spaceName.trim(),
         description: spaceDescription.trim(),
         color: selectedColor,
-        icon: selectedEmoji || undefined,
         updated_at: new Date().toISOString(),
       };
 
-      spacesActions.updateSpace(currentSpace.id, updatedSpace);
-      onSpaceUpdated?.(updatedSpace);
-      
-      // Close sheet
-      bottomSheetRef.current?.close();
+      try {
+        // Update locally first
+        spacesActions.updateSpace(currentSpace.id, updatedSpace);
+        
+        // Then sync to Supabase
+        await syncService.updateSpace(updatedSpace);
+        
+        onSpaceUpdated?.(updatedSpace);
+        
+        // Close sheet
+        bottomSheetRef.current?.close();
+      } catch (error) {
+        console.error('Error updating space:', error);
+        Alert.alert('Error', 'Failed to update space. Please try again.');
+      }
     };
 
     const handleDelete = () => {
@@ -108,18 +115,26 @@ const EditSpaceSheet = observer(
             text: 'Delete',
             style: 'destructive',
             onPress: async () => {
-              // Remove all item-space relationships for this space
-              const itemIds = itemSpacesComputed.getItemIdsInSpace(currentSpace.id);
-              for (const itemId of itemIds) {
-                await itemSpacesActions.removeItemFromSpace(itemId, currentSpace.id);
+              try {
+                // Remove all item-space relationships for this space locally
+                const itemIds = itemSpacesComputed.getItemIdsInSpace(currentSpace.id);
+                for (const itemId of itemIds) {
+                  await itemSpacesActions.removeItemFromSpace(itemId, currentSpace.id);
+                }
+                
+                // Delete from Supabase first
+                await syncService.deleteSpace(currentSpace.id);
+                
+                // Then delete locally
+                spacesActions.removeSpace(currentSpace.id);
+                onSpaceDeleted?.(currentSpace.id);
+                
+                // Close sheet
+                bottomSheetRef.current?.close();
+              } catch (error) {
+                console.error('Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
               }
-              
-              // Delete the space
-              spacesActions.removeSpace(currentSpace.id);
-              onSpaceDeleted?.(currentSpace.id);
-              
-              // Close sheet
-              bottomSheetRef.current?.close();
             }
           }
         ]
@@ -185,25 +200,6 @@ const EditSpaceSheet = observer(
             />
           </View>
 
-          {/* Emoji Selector */}
-          <View style={styles.section}>
-            <Text style={[styles.label, isDarkMode && styles.labelDark]}>Icon</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsScroll}>
-              {EMOJI_OPTIONS.map((emoji, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.emojiOption,
-                    selectedEmoji === emoji && styles.selectedOption,
-                    isDarkMode && styles.optionDark,
-                  ]}
-                  onPress={() => setSelectedEmoji(emoji)}
-                >
-                  <Text style={styles.emojiText}>{emoji || '✖️'}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
 
           {/* Color Selector */}
           <View style={styles.section}>
@@ -231,9 +227,7 @@ const EditSpaceSheet = observer(
           <View style={styles.section}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>Preview</Text>
             <View style={[styles.previewCard, { borderColor: selectedColor }]}>
-              <View style={[styles.previewIcon, { backgroundColor: selectedColor + '20' }]}>
-                <Text style={styles.previewEmoji}>{selectedEmoji || '📁'}</Text>
-              </View>
+              <View style={[styles.previewIcon, { backgroundColor: selectedColor }]} />
               <View style={styles.previewContent}>
                 <Text style={[styles.previewTitle, isDarkMode && styles.previewTitleDark]}>
                   {spaceName || 'Space Name'}
@@ -350,25 +344,11 @@ const styles = StyleSheet.create({
   optionsScroll: {
     flexDirection: 'row',
   },
-  emojiOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
   optionDark: {
     backgroundColor: '#2C2C2E',
   },
   selectedOption: {
     borderColor: '#007AFF',
-  },
-  emojiText: {
-    fontSize: 24,
   },
   colorGrid: {
     flexDirection: 'row',
@@ -401,9 +381,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-  },
-  previewEmoji: {
-    fontSize: 24,
   },
   previewContent: {
     flex: 1,
