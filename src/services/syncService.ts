@@ -377,17 +377,17 @@ class SyncService {
     // Upload local type metadata not in remote
     for (const localTM of localTypeMetadata) {
       if (!remoteMap.has(localTM.item_id)) {
-        // Ensure content_type is included
-        if (!localTM.content_type) {
-          console.warn(`⚠️ Skipping type metadata for item ${localTM.item_id} - missing content_type`);
-          continue;
-        }
+        // Ensure content_type is included - default to 'bookmark' if missing
+        const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
+        const contentType = localTM.content_type && validContentTypes.includes(localTM.content_type) 
+          ? localTM.content_type 
+          : 'bookmark';
         
         const { error } = await supabase
           .from('item_type_metadata')
           .insert({
             item_id: localTM.item_id,
-            content_type: localTM.content_type,
+            content_type: contentType,
             data: localTM.data || {},
           });
         if (error) console.error('Error uploading item_type_metadata:', error);
@@ -550,6 +550,10 @@ class SyncService {
     
     if (!isOnline) {
       // Add to offline queue with only valid fields
+      // Default to 'bookmark' if content_type is missing or invalid
+      const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
+      const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
+      
       offlineQueueActions.addToQueue({
         action_type: 'create_item',
         data: {
@@ -560,7 +564,7 @@ class SyncService {
           content: item.content || null,
           url: item.url || null,
           thumbnail_url: item.thumbnail_url || null,
-          content_type: item.content_type,
+          content_type: contentType,
           is_archived: item.is_archived || false,
           raw_text: item.raw_text || null,
         },
@@ -574,6 +578,10 @@ class SyncService {
 
     try {
       // Only send fields that exist in the items table
+      // Default to 'bookmark' if content_type is missing or invalid
+      const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
+      const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
+      
       const { error } = await db.createItem({
         id: item.id,
         user_id: userId,
@@ -582,7 +590,7 @@ class SyncService {
         content: item.content || null,
         url: item.url || null,
         thumbnail_url: item.thumbnail_url || null,
-        content_type: item.content_type,
+        content_type: contentType,
         is_archived: item.is_archived || false,
         raw_text: item.raw_text || null,
       });
@@ -591,6 +599,9 @@ class SyncService {
     } catch (error: any) {
       console.error('Error uploading item:', error);
       // Add to offline queue if upload fails
+      const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
+      const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
+      
       offlineQueueActions.addToQueue({
         action_type: 'create_item',
         data: {
@@ -601,7 +612,7 @@ class SyncService {
           content: item.content || null,
           url: item.url || null,
           thumbnail_url: item.thumbnail_url || null,
-          content_type: item.content_type,
+          content_type: contentType,
           is_archived: item.is_archived || false,
           raw_text: item.raw_text || null,
         },
