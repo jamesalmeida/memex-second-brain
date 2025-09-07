@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
+import uuid from 'react-native-uuid';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
@@ -184,7 +185,7 @@ const AddItemSheet = observer(
       }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
       if (!url.trim()) {
         Alert.alert('Error', 'Please enter some content');
         return;
@@ -192,7 +193,7 @@ const AddItemSheet = observer(
 
       // Create the new item
       const newItem: Item = {
-        id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: uuid.v4() as string,
         user_id: 'current-user', // TODO: Get from auth store
         title: metadata?.title || url.slice(0, 50),
         desc: metadata?.description || undefined,
@@ -210,9 +211,8 @@ const AddItemSheet = observer(
         isMockData: false, // This is a real saved item
       };
       
-      // Add to the items store
-      const currentItems = itemsStore.items.get();
-      itemsActions.setItems([newItem, ...currentItems]);
+      // Add to the items store with Supabase sync
+      await itemsActions.addItemWithSync(newItem);
       
       // Update space item count if item was added to a space
       if (selectedSpaceId) {

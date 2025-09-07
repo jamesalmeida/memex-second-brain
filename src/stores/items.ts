@@ -2,6 +2,8 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Item, SearchFilters } from '../types';
 import { STORAGE_KEYS } from '../constants';
+import { syncService } from '../services/syncService';
+import { authStore } from './auth';
 
 interface ItemsState {
   items: Item[];
@@ -53,6 +55,28 @@ export const itemsActions = {
     }
   },
 
+  // Add item with Supabase sync
+  addItemWithSync: async (newItem: Item) => {
+    const currentItems = itemsStore.items.get();
+    const updatedItems = [newItem, ...currentItems];
+    
+    // Save locally first
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems);
+    
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      
+      // Sync with Supabase if authenticated
+      const user = authStore.user.get();
+      if (user) {
+        await syncService.uploadItem(newItem, user.id);
+      }
+    } catch (error) {
+      console.error('Error saving item:', error);
+    }
+  },
+
   addItems: async (newItems: Item[]) => {
     const currentItems = itemsStore.items.get();
     const updatedItems = [...currentItems, ...newItems];
@@ -81,6 +105,27 @@ export const itemsActions = {
     }
   },
 
+  // Update item with Supabase sync
+  updateItemWithSync: async (id: string, updates: Partial<Item>) => {
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.id === id ? { ...item, ...updates, updated_at: new Date().toISOString() } : item
+    );
+    
+    // Update locally first
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems);
+    
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      
+      // Sync with Supabase
+      await syncService.updateItem(id, updates);
+    } catch (error) {
+      console.error('Error updating item:', error);
+    }
+  },
+
   removeItem: async (id: string) => {
     const currentItems = itemsStore.items.get();
     const filteredItems = currentItems.filter(item => item.id !== id);
@@ -91,6 +136,25 @@ export const itemsActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
     } catch (error) {
       console.error('Error saving items to storage:', error);
+    }
+  },
+
+  // Remove item with Supabase sync
+  removeItemWithSync: async (id: string) => {
+    const currentItems = itemsStore.items.get();
+    const filteredItems = currentItems.filter(item => item.id !== id);
+    
+    // Remove locally first
+    itemsStore.items.set(filteredItems);
+    itemsStore.filteredItems.set(filteredItems);
+    
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
+      
+      // Sync with Supabase
+      await syncService.deleteItem(id);
+    } catch (error) {
+      console.error('Error deleting item:', error);
     }
   },
 
@@ -160,6 +224,22 @@ export const itemsActions = {
     itemsStore.filteredItems.set(itemsStore.items.get());
   },
 
+  // Clear mock items from storage
+  clearMockItems: async () => {
+    const currentItems = itemsStore.items.get();
+    const realItems = currentItems.filter(item => !item.isMockData);
+    
+    itemsStore.items.set(realItems);
+    itemsStore.filteredItems.set(realItems);
+    
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(realItems));
+      console.log('✅ Cleared mock items, kept', realItems.length, 'real items');
+    } catch (error) {
+      console.error('Error clearing mock items:', error);
+    }
+  },
+
   loadItems: async () => {
     try {
       const savedItems = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
@@ -171,6 +251,27 @@ export const itemsActions = {
       }
     } catch (error) {
       console.error('Error loading items from storage:', error);
+    }
+  },
+
+  // Sync all items with Supabase
+  syncWithSupabase: async () => {
+    try {
+      console.log('🔄 Starting Supabase sync...');
+      const result = await syncService.syncAll();
+      
+      if (result.success) {
+        console.log(`✅ Synced ${result.itemsSynced} items with Supabase`);
+        // Reload items after sync
+        await itemsActions.loadItems();
+      } else {
+        console.error('❌ Sync failed:', result.errors);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error syncing with Supabase:', error);
+      throw error;
     }
   },
 };

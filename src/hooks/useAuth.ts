@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { router, useSegments } from 'expo-router';
 import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
+import { syncActions } from '../stores/syncStore';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -46,6 +47,12 @@ export function useAuth() {
             email: session.user.email || '',
           });
           authActions.setSession(session);
+          
+          // Trigger sync for existing session
+          console.log('🔄 Starting sync for existing session...');
+          syncActions.forceSync().catch(error => {
+            console.error('Failed to sync for existing session:', error);
+          });
         } else {
           console.log('ℹ️ No user in session (expected for first-time users)');
         }
@@ -80,6 +87,12 @@ export function useAuth() {
           });
           authActions.setSession(session);
           authActions.setLoading(false);
+
+          // Trigger sync with Supabase after sign in
+          console.log('🔄 Starting sync after sign in...');
+          syncActions.forceSync().catch(error => {
+            console.error('Failed to sync after sign in:', error);
+          });
 
           // Navigate to home screen - the state change will trigger navigation
           console.log('🔄 User authenticated, state updated');

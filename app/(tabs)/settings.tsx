@@ -18,6 +18,8 @@ import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
 import { themeStore, themeActions } from '../../src/stores/theme';
 import { authActions } from '../../src/stores/auth';
+import { syncStore, syncComputed, syncActions } from '../../src/stores/syncStore';
+import { itemsActions } from '../../src/stores/items';
 import { supabase } from '../../src/services/supabase';
 import { COLORS, UI, APP } from '../../src/constants';
 import { SettingsSection } from '../../src/components/SettingsSection';
@@ -30,6 +32,15 @@ const SettingsScreen = observer(() => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Sync status
+  const syncStatus = syncComputed.status();
+  const syncStatusText = syncComputed.statusText();
+  const syncStatusColor = syncComputed.statusColor();
+  const canSync = syncComputed.canSync();
+  const isSyncing = syncStore.isSyncing.get();
+  const pendingItems = syncStore.pendingItems.get();
+  const autoSync = syncStore.autoSync.get();
   
   // Debug logging
   console.log('🔧 Settings Screen - isDarkMode from store:', isDarkMode);
@@ -142,6 +153,20 @@ const SettingsScreen = observer(() => {
     Alert.alert('Feature Coming Soon', 'Data export functionality will be available in a future update.');
   };
 
+  const handleForceSync = async () => {
+    if (!canSync) {
+      Alert.alert('Cannot Sync', 'Already syncing or offline');
+      return;
+    }
+    
+    try {
+      await syncActions.forceSync();
+      Alert.alert('Success', 'Sync completed successfully');
+    } catch (error) {
+      Alert.alert('Sync Failed', 'Failed to sync. Please try again later.');
+    }
+  };
+
   return (
     <View style={containerStyle}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -180,6 +205,68 @@ const SettingsScreen = observer(() => {
             subtitle="Permanently delete your account"
             onPress={handleDeleteAccount}
             isDarkMode={isDarkMode}
+          />
+        </SettingsSection>
+
+        {/* Sync Status Section */}
+        <SettingsSection title="Sync Status" isDarkMode={isDarkMode}>
+          <SettingsItem
+            title="Status"
+            subtitle={syncStatusText}
+            rightComponent={
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: syncStatusColor,
+                    marginRight: 8,
+                  }}
+                />
+                <Text style={[{ color: '#666' }, isDarkMode && { color: '#AAA' }]}>
+                  {syncStatus}
+                </Text>
+              </View>
+            }
+            isDarkMode={isDarkMode}
+            showArrow={false}
+          />
+
+          {pendingItems > 0 && (
+            <SettingsItem
+              title="Pending Items"
+              subtitle={`${pendingItems} items waiting to sync`}
+              isDarkMode={isDarkMode}
+              showArrow={false}
+            />
+          )}
+
+          <SettingsItem
+            title="Auto Sync"
+            subtitle={`Automatically sync when online`}
+            rightComponent={
+              <Switch
+                value={autoSync}
+                onValueChange={(value) => syncActions.setAutoSync(value)}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={autoSync ? '#fff' : '#f4f3f4'}
+              />
+            }
+            isDarkMode={isDarkMode}
+            showArrow={false}
+          />
+
+          <SettingsItem
+            title="Force Sync"
+            subtitle={isSyncing ? "Syncing..." : "Manually sync all data now"}
+            onPress={handleForceSync}
+            isDarkMode={isDarkMode}
+            rightComponent={
+              isSyncing ? (
+                <Text style={[{ color: COLORS.primary }]}>Syncing...</Text>
+              ) : null
+            }
           />
         </SettingsSection>
 
@@ -223,6 +310,28 @@ const SettingsScreen = observer(() => {
 
         {/* Data & Storage Section */}
         <SettingsSection title="Data & Storage" isDarkMode={isDarkMode}>
+          <SettingsItem
+            title="Clear Mock Items"
+            subtitle="Remove sample data from storage"
+            onPress={async () => {
+              Alert.alert(
+                'Clear Mock Items',
+                'This will remove all sample data, keeping only your real items.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear',
+                    onPress: async () => {
+                      await itemsActions.clearMockItems();
+                      Alert.alert('Success', 'Mock items have been cleared');
+                    },
+                  },
+                ]
+              );
+            }}
+            isDarkMode={isDarkMode}
+          />
+
           <SettingsItem
             title="Clear Cache"
             subtitle="Clear locally stored data"

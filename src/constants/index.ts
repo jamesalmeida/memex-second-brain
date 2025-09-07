@@ -92,6 +92,7 @@ export const STORAGE_KEYS = {
   OFFLINE_QUEUE: 'offline_queue',
   ITEMS: 'items',
   TRANSCRIPTS: 'transcripts',
+  SYNC_STATUS: 'sync_status',
 };
 
 // Share extension
