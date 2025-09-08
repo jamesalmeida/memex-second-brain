@@ -196,6 +196,14 @@ const ExpandedItemView = observer(({
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
       
+      // Debug: Check metadata store
+      if (item.content_type === 'x') {
+        const allMetadata = itemTypeMetadataComputed.typeMetadata();
+        console.log('All type metadata in store:', allMetadata);
+        const itemMetadata = itemTypeMetadataComputed.getTypeMetadataForItem(item.id);
+        console.log('Metadata for this item:', itemMetadata);
+      }
+      
       // Initialize tags
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
@@ -618,30 +626,40 @@ const ExpandedItemView = observer(({
                     const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
                     const hasMultipleImages = imageUrls && imageUrls.length > 1;
                     
+                    // Debug logging
+                    console.log('ExpandedItemView - Item ID:', itemToDisplay?.id);
+                    console.log('ExpandedItemView - Content Type:', itemToDisplay?.content_type);
+                    console.log('ExpandedItemView - Image URLs:', imageUrls);
+                    console.log('ExpandedItemView - Has Multiple Images:', hasMultipleImages);
+                    
                     if (hasMultipleImages) {
                       return (
                         // Show carousel for multiple images
-                        <View style={{ position: 'relative' }}>
+                        <View style={{ position: 'relative', width: SCREEN_WIDTH, height: SCREEN_WIDTH }}>
                           <ScrollView
                             ref={scrollViewRef}
                             horizontal
                             pagingEnabled
                             showsHorizontalScrollIndicator={false}
+                            nestedScrollEnabled={true}
+                            directionalLockEnabled={true}
                             onMomentumScrollEnd={(event) => {
                               const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                               setCurrentImageIndex(newIndex);
                             }}
                             scrollEventThrottle={16}
-                            style={{ width: SCREEN_WIDTH }}
+                            style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH }}
+                            contentContainerStyle={{ height: SCREEN_WIDTH }}
                           >
                             {imageUrls!.map((imageUrl, index) => (
                               <Image
                                 key={index}
                                 source={{ uri: imageUrl }}
-                                style={[
-                                  styles.heroMedia,
-                                  { width: SCREEN_WIDTH }
-                                ]}
+                                style={{
+                                  width: SCREEN_WIDTH,
+                                  height: SCREEN_WIDTH,
+                                  backgroundColor: '#000000'
+                                }}
                                 resizeMode="contain"
                               />
                             ))}
@@ -685,7 +703,7 @@ const ExpandedItemView = observer(({
                       );
                     }
                     return null;
-                  })() || itemToDisplay?.thumbnail_url ? (
+                  })() || (itemToDisplay?.thumbnail_url ? (
                     // Show image for non-video items
                     <Image
                       source={{ uri: itemToDisplay.thumbnail_url }}
@@ -711,7 +729,7 @@ const ExpandedItemView = observer(({
                     <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
                       <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
                     </View>
-                  )}
+                  ))}
                   
                   {/* Close Button Overlay */}
                   <TouchableOpacity
