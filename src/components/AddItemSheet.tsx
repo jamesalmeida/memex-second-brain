@@ -69,7 +69,6 @@ const AddItemSheet = observer(
     // Snap points for the bottom sheet - just 75% height
     const snapPoints = useMemo(() => {
       const points = ['75%'];
-      console.log('Snap points set to:', points);
       return points;
     }, []);
 

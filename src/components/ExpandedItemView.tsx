@@ -662,12 +662,6 @@ const ExpandedItemView = observer(({
                     const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
                     const hasMultipleImages = imageUrls && imageUrls.length > 1;
                     
-                    // Debug logging
-                    console.log('ExpandedItemView - Item ID:', itemToDisplay?.id);
-                    console.log('ExpandedItemView - Content Type:', itemToDisplay?.content_type);
-                    console.log('ExpandedItemView - Image URLs:', imageUrls);
-                    console.log('ExpandedItemView - Has Multiple Images:', hasMultipleImages);
-                    
                     if (hasMultipleImages) {
                       return (
                         // Show carousel for multiple images
