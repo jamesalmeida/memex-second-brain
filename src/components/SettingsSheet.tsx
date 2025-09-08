@@ -31,7 +31,7 @@ interface SettingsSheetProps {
 }
 
 const SettingsSheet = observer(
-  forwardRef<BottomSheet, SettingsSheetProps>((props, ref) => {
+  forwardRef<BottomSheet, SettingsSheetProps>(({ onOpen, onClose }, ref) => {
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
     const [isSyncing, setIsSyncing] = useState(false);
@@ -97,6 +97,13 @@ const SettingsSheet = observer(
           styles.handleIndicator,
           isDarkMode && styles.handleIndicatorDark,
         ]}
+        onChange={(index) => {
+          if (index === -1) {
+            onClose?.();
+          } else if (index >= 0) {
+            onOpen?.();
+          }
+        }}
       >
         <View style={styles.header}>
           <Text style={[styles.title, isDarkMode && styles.titleDark]}>

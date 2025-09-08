@@ -17,6 +17,7 @@ const TabLayout = observer(() => {
   const insets = useSafeAreaInsets();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
@@ -29,7 +30,13 @@ const TabLayout = observer(() => {
   }, []);
 
   const handleSettingsPress = () => {
-    settingsSheetRef.current?.expand();
+    if (isSettingsOpen) {
+      settingsSheetRef.current?.close();
+      setIsSettingsOpen(false);
+    } else {
+      settingsSheetRef.current?.expand();
+      setIsSettingsOpen(true);
+    }
   };
 
   const handleAddPress = () => {
@@ -80,7 +87,11 @@ const TabLayout = observer(() => {
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
-        <SettingsSheet ref={settingsSheetRef} />
+        <SettingsSheet 
+          ref={settingsSheetRef} 
+          onOpen={() => setIsSettingsOpen(true)}
+          onClose={() => setIsSettingsOpen(false)}
+        />
         <AddItemSheet ref={addItemSheetRef} preSelectedSpaceId={currentSpaceId} />
         <CreateSpaceSheet ref={createSpaceSheetRef} />
       </View>
