@@ -197,7 +197,8 @@ export const itemsActions = {
         item.title.toLowerCase().includes(query) ||
         item.desc?.toLowerCase().includes(query) ||
         item.content?.toLowerCase().includes(query) ||
-        item.raw_text?.toLowerCase().includes(query)
+        item.raw_text?.toLowerCase().includes(query) ||
+        item.tags?.some(tag => tag.toLowerCase().includes(query))
       );
     }
 

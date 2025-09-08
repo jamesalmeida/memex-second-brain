@@ -232,6 +232,7 @@ const AddItemSheet = observer(
         url: selectedType !== 'note' ? url : undefined,
         thumbnail_url: metadata?.image || undefined,
         content_type: selectedType as ContentType,
+        tags: tags.length > 0 ? tags : undefined,
         is_archived: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

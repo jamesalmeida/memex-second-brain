@@ -107,7 +107,7 @@ export const db = {
       `)
       .eq('user_id', userId)
       .eq('is_archived', false)
-      .or(`title.ilike.%${query}%,desc.ilike.%${query}%,content.ilike.%${query}%`)
+      .or(`title.ilike.%${query}%,desc.ilike.%${query}%,content.ilike.%${query}%,tags.cs.{${query}}`)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

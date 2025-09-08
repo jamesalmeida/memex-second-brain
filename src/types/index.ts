@@ -36,6 +36,7 @@ export interface Item {
   desc?: string;
   thumbnail_url?: string;
   raw_text?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
   is_archived: boolean;

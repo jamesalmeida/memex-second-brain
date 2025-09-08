@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   Alert,
   Linking,
+  TextInput,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +45,8 @@ import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { itemMetadataComputed } from '../stores/itemMetadata';
 import { Item, Space, ContentType } from '../types';
+import { supabase } from '../services/supabase';
+import { generateTags, URLMetadata } from '../services/urlMetadata';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -119,6 +122,13 @@ const ExpandedItemView = observer(({
   const transcriptOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
   
+  // Tags state
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [showAllTags, setShowAllTags] = useState(false);
+  
   // Get video URL from item type metadata
   const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
   
@@ -182,6 +192,10 @@ const ExpandedItemView = observer(({
       // Initialize selected spaces from item_spaces relationships
       const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
       setSelectedSpaceIds(spaceIds);
+      
+      // Initialize tags
+      setTags(item.tags || []);
+      setShowAllTags(false); // Reset to collapsed state when opening a new item
       
       // Check for existing transcript if YouTube video
       if (item.content_type === 'youtube') {
@@ -442,6 +456,87 @@ const ExpandedItemView = observer(({
     }
   };
 
+  // Tag management functions
+  const addTag = async () => {
+    const trimmedTag = tagInput.trim();
+    if (trimmedTag && !tags.includes(trimmedTag)) {
+      const newTags = [...tags, trimmedTag];
+      setTags(newTags);
+      setTagInput('');
+      
+      // Auto-save the new tag
+      await saveTagsToDatabase(newTags);
+    }
+  };
+
+  const removeTag = async (tagToRemove: string) => {
+    const newTags = tags.filter(tag => tag !== tagToRemove);
+    setTags(newTags);
+    
+    // Auto-save after removing tag
+    await saveTagsToDatabase(newTags);
+  };
+
+  const generateAITags = async () => {
+    if (!itemToDisplay) return;
+    
+    setIsGeneratingTags(true);
+    try {
+      // Prepare content for tag generation
+      const content = itemToDisplay.content || itemToDisplay.desc || itemToDisplay.title || '';
+      
+      // Create metadata object for the generateTags function
+      const metadata: URLMetadata = {
+        url: itemToDisplay.url || '',
+        title: itemToDisplay.title,
+        description: itemToDisplay.desc || '',
+        contentType: itemToDisplay.content_type,
+      };
+      
+      // Call the actual AI tag generation service
+      const generatedTags = await generateTags(content, metadata);
+      
+      // Add unique tags not already present
+      const uniqueTags = generatedTags.filter(tag => !tags.includes(tag));
+      if (uniqueTags.length > 0) {
+        const newTags = [...tags, ...uniqueTags];
+        setTags(newTags);
+        
+        // Auto-save the generated tags
+        await saveTagsToDatabase(newTags);
+      }
+    } catch (error) {
+      console.error('Error generating tags:', error);
+      alert('Failed to generate tags. Make sure OpenAI API is configured.');
+    } finally {
+      setIsGeneratingTags(false);
+    }
+  };
+
+  // Helper function to save tags to database
+  const saveTagsToDatabase = async (tagsToSave: string[]) => {
+    if (!itemToDisplay) return;
+    
+    try {
+      const { error } = await supabase
+        .from('items')
+        .update({ tags: tagsToSave })
+        .eq('id', itemToDisplay.id);
+      
+      if (error) throw error;
+      
+      // Update the item in the store
+      await itemsActions.updateItem(itemToDisplay.id, { tags: tagsToSave });
+      
+      // No alert needed for auto-save
+      console.log('Tags auto-saved successfully');
+    } catch (error) {
+      console.error('Error saving tags:', error);
+      // Only show error alert, not success
+      alert('Failed to save tags');
+    }
+  };
+
   return (
     <Modal
       visible={modalVisible}
@@ -648,6 +743,118 @@ const ExpandedItemView = observer(({
                       </TouchableOpacity>
                     </View>
                   )}
+
+                  {/* Tags Section */}
+                  <View style={styles.tagsSection}>
+                    <View style={styles.tagsSectionHeader}>
+                      <Text style={[styles.tagsSectionLabel, isDarkMode && styles.tagsSectionLabelDark]}>
+                        TAGS
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.aiButton, isDarkMode && styles.aiButtonDark]}
+                        onPress={generateAITags}
+                        disabled={isGeneratingTags}
+                      >
+                        <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
+                          {isGeneratingTags ? 'Generating...' : '✨ AI Generate'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Tags Display */}
+                    <View style={styles.tagsContainer}>
+                      {/* Show tags based on count and expanded state */}
+                      {(() => {
+                        if (tags.length <= 5) {
+                          // Show all tags if 5 or fewer
+                          return tags.map((tag, index) => (
+                            <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
+                              <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
+                                {tag}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => removeTag(tag)}
+                                style={styles.tagRemoveButton}
+                              >
+                                <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ));
+                        } else if (showAllTags) {
+                          // Show all tags when expanded
+                          return tags.map((tag, index) => (
+                            <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
+                              <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
+                                {tag}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => removeTag(tag)}
+                                style={styles.tagRemoveButton}
+                              >
+                                <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ));
+                        } else {
+                          // Show only first 4 tags when collapsed and more than 5 total
+                          return tags.slice(0, 4).map((tag, index) => (
+                            <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
+                              <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
+                                {tag}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => removeTag(tag)}
+                                style={styles.tagRemoveButton}
+                              >
+                                <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ));
+                        }
+                      })()}
+                      
+                      {/* Show more/less button if there are more than 5 tags */}
+                      {tags.length > 5 && (
+                        <TouchableOpacity
+                          style={[styles.showMoreButton, isDarkMode && styles.showMoreButtonDark]}
+                          onPress={() => setShowAllTags(!showAllTags)}
+                        >
+                          <Text style={[styles.showMoreText, isDarkMode && styles.showMoreTextDark]}>
+                            {showAllTags ? '− Show Less' : `+${tags.length - 4} More`}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      
+                      {/* Add Tag Input */}
+                      {showTagInput ? (
+                        <View style={[styles.tagInputContainer, isDarkMode && styles.tagInputContainerDark]}>
+                          <TextInput
+                            style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
+                            value={tagInput}
+                            onChangeText={setTagInput}
+                            onSubmitEditing={addTag}
+                            placeholder="Add tag..."
+                            placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                            autoFocus
+                            onBlur={() => {
+                              if (!tagInput.trim()) {
+                                setShowTagInput(false);
+                              }
+                            }}
+                          />
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.addTagButton, isDarkMode && styles.addTagButtonDark]}
+                          onPress={() => setShowTagInput(true)}
+                        >
+                          <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>
+                            + Add Tag
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
 
                   {/* Full Content */}
                   {itemToDisplay?.content && (
@@ -1793,5 +2000,130 @@ const styles = StyleSheet.create({
   },
   transcriptFooterTextDark: {
     color: '#999',
+  },
+  tagsSection: {
+    marginBottom: 20,
+  },
+  tagsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tagsSectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    color: '#666',
+  },
+  tagsSectionLabelDark: {
+    color: '#999',
+  },
+  aiButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+  },
+  aiButtonDark: {
+    backgroundColor: '#0A84FF',
+  },
+  aiButtonText: {
+    fontSize: 12,
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  aiButtonTextDark: {
+    color: '#FFF',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  tagChipDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  tagText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  tagTextDark: {
+    color: '#FFF',
+  },
+  tagRemoveButton: {
+    marginLeft: 6,
+  },
+  tagRemoveText: {
+    fontSize: 18,
+    color: '#999',
+    fontWeight: 'bold',
+  },
+  tagRemoveTextDark: {
+    color: '#666',
+  },
+  addTagButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  addTagButtonDark: {
+    borderColor: '#3C3C3E',
+  },
+  addTagButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  addTagButtonTextDark: {
+    color: '#999',
+  },
+  tagInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    minWidth: 100,
+  },
+  tagInputContainerDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  tagInput: {
+    fontSize: 14,
+    color: '#333',
+    padding: 0,
+    minWidth: 80,
+  },
+  tagInputDark: {
+    color: '#FFF',
+  },
+  showMoreButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#007AFF',
+  },
+  showMoreButtonDark: {
+    backgroundColor: '#0A84FF',
+  },
+  showMoreText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  showMoreTextDark: {
+    color: '#FFF',
   },
 });
