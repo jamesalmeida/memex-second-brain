@@ -24,14 +24,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   // Get video URL and image URLs from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
   const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
-  
-  // Debug logging for X posts
-  if (item.content_type === 'x') {
-    console.log('ItemCard - Item ID:', item.id);
-    console.log('ItemCard - Image URLs:', imageUrls);
-    console.log('ItemCard - Has Multiple Images:', imageUrls && imageUrls.length > 1);
-  }
-  
+    
   // Set up video player if item has video
   const player = useVideoPlayer(videoUrl || null, player => {
     if (player && videoUrl) {
