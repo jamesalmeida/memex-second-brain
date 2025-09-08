@@ -36,8 +36,8 @@ const CreateSpaceSheet = observer(
     // Emoji selection removed
     const [selectedColor, setSelectedColor] = useState('#4ECDC4');
     
-    // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['75%', '90%'], []);
+    // Snap points for the bottom sheet - single snap point to prevent sheet closing
+    const snapPoints = useMemo(() => ['90%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -111,8 +111,9 @@ const CreateSpaceSheet = observer(
           styles.handleIndicator,
           isDarkMode && styles.handleIndicatorDark,
         ]}
-        keyboardBehavior={Platform.OS === 'ios' ? 'interactive' : 'fillParent'}
+        keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel}>
@@ -187,6 +188,9 @@ const CreateSpaceSheet = observer(
               multiline
               numberOfLines={4}
               maxLength={200}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              blurOnSubmit={false}
             />
           </View>
 
