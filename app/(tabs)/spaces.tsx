@@ -17,7 +17,12 @@ import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
-const SpacesScreen = observer(() => {
+interface SpacesScreenProps {
+  onSpaceOpen?: (spaceId: string) => void;
+  onSpaceClose?: () => void;
+}
+
+const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps = {}) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -77,10 +82,12 @@ const SpacesScreen = observer(() => {
       cardRef.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
         setCardPosition({ x: pageX, y: pageY, width, height });
         setSelectedSpace(space);
+        onSpaceOpen?.(space.id);
       });
     } else {
       // Fallback if ref not available
       setSelectedSpace(space);
+      onSpaceOpen?.(space.id);
     }
   };
 
@@ -180,6 +187,7 @@ const SpacesScreen = observer(() => {
         cardPosition={cardPosition}
         onClose={() => {
           setSelectedSpace(null);
+          onSpaceClose?.();
           // Keep cardPosition for closing animation
           setTimeout(() => {
             setCardPosition(undefined);

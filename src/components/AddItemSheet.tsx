@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo, useCallback, useState, useEffect } from 'react';
+import React, { forwardRef, useMemo, useCallback, useState, useEffect, useImperativeHandle, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import { Space, Item, ContentType } from '../types';
 
 interface AddItemSheetProps {
   onItemAdded?: () => void;
+  preSelectedSpaceId?: string | null;
 }
 
 const contentTypes = [
@@ -49,15 +50,16 @@ const contentTypes = [
 ];
 
 const AddItemSheet = observer(
-  forwardRef<BottomSheet, AddItemSheetProps>(({ onItemAdded }, ref) => {
+  forwardRef<any, AddItemSheetProps>(({ onItemAdded, preSelectedSpaceId }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const spaces = spacesComputed.spaces();
+    const bottomSheetRef = useRef<BottomSheet>(null);
     
     const [selectedType, setSelectedType] = useState('bookmark');
     const [url, setUrl] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-    const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+    const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId || null);
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
     const [metadata, setMetadata] = useState<URLMetadata | null>(null);
@@ -70,6 +72,24 @@ const AddItemSheet = observer(
       console.log('Snap points set to:', points);
       return points;
     }, []);
+
+    // Effect to update selected space when prop changes
+    useEffect(() => {
+      if (preSelectedSpaceId) {
+        setSelectedSpaceId(preSelectedSpaceId);
+      }
+    }, [preSelectedSpaceId]);
+
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+      snapToIndex: (index: number) => bottomSheetRef.current?.snapToIndex(index),
+      openWithSpace: (spaceId: string) => {
+        setSelectedSpaceId(spaceId);
+        bottomSheetRef.current?.snapToIndex(0);
+      },
+      expand: () => bottomSheetRef.current?.expand(),
+      close: () => bottomSheetRef.current?.close(),
+    }), []);
 
     // Keyboard event listeners for height tracking
     useEffect(() => {
@@ -281,7 +301,7 @@ const AddItemSheet = observer(
 
     return (
       <BottomSheet
-        ref={ref}
+        ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose

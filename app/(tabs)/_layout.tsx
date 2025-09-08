@@ -16,10 +16,11 @@ const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
+  const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
-  const addItemSheetRef = useRef<BottomSheet>(null);
+  const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
@@ -33,10 +34,15 @@ const TabLayout = observer(() => {
 
   const handleAddPress = () => {
     // Show different sheet based on current view
-    if (currentView === 'spaces') {
+    if (currentView === 'spaces' && !currentSpaceId) {
       createSpaceSheetRef.current?.snapToIndex(0);
     } else {
-      addItemSheetRef.current?.snapToIndex(0);
+      // If we're in a space view, pass the space ID to pre-select it
+      if (currentSpaceId) {
+        addItemSheetRef.current?.openWithSpace(currentSpaceId);
+      } else {
+        addItemSheetRef.current?.snapToIndex(0);
+      }
     }
   };
 
@@ -48,7 +54,10 @@ const TabLayout = observer(() => {
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Main Content - extends full screen */}
       <View style={styles.fullScreenContent}>
-        {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
+        {currentView === 'everything' ? 
+          <HomeScreen /> : 
+          <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+        }
       </View>
 
       {/* Blurred top safe area overlay - extends behind search bar */}
@@ -69,10 +78,12 @@ const TabLayout = observer(() => {
         onAddPress={handleAddPress}
       />
 
-      {/* Bottom Sheets */}
-      <SettingsSheet ref={settingsSheetRef} />
-      <AddItemSheet ref={addItemSheetRef} />
-      <CreateSpaceSheet ref={createSpaceSheetRef} />
+      {/* Bottom Sheets - Higher z-index to appear above expanded views */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
+        <SettingsSheet ref={settingsSheetRef} />
+        <AddItemSheet ref={addItemSheetRef} preSelectedSpaceId={currentSpaceId} />
+        <CreateSpaceSheet ref={createSpaceSheetRef} />
+      </View>
     </View>
   );
 });

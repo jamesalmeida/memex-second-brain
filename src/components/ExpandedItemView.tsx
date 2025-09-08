@@ -235,9 +235,9 @@ const ExpandedItemView = observer(({
     const initialWidth = cardPosition?.width || 100;
     const initialHeight = cardPosition?.height || 100;
 
-    // Account for safe area insets
-    const finalY = insets.top;
-    const finalHeight = SCREEN_HEIGHT - insets.top - insets.bottom;
+    // Leave some space at top (about 10% of screen height)
+    const finalY = SCREEN_HEIGHT * 0.1;
+    const finalHeight = SCREEN_HEIGHT * 0.9;
 
     const x = interpolate(
       animationProgress.value,
@@ -450,7 +450,7 @@ const ExpandedItemView = observer(({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
+      <View style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
         {/* Backdrop */}
         <Animated.View
           style={[
@@ -1081,7 +1081,7 @@ const ExpandedItemView = observer(({
             </View>
           </Animated.View>
         </GestureDetector>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 });
@@ -1092,6 +1092,11 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'transparent',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContainerDark: {
     backgroundColor: 'transparent',
@@ -1106,8 +1111,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 0, // No radius for full screen
+    borderTopRightRadius: 0,
     overflow: 'hidden',
   },
   scrollContent: {

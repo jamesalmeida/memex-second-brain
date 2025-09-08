@@ -7,8 +7,7 @@ import {
   RefreshControl,
   SafeAreaView,
   TextInput,
-  Dimensions,
-  Modal
+  Dimensions
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
@@ -53,7 +52,6 @@ const ExpandedSpaceView = observer(({
   // Animation values
   const animationProgress = useSharedValue(0);
   const opacity = useSharedValue(0);
-  const [modalVisible, setModalVisible] = useState(false);
   const [displaySpace, setDisplaySpace] = useState<Space | null>(null);
   
   // State for items
@@ -77,8 +75,7 @@ const ExpandedSpaceView = observer(({
       // Store the space for display
       setDisplaySpace(space);
       setItems(getSpaceItems(space.id));
-      // Show modal first, then animate in
-      setModalVisible(true);
+      // Animate in
       setTimeout(() => {
         animationProgress.value = withSpring(1, {
           damping: 18,
@@ -87,15 +84,14 @@ const ExpandedSpaceView = observer(({
         });
         opacity.value = withTiming(1, { duration: 200 });
       }, 50);
-    } else if (!isVisible && modalVisible) {
-      // Animate out first, then hide modal
+    } else if (!isVisible && displaySpace) {
+      // Animate out
       animationProgress.value = withSpring(0, {
         damping: 20,
         stiffness: 100,
       }, (finished) => {
         'worklet';
         if (finished) {
-          runOnJS(setModalVisible)(false);
           runOnJS(setDisplaySpace)(null);
           runOnJS(setSearchQuery)('');
         }
@@ -110,9 +106,9 @@ const ExpandedSpaceView = observer(({
     const initialWidth = cardPosition?.width || 100;
     const initialHeight = cardPosition?.height || 100;
 
-    // Account for safe area insets
+    // Account for safe area insets only - let content extend under navigation
     const finalY = insets.top;
-    const finalHeight = SCREEN_HEIGHT - insets.top - insets.bottom;
+    const finalHeight = SCREEN_HEIGHT - insets.top; // Full height minus top safe area
 
     const x = interpolate(
       animationProgress.value,
@@ -220,18 +216,12 @@ const ExpandedSpaceView = observer(({
     item.desc?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (!displaySpace && !modalVisible) return null;
+  if (!isVisible || !space) return null;
   const spaceToDisplay = displaySpace || space;
   if (!spaceToDisplay) return null;
 
   return (
-    <Modal
-      visible={modalVisible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
+    <View style={[styles.fullScreenOverlay, isDarkMode && styles.fullScreenOverlayDark]}>
       <SafeAreaView style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
         <Animated.View style={[containerStyle]}>
           <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -283,7 +273,7 @@ const ExpandedSpaceView = observer(({
                 />
               </View>
 
-              {/* Items Grid */}
+              {/* Items Grid - extends under navigation for blur effect */}
               <FlashList
                 data={filteredItems}
                 renderItem={renderItem}
@@ -330,13 +320,25 @@ const ExpandedSpaceView = observer(({
           currentSpaceId={spaceToDisplay.id}
         />
       </SafeAreaView>
-    </Modal>
+    </View>
   );
 });
 
 export default ExpandedSpaceView;
 
 const styles = StyleSheet.create({
+  fullScreenOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0, // Full screen, navigation will overlay on top
+    zIndex: 10, // Lower than navigation and bottom sheets
+    backgroundColor: 'transparent', // Let the content provide background
+  },
+  fullScreenOverlayDark: {
+    backgroundColor: 'transparent',
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -349,6 +351,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     borderRadius: 0,
     overflow: 'hidden',
+    marginBottom: 70, // Account for bottom navigation
   },
   containerDark: {
     backgroundColor: '#000000',
@@ -422,7 +425,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 4,
-    paddingBottom: 100,
+    paddingBottom: 100, // Extra padding so last items aren't hidden under nav
   },
   itemWrapper: {
     flex: 1,
