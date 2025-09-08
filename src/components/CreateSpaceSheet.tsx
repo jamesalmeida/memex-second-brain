@@ -22,7 +22,7 @@ interface CreateSpaceSheetProps {
   onSpaceCreated?: (space: Space) => void;
 }
 
-const EMOJI_OPTIONS = [null, '📁', '🚀', '💡', '📚', '🎨', '🔬', '🎯', '💼', '🌟', '🔥', '⚡'];
+// Emoji picker removed - no longer needed
 const COLOR_OPTIONS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#DDA0DD',
   '#FF8C94', '#98D8C8', '#6C5CE7', '#55A3FF', '#FD79A8', '#A29BFE',
@@ -33,7 +33,7 @@ const CreateSpaceSheet = observer(
     const isDarkMode = themeStore.isDarkMode.get();
     const [spaceName, setSpaceName] = useState('');
     const [spaceDescription, setSpaceDescription] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+    // Emoji selection removed
     const [selectedColor, setSelectedColor] = useState('#4ECDC4');
     
     // Snap points for the bottom sheet
@@ -69,7 +69,7 @@ const CreateSpaceSheet = observer(
         name: spaceName.trim(),
         description: spaceDescription.trim(),
         color: selectedColor,
-        icon: selectedEmoji || undefined,
+        // icon field removed - no emoji selection
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         user_id: userId,
@@ -81,7 +81,7 @@ const CreateSpaceSheet = observer(
       // Reset form
       setSpaceName('');
       setSpaceDescription('');
-      setSelectedEmoji(null);
+      // emoji reset removed
       setSelectedColor('#4ECDC4');
       
       // Close sheet
@@ -91,7 +91,7 @@ const CreateSpaceSheet = observer(
     const handleCancel = () => {
       setSpaceName('');
       setSpaceDescription('');
-      setSelectedEmoji(null);
+      // emoji reset removed
       setSelectedColor('#4ECDC4');
       (ref as any)?.current?.close();
     };
@@ -147,31 +147,7 @@ const CreateSpaceSheet = observer(
             />
           </View>
 
-          {/* Emoji Selection */}
-          <View style={styles.section}>
-            <Text style={[styles.label, isDarkMode && styles.labelDark]}>
-              CHOOSE AN EMOJI
-            </Text>
-            <View style={styles.emojiGrid}>
-              {EMOJI_OPTIONS.map((emoji, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.emojiOption,
-                    selectedEmoji === emoji && styles.emojiOptionSelected,
-                    isDarkMode && styles.emojiOptionDark,
-                  ]}
-                  onPress={() => setSelectedEmoji(emoji)}
-                >
-                  {emoji === null ? (
-                    <Text style={[styles.noEmojiText, isDarkMode && styles.noEmojiTextDark]}>None</Text>
-                  ) : (
-                    <Text style={styles.emojiText}>{emoji}</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* Emoji Selection removed */}
 
           {/* Color Selection */}
           <View style={styles.section}>
@@ -220,12 +196,7 @@ const CreateSpaceSheet = observer(
               PREVIEW
             </Text>
             <View style={[styles.previewCard, isDarkMode && styles.previewCardDark]}>
-              {selectedEmoji && (
-                <View style={[styles.previewIcon, { backgroundColor: selectedColor }]}>
-                  <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
-                </View>
-              )}
-              <View style={[styles.previewContent, !selectedEmoji && { marginLeft: 0 }]}>
+              <View style={styles.previewContent}>
                 <Text style={[styles.previewName, isDarkMode && styles.previewNameDark]}>
                   {spaceName || 'Space Name'}
                 </Text>
@@ -327,38 +298,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  emojiOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  emojiOptionDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  emojiOptionSelected: {
-    borderColor: '#007AFF',
-  },
-  emojiText: {
-    fontSize: 24,
-  },
-  noEmojiText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  noEmojiTextDark: {
-    color: '#999',
-  },
+  // Emoji-related styles removed
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -399,19 +339,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
     borderColor: '#3A3A3C',
   },
-  previewIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  previewEmoji: {
-    fontSize: 28,
-  },
+  // Preview icon styles removed
   previewContent: {
     flex: 1,
+    marginLeft: 0, // No icon to offset from
   },
   previewName: {
     fontSize: 16,
