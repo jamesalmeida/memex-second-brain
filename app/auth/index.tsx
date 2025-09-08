@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
+import { router } from 'expo-router';
 import { auth } from '../../src/services/supabase';
 import { COLORS, UI } from '../../src/constants';
 import { themeStore } from '../../src/stores/theme';
@@ -55,6 +56,11 @@ const AuthScreen = observer(() => {
           Alert.alert('Sign In Error', error.message);
         } else {
           console.log('✅ Sign in successful');
+          // Clear the form
+          setEmail('');
+          setPassword('');
+          // Navigate to tabs immediately
+          router.replace('/(tabs)');
         }
       }
     } catch (error) {
