@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
@@ -116,33 +116,34 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.card, isDarkMode && styles.cardDark]}
-      onPress={() => onPress(item)}
-      onLongPress={() => onLongPress?.(item)}
-      activeOpacity={0.7}
-    >
+    <View style={[styles.card, isDarkMode && styles.cardDark]}>
       {/* Thumbnail or Content Preview */}
       {videoUrl && player ? (
         // Show video player for items with video
-        <View style={{ position: 'relative' }}>
-          <VideoView
-            player={player}
-            style={[
-              styles.thumbnail,
-              { height: 200 }
-            ]}
-            contentFit="cover"
-            allowsFullscreen={false}
-            showsTimecodes={false}
-          />
-          {/* Show play button overlay to indicate video */}
-          <View style={styles.playButtonOverlay} pointerEvents="none">
-            <View style={styles.playButton}>
-              <Text style={styles.playButtonIcon}>▶</Text>
+        <TouchableOpacity
+          onPress={() => onPress(item)}
+          onLongPress={() => onLongPress?.(item)}
+          activeOpacity={0.7}
+        >
+          <View style={{ position: 'relative' }}>
+            <VideoView
+              player={player}
+              style={[
+                styles.thumbnail,
+                { height: 200 }
+              ]}
+              contentFit="cover"
+              allowsFullscreen={false}
+              showsTimecodes={false}
+            />
+            {/* Show play button overlay to indicate video */}
+            <View style={styles.playButtonOverlay} pointerEvents="none">
+              <View style={styles.playButton}>
+                <Text style={styles.playButtonIcon}>▶</Text>
+              </View>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       ) : hasMultipleImages ? (
         // Show carousel for multiple images
         <View style={{ position: 'relative' }}>
@@ -159,27 +160,32 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
             style={{ width: '100%' }}
           >
             {imageUrls!.map((imageUrl, index) => (
-              <Image
+              <TouchableWithoutFeedback
                 key={index}
-                source={{ uri: imageUrl }}
-                style={[
-                  styles.thumbnail,
-                  { width: cardWidth, height: imageHeight || 200 }
-                ]}
-                contentFit="cover"
-                onLoad={(e: any) => {
-                  if (index === 0 && e.source && e.source.width && e.source.height) {
-                    const aspectRatio = e.source.height / e.source.width;
-                    const calculatedHeight = cardWidth * aspectRatio;
-                    const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-                    setImageHeight(finalHeight);
-                  }
-                }}
-              />
+                onPress={() => onPress(item)}
+                onLongPress={() => onLongPress?.(item)}
+              >
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={[
+                    styles.thumbnail,
+                    { width: cardWidth, height: imageHeight || 200 }
+                  ]}
+                  contentFit="cover"
+                  onLoad={(e: any) => {
+                    if (index === 0 && e.source && e.source.width && e.source.height) {
+                      const aspectRatio = e.source.height / e.source.width;
+                      const calculatedHeight = cardWidth * aspectRatio;
+                      const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                      setImageHeight(finalHeight);
+                    }
+                  }}
+                />
+              </TouchableWithoutFeedback>
             ))}
           </ScrollView>
           {/* Dots indicator */}
-          <View style={styles.dotsContainer}>
+          <View style={styles.dotsContainer} pointerEvents="none">
             {imageUrls!.map((_, index) => (
               <View
                 key={index}
@@ -192,37 +198,55 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
           </View>
         </View>
       ) : item.thumbnail_url ? (
-        <View>
-          <Image
-            source={{ uri: item.thumbnail_url }}
-            style={[
-              styles.thumbnail, 
-              imageHeight ? { height: imageHeight } : null
-            ]}
-            contentFit="cover"
-            onLoad={(e: any) => {
-              // Calculate height based on image aspect ratio
-              if (e.source && e.source.width && e.source.height) {
-                const aspectRatio = e.source.height / e.source.width;
-                const cardWidth = screenWidth / 2 - 18; // Approximate card width
-                const calculatedHeight = cardWidth * aspectRatio;
-                // Cap maximum height to prevent overly tall cards
-                const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-                setImageHeight(finalHeight);
-              }
-            }}
-          />
-        </View>
+        <TouchableOpacity
+          onPress={() => onPress(item)}
+          onLongPress={() => onLongPress?.(item)}
+          activeOpacity={0.7}
+        >
+          <View>
+            <Image
+              source={{ uri: item.thumbnail_url }}
+              style={[
+                styles.thumbnail, 
+                imageHeight ? { height: imageHeight } : null
+              ]}
+              contentFit="cover"
+              onLoad={(e: any) => {
+                // Calculate height based on image aspect ratio
+                if (e.source && e.source.width && e.source.height) {
+                  const aspectRatio = e.source.height / e.source.width;
+                  const cardWidth = screenWidth / 2 - 18; // Approximate card width
+                  const calculatedHeight = cardWidth * aspectRatio;
+                  // Cap maximum height to prevent overly tall cards
+                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                  setImageHeight(finalHeight);
+                }
+              }}
+            />
+          </View>
+        </TouchableOpacity>
       ) : item.content ? (
-        <View style={[styles.textPreview, { backgroundColor: getContentTypeColor() + '15' }]}>
-          <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
-            {item.content}
-          </Text>
-        </View>
+        <TouchableOpacity
+          onPress={() => onPress(item)}
+          onLongPress={() => onLongPress?.(item)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.textPreview, { backgroundColor: getContentTypeColor() + '15' }]}>
+            <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
+              {item.content}
+            </Text>
+          </View>
+        </TouchableOpacity>
       ) : (
-        <View style={[styles.placeholder, { backgroundColor: getContentTypeColor() + '15' }]}>
-          <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
-        </View>
+        <TouchableOpacity
+          onPress={() => onPress(item)}
+          onLongPress={() => onLongPress?.(item)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.placeholder, { backgroundColor: getContentTypeColor() + '15' }]}>
+            <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       {/* Content Type Badge */}
@@ -236,29 +260,35 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       </View>
 
       {/* Card Content */}
-      <View style={styles.cardContent}>
-        <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
-          {item.title}
-        </Text>
-        
-        {item.desc && (
-          <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
-            {item.desc}
+      <TouchableOpacity
+        onPress={() => onPress(item)}
+        onLongPress={() => onLongPress?.(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardContent}>
+          <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
+            {item.title}
           </Text>
-        )}
-
-        <View style={styles.footer}>
-          {getDomain() && (
-            <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
-              {getDomain()}
+          
+          {item.desc && (
+            <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
+              {item.desc}
             </Text>
           )}
-          <Text style={[styles.date, isDarkMode && styles.dateDark]}>
-            {formatDate(item.created_at)}
-          </Text>
+
+          <View style={styles.footer}>
+            {getDomain() && (
+              <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
+                {getDomain()}
+              </Text>
+            )}
+            <Text style={[styles.date, isDarkMode && styles.dateDark]}>
+              {formatDate(item.created_at)}
+            </Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 });
 

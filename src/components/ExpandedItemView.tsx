@@ -193,6 +193,9 @@ const ExpandedItemView = observer(({
       const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
       setSelectedSpaceIds(spaceIds);
       
+      // Reset carousel index when opening a new item
+      setCurrentImageIndex(0);
+      
       // Initialize tags
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
@@ -613,46 +616,75 @@ const ExpandedItemView = observer(({
                     />
                   ) : (() => {
                     const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
-                    return imageUrls && imageUrls.length > 1 ? (
-                      // Show carousel for multiple images
-                      <View style={{ position: 'relative' }}>
-                        <ScrollView
-                          ref={scrollViewRef}
-                          horizontal
-                          pagingEnabled
-                          showsHorizontalScrollIndicator={false}
-                          onMomentumScrollEnd={(event) => {
-                            const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                            setCurrentImageIndex(newIndex);
-                          }}
-                          scrollEventThrottle={16}
-                        >
-                          {imageUrls.map((imageUrl, index) => (
-                            <Image
-                              key={index}
-                              source={{ uri: imageUrl }}
-                              style={[
-                                styles.heroMedia,
-                                { width: SCREEN_WIDTH }
-                              ]}
-                              resizeMode="contain"
-                            />
-                          ))}
-                        </ScrollView>
-                        {/* Dots indicator */}
-                        <View style={styles.dotsContainer}>
-                          {imageUrls.map((_, index) => (
-                          <View
-                            key={index}
-                            style={[
-                              styles.dot,
-                              index === currentImageIndex && styles.activeDot
-                            ]}
-                          />
-                          ))}
+                    const hasMultipleImages = imageUrls && imageUrls.length > 1;
+                    
+                    if (hasMultipleImages) {
+                      return (
+                        // Show carousel for multiple images
+                        <View style={{ position: 'relative' }}>
+                          <ScrollView
+                            ref={scrollViewRef}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            onMomentumScrollEnd={(event) => {
+                              const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                              setCurrentImageIndex(newIndex);
+                            }}
+                            scrollEventThrottle={16}
+                            style={{ width: SCREEN_WIDTH }}
+                          >
+                            {imageUrls!.map((imageUrl, index) => (
+                              <Image
+                                key={index}
+                                source={{ uri: imageUrl }}
+                                style={[
+                                  styles.heroMedia,
+                                  { width: SCREEN_WIDTH }
+                                ]}
+                                resizeMode="contain"
+                              />
+                            ))}
+                          </ScrollView>
+                          {/* Dots indicator */}
+                          <View style={styles.dotsContainer}>
+                            {imageUrls!.map((_, index) => (
+                              <View
+                                key={index}
+                                style={[
+                                  styles.dot,
+                                  index === currentImageIndex && styles.activeDot
+                                ]}
+                              />
+                            ))}
+                          </View>
                         </View>
-                      </View>
-                    ) : null;
+                      );
+                    } else if (imageUrls && imageUrls.length === 1) {
+                      // Single image from X post
+                      return (
+                        <Image
+                          source={{ uri: imageUrls[0] }}
+                          style={[
+                            styles.heroMedia,
+                            imageAspectRatio ? {
+                              width: SCREEN_WIDTH,
+                              height: SCREEN_WIDTH / imageAspectRatio,
+                              maxHeight: SCREEN_HEIGHT * 0.6
+                            } : {}
+                          ]}
+                          resizeMode="contain"
+                          onLoad={(e: any) => {
+                            // Dynamically adjust height based on image aspect ratio
+                            if (e.source && e.source.width && e.source.height) {
+                              const ratio = e.source.width / e.source.height;
+                              setImageAspectRatio(ratio);
+                            }
+                          }}
+                        />
+                      );
+                    }
+                    return null;
                   })() || itemToDisplay?.thumbnail_url ? (
                     // Show image for non-video items
                     <Image
