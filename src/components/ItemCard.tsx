@@ -36,7 +36,9 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const player = useVideoPlayer(videoUrl || null, player => {
     if (player && videoUrl) {
       player.loop = true;
+      // Always mute videos in the grid, especially for X posts
       player.muted = true;
+      player.volume = 0; // Extra safety to ensure mute
       player.play();
     }
   });
@@ -142,6 +144,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
               contentFit="cover"
               allowsFullscreen={false}
               showsTimecodes={false}
+              muted={true}
             />
             {/* Show play button overlay to indicate video */}
             <View style={styles.playButtonOverlay} pointerEvents="none">

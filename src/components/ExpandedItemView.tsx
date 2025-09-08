@@ -128,6 +128,7 @@ const ExpandedItemView = observer(({
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [showTagInput, setShowTagInput] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   
   // Get video URL from item type metadata
   const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
@@ -136,9 +137,21 @@ const ExpandedItemView = observer(({
   const videoPlayer = useVideoPlayer(videoUrl || null, player => {
     if (player && videoUrl) {
       player.loop = true;
-      // Allow sound for all videos in expanded view
-      player.muted = false;
-      player.play();
+      // For X posts, don't autoplay - user must press play
+      // For other videos, allow autoplay
+      if (displayItem?.content_type === 'x') {
+        player.muted = true; // Start muted for X posts
+        // Don't call player.play() - user must manually play
+        
+        // Add event listeners to track playing state
+        player.addListener('playingChange', (isPlaying) => {
+          setIsVideoPlaying(isPlaying);
+        });
+      } else {
+        player.muted = false;
+        player.play();
+        setIsVideoPlaying(true);
+      }
     }
   });
 
@@ -195,6 +208,9 @@ const ExpandedItemView = observer(({
       
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
+      
+      // Reset video playing state for new item
+      setIsVideoPlaying(false);
       
       // Debug: Check metadata store
       if (item.content_type === 'x') {
@@ -612,16 +628,36 @@ const ExpandedItemView = observer(({
                     </View>
                   ) : videoUrl && videoPlayer ? (
                     // Show video player for Twitter/X videos
-                    <VideoView
-                      player={videoPlayer}
-                      style={[
-                        styles.heroMedia,
-                        { height: SCREEN_WIDTH / (16/9) } // Set aspect ratio for videos
-                      ]}
-                      contentFit="contain"
-                      allowsFullscreen={true}
-                      showsTimecodes={true}
-                    />
+                    <View style={{ position: 'relative' }}>
+                      <VideoView
+                        player={videoPlayer}
+                        style={[
+                          styles.heroMedia,
+                          { height: SCREEN_WIDTH / (16/9) } // Set aspect ratio for videos
+                        ]}
+                        contentFit="contain"
+                        allowsFullscreen={true}
+                        showsTimecodes={true}
+                        nativeControls={true}
+                      />
+                      {/* Play button overlay for X posts */}
+                      {itemToDisplay?.content_type === 'x' && !isVideoPlaying && (
+                        <TouchableOpacity
+                          style={styles.videoPlayButtonOverlay}
+                          onPress={() => {
+                            if (videoPlayer) {
+                              videoPlayer.play();
+                              setIsVideoPlaying(true);
+                            }
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <View style={styles.videoPlayButton}>
+                            <Text style={styles.videoPlayButtonIcon}>▶</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   ) : (() => {
                     const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
                     const hasMultipleImages = imageUrls && imageUrls.length > 1;
@@ -2050,6 +2086,34 @@ const styles = StyleSheet.create({
   },
   transcriptFooterTextDark: {
     color: '#999',
+  },
+  videoPlayButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  videoPlayButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  videoPlayButtonIcon: {
+    fontSize: 40,
+    color: '#000',
+    marginLeft: 5, // Slight offset to center the triangle
   },
   tagsSection: {
     marginBottom: 20,
