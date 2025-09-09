@@ -62,13 +62,14 @@ const AddItemSheet = observer(
     const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId || null);
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    const [showTagInput, setShowTagInput] = useState(false);
     const [metadata, setMetadata] = useState<URLMetadata | null>(null);
     const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
     const [isGeneratingTags, setIsGeneratingTags] = useState(false);
     
-    // Snap points for the bottom sheet - just 75% height
+    // Snap points for the bottom sheet - 85% height
     const snapPoints = useMemo(() => {
-      const points = ['75%'];
+      const points = ['85%'];
       return points;
     }, []);
 
@@ -180,6 +181,7 @@ const AddItemSheet = observer(
       if (trimmedTag && !tags.includes(trimmedTag)) {
         setTags([...tags, trimmedTag]);
         setTagInput('');
+        setShowTagInput(false);
       }
     };
 
@@ -285,6 +287,7 @@ const AddItemSheet = observer(
       setSelectedSpaceId(null);
       setTags([]);
       setTagInput('');
+      setShowTagInput(false);
       setMetadata(null);
       
       // Close sheet after keyboard dismisses
@@ -369,7 +372,7 @@ const AddItemSheet = observer(
                 numberOfLines={3}
                 onFocus={() => {
                   console.log('Input focused');
-                  // Sheet is already at 75%, no need to snap
+                  // Sheet is already at 85%, no need to snap
                 }}
                 onBlur={() => console.log('Input blurred')}
                 inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory' : undefined}
@@ -532,48 +535,62 @@ const AddItemSheet = observer(
                 Tags
               </Text>
               <TouchableOpacity
-                style={[styles.generateTagsButton, isGeneratingTags && styles.generateTagsButtonDisabled]}
+                style={[styles.aiButton, isDarkMode && styles.aiButtonDark, isGeneratingTags && styles.aiButtonDisabled]}
                 onPress={handleGenerateTags}
                 disabled={isGeneratingTags || !url.trim()}
               >
-                <MaterialIcons name="auto-awesome" size={16} color="#FF6B35" />
-                <Text style={styles.generateTagsText}>
-                  {isGeneratingTags ? 'Generating...' : 'Generate with AI'}
+                <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
+                  {isGeneratingTags ? 'Generating...' : '✨ AI Generate'}
                 </Text>
               </TouchableOpacity>
             </View>
             
-            <View style={styles.tagInputContainer}>
-              <TextInput
-                style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
-                placeholder="Add a tag..."
-                placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                value={tagInput}
-                onChangeText={setTagInput}
-                onSubmitEditing={handleAddTag}
-                returnKeyType="done"
-              />
-              {tagInput.trim().length > 0 && (
-                <TouchableOpacity style={styles.addTagButton} onPress={handleAddTag}>
-                  <MaterialIcons name="add" size={20} color="#FF6B35" />
+            {/* Tags Display - All in one container */}
+            <View style={styles.tagsContainer}>
+              {tags.map((tag, index) => (
+                <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
+                  <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
+                    {tag}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveTag(tag)}
+                    style={styles.tagRemoveButton}
+                  >
+                    <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              
+              {/* Add Tag Button/Input */}
+              {showTagInput ? (
+                <View style={[styles.tagInputContainer, isDarkMode && styles.tagInputContainerDark]}>
+                  <TextInput
+                    style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
+                    value={tagInput}
+                    onChangeText={setTagInput}
+                    onSubmitEditing={handleAddTag}
+                    placeholder="Add tag..."
+                    placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                    autoFocus
+                    onBlur={() => {
+                      if (!tagInput.trim()) {
+                        setShowTagInput(false);
+                      }
+                    }}
+                    returnKeyType="done"
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.addTagButton, isDarkMode && styles.addTagButtonDark]}
+                  onPress={() => setShowTagInput(true)}
+                >
+                  <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>
+                    + Add Tag
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
-            
-            {tags.length > 0 && (
-              <View style={styles.tagsContainer}>
-                {tags.map((tag, index) => (
-                  <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-                    <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
-                      {tag}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
-                      <MaterialIcons name="close" size={16} color={isDarkMode ? '#999' : '#666'} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
           </View>
 
 
@@ -930,44 +947,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  generateTagsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  aiButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#FFF5F0',
+    backgroundColor: '#007AFF',
     borderRadius: 12,
   },
-  generateTagsButtonDisabled: {
+  aiButtonDark: {
+    backgroundColor: '#0A84FF',
+  },
+  aiButtonDisabled: {
     opacity: 0.5,
   },
-  generateTagsText: {
+  aiButtonText: {
     fontSize: 12,
-    color: '#FF6B35',
-    marginLeft: 4,
+    color: '#FFF',
     fontWeight: '600',
+  },
+  aiButtonTextDark: {
+    color: '#FFF',
   },
   tagInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
     paddingHorizontal: 12,
-    marginBottom: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    minWidth: 100,
+  },
+  tagInputContainerDark: {
+    backgroundColor: '#2C2C2E',
   },
   tagInput: {
-    flex: 1,
-    paddingVertical: 10,
     fontSize: 14,
-    color: '#000000',
+    color: '#333',
+    padding: 0,
+    minWidth: 80,
   },
   tagInputDark: {
-    color: '#FFFFFF',
+    color: '#FFF',
   },
   addTagButton: {
-    padding: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  addTagButtonDark: {
+    borderColor: '#3C3C3E',
+  },
+  addTagButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  addTagButtonTextDark: {
+    color: '#999',
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -977,23 +1016,31 @@ const styles = StyleSheet.create({
   tagChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
+    borderRadius: 16,
   },
   tagChipDark: {
     backgroundColor: '#2C2C2E',
   },
   tagText: {
     fontSize: 14,
-    color: '#333333',
-    marginRight: 6,
+    color: '#333',
   },
   tagTextDark: {
-    color: '#FFFFFF',
+    color: '#FFF',
+  },
+  tagRemoveButton: {
+    marginLeft: 6,
+  },
+  tagRemoveText: {
+    fontSize: 18,
+    color: '#999',
+    fontWeight: 'bold',
+  },
+  tagRemoveTextDark: {
+    color: '#666',
   },
 });
 
