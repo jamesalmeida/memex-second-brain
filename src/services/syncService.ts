@@ -93,27 +93,17 @@ class SyncService {
       console.log('🔄 Starting full sync...');
       
       // DIAGNOSTIC: Log local data counts
-      console.log('🔍 [DIAGNOSTIC] Local data summary:');
       const localItemsData = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
       const localItems = localItemsData ? JSON.parse(localItemsData) : [];
-      console.log(`🔍 [DIAGNOSTIC] Local items: ${localItems.length}`);
 
       const localItemSpacesData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_SPACES);
       const localItemSpaces = localItemSpacesData ? JSON.parse(localItemSpacesData) : [];
-      console.log(`🔍 [DIAGNOSTIC] Local item_spaces: ${localItemSpaces.length}`);
 
       const localMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_METADATA);
       const localMetadata = localMetadataData ? JSON.parse(localMetadataData) : [];
-      console.log(`🔍 [DIAGNOSTIC] Local item_metadata: ${localMetadata.length}`);
 
       const localTypeMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
       const localTypeMetadata = localTypeMetadataData ? JSON.parse(localTypeMetadataData) : [];
-      console.log(`🔍 [DIAGNOSTIC] Local item_type_metadata: ${localTypeMetadata.length}`);
-
-      // Show sample of local data for debugging
-      if (localItemSpaces.length > 0) {
-        console.log('🔍 [DIAGNOSTIC] Sample local item_spaces:', localItemSpaces.slice(0, 3).map(is => `${is.item_id}_${is.space_id}`));
-      }
 
       // 1. Sync spaces first (items depend on spaces)
       console.log('📦 Syncing spaces...');
@@ -141,10 +131,6 @@ class SyncService {
       await this.syncVideoTranscripts(user.id);
 
       console.log('✅ Sync completed successfully');
-      console.log('🔍 [DIAGNOSTIC] Sync summary:');
-      console.log(`🔍 [DIAGNOSTIC] - Items synced: ${itemsSynced}`);
-      console.log(`🔍 [DIAGNOSTIC] - Local data counts: items=${localItems.length}, item_spaces=${localItemSpaces.length}, metadata=${localMetadata.length}, type_metadata=${localTypeMetadata.length}`);
-      console.log(`🔍 [DIAGNOSTIC] - RLS policies are working correctly - orphaned references were skipped instead of causing errors`);
 
       // Update sync status
       this.syncStatus.lastSyncTime = new Date().toISOString();
@@ -282,15 +268,12 @@ class SyncService {
 
   // Sync item_spaces relationships
   private async syncItemSpaces(userId: string): Promise<void> {
-    console.log('🔍 [DIAGNOSTIC] Starting item_spaces sync...');
 
     // Get local item spaces from AsyncStorage
     const itemSpacesData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_SPACES);
     const localItemSpaces: ItemSpace[] = itemSpacesData ? JSON.parse(itemSpacesData) : [];
-    console.log(`🔍 [DIAGNOSTIC] Found ${localItemSpaces.length} local item_spaces relationships`);
 
     // Get all item IDs for this user to filter item_spaces
-    console.log('🔍 [DIAGNOSTIC] Fetching remote items for user...');
     const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
@@ -301,11 +284,6 @@ class SyncService {
       throw itemsError;
     }
 
-    console.log(`🔍 [DIAGNOSTIC] Found ${userItems?.length || 0} remote items for user`);
-    if (userItems) {
-      console.log('🔍 [DIAGNOSTIC] Remote item IDs:', userItems.map(item => item.id));
-    }
-
     if (!userItems || userItems.length === 0) {
       console.log('🔍 [DIAGNOSTIC] No remote items found, skipping item_spaces sync');
       return;
@@ -313,7 +291,6 @@ class SyncService {
 
     const userItemIds = userItems.map(item => item.id);
 
-    console.log('🔍 [DIAGNOSTIC] Fetching remote item_spaces...');
     const { data: remoteItemSpaces, error } = await supabase
       .from('item_spaces')
       .select('*')
@@ -323,8 +300,6 @@ class SyncService {
       console.error('🔍 [DIAGNOSTIC] Error fetching remote item_spaces:', error);
       throw error;
     }
-
-    console.log(`🔍 [DIAGNOSTIC] Found ${remoteItemSpaces?.length || 0} remote item_spaces`);
 
     const localMap = new Map(localItemSpaces.map(is => [`${is.item_id}_${is.space_id}`, is]));
     const remoteMap = new Map((remoteItemSpaces || []).map(is => [`${is.item_id}_${is.space_id}`, is]));
@@ -402,15 +377,12 @@ class SyncService {
 
   // Sync item metadata
   private async syncItemMetadata(userId: string): Promise<void> {
-    console.log('🔍 [DIAGNOSTIC] Starting item_metadata sync...');
 
     // Get local metadata from AsyncStorage
     const metadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_METADATA);
     const localMetadata: ItemMetadata[] = metadataData ? JSON.parse(metadataData) : [];
-    console.log(`🔍 [DIAGNOSTIC] Found ${localMetadata.length} local item_metadata records`);
 
     // Get all item IDs for this user
-    console.log('🔍 [DIAGNOSTIC] Fetching remote items for metadata sync...');
     const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
@@ -421,7 +393,6 @@ class SyncService {
       throw itemsError;
     }
 
-    console.log(`🔍 [DIAGNOSTIC] Found ${userItems?.length || 0} remote items for metadata sync`);
     if (!userItems || userItems.length === 0) {
       console.log('🔍 [DIAGNOSTIC] No remote items found, skipping item_metadata sync');
       return;
@@ -429,7 +400,6 @@ class SyncService {
 
     const userItemIds = userItems.map(item => item.id);
 
-    console.log('🔍 [DIAGNOSTIC] Fetching remote item_metadata...');
     const { data: remoteMetadata, error } = await supabase
       .from('item_metadata')
       .select('*')
@@ -439,8 +409,6 @@ class SyncService {
       console.error('🔍 [DIAGNOSTIC] Error fetching remote item_metadata:', error);
       throw error;
     }
-
-    console.log(`🔍 [DIAGNOSTIC] Found ${remoteMetadata?.length || 0} remote item_metadata records`);
 
     const localMap = new Map(localMetadata.map(m => [m.item_id, m]));
     const remoteMap = new Map((remoteMetadata || []).map(m => [m.item_id, m]));
@@ -496,15 +464,12 @@ class SyncService {
 
   // Sync item type metadata
   private async syncItemTypeMetadata(userId: string): Promise<void> {
-    console.log('🔍 [DIAGNOSTIC] Starting item_type_metadata sync...');
 
     // Get local type metadata from AsyncStorage
     const typeMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
     const localTypeMetadata: ItemTypeMetadata[] = typeMetadataData ? JSON.parse(typeMetadataData) : [];
-    console.log(`🔍 [DIAGNOSTIC] Found ${localTypeMetadata.length} local item_type_metadata records`);
 
     // Get all item IDs for this user
-    console.log('🔍 [DIAGNOSTIC] Fetching remote items for type metadata sync...');
     const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
@@ -515,7 +480,6 @@ class SyncService {
       throw itemsError;
     }
 
-    console.log(`🔍 [DIAGNOSTIC] Found ${userItems?.length || 0} remote items for type metadata sync`);
     if (!userItems || userItems.length === 0) {
       console.log('🔍 [DIAGNOSTIC] No remote items found, skipping item_type_metadata sync');
       return;
@@ -523,7 +487,6 @@ class SyncService {
 
     const userItemIds = userItems.map(item => item.id);
 
-    console.log('🔍 [DIAGNOSTIC] Fetching remote item_type_metadata...');
     const { data: remoteTypeMetadata, error } = await supabase
       .from('item_type_metadata')
       .select('*')
@@ -533,8 +496,6 @@ class SyncService {
       console.error('🔍 [DIAGNOSTIC] Error fetching remote item_type_metadata:', error);
       throw error;
     }
-
-    console.log(`🔍 [DIAGNOSTIC] Found ${remoteTypeMetadata?.length || 0} remote item_type_metadata records`);
 
     const localMap = new Map(localTypeMetadata.map(m => [m.item_id, m]));
     const remoteMap = new Map((remoteTypeMetadata || []).map(m => [m.item_id, m]));
