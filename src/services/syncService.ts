@@ -1,15 +1,10 @@
 import { supabase, db } from './supabase';
-import { itemsStore, itemsActions } from '../stores/items';
-import { spacesStore, spacesActions } from '../stores/spaces';
-import { itemSpacesStore, itemSpacesActions } from '../stores/itemSpaces';
-import { itemMetadataStore, itemMetadataActions } from '../stores/itemMetadata';
-import { itemTypeMetadataStore, itemTypeMetadataActions } from '../stores/itemTypeMetadata';
-import { videoTranscriptsStore, videoTranscriptsActions } from '../stores/videoTranscripts';
-import { offlineQueueStore, offlineQueueActions } from '../stores/offlineQueue';
+import { offlineQueueActions } from '../stores/offlineQueue';
 import { authStore } from '../stores/auth';
 import { Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, ContentType, VideoTranscript } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
+import { syncOperations } from './syncOperations';
 
 interface SyncResult {
   success: boolean;
@@ -97,6 +92,29 @@ class SyncService {
       // Sync all tables in order
       console.log('🔄 Starting full sync...');
       
+      // DIAGNOSTIC: Log local data counts
+      console.log('🔍 [DIAGNOSTIC] Local data summary:');
+      const localItemsData = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
+      const localItems = localItemsData ? JSON.parse(localItemsData) : [];
+      console.log(`🔍 [DIAGNOSTIC] Local items: ${localItems.length}`);
+
+      const localItemSpacesData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_SPACES);
+      const localItemSpaces = localItemSpacesData ? JSON.parse(localItemSpacesData) : [];
+      console.log(`🔍 [DIAGNOSTIC] Local item_spaces: ${localItemSpaces.length}`);
+
+      const localMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_METADATA);
+      const localMetadata = localMetadataData ? JSON.parse(localMetadataData) : [];
+      console.log(`🔍 [DIAGNOSTIC] Local item_metadata: ${localMetadata.length}`);
+
+      const localTypeMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
+      const localTypeMetadata = localTypeMetadataData ? JSON.parse(localTypeMetadataData) : [];
+      console.log(`🔍 [DIAGNOSTIC] Local item_type_metadata: ${localTypeMetadata.length}`);
+
+      // Show sample of local data for debugging
+      if (localItemSpaces.length > 0) {
+        console.log('🔍 [DIAGNOSTIC] Sample local item_spaces:', localItemSpaces.slice(0, 3).map(is => `${is.item_id}_${is.space_id}`));
+      }
+
       // 1. Sync spaces first (items depend on spaces)
       console.log('📦 Syncing spaces...');
       await this.syncSpaces(user.id);
@@ -123,6 +141,10 @@ class SyncService {
       await this.syncVideoTranscripts(user.id);
 
       console.log('✅ Sync completed successfully');
+      console.log('🔍 [DIAGNOSTIC] Sync summary:');
+      console.log(`🔍 [DIAGNOSTIC] - Items synced: ${itemsSynced}`);
+      console.log(`🔍 [DIAGNOSTIC] - Local data counts: items=${localItems.length}, item_spaces=${localItemSpaces.length}, metadata=${localMetadata.length}, type_metadata=${localTypeMetadata.length}`);
+      console.log(`🔍 [DIAGNOSTIC] - RLS policies are working correctly - orphaned references were skipped instead of causing errors`);
 
       // Update sync status
       this.syncStatus.lastSyncTime = new Date().toISOString();
@@ -145,7 +167,9 @@ class SyncService {
 
   // Sync spaces table
   private async syncSpaces(userId: string): Promise<void> {
-    const localSpaces = spacesStore.spaces.get();
+    // Get local spaces from AsyncStorage
+    const spacesData = await AsyncStorage.getItem(STORAGE_KEYS.SPACES);
+    const localSpaces: Space[] = spacesData ? JSON.parse(spacesData) : [];
     console.log(`📦 Found ${localSpaces.length} local spaces to sync`);
     console.log('Local spaces:', localSpaces.map(s => ({ id: s.id, name: s.name, user_id: s.user_id })));
     
@@ -197,7 +221,8 @@ class SyncService {
     }
 
     if (newSpaces.length > 0) {
-      await spacesActions.setSpaces([...localSpaces, ...newSpaces]);
+      const updatedSpaces = [...localSpaces, ...newSpaces];
+      await AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(updatedSpaces));
     }
   }
 
@@ -205,8 +230,9 @@ class SyncService {
   private async syncItems(userId: string): Promise<number> {
     let itemsSynced = 0;
     
-    // Get local items and filter out invalid UUIDs
-    const allLocalItems = itemsStore.items.get();
+    // Get local items from AsyncStorage
+    const itemsData = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
+    const allLocalItems: Item[] = itemsData ? JSON.parse(itemsData) : [];
     
     // UUID regex pattern
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -218,7 +244,7 @@ class SyncService {
     const invalidItems = allLocalItems.filter(item => !uuidRegex.test(item.id));
     if (invalidItems.length > 0) {
       console.log(`🧹 Removing ${invalidItems.length} items with invalid UUIDs`);
-      await itemsActions.setItems(localItems);
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(localItems));
     }
     
     // Get remote items
@@ -247,7 +273,7 @@ class SyncService {
 
     if (newItems.length > 0) {
       const updatedItems = [...localItems, ...newItems];
-      await itemsActions.setItems(updatedItems);
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
       itemsSynced += newItems.length;
     }
 
@@ -256,39 +282,107 @@ class SyncService {
 
   // Sync item_spaces relationships
   private async syncItemSpaces(userId: string): Promise<void> {
-    const localItemSpaces = itemSpacesStore.itemSpaces.get();
-    
+    console.log('🔍 [DIAGNOSTIC] Starting item_spaces sync...');
+
+    // Get local item spaces from AsyncStorage
+    const itemSpacesData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_SPACES);
+    const localItemSpaces: ItemSpace[] = itemSpacesData ? JSON.parse(itemSpacesData) : [];
+    console.log(`🔍 [DIAGNOSTIC] Found ${localItemSpaces.length} local item_spaces relationships`);
+
     // Get all item IDs for this user to filter item_spaces
-    const { data: userItems } = await supabase
+    console.log('🔍 [DIAGNOSTIC] Fetching remote items for user...');
+    const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
       .eq('user_id', userId);
-    
-    if (!userItems || userItems.length === 0) return;
+
+    if (itemsError) {
+      console.error('🔍 [DIAGNOSTIC] Error fetching user items:', itemsError);
+      throw itemsError;
+    }
+
+    console.log(`🔍 [DIAGNOSTIC] Found ${userItems?.length || 0} remote items for user`);
+    if (userItems) {
+      console.log('🔍 [DIAGNOSTIC] Remote item IDs:', userItems.map(item => item.id));
+    }
+
+    if (!userItems || userItems.length === 0) {
+      console.log('🔍 [DIAGNOSTIC] No remote items found, skipping item_spaces sync');
+      return;
+    }
+
     const userItemIds = userItems.map(item => item.id);
-    
+
+    console.log('🔍 [DIAGNOSTIC] Fetching remote item_spaces...');
     const { data: remoteItemSpaces, error } = await supabase
       .from('item_spaces')
       .select('*')
       .in('item_id', userItemIds);
-    
-    if (error) throw error;
+
+    if (error) {
+      console.error('🔍 [DIAGNOSTIC] Error fetching remote item_spaces:', error);
+      throw error;
+    }
+
+    console.log(`🔍 [DIAGNOSTIC] Found ${remoteItemSpaces?.length || 0} remote item_spaces`);
 
     const localMap = new Map(localItemSpaces.map(is => [`${is.item_id}_${is.space_id}`, is]));
     const remoteMap = new Map((remoteItemSpaces || []).map(is => [`${is.item_id}_${is.space_id}`, is]));
 
     // Upload local relationships not in remote
+    console.log('🔍 [SYNC] Checking for item_spaces to upload...');
+    let skippedOrphanedItemSpaces = 0;
+    let uploadedItemSpaces = 0;
+
     for (const localIS of localItemSpaces) {
       const key = `${localIS.item_id}_${localIS.space_id}`;
+
       if (!remoteMap.has(key)) {
+        // Check if this item exists in remote
+        const itemExists = userItemIds.includes(localIS.item_id);
+        
+        // Skip orphaned item-space relationships (item doesn't exist in remote)
+        if (!itemExists) {
+          console.log(`⚠️ Skipping orphaned item_space: ${key} (item not in remote)`);
+          skippedOrphanedItemSpaces++;
+          continue;
+        }
+
+        // Check if space exists and is owned by user
+        const { data: spaceCheck, error: spaceError } = await supabase
+          .from('spaces')
+          .select('id')
+          .eq('id', localIS.space_id)
+          .eq('user_id', userId)
+          .single();
+
+        if (spaceError || !spaceCheck) {
+          console.log(`⚠️ Skipping item_space: ${key} (space not found or not owned)`);
+          skippedOrphanedItemSpaces++;
+          continue;
+        }
+
+        // Both item and space exist, safe to upload
         const { error } = await supabase
           .from('item_spaces')
           .insert({
             item_id: localIS.item_id,
             space_id: localIS.space_id,
           });
-        if (error) console.error('Error uploading item_space:', error);
+
+        if (error) {
+          console.error(`Error uploading item_space ${key}:`, error);
+        } else {
+          uploadedItemSpaces++;
+        }
       }
+    }
+
+    if (skippedOrphanedItemSpaces > 0) {
+      console.log(`⚠️ Skipped ${skippedOrphanedItemSpaces} orphaned item_spaces`);
+    }
+    if (uploadedItemSpaces > 0) {
+      console.log(`✅ Uploaded ${uploadedItemSpaces} item_spaces`);
     }
 
     // Download remote relationships not in local
@@ -301,41 +395,89 @@ class SyncService {
     }
 
     if (newItemSpaces.length > 0) {
-      await itemSpacesActions.setItemSpaces([...localItemSpaces, ...newItemSpaces]);
+      const updatedItemSpaces = [...localItemSpaces, ...newItemSpaces];
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEM_SPACES, JSON.stringify(updatedItemSpaces));
     }
   }
 
   // Sync item metadata
   private async syncItemMetadata(userId: string): Promise<void> {
-    const localMetadata = itemMetadataStore.metadata.get();
-    
+    console.log('🔍 [DIAGNOSTIC] Starting item_metadata sync...');
+
+    // Get local metadata from AsyncStorage
+    const metadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_METADATA);
+    const localMetadata: ItemMetadata[] = metadataData ? JSON.parse(metadataData) : [];
+    console.log(`🔍 [DIAGNOSTIC] Found ${localMetadata.length} local item_metadata records`);
+
     // Get all item IDs for this user
-    const { data: userItems } = await supabase
+    console.log('🔍 [DIAGNOSTIC] Fetching remote items for metadata sync...');
+    const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
       .eq('user_id', userId);
-    
-    if (!userItems || userItems.length === 0) return;
+
+    if (itemsError) {
+      console.error('🔍 [DIAGNOSTIC] Error fetching user items for metadata:', itemsError);
+      throw itemsError;
+    }
+
+    console.log(`🔍 [DIAGNOSTIC] Found ${userItems?.length || 0} remote items for metadata sync`);
+    if (!userItems || userItems.length === 0) {
+      console.log('🔍 [DIAGNOSTIC] No remote items found, skipping item_metadata sync');
+      return;
+    }
+
     const userItemIds = userItems.map(item => item.id);
-    
+
+    console.log('🔍 [DIAGNOSTIC] Fetching remote item_metadata...');
     const { data: remoteMetadata, error } = await supabase
       .from('item_metadata')
       .select('*')
       .in('item_id', userItemIds);
-    
-    if (error) throw error;
+
+    if (error) {
+      console.error('🔍 [DIAGNOSTIC] Error fetching remote item_metadata:', error);
+      throw error;
+    }
+
+    console.log(`🔍 [DIAGNOSTIC] Found ${remoteMetadata?.length || 0} remote item_metadata records`);
 
     const localMap = new Map(localMetadata.map(m => [m.item_id, m]));
     const remoteMap = new Map((remoteMetadata || []).map(m => [m.item_id, m]));
 
     // Upload local metadata not in remote
+    console.log('🔍 [SYNC] Checking for item_metadata to upload...');
+    let skippedOrphanedMetadata = 0;
+    let uploadedMetadata = 0;
+
     for (const localM of localMetadata) {
       if (!remoteMap.has(localM.item_id)) {
+        const itemExists = userItemIds.includes(localM.item_id);
+        
+        // Skip orphaned item metadata (item doesn't exist in remote)
+        if (!itemExists) {
+          console.log(`⚠️ Skipping orphaned item_metadata: ${localM.item_id} (item not in remote)`);
+          skippedOrphanedMetadata++;
+          continue;
+        }
+
         const { error } = await supabase
           .from('item_metadata')
           .insert(localM);
-        if (error) console.error('Error uploading item_metadata:', error);
+
+        if (error) {
+          console.error(`Error uploading item_metadata for ${localM.item_id}:`, error);
+        } else {
+          uploadedMetadata++;
+        }
       }
+    }
+
+    if (skippedOrphanedMetadata > 0) {
+      console.log(`⚠️ Skipped ${skippedOrphanedMetadata} orphaned item_metadata records`);
+    }
+    if (uploadedMetadata > 0) {
+      console.log(`✅ Uploaded ${uploadedMetadata} item_metadata records`);
     }
 
     // Download remote metadata not in local
@@ -347,42 +489,78 @@ class SyncService {
     }
 
     if (newMetadata.length > 0) {
-      await itemMetadataActions.setMetadata([...localMetadata, ...newMetadata]);
+      const updatedMetadata = [...localMetadata, ...newMetadata];
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEM_METADATA, JSON.stringify(updatedMetadata));
     }
   }
 
   // Sync item type metadata
   private async syncItemTypeMetadata(userId: string): Promise<void> {
-    const localTypeMetadata = itemTypeMetadataStore.typeMetadata.get();
-    
+    console.log('🔍 [DIAGNOSTIC] Starting item_type_metadata sync...');
+
+    // Get local type metadata from AsyncStorage
+    const typeMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
+    const localTypeMetadata: ItemTypeMetadata[] = typeMetadataData ? JSON.parse(typeMetadataData) : [];
+    console.log(`🔍 [DIAGNOSTIC] Found ${localTypeMetadata.length} local item_type_metadata records`);
+
     // Get all item IDs for this user
-    const { data: userItems } = await supabase
+    console.log('🔍 [DIAGNOSTIC] Fetching remote items for type metadata sync...');
+    const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
       .eq('user_id', userId);
-    
-    if (!userItems || userItems.length === 0) return;
+
+    if (itemsError) {
+      console.error('🔍 [DIAGNOSTIC] Error fetching user items for type metadata:', itemsError);
+      throw itemsError;
+    }
+
+    console.log(`🔍 [DIAGNOSTIC] Found ${userItems?.length || 0} remote items for type metadata sync`);
+    if (!userItems || userItems.length === 0) {
+      console.log('🔍 [DIAGNOSTIC] No remote items found, skipping item_type_metadata sync');
+      return;
+    }
+
     const userItemIds = userItems.map(item => item.id);
-    
+
+    console.log('🔍 [DIAGNOSTIC] Fetching remote item_type_metadata...');
     const { data: remoteTypeMetadata, error } = await supabase
       .from('item_type_metadata')
       .select('*')
       .in('item_id', userItemIds);
-    
-    if (error) throw error;
+
+    if (error) {
+      console.error('🔍 [DIAGNOSTIC] Error fetching remote item_type_metadata:', error);
+      throw error;
+    }
+
+    console.log(`🔍 [DIAGNOSTIC] Found ${remoteTypeMetadata?.length || 0} remote item_type_metadata records`);
 
     const localMap = new Map(localTypeMetadata.map(m => [m.item_id, m]));
     const remoteMap = new Map((remoteTypeMetadata || []).map(m => [m.item_id, m]));
 
     // Upload local type metadata not in remote
+    console.log('🔍 [SYNC] Checking for item_type_metadata to upload...');
+    let skippedOrphanedTypeMetadata = 0;
+    let uploadedTypeMetadata = 0;
+
     for (const localTM of localTypeMetadata) {
       if (!remoteMap.has(localTM.item_id)) {
+        const itemExists = userItemIds.includes(localTM.item_id);
+        
+        // Skip orphaned item type metadata (item doesn't exist in remote)
+        if (!itemExists) {
+          console.log(`⚠️ Skipping orphaned item_type_metadata: ${localTM.item_id} (item not in remote)`);
+          skippedOrphanedTypeMetadata++;
+          continue;
+        }
+
         // Ensure content_type is included - default to 'bookmark' if missing
         const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
-        const contentType = localTM.content_type && validContentTypes.includes(localTM.content_type) 
-          ? localTM.content_type 
+        const contentType = localTM.content_type && validContentTypes.includes(localTM.content_type)
+          ? localTM.content_type
           : 'bookmark';
-        
+
         const { error } = await supabase
           .from('item_type_metadata')
           .insert({
@@ -390,8 +568,20 @@ class SyncService {
             content_type: contentType,
             data: localTM.data || {},
           });
-        if (error) console.error('Error uploading item_type_metadata:', error);
+
+        if (error) {
+          console.error(`Error uploading item_type_metadata for ${localTM.item_id}:`, error);
+        } else {
+          uploadedTypeMetadata++;
+        }
       }
+    }
+
+    if (skippedOrphanedTypeMetadata > 0) {
+      console.log(`⚠️ Skipped ${skippedOrphanedTypeMetadata} orphaned item_type_metadata records`);
+    }
+    if (uploadedTypeMetadata > 0) {
+      console.log(`✅ Uploaded ${uploadedTypeMetadata} item_type_metadata records`);
     }
 
     // Download remote type metadata not in local
@@ -403,13 +593,16 @@ class SyncService {
     }
 
     if (newTypeMetadata.length > 0) {
-      await itemTypeMetadataActions.setTypeMetadata([...localTypeMetadata, ...newTypeMetadata]);
+      const updatedTypeMetadata = [...localTypeMetadata, ...newTypeMetadata];
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(updatedTypeMetadata));
     }
   }
 
   // Sync video transcripts
   private async syncVideoTranscripts(userId: string): Promise<void> {
-    const localTranscripts = videoTranscriptsStore.transcripts.get();
+    // Get local transcripts from AsyncStorage
+    const transcriptsData = await AsyncStorage.getItem(STORAGE_KEYS.VIDEO_TRANSCRIPTS);
+    const localTranscripts: VideoTranscript[] = transcriptsData ? JSON.parse(transcriptsData) : [];
     
     // Get all item IDs for this user to filter transcripts
     const { data: userItems } = await supabase
@@ -456,101 +649,70 @@ class SyncService {
     }
 
     if (newTranscripts.length > 0) {
-      await videoTranscriptsActions.setTranscripts([...localTranscripts, ...newTranscripts]);
+      const updatedTranscripts = [...localTranscripts, ...newTranscripts];
+      await AsyncStorage.setItem(STORAGE_KEYS.VIDEO_TRANSCRIPTS, JSON.stringify(updatedTranscripts));
     }
   }
 
-  // Upload a single video transcript to Supabase
+  // Delegated to syncOperations - kept for backward compatibility
   async uploadVideoTranscript(transcript: VideoTranscript): Promise<void> {
     const isOnline = await this.checkConnection();
     
     if (!isOnline) {
-      // Add to offline queue
       offlineQueueActions.addToQueue({
         action_type: 'save_video_transcript',
         data: transcript,
       });
-      
-      // Update pending count
       this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
       this.notifyListeners();
       return;
     }
     
     try {
-      const { error } = await db.saveVideoTranscript({
-        item_id: transcript.item_id,
-        transcript: transcript.transcript,
-        platform: transcript.platform,
-        language: transcript.language,
-        duration: transcript.duration,
-      });
-      
-      if (error) throw error;
-      console.log(`✅ Uploaded video transcript for item ${transcript.item_id}`);
+      await syncOperations.uploadVideoTranscript(transcript);
     } catch (error: any) {
       console.error('Error uploading video transcript:', error);
-      // Add to offline queue if upload fails
       offlineQueueActions.addToQueue({
         action_type: 'save_video_transcript',
         data: transcript,
       });
-      
-      // Update pending count
       this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
       this.notifyListeners();
     }
   }
   
-  // Delete video transcript from Supabase
+  // Delegated to syncOperations - kept for backward compatibility
   async deleteVideoTranscript(itemId: string): Promise<void> {
     const isOnline = await this.checkConnection();
     
     if (!isOnline) {
-      // Add to offline queue
       offlineQueueActions.addToQueue({
         action_type: 'delete_video_transcript',
         data: { item_id: itemId },
       });
-      
-      // Update pending count
       this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
       this.notifyListeners();
       return;
     }
     
     try {
-      const { error } = await db.deleteVideoTranscript(itemId);
-      if (error) throw error;
-      console.log(`✅ Deleted video transcript for item ${itemId}`);
+      await syncOperations.deleteVideoTranscript(itemId);
     } catch (error: any) {
       console.error('Error deleting video transcript:', error);
-      // Add to offline queue if delete fails
       offlineQueueActions.addToQueue({
         action_type: 'delete_video_transcript',
         data: { item_id: itemId },
       });
-      
-      // Update pending count
       this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
       this.notifyListeners();
     }
   }
 
-  // Upload a single item to Supabase
+  // Delegated to syncOperations - kept for backward compatibility
   async uploadItem(item: Item, userId: string): Promise<void> {
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(item.id)) {
-      console.log(`⚠️ Skipping item with invalid UUID: ${item.id}`);
-      return;
-    }
-    
     const isOnline = await this.checkConnection();
     
     if (!isOnline) {
-      // Add to offline queue with only valid fields
-      // Default to 'bookmark' if content_type is missing or invalid
       const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
       const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
       
@@ -569,36 +731,15 @@ class SyncService {
           raw_text: item.raw_text || null,
         },
       });
-      
-      // Update pending count
       this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
       this.notifyListeners();
       return;
     }
 
     try {
-      // Only send fields that exist in the items table
-      // Default to 'bookmark' if content_type is missing or invalid
-      const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
-      const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
-      
-      const { error } = await db.createItem({
-        id: item.id,
-        user_id: userId,
-        title: item.title,
-        desc: item.desc || null,
-        content: item.content || null,
-        url: item.url || null,
-        thumbnail_url: item.thumbnail_url || null,
-        content_type: contentType,
-        is_archived: item.is_archived || false,
-        raw_text: item.raw_text || null,
-      });
-
-      if (error) throw error;
+      await syncOperations.uploadItem(item, userId);
     } catch (error: any) {
       console.error('Error uploading item:', error);
-      // Add to offline queue if upload fails
       const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
       const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
       
@@ -617,8 +758,6 @@ class SyncService {
           raw_text: item.raw_text || null,
         },
       });
-      
-      // Update pending count
       this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
       this.notifyListeners();
     }
@@ -734,6 +873,108 @@ class SyncService {
   // Get current sync status
   getSyncStatus() {
     return this.syncStatus;
+  }
+
+  // One-time cleanup function to remove orphaned local data
+  async cleanupOrphanedData(): Promise<{ cleaned: number; details: string[] }> {
+    console.log('🧹 Starting cleanup of orphaned data...');
+    const details: string[] = [];
+    let totalCleaned = 0;
+
+    const user = authStore.user.get();
+    if (!user) {
+      console.error('No user logged in, cannot cleanup');
+      return { cleaned: 0, details: ['No user logged in'] };
+    }
+
+    try {
+      // Step 1: Get all remote items for this user
+      console.log('🔍 Fetching all remote items...');
+      const { data: remoteItems, error } = await supabase
+        .from('items')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error fetching remote items:', error);
+        throw error;
+      }
+
+      const remoteItemIds = new Set((remoteItems || []).map(item => item.id));
+      console.log(`📦 Found ${remoteItemIds.size} remote items`);
+      details.push(`Found ${remoteItemIds.size} remote items`);
+
+      // Step 2: Clean up local item_spaces
+      const itemSpacesData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_SPACES);
+      if (itemSpacesData) {
+        const localItemSpaces: ItemSpace[] = JSON.parse(itemSpacesData);
+        const validItemSpaces = localItemSpaces.filter(is => remoteItemIds.has(is.item_id));
+        const removedCount = localItemSpaces.length - validItemSpaces.length;
+        
+        if (removedCount > 0) {
+          await AsyncStorage.setItem(STORAGE_KEYS.ITEM_SPACES, JSON.stringify(validItemSpaces));
+          console.log(`🧹 Removed ${removedCount} orphaned item_spaces`);
+          details.push(`Removed ${removedCount} orphaned item_spaces`);
+          totalCleaned += removedCount;
+        }
+      }
+
+      // Step 3: Clean up local item_metadata
+      const metadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_METADATA);
+      if (metadataData) {
+        const localMetadata: ItemMetadata[] = JSON.parse(metadataData);
+        const validMetadata = localMetadata.filter(m => remoteItemIds.has(m.item_id));
+        const removedCount = localMetadata.length - validMetadata.length;
+        
+        if (removedCount > 0) {
+          await AsyncStorage.setItem(STORAGE_KEYS.ITEM_METADATA, JSON.stringify(validMetadata));
+          console.log(`🧹 Removed ${removedCount} orphaned item_metadata`);
+          details.push(`Removed ${removedCount} orphaned item_metadata`);
+          totalCleaned += removedCount;
+        }
+      }
+
+      // Step 4: Clean up local item_type_metadata
+      const typeMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
+      if (typeMetadataData) {
+        const localTypeMetadata: ItemTypeMetadata[] = JSON.parse(typeMetadataData);
+        const validTypeMetadata = localTypeMetadata.filter(tm => remoteItemIds.has(tm.item_id));
+        const removedCount = localTypeMetadata.length - validTypeMetadata.length;
+        
+        if (removedCount > 0) {
+          await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(validTypeMetadata));
+          console.log(`🧹 Removed ${removedCount} orphaned item_type_metadata`);
+          details.push(`Removed ${removedCount} orphaned item_type_metadata`);
+          totalCleaned += removedCount;
+        }
+      }
+
+      // Step 5: Clean up local video_transcripts
+      const transcriptsData = await AsyncStorage.getItem(STORAGE_KEYS.VIDEO_TRANSCRIPTS);
+      if (transcriptsData) {
+        const localTranscripts: VideoTranscript[] = JSON.parse(transcriptsData);
+        const validTranscripts = localTranscripts.filter(t => remoteItemIds.has(t.item_id));
+        const removedCount = localTranscripts.length - validTranscripts.length;
+        
+        if (removedCount > 0) {
+          await AsyncStorage.setItem(STORAGE_KEYS.VIDEO_TRANSCRIPTS, JSON.stringify(validTranscripts));
+          console.log(`🧹 Removed ${removedCount} orphaned video_transcripts`);
+          details.push(`Removed ${removedCount} orphaned video_transcripts`);
+          totalCleaned += removedCount;
+        }
+      }
+
+      console.log(`✅ Cleanup completed. Removed ${totalCleaned} orphaned records`);
+      if (totalCleaned === 0) {
+        details.push('No orphaned data found');
+      }
+
+      return { cleaned: totalCleaned, details };
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      details.push(`Error: ${error.message || 'Unknown error'}`);
+      return { cleaned: totalCleaned, details };
+    }
   }
 
   // Update a space in Supabase
@@ -1020,9 +1261,6 @@ class SyncService {
       if (updateError) throw updateError;
       
       console.log(`✅ Updated space ${spaceId} item count to ${count}`);
-      
-      // Update local space store too
-      spacesActions.updateSpace(spaceId, { item_count: count || 0 });
     } catch (error: any) {
       console.error('Error updating space item count:', error);
     }

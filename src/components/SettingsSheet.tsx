@@ -44,8 +44,8 @@ const SettingsSheet = observer(
     const statusText = syncStatusComputed.statusText();
     const statusColor = syncStatusComputed.statusColor();
     
-    // Snap points for the bottom sheet - single point at 75%
-    const snapPoints = useMemo(() => ['75%'], []);
+    // Snap points for the bottom sheet - single point at 82%
+    const snapPoints = useMemo(() => ['82%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -89,6 +89,7 @@ const SettingsSheet = observer(
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
+        topInset={50}
         backgroundStyle={[
           styles.sheetBackground,
           isDarkMode && styles.sheetBackgroundDark,
@@ -183,10 +184,10 @@ const SettingsSheet = observer(
 
           </View>
 
-          {/* Sync Status Section */}
+          {/* Data & Sync Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Sync Status
+              Data & Sync
             </Text>
             
             <View style={styles.row}>
@@ -209,29 +210,6 @@ const SettingsSheet = observer(
                 </View>
               )}
             </View>
-          </View>
-
-          {/* About Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              About
-            </Text>
-            
-            <TouchableOpacity style={styles.row}>
-              <MaterialIcons
-                name="info"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Version
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {APP.VERSION}
-                </Text>
-              </View>
-            </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.row}
@@ -276,6 +254,56 @@ const SettingsSheet = observer(
                   color={isDarkMode ? '#666' : '#999'}
                 />
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.row}
+              onPress={async () => {
+                Alert.alert(
+                  'Clean Orphaned Data',
+                  'This will remove local metadata and relationships for items that no longer exist in the cloud. This is safe and helps fix sync issues.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clean',
+                      onPress: async () => {
+                        try {
+                          const result = await syncService.cleanupOrphanedData();
+                          if (result.cleaned > 0) {
+                            Alert.alert(
+                              'Cleanup Complete', 
+                              `Removed ${result.cleaned} orphaned records:\n\n${result.details.join('\n')}`
+                            );
+                          } else {
+                            Alert.alert('No Orphaned Data', 'Your local data is clean - no orphaned records found.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to clean orphaned data. Please try again.');
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <MaterialIcons
+                name="cleaning-services"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Clean Orphaned Data
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Fix sync issues by removing orphaned metadata
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -338,6 +366,14 @@ const SettingsSheet = observer(
               />
             </TouchableOpacity>
 
+          </View>
+
+          {/* About Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              About
+            </Text>
+            
             <TouchableOpacity style={styles.row}>
               <MaterialIcons
                 name="help"
@@ -355,6 +391,22 @@ const SettingsSheet = observer(
                 color={isDarkMode ? '#666' : '#999'}
               />
             </TouchableOpacity>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="info"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Version
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  1.0.0
+                </Text>
+              </View>
+            </View>
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
@@ -391,7 +443,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   section: {
     paddingTop: 20,

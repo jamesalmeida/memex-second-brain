@@ -322,6 +322,39 @@ const SettingsScreen = observer(() => {
           />
 
           <SettingsItem
+            title="Clean Orphaned Data"
+            subtitle="Remove metadata for items that don't exist"
+            onPress={async () => {
+              Alert.alert(
+                'Clean Orphaned Data',
+                'This will remove local metadata and relationships for items that no longer exist in the cloud. This is safe and helps fix sync issues.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clean',
+                    onPress: async () => {
+                      try {
+                        const result = await syncService.cleanupOrphanedData();
+                        if (result.cleaned > 0) {
+                          Alert.alert(
+                            'Cleanup Complete', 
+                            `Removed ${result.cleaned} orphaned records:\n\n${result.details.join('\n')}`
+                          );
+                        } else {
+                          Alert.alert('No Orphaned Data', 'Your local data is clean - no orphaned records found.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to clean orphaned data. Please try again.');
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+            isDarkMode={isDarkMode}
+          />
+
+          <SettingsItem
             title="Clear Cache"
             subtitle="Clear locally stored data"
             onPress={handleClearCache}

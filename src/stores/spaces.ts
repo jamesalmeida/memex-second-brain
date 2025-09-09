@@ -2,7 +2,7 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Space } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { syncService } from '../services/syncService';
+import { syncOperations } from '../services/syncOperations';
 import { authStore } from './auth';
 
 interface SpacesState {
@@ -83,7 +83,7 @@ export const spacesActions = {
       // Sync with Supabase
       const user = authStore.user.get();
       if (user) {
-        await syncService.uploadSpace(space, user.id);
+        await syncOperations.uploadSpace(space, user.id);
       }
     } catch (error) {
       console.error('Error saving space:', error);

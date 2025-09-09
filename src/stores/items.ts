@@ -2,7 +2,7 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Item, SearchFilters } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { syncService } from '../services/syncService';
+import { syncOperations } from '../services/syncOperations';
 import { authStore } from './auth';
 
 interface ItemsState {
@@ -70,7 +70,7 @@ export const itemsActions = {
       // Sync with Supabase if authenticated
       const user = authStore.user.get();
       if (user) {
-        await syncService.uploadItem(newItem, user.id);
+        await syncOperations.uploadItem(newItem, user.id);
       }
     } catch (error) {
       console.error('Error saving item:', error);
@@ -120,7 +120,7 @@ export const itemsActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
       
       // Sync with Supabase
-      await syncService.updateItem(id, updates);
+      await syncOperations.updateItem(id, updates);
     } catch (error) {
       console.error('Error updating item:', error);
     }
@@ -152,7 +152,7 @@ export const itemsActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
       
       // Sync with Supabase
-      await syncService.deleteItem(id);
+      await syncOperations.deleteItem(id);
     } catch (error) {
       console.error('Error deleting item:', error);
     }
@@ -264,26 +264,8 @@ export const itemsActions = {
     }
   },
 
-  // Sync all items with Supabase
-  syncWithSupabase: async () => {
-    try {
-      console.log('🔄 Starting Supabase sync...');
-      const result = await syncService.syncToCloud();
-      
-      if (result.success) {
-        console.log(`✅ Synced ${result.itemsSynced} items with Supabase`);
-        // Reload items after sync
-        await itemsActions.loadItems();
-      } else {
-        console.error('❌ Sync failed:', result.errors);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error syncing with Supabase:', error);
-      throw error;
-    }
-  },
+  // Note: Full sync is handled by syncService
+  // Individual operations use syncOperations directly
 };
 
 // Load items on app start

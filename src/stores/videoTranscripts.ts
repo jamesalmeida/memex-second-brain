@@ -2,7 +2,7 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoTranscript, VideoPlatform } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { syncService } from '../services/syncService';
+import { syncOperations } from '../services/syncOperations';
 
 interface VideoTranscriptsState {
   transcripts: VideoTranscript[];
@@ -73,7 +73,7 @@ export const videoTranscriptsActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.VIDEO_TRANSCRIPTS, JSON.stringify(updatedTranscripts));
       
       // Sync to Supabase
-      await syncService.uploadVideoTranscript(transcript);
+      await syncOperations.uploadVideoTranscript(transcript);
     } catch (error) {
       console.error('Error saving video transcript:', error);
     }
@@ -93,7 +93,7 @@ export const videoTranscriptsActions = {
       // Find the updated transcript and sync
       const updatedTranscript = updatedTranscripts.find(t => t.item_id === itemId);
       if (updatedTranscript) {
-        await syncService.uploadVideoTranscript(updatedTranscript);
+        await syncOperations.uploadVideoTranscript(updatedTranscript);
       }
     } catch (error) {
       console.error('Error updating video transcript:', error);
@@ -110,7 +110,7 @@ export const videoTranscriptsActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.VIDEO_TRANSCRIPTS, JSON.stringify(filteredTranscripts));
       
       // Sync deletion to Supabase
-      await syncService.deleteVideoTranscript(itemId);
+      await syncOperations.deleteVideoTranscript(itemId);
     } catch (error) {
       console.error('Error removing video transcript:', error);
     }

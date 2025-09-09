@@ -2,7 +2,7 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ItemSpace } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { syncService } from '../services/syncService';
+import { syncOperations } from '../services/syncOperations';
 import { spacesActions } from './spaces';
 
 interface ItemSpacesState {
@@ -75,7 +75,7 @@ export const itemSpacesActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_SPACES, JSON.stringify(updatedItemSpaces));
       
       // Sync to Supabase
-      await syncService.addItemToSpace(itemId, spaceId);
+      await syncOperations.addItemToSpace(itemId, spaceId);
       
       // Update local item count for the space
       const itemsInSpace = itemSpacesComputed.getItemIdsInSpace(spaceId).length;
@@ -97,7 +97,7 @@ export const itemSpacesActions = {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_SPACES, JSON.stringify(updatedItemSpaces));
       
       // Sync deletion to Supabase
-      await syncService.removeItemFromSpace(itemId, spaceId);
+      await syncOperations.removeItemFromSpace(itemId, spaceId);
       
       // Update local item count for the space
       const itemsInSpace = updatedItemSpaces.filter(is => is.space_id === spaceId).length;
