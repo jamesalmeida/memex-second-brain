@@ -19,6 +19,7 @@ const TabLayout = observer(() => {
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   
   // Animation value for sliding views
   const slideAnimation = useRef(new Animated.Value(0)).current;
@@ -44,20 +45,35 @@ const TabLayout = observer(() => {
   };
 
   const handleAddPress = () => {
-    // Show different sheet based on current view
-    if (currentView === 'spaces' && !currentSpaceId) {
-      createSpaceSheetRef.current?.snapToIndex(0);
+    if (isAddSheetOpen) {
+      // Close the open sheet
+      addItemSheetRef.current?.close();
+      createSpaceSheetRef.current?.close();
+      setIsAddSheetOpen(false);
     } else {
-      // If we're in a space view, pass the space ID to pre-select it
-      if (currentSpaceId) {
-        addItemSheetRef.current?.openWithSpace(currentSpaceId);
+      // Show different sheet based on current view
+      if (currentView === 'spaces' && !currentSpaceId) {
+        createSpaceSheetRef.current?.snapToIndex(0);
       } else {
-        addItemSheetRef.current?.snapToIndex(0);
+        // If we're in a space view, pass the space ID to pre-select it
+        if (currentSpaceId) {
+          addItemSheetRef.current?.openWithSpace(currentSpaceId);
+        } else {
+          addItemSheetRef.current?.snapToIndex(0);
+        }
       }
+      setIsAddSheetOpen(true);
     }
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
+    // Close any open sheets when switching views
+    if (isAddSheetOpen) {
+      addItemSheetRef.current?.close();
+      createSpaceSheetRef.current?.close();
+      setIsAddSheetOpen(false);
+    }
+    
     // Animate the slide based on the view
     Animated.timing(slideAnimation, {
       toValue: view === 'everything' ? 0 : -SCREEN_WIDTH,
@@ -98,6 +114,7 @@ const TabLayout = observer(() => {
         onViewChange={handleViewChange}
         onSettingsPress={handleSettingsPress}
         onAddPress={handleAddPress}
+        isSheetOpen={isAddSheetOpen}
       />
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
@@ -107,8 +124,17 @@ const TabLayout = observer(() => {
           onOpen={() => setIsSettingsOpen(true)}
           onClose={() => setIsSettingsOpen(false)}
         />
-        <AddItemSheet ref={addItemSheetRef} preSelectedSpaceId={currentSpaceId} />
-        <CreateSpaceSheet ref={createSpaceSheetRef} />
+        <AddItemSheet 
+          ref={addItemSheetRef} 
+          preSelectedSpaceId={currentSpaceId}
+          onOpen={() => setIsAddSheetOpen(true)}
+          onClose={() => setIsAddSheetOpen(false)}
+        />
+        <CreateSpaceSheet 
+          ref={createSpaceSheetRef}
+          onOpen={() => setIsAddSheetOpen(true)}
+          onClose={() => setIsAddSheetOpen(false)}
+        />
       </View>
     </View>
   );

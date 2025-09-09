@@ -21,6 +21,7 @@ interface BottomNavigationProps {
   onViewChange: (view: 'everything' | 'spaces') => void;
   onSettingsPress: () => void;
   onAddPress: () => void;
+  isSheetOpen?: boolean;
 }
 
 const BottomNavigation = observer(({
@@ -28,12 +29,16 @@ const BottomNavigation = observer(({
   onViewChange,
   onSettingsPress,
   onAddPress,
+  isSheetOpen = false,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   
   // Animation value for the sliding indicator
   const slideAnimation = useRef(new Animated.Value(currentView === 'everything' ? 0 : 1)).current;
+  
+  // Animation value for the add button rotation
+  const rotateAnimation = useRef(new Animated.Value(0)).current;
   
   // Animate the indicator when currentView changes
   useEffect(() => {
@@ -43,6 +48,21 @@ const BottomNavigation = observer(({
       useNativeDriver: true,
     }).start();
   }, [currentView]);
+  
+  // Animate the add button rotation when sheet opens/closes
+  useEffect(() => {
+    Animated.timing(rotateAnimation, {
+      toValue: isSheetOpen ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isSheetOpen]);
+  
+  // Interpolate rotation value
+  const rotateInterpolate = rotateAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '45deg'] // 45 degrees turns + into ×
+  });
 
   return (
     <View style={styles.container}>
@@ -115,11 +135,13 @@ const BottomNavigation = observer(({
             onPress={onAddPress}
             activeOpacity={0.7}
           >
-            <MaterialIcons 
-              name="add" 
-              size={28} 
-              color="#FFFFFF" 
-            />
+            <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+              <MaterialIcons 
+                name="add" 
+                size={28} 
+                color="#FFFFFF" 
+              />
+            </Animated.View>
           </TouchableOpacity>
         </View>
       </BlurView>

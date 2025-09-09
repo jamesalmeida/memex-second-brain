@@ -35,6 +35,8 @@ import { Space, Item, ContentType } from '../types';
 interface AddItemSheetProps {
   onItemAdded?: () => void;
   preSelectedSpaceId?: string | null;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
 const contentTypes = [
@@ -50,7 +52,7 @@ const contentTypes = [
 ];
 
 const AddItemSheet = observer(
-  forwardRef<any, AddItemSheetProps>(({ onItemAdded, preSelectedSpaceId }, ref) => {
+  forwardRef<any, AddItemSheetProps>(({ onItemAdded, preSelectedSpaceId, onOpen, onClose }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const spaces = spacesComputed.spaces();
     const bottomSheetRef = useRef<BottomSheet>(null);
@@ -323,6 +325,11 @@ const AddItemSheet = observer(
         android_keyboardInputMode="adjustResize"
         onChange={(index) => {
           console.log('Sheet index changed to:', index);
+          if (index === -1) {
+            onClose?.();
+          } else if (index >= 0) {
+            onOpen?.();
+          }
         }}
       >
         <View style={styles.header}>

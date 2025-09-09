@@ -20,6 +20,8 @@ import { Space } from '../types';
 
 interface CreateSpaceSheetProps {
   onSpaceCreated?: (space: Space) => void;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
 // Emoji picker removed - no longer needed
@@ -29,7 +31,7 @@ const COLOR_OPTIONS = [
 ];
 
 const CreateSpaceSheet = observer(
-  forwardRef<BottomSheet, CreateSpaceSheetProps>(({ onSpaceCreated }, ref) => {
+  forwardRef<BottomSheet, CreateSpaceSheetProps>(({ onSpaceCreated, onOpen, onClose }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const [spaceName, setSpaceName] = useState('');
     const [spaceDescription, setSpaceDescription] = useState('');
@@ -114,6 +116,13 @@ const CreateSpaceSheet = observer(
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
+        onChange={(index) => {
+          if (index === -1) {
+            onClose?.();
+          } else if (index >= 0) {
+            onOpen?.();
+          }
+        }}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel}>
