@@ -351,14 +351,27 @@ const ExpandedItemView = observer(({
   // Extract YouTube video ID from URL
   const getYouTubeVideoId = (url?: string) => {
     if (!url) return null;
+    
+    // Remove any trailing parameters or fragments
+    const cleanUrl = url.split('#')[0];
+    
     const patterns = [
       /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
       /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
     ];
+    
     for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
+      const match = cleanUrl.match(pattern);
+      if (match) {
+        console.log('YouTube Video ID extracted:', match[1], 'from URL:', url);
+        return match[1];
+      }
     }
+    
+    console.error('Failed to extract YouTube video ID from URL:', url);
     return null;
   };
   
@@ -601,29 +614,28 @@ const ExpandedItemView = observer(({
                     <View style={styles.youtubeEmbed}>
                       <WebView
                         source={{
-                          uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?autoplay=0&modestbranding=1&rel=0&playsinline=1&controls=1&disablekb=0`
+                          uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
                         }}
                         style={styles.webView}
                         allowsFullscreenVideo={true}
                         allowsInlineMediaPlayback={true}
                         mediaPlaybackRequiresUserAction={false}
-                        javaScriptEnabled
-                        injectedJavaScript={`
-                          // Hide Watch on YouTube and Share buttons
-                          const style = document.createElement('style');
-                          style.innerHTML = \`
-                            .ytp-watch-later-button,
-                            .ytp-share-button,
-                            .ytp-youtube-button,
-                            .ytp-watermark,
-                            .ytp-chrome-top-buttons {
-                              display: none !important;
-                            }
-                          \`;
-                          document.head.appendChild(style);
-                          
-                          true; // Note: this is required for injectedJavaScript to work
-                        `}
+                        javaScriptEnabled={true}
+                        domStorageEnabled={true}
+                        startInLoadingState={true}
+                        mixedContentMode="compatibility"
+                        originWhitelist={['*']}
+                        userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+                        onError={(syntheticEvent) => {
+                          const { nativeEvent } = syntheticEvent;
+                          console.error('WebView error:', nativeEvent);
+                          console.log('Failed URL:', `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}`);
+                          console.log('Video ID:', getYouTubeVideoId(itemToDisplay.url));
+                        }}
+                        onHttpError={(syntheticEvent) => {
+                          const { nativeEvent } = syntheticEvent;
+                          console.error('HTTP error:', nativeEvent.statusCode, nativeEvent.description);
+                        }}
                       />
                     </View>
                   ) : videoUrl && videoPlayer ? (
