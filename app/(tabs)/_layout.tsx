@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard } from 'react-native';
+import { View, StyleSheet, Keyboard, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
 import { BlurView } from 'expo-blur';
@@ -12,12 +12,17 @@ import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Animation value for sliding views
+  const slideAnimation = useRef(new Animated.Value(0)).current;
   
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
@@ -54,6 +59,13 @@ const TabLayout = observer(() => {
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
+    // Animate the slide based on the view
+    Animated.timing(slideAnimation, {
+      toValue: view === 'everything' ? 0 : -SCREEN_WIDTH,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+    
     setCurrentView(view);
   };
 
@@ -61,10 +73,24 @@ const TabLayout = observer(() => {
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Main Content - extends full screen */}
       <View style={styles.fullScreenContent}>
-        {currentView === 'everything' ? 
-          <HomeScreen /> : 
-          <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
-        }
+        <Animated.View
+          style={[
+            styles.slidingContainer,
+            {
+              transform: [{ translateX: slideAnimation }]
+            }
+          ]}
+        >
+          {/* Everything View */}
+          <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
+            <HomeScreen />
+          </View>
+          
+          {/* Spaces View */}
+          <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
+            <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+          </View>
+        </Animated.View>
       </View>
 
       {/* Blurred top safe area overlay - extends behind search bar */}
@@ -113,6 +139,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    overflow: 'hidden',
+  },
+  slidingContainer: {
+    flexDirection: 'row',
+    width: SCREEN_WIDTH * 2,
+    height: '100%',
+  },
+  viewContainer: {
+    width: SCREEN_WIDTH,
+    height: '100%',
   },
   topSafeAreaOverlay: {
     position: 'absolute',

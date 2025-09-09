@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -30,6 +31,18 @@ const BottomNavigation = observer(({
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
+  
+  // Animation value for the sliding indicator
+  const slideAnimation = useRef(new Animated.Value(currentView === 'everything' ? 0 : 1)).current;
+  
+  // Animate the indicator when currentView changes
+  useEffect(() => {
+    Animated.timing(slideAnimation, {
+      toValue: currentView === 'everything' ? 0 : 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [currentView]);
 
   return (
     <View style={styles.container}>
@@ -54,11 +67,23 @@ const BottomNavigation = observer(({
 
           {/* View Toggle Pill */}
           <View style={[styles.pillContainer, isDarkMode && styles.pillContainerDark]}>
-            <TouchableOpacity
+            {/* Sliding indicator */}
+            <Animated.View
               style={[
-                styles.pillButton,
-                currentView === 'everything' && styles.pillButtonActive,
+                styles.slidingIndicator,
+                {
+                  transform: [{
+                    translateX: slideAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 88] // Adjust based on button width + padding
+                    })
+                  }]
+                }
               ]}
+            />
+            
+            <TouchableOpacity
+              style={styles.pillButton}
               onPress={() => onViewChange('everything')}
               activeOpacity={0.7}
             >
@@ -72,10 +97,7 @@ const BottomNavigation = observer(({
             <View style={[styles.pillDivider, isDarkMode && styles.pillDividerDark]} />
             
             <TouchableOpacity
-              style={[
-                styles.pillButton,
-                currentView === 'spaces' && styles.pillButtonActive,
-              ]}
+              style={styles.pillButton}
               onPress={() => onViewChange('spaces')}
               activeOpacity={0.7}
             >
@@ -154,6 +176,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    position: 'relative',
+    overflow: 'hidden',
   },
   pillContainerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -163,9 +187,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 22,
+    zIndex: 2,
   },
-  pillButtonActive: {
+  slidingIndicator: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    bottom: 4,
+    width: 84, // Match button width
     backgroundColor: '#FF6B35',
+    borderRadius: 20,
+    zIndex: 1,
   },
   pillDivider: {
     width: StyleSheet.hairlineWidth,
