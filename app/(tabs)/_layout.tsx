@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Keyboard, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
-import { BlurView } from 'expo-blur';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import BottomNavigation from '../../src/components/BottomNavigation';
@@ -93,16 +92,6 @@ const TabLayout = observer(() => {
         </Animated.View>
       </View>
 
-      {/* Blurred top safe area overlay - extends behind search bar */}
-      <BlurView 
-        intensity={80} 
-        tint={isDarkMode ? 'dark' : 'light'}
-        style={[
-          styles.topSafeAreaOverlay, 
-          { height: insets.top + 40 }
-        ]}
-      />
-
       {/* Custom Bottom Navigation */}
       <BottomNavigation
         currentView={currentView}
@@ -149,17 +138,6 @@ const styles = StyleSheet.create({
   viewContainer: {
     width: SCREEN_WIDTH,
     height: '100%',
-  },
-  topSafeAreaOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    // REMOVE THIS AFTER TESTING
-    // backgroundColor: 'green',
   },
 });
 

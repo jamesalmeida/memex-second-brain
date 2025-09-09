@@ -1,15 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withTiming,
-  withSpring,
-  interpolate
-} from 'react-native-reanimated';
 import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
@@ -17,36 +10,19 @@ import ItemCard from '../../src/components/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
-import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const HomeScreen = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const showMockData = themeStore.showMockData.get();
   const allItems = itemsStore.items.get();
-  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
-  
-  // Dynamic contrast for search bar
-  const {
-    handleScroll,
-    animatedTextStyle,
-    placeholderColor,
-    shouldUseDarkText,
-  } = useDynamicTextContrast(isDarkMode, {
-    lightThreshold: 0.55,
-    darkThreshold: 0.45,
-    transitionDuration: 250,
-    scrollSampleRate: 50,
-  });
 
   // Initialize items on first load
   useEffect(() => {
@@ -62,11 +38,6 @@ const HomeScreen = observer(() => {
     };
     
     initializeItems();
-  }, []);
-
-  // Clear search query
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery('');
   }, []);
 
   // Filter items based on showMockData toggle
@@ -143,11 +114,9 @@ const HomeScreen = observer(() => {
         masonry
         numColumns={2}
         estimatedItemSize={200}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 53 }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -156,38 +125,6 @@ const HomeScreen = observer(() => {
           />
         }
       />
-
-      {/* Floating Search Bar with Dynamic Contrast */}
-      <View style={[styles.searchContainer, { 
-        position: 'absolute',
-        top: insets.top - 12,
-        left: 4,
-        right: 4,
-        zIndex: 10,
-        borderBottomColor: shouldUseDarkText ? '#FF6B35' : '#FF8A65',
-      }]}>
-        <AnimatedTextInput
-          style={[styles.searchInput, animatedTextStyle]}
-          placeholder="Search Everything..."
-          placeholderTextColor={placeholderColor}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={handleClearSearch}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialIcons 
-              name="close" 
-              size={20} 
-              color={shouldUseDarkText ? '#000000' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-        )}
-      </View>
 
       {/* Expanded Item View */}
       <ExpandedItemView
@@ -224,39 +161,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: '#000000',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    marginHorizontal: 4,
-    marginTop: 0,
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    borderBottomWidth: 0,
-  },
-  searchInput: {
-    flex: 1,
-    paddingLeft: 0,
-    paddingRight: 36, // Make room for clear button
-    paddingTop: 8,
-    paddingBottom: 0,
-    marginBottom: -12,
-    fontSize: 26,
-    // fontFamily: 'System',
-    // REMOVE THIS AFTER TESTING
-    // backgroundColor: 'red',
-  },
-  clearButton: {
-    position: 'absolute',
-    right: 4,
-    top: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(150, 150, 150, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   gridContainer: {
     flex: 1,

@@ -75,7 +75,7 @@ const BottomNavigation = observer(({
                   transform: [{
                     translateX: slideAnimation.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0, 88] // Adjust based on button width + padding
+                      outputRange: [0, 52] // Further reduced for proper alignment
                     })
                   }]
                 }
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   pillButton: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 22,
     zIndex: 2,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     left: 4,
     top: 4,
     bottom: 4,
-    width: 84, // Match button width
+    width: 60, // Smaller width to fit better
     backgroundColor: '#FF6B35',
     borderRadius: 20,
     zIndex: 1,
