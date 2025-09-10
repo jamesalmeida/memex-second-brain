@@ -37,6 +37,10 @@ export const detectURLType = (url: string): string => {
   if (lowerUrl.includes('instagram.com')) {
     return 'instagram';
   }
+  // Reddit detection
+  if (lowerUrl.includes('reddit.com') || lowerUrl.includes('redd.it')) {
+    return 'reddit';
+  }
   // Image detection
   if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)/i)) {
     return 'image';
@@ -92,6 +96,58 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
       ...metadata,
       contentType: 'youtube',
       siteName: 'YouTube',
+    };
+  }
+};
+
+// Extract Reddit metadata
+const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
+  try {
+    console.log('Using Jina for Reddit extraction');
+    const metadata = await extractWithJina(url);
+    
+    // Reddit-specific parsing of Jina response
+    let title = metadata.title || 'Reddit Post';
+    let description = metadata.description || '';
+    
+    // Reddit OG titles often include "r/subreddit - Post Title"
+    // Clean up the title format
+    if (title.includes(' : ')) {
+      // Format like "Post Title : r/subreddit"
+      const parts = title.split(' : ');
+      title = parts[0];
+    } else if (title.includes(' - ')) {
+      // Format like "r/subreddit - Post Title"
+      const parts = title.split(' - ');
+      if (parts.length > 1 && parts[0].startsWith('r/')) {
+        title = parts.slice(1).join(' - ');
+      }
+    }
+    
+    // Extract subreddit from URL
+    const subredditMatch = url.match(/reddit\.com\/r\/([^/]+)/);
+    const subreddit = subredditMatch ? subredditMatch[1] : null;
+    
+    // Format the description to include subreddit info
+    if (subreddit && !description.includes(`r/${subreddit}`)) {
+      description = `r/${subreddit}${description ? ': ' + description : ''}`;
+    }
+    
+    return {
+      ...metadata,
+      title: title.slice(0, 200),
+      description: description.slice(0, 500),
+      contentType: 'reddit',
+      siteName: 'Reddit',
+      author: subreddit ? `r/${subreddit}` : metadata.author,
+    };
+  } catch (jinaError) {
+    console.error('Reddit extraction with Jina failed:', jinaError);
+    return {
+      url,
+      contentType: 'reddit',
+      siteName: 'Reddit',
+      error: 'Failed to extract Reddit metadata',
     };
   }
 };
@@ -373,6 +429,11 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
   if (url.includes('instagram.com')) {
     console.log('Using Instagram extractor');
     return extractInstagramMetadata(url);
+  }
+  
+  if (url.includes('reddit.com') || url.includes('redd.it')) {
+    console.log('Using Reddit extractor');
+    return extractRedditMetadata(url);
   }
   
   // Use Jina for all other URLs

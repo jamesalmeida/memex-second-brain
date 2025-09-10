@@ -49,6 +49,7 @@ const contentTypes = [
   { id: 'youtube_short', icon: 'movie', label: 'YT Short' },
   { id: 'x', icon: 'tag', label: 'X/Twitter' },
   { id: 'instagram', icon: 'photo-camera', label: 'Instagram' },
+  { id: 'reddit', icon: 'forum', label: 'Reddit' },
   { id: 'podcast', icon: 'podcasts', label: 'Podcast' },
   { id: 'article', icon: 'article', label: 'Article' },
   { id: 'image', icon: 'image', label: 'Image' },
