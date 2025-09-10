@@ -227,8 +227,8 @@ const ExpandedItemView = observer(({
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
       
-      // Check for existing transcript if YouTube video
-      if (item.content_type === 'youtube') {
+      // Check for existing transcript if YouTube video or short
+      if (item.content_type === 'youtube' || item.content_type === 'youtube_short') {
         checkForExistingTranscript(item.id);
       }
       
@@ -329,8 +329,11 @@ const ExpandedItemView = observer(({
 
   const getContentTypeIcon = () => {
     switch (itemToDisplay?.content_type) {
-      case 'youtube': return '▶️';
+      case 'youtube':
+      case 'youtube_short': return '▶️';
       case 'x': return '𝕏';
+      case 'instagram': return '📷';
+      case 'podcast': return '🎙️';
       case 'github': return '⚡';
       case 'note': return '📝';
       case 'image': return '🖼️';
@@ -380,7 +383,7 @@ const ExpandedItemView = observer(({
   
   // Download thumbnail to device
   const generateTranscript = async () => {
-    if (!itemToDisplay || itemToDisplay.content_type !== 'youtube' || !itemToDisplay.url) return;
+    if (!itemToDisplay || (itemToDisplay.content_type !== 'youtube' && itemToDisplay.content_type !== 'youtube_short') || !itemToDisplay.url) return;
 
     setIsGeneratingTranscript(true);
     
@@ -612,9 +615,9 @@ const ExpandedItemView = observer(({
               <Animated.View style={[contentStyle]}>
                 {/* Hero Image/Video with Close Button Overlay */}
                 <View style={styles.heroContainer}>
-                  {itemToDisplay?.content_type === 'youtube' && getYouTubeVideoId(itemToDisplay?.url) ? (
-                    // YouTube video embed
-                    <View style={styles.youtubeEmbed}>
+                  {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && getYouTubeVideoId(itemToDisplay?.url) ? (
+                    // YouTube video embed (different aspect ratios for regular vs shorts)
+                    <View style={itemToDisplay?.content_type === 'youtube_short' ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
                       <WebView
                         source={{
                           uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
@@ -1209,8 +1212,8 @@ const ExpandedItemView = observer(({
                     )}
                   </View>
 
-                  {/* Thumbnail Section (for YouTube) */}
-                  {itemToDisplay?.content_type === 'youtube' && itemToDisplay?.thumbnail_url && (
+                  {/* Thumbnail Section (for YouTube and YouTube Shorts) */}
+                  {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && itemToDisplay?.thumbnail_url && (
                     <View style={styles.thumbnailSection}>
                       <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
                         THUMBNAIL
@@ -1250,8 +1253,8 @@ const ExpandedItemView = observer(({
                     </View>
                   )}
 
-                  {/* Transcript Section (for YouTube) */}
-                  {itemToDisplay?.content_type === 'youtube' && (
+                  {/* Transcript Section (for YouTube and YouTube Shorts) */}
+                  {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && (
                     <View 
                       style={styles.transcriptSection}
                       onLayout={(event) => {
@@ -1903,8 +1906,14 @@ const styles = StyleSheet.create({
   // YouTube embed styles
   youtubeEmbed: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio
+    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio for regular videos
     backgroundColor: '#000',
+  },
+  youtubeShortEmbed: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * (16/9), // 9:16 aspect ratio for YouTube Shorts (vertical)
+    backgroundColor: '#000',
+    maxHeight: SCREEN_HEIGHT * 0.7, // Limit max height to 70% of screen
   },
   webView: {
     flex: 1,

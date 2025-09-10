@@ -43,9 +43,14 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const getContentTypeIcon = () => {
     switch (item.content_type) {
       case 'youtube':
+      case 'youtube_short':
         return '▶';
       case 'x':
         return '𝕏';
+      case 'instagram':
+        return '📷';
+      case 'podcast':
+        return '🎙️';
       case 'github':
         return '⚡';
       case 'note':
@@ -63,9 +68,14 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   const getContentTypeColor = () => {
     switch (item.content_type) {
       case 'youtube':
+      case 'youtube_short':
         return '#FF0000';
       case 'x':
         return '#000000';  // Black background for X
+      case 'instagram':
+        return '#E1306C';  // Instagram signature pink/magenta
+      case 'podcast':
+        return '#8B5CF6';  // Purple for podcasts
       case 'github':
         return '#24292e';
       case 'note':
@@ -211,12 +221,18 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
               source={{ uri: item.thumbnail_url }}
               style={[
                 styles.thumbnail, 
-                imageHeight ? { height: imageHeight } : null
+                imageHeight ? { height: imageHeight } : null,
+                // Force vertical aspect ratio for YouTube Shorts
+                item.content_type === 'youtube_short' ? { height: cardWidth * (16/9) } : null
               ]}
               contentFit="cover"
               onLoad={(e: any) => {
-                // Calculate height based on image aspect ratio
-                if (e.source && e.source.width && e.source.height) {
+                // For YouTube Shorts, use vertical aspect ratio
+                if (item.content_type === 'youtube_short') {
+                  const cardWidth = screenWidth / 2 - 18;
+                  setImageHeight(cardWidth * (16/9)); // 9:16 vertical aspect ratio
+                } else if (e.source && e.source.width && e.source.height) {
+                  // Calculate height based on image aspect ratio for other types
                   const aspectRatio = e.source.height / e.source.width;
                   const cardWidth = screenWidth / 2 - 18; // Approximate card width
                   const calculatedHeight = cardWidth * aspectRatio;
@@ -256,7 +272,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor() }]}>
         <Text style={[
           styles.typeBadgeText,
-          (item.content_type === 'x' || item.content_type === 'youtube') && styles.typeBadgeTextWhite
+          (item.content_type === 'x' || item.content_type === 'youtube' || item.content_type === 'youtube_short' || item.content_type === 'instagram') && styles.typeBadgeTextWhite
         ]}>
           {getContentTypeIcon()}
         </Text>
