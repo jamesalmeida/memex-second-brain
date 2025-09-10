@@ -41,6 +41,14 @@ export const detectURLType = (url: string): string => {
   if (lowerUrl.includes('reddit.com') || lowerUrl.includes('redd.it')) {
     return 'reddit';
   }
+  // Podcast detection
+  if (lowerUrl.includes('podcasts.apple.com') || 
+      lowerUrl.includes('spotify.com/episode') || 
+      lowerUrl.includes('podcasts.google.com') ||
+      lowerUrl.includes('overcast.fm') ||
+      lowerUrl.includes('pocketcasts.com')) {
+    return 'podcast';
+  }
   // Image detection
   if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)/i)) {
     return 'image';
@@ -78,7 +86,7 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
       duration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
     
-    return {
+    const metadata = {
       url,
       title: youtubeData.title,
       description: youtubeData.description,
@@ -88,15 +96,19 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
       contentType: youtubeData.isShort ? 'youtube_short' : 'youtube',
       siteName: 'YouTube',
     };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(metadata);
   } catch (error) {
     console.error('YouTube extraction failed, falling back to Jina:', error);
     // Fallback to Jina if YouTube extraction fails
     const metadata = await extractWithJina(url);
-    return {
+    const filledMetadata = await fillMissingMetadata({
       ...metadata,
-      contentType: 'youtube',
+      contentType: url.includes('/shorts/') ? 'youtube_short' : 'youtube',
       siteName: 'YouTube',
-    };
+    });
+    return filledMetadata;
   }
 };
 
@@ -133,7 +145,7 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
       description = `r/${subreddit}${description ? ': ' + description : ''}`;
     }
     
-    return {
+    const redditMetadata = {
       ...metadata,
       title: title.slice(0, 200),
       description: description.slice(0, 500),
@@ -141,6 +153,9 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
       siteName: 'Reddit',
       author: subreddit ? `r/${subreddit}` : metadata.author,
     };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(redditMetadata);
   } catch (jinaError) {
     console.error('Reddit extraction with Jina failed:', jinaError);
     return {
@@ -185,13 +200,16 @@ const extractInstagramMetadata = async (url: string): Promise<URLMetadata> => {
       }
     }
     
-    return {
+    const instagramMetadata = {
       ...metadata,
       title,
-      description,
+      description: description || 'Instagram post',
       contentType: 'instagram',
       siteName: 'Instagram',
     };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(instagramMetadata);
   } catch (jinaError) {
     console.error('Jina extraction failed:', jinaError);
     
@@ -211,15 +229,18 @@ const extractInstagramMetadata = async (url: string): Promise<URLMetadata> => {
         
         const description = instagramData.caption || 'Instagram post';
         
-        return {
+        const metaMetadata = {
           url,
           title,
           description,
-          image: url,
+          image: instagramData.thumbnail || url,
           author: instagramData.author?.username ? `@${instagramData.author.username}` : undefined,
           contentType: 'instagram',
           siteName: 'Instagram',
         };
+        
+        // Fill any missing fields
+        return fillMissingMetadata(metaMetadata);
       } catch (metaError) {
         console.error('Meta oEmbed also failed:', metaError);
       }
@@ -242,11 +263,12 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
     console.log('Twitter API not configured, falling back to Jina');
     // Fallback to Jina if Twitter API is not configured
     const metadata = await extractWithJina(url);
-    return {
+    const filledMetadata = await fillMissingMetadata({
       ...metadata,
       contentType: 'x',
       siteName: 'X (Twitter)',
-    };
+    });
+    return filledMetadata;
   }
 
   try {
@@ -294,7 +316,7 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
       console.log(`Multiple images found: ${imageUrls.length} images`);
     }
     
-    return {
+    const twitterMetadata = {
       url,
       title,
       description,
@@ -306,6 +328,9 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
       siteName: 'X (Twitter)',
       publishedDate: tweetData.createdAt,
     };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(twitterMetadata);
   } catch (error) {
     console.error('Twitter extraction error:', error);
     console.log('Falling back to Jina for Twitter URL');
@@ -313,11 +338,12 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
     // Fallback to Jina if Twitter API fails
     try {
       const metadata = await extractWithJina(url);
-      return {
+      const filledMetadata = await fillMissingMetadata({
         ...metadata,
         contentType: 'x',
         siteName: 'X (Twitter)',
-      };
+      });
+      return filledMetadata;
     } catch (jinaError) {
       console.error('Jina fallback also failed:', jinaError);
       return {
@@ -330,7 +356,7 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
   }
 };
 
-// Extract metadata using Jina.ai
+// Extract metadata using Jina.ai with comprehensive fallbacks
 const extractWithJina = async (url: string): Promise<URLMetadata> => {
   if (!isAPIConfigured.jina()) {
     console.error('Jina API not configured - check EXPO_PUBLIC_JINA_AI_API_KEY in .env.local');
@@ -360,30 +386,90 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
       throw new Error(`Jina API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    console.log('Jina.ai response data:', data);
+    const response_data = await response.json();
+    console.log('Jina.ai response structure:', { 
+      hasData: !!response_data.data,
+      hasMetadata: !!response_data.data?.metadata,
+      metadataKeys: response_data.data?.metadata ? Object.keys(response_data.data.metadata).slice(0, 10) : []
+    });
     
-    // Extract the best available image
-    const image = data.images?.[0]?.url || 
-                  data.image || 
-                  data.ogImage ||
-                  data.screenshot;
+    // Handle new Jina response structure (data.data contains the actual content)
+    const jinaContent = response_data.data || response_data;
+    const metadata = jinaContent.metadata || {};
     
-    // Extract title - prioritize OG title for better quality
-    const title = data.ogTitle || data.title || 'No title';
+    // Extract all available metadata with priority order
+    // Priority: OG (Open Graph) > Twitter Card > Standard metadata > Raw content
     
-    // Extract description - prioritize OG description
-    const description = data.ogDescription || data.description || data.excerpt || data.text?.slice(0, 200);
+    // Extract title with fallbacks - check both metadata and direct fields
+    const title = metadata['og:title'] || 
+                  metadata.ogTitle ||
+                  jinaContent.ogTitle ||
+                  metadata['twitter:title'] ||
+                  metadata.twitterTitle ||
+                  jinaContent.twitterTitle ||
+                  metadata.title ||
+                  metadata['apple:title'] ||
+                  jinaContent.title || 
+                  jinaContent.headline ||
+                  'No title';
+    
+    // Extract description with fallbacks  
+    const description = metadata['og:description'] || 
+                        metadata.ogDescription ||
+                        jinaContent.ogDescription ||
+                        metadata['twitter:description'] ||
+                        metadata.twitterDescription ||
+                        jinaContent.twitterDescription ||
+                        metadata.description ||
+                        metadata['apple:description'] ||
+                        jinaContent.description || 
+                        jinaContent.excerpt || 
+                        jinaContent.summary ||
+                        jinaContent.text?.slice(0, 200) ||
+                        jinaContent.content?.slice(0, 200) ||
+                        '';
+    
+    // Extract image with fallbacks
+    const image = metadata['og:image'] ||
+                  metadata.ogImage ||
+                  jinaContent.ogImage ||
+                  metadata['og:image:secure_url'] ||
+                  metadata['twitter:image'] ||
+                  metadata.twitterImage ||
+                  jinaContent.twitterImage ||
+                  jinaContent.images?.[0]?.url || 
+                  jinaContent.image || 
+                  jinaContent.screenshot ||
+                  jinaContent.thumbnail;
+    
+    // Extract site name with fallbacks
+    const siteName = metadata['og:site_name'] ||
+                     metadata.ogSiteName ||
+                     jinaContent.ogSiteName ||
+                     metadata.siteName ||
+                     jinaContent.siteName || 
+                     jinaContent.publisher || 
+                     jinaContent.source ||
+                     new URL(url).hostname;
+    
+    // Extract author with fallbacks
+    const author = jinaContent.author || 
+                   jinaContent.authors?.[0] || 
+                   jinaContent.creator || 
+                   metadata['twitter:creator'] ||
+                   metadata.twitterCreator ||
+                   jinaContent.twitterCreator ||
+                   jinaContent.byline;
     
     return {
       url,
       title,
       description,
       image,
-      siteName: data.siteName || data.publisher || new URL(url).hostname,
-      favicon: data.favicon || data.icon,
-      author: data.author || data.authors?.[0],
-      publishedDate: data.publishedTime || data.datePublished,
+      siteName,
+      favicon: jinaContent.favicon || jinaContent.icon || metadata.favicon,
+      author,
+      publishedDate: jinaContent.publishedTime || jinaContent.datePublished || jinaContent.publishedDate || metadata.publishedDate,
       contentType: detectURLType(url),
     };
   } catch (error) {
@@ -393,6 +479,65 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
       contentType: detectURLType(url),
       error: 'Failed to extract metadata',
     };
+  }
+};
+
+// Fill missing metadata fields using Jina as fallback
+const fillMissingMetadata = async (metadata: URLMetadata): Promise<URLMetadata> => {
+  // Check if we have critical missing fields
+  const missingFields = [];
+  if (!metadata.title || metadata.title === 'No title' || metadata.title === 'https://podcasts.apple.com/us/podcast/the-greatest') {
+    missingFields.push('title');
+  }
+  if (!metadata.description) missingFields.push('description');
+  if (!metadata.image) missingFields.push('image');
+  
+  // If we have all critical fields, return as-is
+  if (missingFields.length === 0) {
+    return metadata;
+  }
+  
+  // Skip refetching if there's already an error (prevents infinite loops)
+  if (metadata.error) {
+    return metadata;
+  }
+  
+  console.log(`Missing metadata fields for ${metadata.url}: ${missingFields.join(', ')}`);
+  console.log('Attempting to fill gaps with Jina.ai...');
+  
+  try {
+    // Try to get additional metadata from Jina
+    const jinaMetadata = await extractWithJina(metadata.url);
+    
+    // Fill in missing fields while preserving existing good data
+    const filledMetadata = {
+      ...metadata,
+      title: (metadata.title && metadata.title !== 'No title' && !metadata.title.startsWith('https://')) ? 
+             metadata.title : jinaMetadata.title,
+      description: metadata.description || jinaMetadata.description,
+      image: metadata.image || jinaMetadata.image,
+      siteName: metadata.siteName || jinaMetadata.siteName,
+      favicon: metadata.favicon || jinaMetadata.favicon,
+      author: metadata.author || jinaMetadata.author,
+      publishedDate: metadata.publishedDate || jinaMetadata.publishedDate,
+    };
+    
+    // Log what was filled
+    if (filledMetadata.title !== metadata.title) {
+      console.log(`Filled title: "${filledMetadata.title}"`);
+    }
+    if (filledMetadata.description !== metadata.description) {
+      console.log(`Filled description: "${filledMetadata.description?.slice(0, 100)}..."`);
+    }
+    if (filledMetadata.image !== metadata.image) {
+      console.log(`Filled image: ${filledMetadata.image}`);
+    }
+    
+    return filledMetadata;
+  } catch (error) {
+    console.error('Failed to fill metadata gaps:', error);
+    // Return original metadata if Jina fails
+    return metadata;
   }
 };
 
@@ -436,9 +581,10 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     return extractRedditMetadata(url);
   }
   
-  // Use Jina for all other URLs
+  // Use Jina for all other URLs with automatic gap filling
   console.log('Using Jina.ai for general URL extraction');
-  return extractWithJina(url);
+  const metadata = await extractWithJina(url);
+  return fillMissingMetadata(metadata);
 };
 
 // Generate tags using OpenAI
