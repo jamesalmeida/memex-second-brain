@@ -57,6 +57,7 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
   { type: 'youtube_short', label: 'YT Short', icon: '🎬' },
   { type: 'x', label: 'X/Twitter', icon: '𝕏' },
   { type: 'instagram', label: 'Instagram', icon: '📷' },
+  { type: 'tiktok', label: 'TikTok', icon: '🎵' },
   { type: 'reddit', label: 'Reddit', icon: '👽' },
   { type: 'movie', label: 'Movie', icon: '🎬' },
   { type: 'tv_show', label: 'TV Show', icon: '📺' },

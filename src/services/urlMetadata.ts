@@ -37,6 +37,10 @@ export const detectURLType = (url: string): string => {
   if (lowerUrl.includes('instagram.com')) {
     return 'instagram';
   }
+  // TikTok detection
+  if (lowerUrl.includes('tiktok.com') || lowerUrl.includes('vm.tiktok.com')) {
+    return 'tiktok';
+  }
   // Reddit detection
   if (lowerUrl.includes('reddit.com') || lowerUrl.includes('redd.it')) {
     return 'reddit';
@@ -232,6 +236,101 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
       error: 'Failed to extract Reddit metadata',
     };
   }
+};
+
+// Extract TikTok metadata
+const extractTikTokMetadata = async (url: string): Promise<URLMetadata> => {
+  let metadata: URLMetadata | null = null;
+  
+  try {
+    console.log('Extracting TikTok metadata with Jina');
+    metadata = await extractWithJina(url);
+  } catch (jinaError) {
+    console.error('Jina extraction failed for TikTok:', jinaError);
+    
+    // Since Jina failed, create basic metadata from URL
+    console.log('Creating fallback metadata for TikTok from URL');
+    
+    // Extract username from URL
+    const usernameMatch = url.match(/@([a-zA-Z0-9._]+)/);
+    const author = usernameMatch ? `@${usernameMatch[1]}` : undefined;
+    
+    // Extract video ID if possible
+    const videoIdMatch = url.match(/video\/(\d+)/);
+    const videoId = videoIdMatch ? videoIdMatch[1] : null;
+    
+    metadata = {
+      url,
+      title: author ? `${author}'s TikTok Video` : 'TikTok Video',
+      description: videoId ? `TikTok video ${videoId}` : 'TikTok video',
+      contentType: 'tiktok',
+      siteName: 'TikTok',
+      author,
+    };
+  }
+  
+  // If we still don't have metadata, use defaults
+  if (!metadata) {
+    // Extract username from URL if possible
+    const usernameMatch = url.match(/@([a-zA-Z0-9._]+)/);
+    const author = usernameMatch ? `@${usernameMatch[1]}` : undefined;
+    
+    return {
+      url,
+      title: author ? `${author}'s TikTok Video` : 'TikTok Video',
+      description: 'TikTok video',
+      contentType: 'tiktok',
+      siteName: 'TikTok',
+      author,
+      error: 'Failed to extract TikTok metadata',
+    };
+  }
+  
+  // TikTok-specific parsing of extracted metadata
+  let title = metadata.title || 'TikTok Video';
+  let description = metadata.description || '';
+  
+  // Clean up TikTok titles which often include "TikTok - Make Your Day"
+  title = title.replace(' | TikTok', '').replace(' - TikTok', '').replace('TikTok - Make Your Day', '').trim();
+  
+  // Extract username from title, description, or URL
+  let author = metadata.author;
+  if (!author) {
+    // Try to extract @username from title or description
+    const contentMatch = (title + ' ' + description).match(/@([a-zA-Z0-9._]+)/);
+    if (contentMatch) {
+      author = `@${contentMatch[1]}`;
+    } else {
+      // Try URL
+      const urlMatch = url.match(/@([a-zA-Z0-9._]+)/);
+      if (urlMatch) {
+        author = `@${urlMatch[1]}`;
+      }
+    }
+  }
+  
+  // If title is too generic, try to use first part of description or author
+  if (title === 'TikTok' || title === '' || title.length < 5) {
+    if (description && description.length > 10) {
+      title = description.slice(0, 100);
+    } else if (author) {
+      title = `${author}'s TikTok Video`;
+    } else {
+      title = 'TikTok Video';
+    }
+  }
+  
+  const tiktokMetadata = {
+    ...metadata,
+    title,
+    description: description || 'TikTok video',
+    contentType: 'tiktok' as ContentType,
+    siteName: 'TikTok',
+    author,
+  };
+  
+  // Fill any missing fields
+  return fillMissingMetadata(tiktokMetadata);
 };
 
 // Extract Instagram metadata
@@ -641,6 +740,11 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
   if (url.includes('instagram.com')) {
     console.log('Using Instagram extractor');
     return extractInstagramMetadata(url);
+  }
+  
+  if (url.includes('tiktok.com') || url.includes('vm.tiktok.com')) {
+    console.log('Using TikTok extractor');
+    return extractTikTokMetadata(url);
   }
   
   if (url.includes('reddit.com') || url.includes('redd.it')) {

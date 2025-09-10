@@ -49,6 +49,8 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
         return '𝕏';
       case 'instagram':
         return '📷';
+      case 'tiktok':
+        return '🎵';
       case 'reddit':
         return '👽';
       case 'movie':
@@ -80,6 +82,8 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
         return '#000000';  // Black background for X
       case 'instagram':
         return '#E1306C';  // Instagram signature pink/magenta
+      case 'tiktok':
+        return '#000000';  // TikTok black
       case 'reddit':
         return '#FF4500';  // Reddit orange
       case 'movie':
@@ -284,7 +288,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
       <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor() }]}>
         <Text style={[
           styles.typeBadgeText,
-          (item.content_type === 'x' || item.content_type === 'youtube' || item.content_type === 'youtube_short' || item.content_type === 'instagram' || item.content_type === 'reddit' || item.content_type === 'tv_show') && styles.typeBadgeTextWhite
+          (item.content_type === 'x' || item.content_type === 'youtube' || item.content_type === 'youtube_short' || item.content_type === 'instagram' || item.content_type === 'tiktok' || item.content_type === 'reddit' || item.content_type === 'tv_show') && styles.typeBadgeTextWhite
         ]}>
           {getContentTypeIcon()}
         </Text>
