@@ -1913,7 +1913,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SCREEN_WIDTH * (16/9), // 9:16 aspect ratio for YouTube Shorts (vertical)
     backgroundColor: '#000',
-    maxHeight: SCREEN_HEIGHT * 0.7, // Limit max height to 70% of screen
+    maxHeight: SCREEN_HEIGHT * 0.8, // Limit max height to 70% of screen
   },
   webView: {
     flex: 1,
