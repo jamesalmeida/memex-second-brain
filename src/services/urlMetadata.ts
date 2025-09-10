@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { API_CONFIG, isAPIConfigured } from '../config/api';
 import { extractYouTubeData } from './youtube';
 import { extractTweetId, fetchTweetData, formatTweetDate } from './twitter';
+import { extractInstagramPostId, fetchInstagramData } from './instagram';
 
 export interface URLMetadata {
   url: string;
@@ -31,6 +32,10 @@ export const detectURLType = (url: string): string => {
   // Twitter/X detection  
   if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
     return 'x';
+  }
+  // Instagram detection
+  if (lowerUrl.includes('instagram.com')) {
+    return 'instagram';
   }
   // Image detection
   if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)/i)) {
@@ -87,6 +92,90 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
       ...metadata,
       contentType: 'youtube',
       siteName: 'YouTube',
+    };
+  }
+};
+
+// Extract Instagram metadata
+const extractInstagramMetadata = async (url: string): Promise<URLMetadata> => {
+  // Always try Jina first since Meta oEmbed requires app review
+  try {
+    console.log('Using Jina for Instagram extraction');
+    const metadata = await extractWithJina(url);
+    
+    // Instagram-specific parsing of Jina response
+    let title = metadata.title || 'Instagram Post';
+    let description = metadata.description || '';
+    
+    // Instagram OG titles are usually in format: "Username on Instagram: "Caption...""
+    // or "Instagram photo by Username • Date"
+    if (title.includes('Instagram')) {
+      // Extract username from title if possible
+      const onInstagramMatch = title.match(/^(.+?)\s+on Instagram:/);
+      const photoByMatch = title.match(/Instagram photo by (.+?)[\s•]/);
+      
+      if (onInstagramMatch) {
+        const username = onInstagramMatch[1];
+        // Extract caption from after the colon
+        const captionMatch = title.match(/on Instagram:\s*"?(.+)"?$/);
+        const caption = captionMatch ? captionMatch[1] : description;
+        title = `@${username}: ${caption.slice(0, 50)}${caption.length > 50 ? '...' : ''}`;
+      } else if (photoByMatch) {
+        const username = photoByMatch[1];
+        title = `@${username}: ${description.slice(0, 50)}${description.length > 50 ? '...' : ''}`;
+      } else if (description) {
+        // Fallback: use description as title if it's better
+        title = description.slice(0, 100) || 'Instagram Post';
+      }
+    }
+    
+    return {
+      ...metadata,
+      title,
+      description,
+      contentType: 'instagram',
+      siteName: 'Instagram',
+    };
+  } catch (jinaError) {
+    console.error('Jina extraction failed:', jinaError);
+    
+    // If Jina fails and Instagram API is configured, try Meta oEmbed
+    if (isAPIConfigured.instagram()) {
+      try {
+        const postId = extractInstagramPostId(url);
+        if (!postId) {
+          throw new Error('Invalid Instagram URL - could not extract post ID');
+        }
+        
+        const instagramData = await fetchInstagramData(url);
+        
+        const title = instagramData.author?.username 
+          ? `@${instagramData.author.username}: ${instagramData.caption?.slice(0, 50)}${instagramData.caption && instagramData.caption.length > 50 ? '...' : ''}`
+          : instagramData.caption?.slice(0, 100) || 'Instagram Post';
+        
+        const description = instagramData.caption || 'Instagram post';
+        
+        return {
+          url,
+          title,
+          description,
+          image: url,
+          author: instagramData.author?.username ? `@${instagramData.author.username}` : undefined,
+          contentType: 'instagram',
+          siteName: 'Instagram',
+        };
+      } catch (metaError) {
+        console.error('Meta oEmbed also failed:', metaError);
+      }
+    }
+    
+    // Final fallback
+    return {
+      url,
+      title: 'Instagram Post',
+      contentType: 'instagram',
+      siteName: 'Instagram',
+      error: 'Failed to extract Instagram metadata',
     };
   }
 };
@@ -224,10 +313,16 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
                   data.ogImage ||
                   data.screenshot;
     
+    // Extract title - prioritize OG title for better quality
+    const title = data.ogTitle || data.title || 'No title';
+    
+    // Extract description - prioritize OG description
+    const description = data.ogDescription || data.description || data.excerpt || data.text?.slice(0, 200);
+    
     return {
       url,
-      title: data.title || data.ogTitle || 'No title',
-      description: data.description || data.excerpt || data.ogDescription || data.text?.slice(0, 200),
+      title,
+      description,
       image,
       siteName: data.siteName || data.publisher || new URL(url).hostname,
       favicon: data.favicon || data.icon,
@@ -273,6 +368,11 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
   if (url.includes('twitter.com') || url.includes('x.com')) {
     console.log('Using Twitter extractor');
     return extractTwitterMetadata(url);
+  }
+  
+  if (url.includes('instagram.com')) {
+    console.log('Using Instagram extractor');
+    return extractInstagramMetadata(url);
   }
   
   // Use Jina for all other URLs

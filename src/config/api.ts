@@ -30,6 +30,12 @@ export const API_CONFIG = {
   YOUTUBE: {
     // youtubei.js handles authentication internally
   },
+  
+  // Instagram/Meta oEmbed API
+  INSTAGRAM: {
+    ACCESS_TOKEN: process.env.EXPO_PUBLIC_META_ACCESS_TOKEN || '',
+    BASE_URL: 'https://graph.facebook.com/v22.0',
+  },
 };
 
 // Helper to check if APIs are configured
@@ -37,4 +43,5 @@ export const isAPIConfigured = {
   jina: () => !!API_CONFIG.JINA_AI.API_KEY,
   twitter: () => !!API_CONFIG.TWITTER.BEARER_TOKEN,
   openai: () => !!API_CONFIG.OPENAI.API_KEY,
+  instagram: () => !!API_CONFIG.INSTAGRAM.ACCESS_TOKEN,
 };

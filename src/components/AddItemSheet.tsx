@@ -31,6 +31,7 @@ import { authComputed } from '../stores/auth';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
 import { COLORS, UI } from '../constants';
 import { Space, Item, ContentType } from '../types';
+import { CONTENT_TYPES } from '../constants';
 
 interface AddItemSheetProps {
   onItemAdded?: () => void;
@@ -39,16 +40,20 @@ interface AddItemSheetProps {
   onClose?: () => void;
 }
 
+// Create contentTypes array from CONTENT_TYPES constant
+// Only include the most common types in the UI
 const contentTypes = [
   { id: 'bookmark', icon: 'bookmark', label: 'Bookmark' },
   { id: 'note', icon: 'note', label: 'Note' },
   { id: 'youtube', icon: 'ondemand-video', label: 'YouTube' },
   { id: 'youtube_short', icon: 'movie', label: 'YT Short' },
-  { id: 'video', icon: 'videocam', label: 'Video' },
-  { id: 'image', icon: 'image', label: 'Image' },
+  { id: 'x', icon: 'tag', label: 'X/Twitter' },
+  { id: 'instagram', icon: 'photo-camera', label: 'Instagram' },
+  { id: 'podcast', icon: 'podcasts', label: 'Podcast' },
   { id: 'article', icon: 'article', label: 'Article' },
+  { id: 'image', icon: 'image', label: 'Image' },
+  { id: 'video', icon: 'videocam', label: 'Video' },
   { id: 'product', icon: 'shopping-bag', label: 'Product' },
-  { id: 'twitter', icon: 'tag', label: 'X/Twitter' },
 ];
 
 const AddItemSheet = observer(
@@ -229,12 +234,12 @@ const AddItemSheet = observer(
       const newItem: Item = {
         id: uuid.v4() as string,
         user_id: userId,
-        title: metadata?.title || url.slice(0, 50),
+        title: metadata?.title && metadata.title !== 'No title' ? metadata.title : url.slice(0, 50),
         desc: metadata?.description || undefined,
         content: selectedType === 'note' ? url : undefined,
         url: selectedType !== 'note' ? url : undefined,
         thumbnail_url: metadata?.image || undefined,
-        content_type: selectedType as ContentType,
+        content_type: metadata?.contentType || selectedType as ContentType,
         tags: tags.length > 0 ? tags : undefined,
         is_archived: false,
         created_at: new Date().toISOString(),

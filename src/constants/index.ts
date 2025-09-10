@@ -4,6 +4,7 @@ import { ContentType } from '../types';
 export const CONTENT_TYPES: Record<ContentType, { label: string; icon: string }> = {
   bookmark: { label: 'Bookmark', icon: 'link' },
   youtube: { label: 'YouTube', icon: 'video-library' },
+  youtube_short: { label: 'YouTube Short', icon: 'movie' },
   x: { label: 'X/Twitter', icon: 'chat' },
   github: { label: 'GitHub', icon: 'code' },
   instagram: { label: 'Instagram', icon: 'photo-camera' },
@@ -15,6 +16,7 @@ export const CONTENT_TYPES: Record<ContentType, { label: string; icon: string }>
   pdf: { label: 'PDF', icon: 'picture-as-pdf' },
   video: { label: 'Video', icon: 'videocam' },
   audio: { label: 'Audio', icon: 'audiotrack' },
+  podcast: { label: 'Podcast', icon: 'podcasts' },
   note: { label: 'Note', icon: 'note' },
   article: { label: 'Article', icon: 'article' },
   product: { label: 'Product', icon: 'shopping-bag' },

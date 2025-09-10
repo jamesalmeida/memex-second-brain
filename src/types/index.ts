@@ -15,6 +15,7 @@ export type ContentType =
   | 'pdf'
   | 'video'
   | 'audio'
+  | 'podcast'
   | 'note'
   | 'article'
   | 'product'
