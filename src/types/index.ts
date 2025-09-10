@@ -20,7 +20,9 @@ export type ContentType =
   | 'article'
   | 'product'
   | 'book'
-  | 'course';
+  | 'course'
+  | 'movie'
+  | 'tv_show';
 
 export interface User {
   id: string;

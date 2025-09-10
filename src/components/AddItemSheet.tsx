@@ -50,6 +50,8 @@ const contentTypes = [
   { id: 'x', icon: 'tag', label: 'X/Twitter' },
   { id: 'instagram', icon: 'photo-camera', label: 'Instagram' },
   { id: 'reddit', icon: 'forum', label: 'Reddit' },
+  { id: 'movie', icon: 'movie', label: 'Movie' },
+  { id: 'tv_show', icon: 'tv', label: 'TV Show' },
   { id: 'podcast', icon: 'podcasts', label: 'Podcast' },
   { id: 'article', icon: 'article', label: 'Article' },
   { id: 'image', icon: 'image', label: 'Image' },

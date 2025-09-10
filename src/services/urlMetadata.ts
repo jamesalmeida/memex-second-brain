@@ -49,6 +49,15 @@ export const detectURLType = (url: string): string => {
       lowerUrl.includes('pocketcasts.com')) {
     return 'podcast';
   }
+  // IMDB Movie/TV detection - default to movie, will be refined by metadata
+  if (lowerUrl.includes('imdb.com/title/')) {
+    // URLs with /episodes or /season are definitely TV shows
+    if (lowerUrl.includes('/episodes') || lowerUrl.includes('/season')) {
+      return 'tv_show';
+    }
+    // Default to movie, but this will be refined by extractIMDBMetadata
+    return 'movie';
+  }
   // Image detection
   if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)/i)) {
     return 'image';
@@ -109,6 +118,64 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
       siteName: 'YouTube',
     });
     return filledMetadata;
+  }
+};
+
+// Extract IMDB metadata (movies and TV shows)
+const extractIMDBMetadata = async (url: string): Promise<URLMetadata> => {
+  try {
+    console.log('Extracting IMDB metadata');
+    const metadata = await extractWithJina(url);
+    
+    // IMDB-specific detection based on metadata
+    let contentType: ContentType = 'movie'; // default
+    
+    // Check the title and description for TV show indicators
+    const combinedText = `${metadata.title || ''} ${metadata.description || ''}`.toLowerCase();
+    
+    // TV show indicators in metadata
+    const tvShowIndicators = [
+      'tv series',
+      'tv mini series',
+      'episode guide',
+      'seasons',
+      'episodes',
+      '–)',  // IMDB uses this format for TV show years (e.g., "2008–2013)")
+      'tv-ma',
+      'tv-14',
+      'tv-pg',
+      'tv-y',
+    ];
+    
+    // Check for TV show indicators
+    const isTVShow = tvShowIndicators.some(indicator => combinedText.includes(indicator));
+    
+    // Also check if URL has TV show specific paths
+    if (isTVShow || url.includes('/episodes') || url.includes('/season')) {
+      contentType = 'tv_show';
+    }
+    
+    // Clean up the title if it has IMDB suffix
+    let title = metadata.title || 'IMDB Title';
+    title = title.replace(' - IMDb', '').replace(' - IMDB', '');
+    
+    const imdbMetadata = {
+      ...metadata,
+      title,
+      contentType,
+      siteName: 'IMDb',
+    };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(imdbMetadata);
+  } catch (error) {
+    console.error('IMDB extraction failed:', error);
+    return {
+      url,
+      contentType: 'movie', // default to movie on error
+      siteName: 'IMDb',
+      error: 'Failed to extract IMDB metadata',
+    };
   }
 };
 
@@ -579,6 +646,11 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
   if (url.includes('reddit.com') || url.includes('redd.it')) {
     console.log('Using Reddit extractor');
     return extractRedditMetadata(url);
+  }
+  
+  if (url.includes('imdb.com/title/')) {
+    console.log('Using IMDB extractor');
+    return extractIMDBMetadata(url);
   }
   
   // Use Jina for all other URLs with automatic gap filling

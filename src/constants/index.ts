@@ -22,6 +22,8 @@ export const CONTENT_TYPES: Record<ContentType, { label: string; icon: string }>
   product: { label: 'Product', icon: 'shopping-bag' },
   book: { label: 'Book', icon: 'book' },
   course: { label: 'Course', icon: 'school' },
+  movie: { label: 'Movie', icon: 'movie' },
+  tv_show: { label: 'TV Show', icon: 'tv' },
 };
 
 // UI Constants

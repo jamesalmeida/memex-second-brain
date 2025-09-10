@@ -58,6 +58,8 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
   { type: 'x', label: 'X/Twitter', icon: '𝕏' },
   { type: 'instagram', label: 'Instagram', icon: '📷' },
   { type: 'reddit', label: 'Reddit', icon: '👽' },
+  { type: 'movie', label: 'Movie', icon: '🎬' },
+  { type: 'tv_show', label: 'TV Show', icon: '📺' },
   { type: 'github', label: 'GitHub', icon: '⚡' },
   { type: 'article', label: 'Article', icon: '📄' },
   { type: 'image', label: 'Image', icon: '🖼️' },
