@@ -125,6 +125,69 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
   }
 };
 
+// Extract bookmark/generic URL metadata with emphasis on OG tags
+const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
+  try {
+    console.log('Extracting bookmark metadata with enhanced OG tag support');
+    const metadata = await extractWithJina(url);
+    
+    // Ensure we have all critical fields for bookmarks
+    if (!metadata.title || metadata.title === 'No title' || metadata.title.startsWith('https://')) {
+      console.log('Title missing or invalid, attempting to extract from URL');
+      // Try to create a better title from the URL
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/').filter(p => p);
+      if (pathParts.length > 0) {
+        // Use the last meaningful part of the path as title
+        const lastPart = pathParts[pathParts.length - 1]
+          .replace(/-/g, ' ')
+          .replace(/_/g, ' ')
+          .replace(/\.html?$/i, '')
+          .replace(/\.php$/i, '');
+        if (lastPart && lastPart.length > 3) {
+          metadata.title = lastPart.charAt(0).toUpperCase() + lastPart.slice(1);
+        } else {
+          metadata.title = urlObj.hostname.replace('www.', '');
+        }
+      } else {
+        metadata.title = urlObj.hostname.replace('www.', '');
+      }
+    }
+    
+    // Ensure we have a description
+    if (!metadata.description) {
+      metadata.description = `Bookmark from ${new URL(url).hostname}`;
+    }
+    
+    // Log if we're missing an image
+    if (!metadata.image) {
+      console.log('No image found for bookmark:', url);
+      // Could potentially use a screenshot service here in the future
+    }
+    
+    const bookmarkMetadata = {
+      ...metadata,
+      contentType: detectURLType(url) as ContentType,
+    };
+    
+    // Always try to fill missing fields
+    return fillMissingMetadata(bookmarkMetadata);
+  } catch (error) {
+    console.error('Bookmark extraction failed:', error);
+    
+    // Even on error, provide usable metadata
+    const urlObj = new URL(url);
+    return {
+      url,
+      title: urlObj.hostname.replace('www.', ''),
+      description: `Bookmark from ${urlObj.hostname}`,
+      contentType: 'bookmark',
+      siteName: urlObj.hostname,
+      error: 'Failed to extract full metadata',
+    };
+  }
+};
+
 // Extract IMDB metadata (movies and TV shows)
 const extractIMDBMetadata = async (url: string): Promise<URLMetadata> => {
   try {
@@ -556,7 +619,10 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
     console.log('Jina.ai response structure:', { 
       hasData: !!response_data.data,
       hasMetadata: !!response_data.data?.metadata,
-      metadataKeys: response_data.data?.metadata ? Object.keys(response_data.data.metadata).slice(0, 10) : []
+      metadataKeys: response_data.data?.metadata ? Object.keys(response_data.data.metadata).slice(0, 10) : [],
+      hasOGTitle: !!(response_data.data?.metadata?.['og:title'] || response_data.data?.metadata?.ogTitle),
+      hasOGDescription: !!(response_data.data?.metadata?.['og:description'] || response_data.data?.metadata?.ogDescription),
+      hasOGImage: !!(response_data.data?.metadata?.['og:image'] || response_data.data?.metadata?.ogImage)
     });
     
     // Handle new Jina response structure (data.data contains the actual content)
@@ -689,14 +755,19 @@ const fillMissingMetadata = async (metadata: URLMetadata): Promise<URLMetadata> 
     };
     
     // Log what was filled
+    const filled = [];
     if (filledMetadata.title !== metadata.title) {
-      console.log(`Filled title: "${filledMetadata.title}"`);
+      filled.push(`title: "${filledMetadata.title}"`);
     }
     if (filledMetadata.description !== metadata.description) {
-      console.log(`Filled description: "${filledMetadata.description?.slice(0, 100)}..."`);
+      filled.push(`description: "${filledMetadata.description?.slice(0, 50)}..."`);
     }
     if (filledMetadata.image !== metadata.image) {
-      console.log(`Filled image: ${filledMetadata.image}`);
+      filled.push(`image: ${filledMetadata.image ? 'found' : 'not found'}`);
+    }
+    
+    if (filled.length > 0) {
+      console.log(`Metadata gaps filled - ${filled.join(', ')}`);
     }
     
     return filledMetadata;
@@ -757,10 +828,9 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     return extractIMDBMetadata(url);
   }
   
-  // Use Jina for all other URLs with automatic gap filling
-  console.log('Using Jina.ai for general URL extraction');
-  const metadata = await extractWithJina(url);
-  return fillMissingMetadata(metadata);
+  // Use enhanced bookmark extractor for all other URLs
+  console.log('Using bookmark extractor for general URL');
+  return extractBookmarkMetadata(url);
 };
 
 // Generate tags using OpenAI
