@@ -41,6 +41,14 @@ export const detectURLType = (url: string): string => {
   if (lowerUrl.includes('tiktok.com') || lowerUrl.includes('vm.tiktok.com')) {
     return 'tiktok';
   }
+  // Facebook detection
+  if (lowerUrl.includes('facebook.com') || lowerUrl.includes('fb.com') || lowerUrl.includes('fb.watch')) {
+    return 'facebook';
+  }
+  // Threads detection
+  if (lowerUrl.includes('threads.com')) {
+    return 'threads';
+  }
   // Reddit detection
   if (lowerUrl.includes('reddit.com') || lowerUrl.includes('redd.it')) {
     return 'reddit';
@@ -297,6 +305,128 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
       contentType: 'reddit',
       siteName: 'Reddit',
       error: 'Failed to extract Reddit metadata',
+    };
+  }
+};
+
+// Extract Facebook metadata
+const extractFacebookMetadata = async (url: string): Promise<URLMetadata> => {
+  try {
+    console.log('Extracting Facebook metadata with Jina');
+    const metadata = await extractWithJina(url);
+    
+    // Facebook-specific parsing of extracted metadata
+    let title = metadata.title || 'Facebook Post';
+    let description = metadata.description || '';
+    
+    // Clean up Facebook titles which often include "| Facebook" or "- Facebook"
+    title = title.replace(' | Facebook', '').replace(' - Facebook', '').trim();
+    
+    // If title is too generic or just "Facebook", try to use description
+    if (title === 'Facebook' || title === '' || title.length < 5) {
+      if (description && description.length > 10) {
+        title = description.slice(0, 100);
+        if (title.length === 100) title += '...';
+      } else {
+        title = 'Facebook Post';
+      }
+    }
+    
+    // Try to extract author from title or description
+    let author = metadata.author;
+    if (!author) {
+      // Facebook posts often have author in title like "John Doe - Post content..."
+      const titleMatch = title.match(/^([^-–—]+?)\s*[-–—]/);
+      if (titleMatch && titleMatch[1].length < 50) {
+        author = titleMatch[1].trim();
+        // Remove author from title if found
+        title = title.replace(/^[^-–—]+?\s*[-–—]\s*/, '');
+      }
+    }
+    
+    const facebookMetadata = {
+      ...metadata,
+      title: title || 'Facebook Post',
+      description: description || 'Facebook content',
+      contentType: 'facebook' as ContentType,
+      siteName: 'Facebook',
+      author,
+    };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(facebookMetadata);
+  } catch (error) {
+    console.error('Facebook extraction failed:', error);
+    return {
+      url,
+      title: 'Facebook Post',
+      contentType: 'facebook',
+      siteName: 'Facebook',
+      error: 'Failed to extract Facebook metadata',
+    };
+  }
+};
+
+// Extract Threads metadata
+const extractThreadsMetadata = async (url: string): Promise<URLMetadata> => {
+  try {
+    console.log('Extracting Threads metadata with Jina');
+    const metadata = await extractWithJina(url);
+    
+    // Threads-specific parsing of extracted metadata
+    let title = metadata.title || 'Threads Post';
+    let description = metadata.description || '';
+    
+    // Clean up Threads titles
+    title = title.replace(' on Threads', '').replace(' | Threads', '').replace(' - Threads', '').trim();
+    
+    // Extract username if present in the URL or title
+    let author = metadata.author;
+    if (!author) {
+      // Try to extract @username from URL
+      const urlMatch = url.match(/threads\.com\/(@[^/]+)/);
+      if (urlMatch) {
+        author = urlMatch[1];
+      } else {
+        // Try to extract from title (often format: "Username (@handle)")
+        const titleMatch = title.match(/@[\w.]+/);
+        if (titleMatch) {
+          author = titleMatch[0];
+        }
+      }
+    }
+    
+    // If title is too generic, use first part of description
+    if (title === 'Threads' || title === '' || title.length < 5) {
+      if (description && description.length > 10) {
+        title = description.slice(0, 100);
+        if (title.length === 100) title += '...';
+      } else if (author) {
+        title = `${author}'s Thread`;
+      } else {
+        title = 'Threads Post';
+      }
+    }
+    
+    const threadsMetadata = {
+      ...metadata,
+      title: title || 'Threads Post',
+      description: description || 'Threads content',
+      contentType: 'threads' as ContentType,
+      siteName: 'Threads',
+      author,
+    };
+    
+    // Fill any missing fields
+    return fillMissingMetadata(threadsMetadata);
+  } catch (error) {
+    console.error('Threads extraction failed:', error);
+    return {
+      url,
+      title: 'Threads Post',
+      contentType: 'threads',
+      siteName: 'Threads',
+      error: 'Failed to extract Threads metadata',
     };
   }
 };
@@ -826,6 +956,16 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
   if (url.includes('imdb.com/title/')) {
     console.log('Using IMDB extractor');
     return extractIMDBMetadata(url);
+  }
+  
+  if (url.includes('facebook.com') || url.includes('fb.com') || url.includes('fb.watch')) {
+    console.log('Using Facebook extractor');
+    return extractFacebookMetadata(url);
+  }
+  
+  if (url.includes('threads.com')) {
+    console.log('Using Threads extractor');
+    return extractThreadsMetadata(url);
   }
   
   // Use enhanced bookmark extractor for all other URLs

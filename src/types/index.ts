@@ -7,6 +7,8 @@ export type ContentType =
   | 'x'
   | 'github'
   | 'instagram'
+  | 'facebook'
+  | 'threads'
   | 'tiktok'
   | 'reddit'
   | 'amazon'
