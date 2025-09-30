@@ -39,6 +39,12 @@ const TabLayout = observer(() => {
       settingsSheetRef.current?.close();
       setIsSettingsOpen(false);
     } else {
+      // Close add sheets if open before opening settings
+      if (isAddSheetOpen) {
+        addItemSheetRef.current?.close();
+        createSpaceSheetRef.current?.close();
+        setIsAddSheetOpen(false);
+      }
       settingsSheetRef.current?.expand();
       setIsSettingsOpen(true);
     }
@@ -51,6 +57,11 @@ const TabLayout = observer(() => {
       createSpaceSheetRef.current?.close();
       setIsAddSheetOpen(false);
     } else {
+      // Close settings sheet if open before opening add sheets
+      if (isSettingsOpen) {
+        settingsSheetRef.current?.close();
+        setIsSettingsOpen(false);
+      }
       // Show different sheet based on current view
       if (currentView === 'spaces' && !currentSpaceId) {
         createSpaceSheetRef.current?.snapToIndex(0);
@@ -73,14 +84,18 @@ const TabLayout = observer(() => {
       createSpaceSheetRef.current?.close();
       setIsAddSheetOpen(false);
     }
-    
+    if (isSettingsOpen) {
+      settingsSheetRef.current?.close();
+      setIsSettingsOpen(false);
+    }
+
     // Animate the slide based on the view
     Animated.timing(slideAnimation, {
       toValue: view === 'everything' ? 0 : -SCREEN_WIDTH,
       duration: 300,
       useNativeDriver: true,
     }).start();
-    
+
     setCurrentView(view);
   };
 
