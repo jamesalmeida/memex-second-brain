@@ -5,6 +5,12 @@ import { Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, ContentType, Vi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
 import { syncOperations } from './syncOperations';
+import { itemsActions, itemsStore } from '../stores/items';
+import { spacesActions } from '../stores/spaces';
+import { itemSpacesActions } from '../stores/itemSpaces';
+import { itemMetadataActions } from '../stores/itemMetadata';
+import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
+import { videoTranscriptsActions } from '../stores/videoTranscripts';
 
 interface SyncResult {
   success: boolean;
@@ -85,6 +91,10 @@ class SyncService {
     this.syncStatus.isSyncing = true;
     this.notifyListeners();
 
+    // DIAGNOSTIC: Log user info and current state
+    console.log('🔍 [DIAGNOSTIC] Syncing for user:', user.id, user.email);
+    console.log('🔍 [DIAGNOSTIC] Current store item count:', itemsStore.items.get().length);
+
     try {
       // First, process offline queue
       await this.processOfflineQueue();
@@ -131,6 +141,18 @@ class SyncService {
       await this.syncVideoTranscripts(user.id);
 
       console.log('✅ Sync completed successfully');
+
+      // Reload all stores from AsyncStorage to reflect synced data in UI
+      console.log('🔄 Reloading stores from AsyncStorage...');
+      await Promise.all([
+        itemsActions.loadItems(),
+        spacesActions.loadSpaces(),
+        itemSpacesActions.loadItemSpaces(),
+        itemMetadataActions.loadMetadata(),
+        itemTypeMetadataActions.loadTypeMetadata(),
+        videoTranscriptsActions.loadTranscripts(),
+      ]);
+      console.log('✅ Stores reloaded successfully');
 
       // Update sync status
       this.syncStatus.lastSyncTime = new Date().toISOString();
@@ -241,6 +263,10 @@ class SyncService {
 
     if (idsError) throw idsError;
 
+    // DIAGNOSTIC: Log sync status
+    console.log('🔍 [DIAGNOSTIC] Found', remoteItemIds?.length || 0, 'remote items for user:', userId);
+    console.log('🔍 [DIAGNOSTIC] Found', localItems.length, 'local items (after filtering invalid UUIDs)');
+
     // Create Set for O(1) lookup of remote IDs
     const remoteItemsSet = new Set((remoteItemIds || []).map(item => item.id));
     const localItemsMap = new Map(localItems.map(item => [item.id, item]));
@@ -255,6 +281,12 @@ class SyncService {
 
     // Download remote items not in local (fetch full data only for missing items)
     const missingItemIds = Array.from(remoteItemsSet).filter(id => !localItemsMap.has(id));
+
+    // DIAGNOSTIC: Log missing items
+    console.log('🔍 [DIAGNOSTIC] Missing items to download:', missingItemIds.length);
+    if (missingItemIds.length > 0) {
+      console.log('🔍 [DIAGNOSTIC] Missing item IDs:', missingItemIds);
+    }
 
     if (missingItemIds.length > 0) {
       const { data: remoteItems, error } = await supabase
