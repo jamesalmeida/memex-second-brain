@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -201,12 +201,20 @@ const SpaceDetailScreen = observer(() => {
     );
   };
 
-  // Filter items based on search
-  const filteredItems = items.filter(item => 
-    searchQuery === '' || 
-    item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.desc?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter items based on search and sort by created_at (newest first)
+  const filteredItems = useMemo(() => {
+    return items
+      .filter(item =>
+        searchQuery === '' ||
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.desc?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA;
+      });
+  }, [items, searchQuery]);
 
   return (
     <Modal
