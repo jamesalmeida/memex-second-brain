@@ -215,49 +215,56 @@ class SyncService {
   // Sync items table
   private async syncItems(userId: string): Promise<number> {
     let itemsSynced = 0;
-    
+
     // Get local items from AsyncStorage
     const itemsData = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
     const allLocalItems: Item[] = itemsData ? JSON.parse(itemsData) : [];
-    
+
     // UUID regex pattern
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
+
     // Filter out items with invalid UUIDs (mock items)
     const localItems = allLocalItems.filter(item => uuidRegex.test(item.id));
-    
+
     // Remove invalid items from local storage
     const invalidItems = allLocalItems.filter(item => !uuidRegex.test(item.id));
     if (invalidItems.length > 0) {
       console.log(`🧹 Removing ${invalidItems.length} items with invalid UUIDs`);
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(localItems));
     }
-    
-    // Get remote items
-    const { data: remoteItems, error } = await db.getItems(userId);
-    if (error) throw error;
 
-    // Create maps for efficient lookup
+    // Get remote item IDs only (lightweight query for scalability)
+    const { data: remoteItemIds, error: idsError } = await supabase
+      .from('items')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (idsError) throw idsError;
+
+    // Create Set for O(1) lookup of remote IDs
+    const remoteItemsSet = new Set((remoteItemIds || []).map(item => item.id));
     const localItemsMap = new Map(localItems.map(item => [item.id, item]));
-    const remoteItemsMap = new Map((remoteItems || []).map(item => [item.id, item]));
 
     // Upload local items not in remote
     for (const localItem of localItems) {
-      if (!remoteItemsMap.has(localItem.id)) {
+      if (!remoteItemsSet.has(localItem.id)) {
         await this.uploadItem(localItem, userId);
         itemsSynced++;
       }
     }
 
-    // Download remote items not in local
-    const newItems: Item[] = [];
-    for (const remoteItem of (remoteItems || [])) {
-      if (!localItemsMap.has(remoteItem.id)) {
-        newItems.push(this.convertRemoteToLocal(remoteItem));
-      }
-    }
+    // Download remote items not in local (fetch full data only for missing items)
+    const missingItemIds = Array.from(remoteItemsSet).filter(id => !localItemsMap.has(id));
 
-    if (newItems.length > 0) {
+    if (missingItemIds.length > 0) {
+      const { data: remoteItems, error } = await supabase
+        .from('items')
+        .select('*')
+        .in('id', missingItemIds);
+
+      if (error) throw error;
+
+      const newItems = (remoteItems || []).map(item => this.convertRemoteToLocal(item));
       const updatedItems = [...localItems, ...newItems];
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
       itemsSynced += newItems.length;
@@ -672,11 +679,11 @@ class SyncService {
   // Delegated to syncOperations - kept for backward compatibility
   async uploadItem(item: Item, userId: string): Promise<void> {
     const isOnline = await this.checkConnection();
-    
+
     if (!isOnline) {
       const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
       const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
-      
+
       offlineQueueActions.addToQueue({
         action_type: 'create_item',
         data: {
@@ -700,10 +707,16 @@ class SyncService {
     try {
       await syncOperations.uploadItem(item, userId);
     } catch (error: any) {
+      // Handle duplicate key errors - item already exists in database
+      if (error?.code === '23505') {
+        console.log(`✅ Item already exists in database, skipping: ${item.id}`);
+        return;
+      }
+
       console.error('Error uploading item:', error);
       const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
       const contentType = validContentTypes.includes(item.content_type) ? item.content_type : 'bookmark';
-      
+
       offlineQueueActions.addToQueue({
         action_type: 'create_item',
         data: {
@@ -745,10 +758,10 @@ class SyncService {
   // Process offline queue
   private async processOfflineQueue() {
     const allPendingItems = offlineQueueActions.getPendingItems();
-    
+
     // UUID regex pattern
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
+
     // Filter out items with invalid UUIDs
     const pendingItems = allPendingItems.filter(queueItem => {
       if (queueItem.action_type === 'create_item' || queueItem.action_type === 'update_item') {
@@ -761,13 +774,13 @@ class SyncService {
       }
       return true;
     });
-    
+
     console.log(`Processing ${pendingItems.length} offline items...`);
-    
+
     // Update pending count in sync status
     this.syncStatus.pendingItems = pendingItems.length;
     this.notifyListeners();
-    
+
     for (const queueItem of pendingItems) {
       try {
         switch (queueItem.action_type) {
@@ -781,16 +794,26 @@ class SyncService {
             await db.deleteItem(queueItem.data.id);
             break;
         }
-        
+
         // Remove from queue on success
         offlineQueueActions.removeFromQueue(queueItem.id);
-        
+
         // Update pending count
         this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
         this.notifyListeners();
-      } catch (error) {
-        console.error('Error processing offline item:', error);
-        // Keep in queue if processing fails
+      } catch (error: any) {
+        // Handle duplicate key errors (PostgreSQL error code 23505)
+        if (error?.code === '23505') {
+          console.log(`✅ Item already exists in database, removing from queue: ${queueItem.data.id || 'unknown'}`);
+          offlineQueueActions.removeFromQueue(queueItem.id);
+
+          // Update pending count
+          this.syncStatus.pendingItems = offlineQueueActions.getPendingItems().length;
+          this.notifyListeners();
+        } else {
+          console.error('Error processing offline item:', error);
+          // Keep in queue if processing fails (but not for duplicates)
+        }
       }
     }
   }

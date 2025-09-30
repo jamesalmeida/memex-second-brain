@@ -34,6 +34,36 @@ export const offlineQueueComputed = {
 // Actions
 export const offlineQueueActions = {
   addToQueue: (item: Omit<OfflineQueue, 'id' | 'created_at' | 'status'>) => {
+    const currentQueue = offlineQueueStore.queue.get();
+
+    // Check for duplicates based on action_type and item id
+    const isDuplicate = currentQueue.some(queueItem => {
+      if (queueItem.action_type === item.action_type && queueItem.status === 'pending') {
+        // For create_item and update_item, check if same item id
+        if ((item.action_type === 'create_item' || item.action_type === 'update_item') &&
+            queueItem.data?.id === item.data?.id) {
+          return true;
+        }
+        // For delete_item, check if same item id
+        if (item.action_type === 'delete_item' && queueItem.data?.id === item.data?.id) {
+          return true;
+        }
+        // For item-space operations, check both item_id and space_id
+        if ((item.action_type === 'add_item_to_space' || item.action_type === 'remove_item_from_space') &&
+            queueItem.data?.item_id === item.data?.item_id &&
+            queueItem.data?.space_id === item.data?.space_id) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    // Skip adding if duplicate found
+    if (isDuplicate) {
+      console.log(`⚠️ Skipping duplicate queue item: ${item.action_type} for item ${item.data?.id || 'unknown'}`);
+      return;
+    }
+
     const newItem: OfflineQueue = {
       ...item,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -41,7 +71,6 @@ export const offlineQueueActions = {
       status: 'pending',
     };
 
-    const currentQueue = offlineQueueStore.queue.get();
     offlineQueueStore.queue.set([...currentQueue, newItem]);
   },
 
