@@ -276,15 +276,7 @@ const AddItemSheet = observer(
       // Create item_spaces relationship if item was added to a space
       if (selectedSpaceId) {
         await itemSpacesActions.addItemToSpace(newItem.id, selectedSpaceId);
-        
-        // Update space item count
-        const spaces = spacesStore.spaces.get();
-        const space = spaces.find(s => s.id === selectedSpaceId);
-        if (space) {
-          spacesActions.updateSpace(selectedSpaceId, { 
-            item_count: (space.item_count || 0) + 1 
-          });
-        }
+        // Note: addItemToSpace already updates the space item count correctly
       }
       
       console.log('Item saved:', newItem);

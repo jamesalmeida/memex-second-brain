@@ -593,9 +593,18 @@ class SyncService {
 
     const localMap = new Map(localTranscripts.map(t => [t.item_id, t]));
     const remoteMap = new Map((remoteTranscripts || []).map(t => [t.item_id, t]));
+    const userItemIdsSet = new Set(userItemIds);
 
-    // Upload local transcripts not in remote
+    // Upload local transcripts not in remote (but only if item exists)
+    let skippedOrphanedTranscripts = 0;
     for (const localT of localTranscripts) {
+      // Skip if transcript is for an item that doesn't exist in remote
+      if (!userItemIdsSet.has(localT.item_id)) {
+        console.log(`⚠️ Skipping orphaned transcript for item: ${localT.item_id}`);
+        skippedOrphanedTranscripts++;
+        continue;
+      }
+
       if (!remoteMap.has(localT.item_id)) {
         const { error } = await db.saveVideoTranscript({
           item_id: localT.item_id,
@@ -606,6 +615,10 @@ class SyncService {
         });
         if (error) console.error('Error uploading video transcript:', error);
       }
+    }
+
+    if (skippedOrphanedTranscripts > 0) {
+      console.log(`⚠️ Skipped ${skippedOrphanedTranscripts} orphaned video transcripts`);
     }
 
     // Download remote transcripts not in local

@@ -4,6 +4,9 @@ import { Item, SearchFilters } from '../types';
 import { STORAGE_KEYS } from '../constants';
 import { syncOperations } from '../services/syncOperations';
 import { authStore } from './auth';
+import { itemSpacesComputed, itemSpacesActions } from './itemSpaces';
+import { spacesActions } from './spaces';
+import { videoTranscriptsActions } from './videoTranscripts';
 
 interface ItemsState {
   items: Item[];
@@ -141,16 +144,31 @@ export const itemsActions = {
 
   // Remove item with Supabase sync
   removeItemWithSync: async (id: string) => {
+    // Get all spaces this item belongs to BEFORE deletion
+    const affectedSpaceIds = itemSpacesComputed.getSpaceIdsForItem(id);
+
+    // Remove item-space relationships
+    await itemSpacesActions.removeAllItemRelations(id);
+
+    // Remove video transcript if exists
+    await videoTranscriptsActions.removeTranscript(id);
+
+    // Update item count for all affected spaces
+    for (const spaceId of affectedSpaceIds) {
+      const itemsInSpace = itemSpacesComputed.getItemIdsInSpace(spaceId).length;
+      spacesActions.updateSpace(spaceId, { item_count: itemsInSpace });
+    }
+
     const currentItems = itemsStore.items.get();
     const filteredItems = currentItems.filter(item => item.id !== id);
-    
-    // Remove locally first
+
+    // Remove locally
     itemsStore.items.set(filteredItems);
     itemsStore.filteredItems.set(filteredItems);
-    
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
-      
+
       // Sync with Supabase
       await syncOperations.deleteItem(id);
     } catch (error) {

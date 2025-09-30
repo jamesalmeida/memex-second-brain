@@ -22,7 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
-import { itemsStore } from '../stores/items';
+import { itemsStore, itemsActions } from '../stores/items';
 import { itemSpacesComputed } from '../stores/itemSpaces';
 import ItemCard from './ItemCard';
 import ExpandedItemView from './ExpandedItemView';
@@ -99,6 +99,14 @@ const ExpandedSpaceView = observer(({
       opacity.value = withTiming(0, { duration: 150 });
     }
   }, [isVisible, space]);
+
+  // Auto-refresh items when stores change (items added/deleted or relationships change)
+  useEffect(() => {
+    if (displaySpace) {
+      const updatedItems = getSpaceItems(displaySpace.id);
+      setItems(updatedItems);
+    }
+  }, [itemsStore.items.get().length, itemSpacesComputed.getItemIdsInSpace(displaySpace?.id || '').length, displaySpace?.id]);
 
   const containerStyle = useAnimatedStyle(() => {
     const initialX = cardPosition?.x || SCREEN_WIDTH / 2;
@@ -310,9 +318,14 @@ const ExpandedSpaceView = observer(({
           onChat={(item) => console.log('Chat with item:', item.title)}
           onEdit={(item) => console.log('Edit item:', item.title)}
           onArchive={(item) => console.log('Archive item:', item.title)}
-          onDelete={(item) => {
+          onDelete={async (item) => {
             console.log('Delete item:', item.title);
-            setItems(prev => prev.filter(i => i.id !== item.id));
+            // Actually delete the item from database and local storage
+            await itemsActions.removeItemWithSync(item.id);
+            // Refresh items from store to ensure UI is in sync
+            if (displaySpace) {
+              setItems(getSpaceItems(displaySpace.id));
+            }
             setSelectedItem(null);
           }}
           onShare={(item) => console.log('Share item:', item.title)}
