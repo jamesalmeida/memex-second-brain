@@ -40,13 +40,21 @@ const HomeScreen = observer(() => {
     initializeItems();
   }, []);
 
-  // Filter items based on showMockData toggle
+  // Filter items based on showMockData toggle and sort by created_at (newest first)
   const displayItems = useMemo(() => {
+    let filtered;
     if (showMockData) {
-      return allItems; // Show all items including mock
+      filtered = allItems; // Show all items including mock
     } else {
-      return allItems.filter(item => !item.isMockData); // Only show real items
+      filtered = allItems.filter(item => !item.isMockData); // Only show real items
     }
+
+    // Sort by created_at descending (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return dateB - dateA;
+    });
   }, [allItems, showMockData]);
 
   const onRefresh = useCallback(() => {
