@@ -1,8 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { router, useSegments } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
 import { syncService } from '../services/syncService';
+import { STORAGE_KEYS } from '../constants';
+import { itemsActions } from '../stores/items';
+import { spacesActions } from '../stores/spaces';
+import { itemSpacesActions } from '../stores/itemSpaces';
+import { itemMetadataActions } from '../stores/itemMetadata';
+import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
+import { offlineQueueActions } from '../stores/offlineQueue';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -98,6 +106,34 @@ export function useAuth() {
           console.log('🔄 User authenticated, state updated');
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
+
+          // Clear all user data from AsyncStorage
+          console.log('🧹 Clearing all user data from storage...');
+          try {
+            await AsyncStorage.multiRemove([
+              STORAGE_KEYS.ITEMS,
+              STORAGE_KEYS.SPACES,
+              STORAGE_KEYS.ITEM_SPACES,
+              STORAGE_KEYS.ITEM_METADATA,
+              STORAGE_KEYS.ITEM_TYPE_METADATA,
+              STORAGE_KEYS.OFFLINE_QUEUE,
+              STORAGE_KEYS.VIDEO_TRANSCRIPTS,
+              STORAGE_KEYS.SYNC_STATUS,
+            ]);
+            console.log('✅ Cleared all user data from storage');
+          } catch (error) {
+            console.error('❌ Error clearing storage:', error);
+          }
+
+          // Reset all stores to initial state
+          itemsActions.clearAll();
+          spacesActions.clearAll();
+          itemSpacesActions.reset();
+          itemMetadataActions.reset();
+          itemTypeMetadataActions.reset();
+          offlineQueueActions.reset();
+
+          // Reset auth store
           authActions.reset();
           authActions.setLoading(false);
 
