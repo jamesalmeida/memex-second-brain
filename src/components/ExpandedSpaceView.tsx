@@ -54,15 +54,14 @@ const ExpandedSpaceView = observer(({
   const opacity = useSharedValue(0);
   const [displaySpace, setDisplaySpace] = useState<Space | null>(null);
   
-  // State for items
-  const [items, setItems] = useState<Item[]>([]);
+  // State for UI
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [itemCardPosition, setItemCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
 
-  // Get items for this space from the store
+  // Get items for this space from the store (computed reactively via observer)
   const getSpaceItems = (spaceId: string): Item[] => {
     const allItems = itemsStore.items.get();
     const itemIdsInSpace = itemSpacesComputed.getItemIdsInSpace(spaceId);
@@ -70,11 +69,13 @@ const ExpandedSpaceView = observer(({
     return allItems.filter(item => itemIdsInSpace.includes(item.id));
   };
 
+  // Compute items reactively - observer will auto-track changes
+  const items = displaySpace ? getSpaceItems(displaySpace.id) : [];
+
   useEffect(() => {
     if (isVisible && space) {
       // Store the space for display
       setDisplaySpace(space);
-      setItems(getSpaceItems(space.id));
       // Animate in
       setTimeout(() => {
         animationProgress.value = withSpring(1, {
@@ -99,14 +100,6 @@ const ExpandedSpaceView = observer(({
       opacity.value = withTiming(0, { duration: 150 });
     }
   }, [isVisible, space]);
-
-  // Auto-refresh items when stores change (items added/deleted or relationships change)
-  useEffect(() => {
-    if (displaySpace) {
-      const updatedItems = getSpaceItems(displaySpace.id);
-      setItems(updatedItems);
-    }
-  }, [itemsStore.items.get().length, itemSpacesComputed.getItemIdsInSpace(displaySpace?.id || '').length, displaySpace?.id]);
 
   const containerStyle = useAnimatedStyle(() => {
     const initialX = cardPosition?.x || SCREEN_WIDTH / 2;
@@ -155,9 +148,8 @@ const ExpandedSpaceView = observer(({
   const onRefresh = useCallback(() => {
     if (!displaySpace) return;
     setRefreshing(true);
+    // Items are computed reactively, just end refreshing state after a delay
     setTimeout(() => {
-      // Refresh items from store
-      setItems(getSpaceItems(displaySpace.id));
       setRefreshing(false);
     }, 1500);
   }, [displaySpace]);
@@ -322,10 +314,7 @@ const ExpandedSpaceView = observer(({
             console.log('Delete item:', item.title);
             // Actually delete the item from database and local storage
             await itemsActions.removeItemWithSync(item.id);
-            // Refresh items from store to ensure UI is in sync
-            if (displaySpace) {
-              setItems(getSpaceItems(displaySpace.id));
-            }
+            // Items will auto-refresh via observer
             setSelectedItem(null);
           }}
           onShare={(item) => console.log('Share item:', item.title)}
