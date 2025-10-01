@@ -38,6 +38,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
 
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const cardWidth = screenWidth / 2 - 18;
+  const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
   const username = extractUsername(item);
 
   // Tweet text content (prefer desc over title for X posts)
@@ -76,7 +77,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
           <View style={styles.mediaContainer}>
             <VideoView
               player={player}
-              style={[styles.media, { height: imageHeight || 180 }]}
+              style={[styles.media, { height: imageHeight || 200 }]}
               contentFit="cover"
               allowsFullscreen={false}
               showsTimecodes={false}
@@ -96,7 +97,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / mediaWidth);
                 setCurrentImageIndex(newIndex);
               }}
               scrollEventThrottle={16}
@@ -105,14 +106,13 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
                 <TouchableWithoutFeedback key={index}>
                   <Image
                     source={{ uri: imageUrl }}
-                    style={[styles.media, { width: cardWidth, height: imageHeight || 180 }]}
+                    style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
                     contentFit="cover"
                     onLoad={(e: any) => {
                       if (index === 0 && e.source && e.source.width && e.source.height) {
                         const aspectRatio = e.source.height / e.source.width;
-                        const calculatedHeight = cardWidth * aspectRatio;
-                        const finalHeight = Math.min(calculatedHeight, cardWidth * 1.2);
-                        setImageHeight(finalHeight);
+                        const calculatedHeight = mediaWidth * aspectRatio;
+                        setImageHeight(calculatedHeight);
                       }
                     }}
                   />
@@ -136,14 +136,13 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
           <View style={styles.mediaContainer}>
             <Image
               source={{ uri: imageUrls[0] }}
-              style={[styles.media, imageHeight ? { height: imageHeight } : null]}
+              style={[styles.media, imageHeight ? { height: imageHeight } : { height: 200 }]}
               contentFit="cover"
               onLoad={(e: any) => {
                 if (e.source && e.source.width && e.source.height) {
                   const aspectRatio = e.source.height / e.source.width;
-                  const calculatedHeight = cardWidth * aspectRatio;
-                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.2);
-                  setImageHeight(finalHeight);
+                  const calculatedHeight = mediaWidth * aspectRatio;
+                  setImageHeight(calculatedHeight);
                 }
               }}
             />
@@ -152,14 +151,13 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
           <View style={styles.mediaContainer}>
             <Image
               source={{ uri: item.thumbnail_url }}
-              style={[styles.media, imageHeight ? { height: imageHeight } : null]}
+              style={[styles.media, imageHeight ? { height: imageHeight } : { height: 200 }]}
               contentFit="cover"
               onLoad={(e: any) => {
                 if (e.source && e.source.width && e.source.height) {
                   const aspectRatio = e.source.height / e.source.width;
-                  const calculatedHeight = cardWidth * aspectRatio;
-                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.2);
-                  setImageHeight(finalHeight);
+                  const calculatedHeight = mediaWidth * aspectRatio;
+                  setImageHeight(calculatedHeight);
                 }
               }}
             />
@@ -246,7 +244,6 @@ const styles = StyleSheet.create({
   },
   media: {
     width: '100%',
-    minHeight: 120,
     backgroundColor: '#F0F0F0',
     borderRadius: 8,
   },
