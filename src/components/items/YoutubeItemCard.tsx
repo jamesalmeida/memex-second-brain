@@ -59,32 +59,27 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
             </View>
           )}
 
-          {/* YouTube Badge */}
-          <View style={styles.youtubeBadge}>
-            <Text style={styles.youtubeBadgeIcon}>▶</Text>
-          </View>
-
           {/* Play Button Overlay */}
           <View style={styles.playButtonOverlay} pointerEvents="none">
             <View style={styles.playButton}>
               <Text style={styles.playButtonIcon}>▶</Text>
             </View>
           </View>
-
-          {/* Floating Title Overlay at Bottom */}
-          <View style={styles.titleOverlay} pointerEvents="none">
-            <Text style={styles.titleText} numberOfLines={2}>
-              {item.title}
-            </Text>
-          </View>
         </View>
 
         {/* Footer with Date */}
-        <View style={styles.footer}>
+        {/* <View style={styles.footer}>
           <Text style={[styles.date, isDarkMode && styles.dateDark]}>
             {formatDate(item.created_at)}
           </Text>
-        </View>
+        </View> */}
+      </View>
+
+      {/* Title Below Video */}
+      <View style={styles.titleContainer}>
+        <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
+          {item.title}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -127,21 +122,6 @@ const styles = StyleSheet.create({
     fontSize: 48,
     color: '#FFFFFF',
   },
-  youtubeBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FF0000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  youtubeBadgeIcon: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
   playButtonOverlay: {
     position: 'absolute',
     top: 0,
@@ -152,10 +132,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    width: 52,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -164,20 +144,19 @@ const styles = StyleSheet.create({
     marginLeft: 3,
     color: '#FFFFFF',
   },
-  titleOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    padding: 10,
-    paddingTop: 20,
+  titleContainer: {
+    paddingHorizontal: 4,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
   titleText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#000000',
     lineHeight: 17,
+  },
+  titleTextDark: {
+    color: '#FFFFFF',
   },
   footer: {
     paddingHorizontal: 12,
