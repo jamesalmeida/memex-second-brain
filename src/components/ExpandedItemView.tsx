@@ -376,7 +376,7 @@ const ExpandedItemView = observer(({
     for (const pattern of patterns) {
       const match = cleanUrl.match(pattern);
       if (match) {
-        console.log('YouTube Video ID extracted:', match[1], 'from URL:', url);
+        // console.log('YouTube Video ID extracted:', match[1], 'from URL:', url);
         return match[1];
       }
     }

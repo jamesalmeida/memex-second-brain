@@ -147,4 +147,69 @@ export const openai = {
 
     return 'I apologize, but I could not generate a response at this time.';
   },
+
+  // Enhanced chat with context that returns full completion data including metadata
+  async chatWithContextEnhanced(
+    context: string,
+    userMessage: string,
+    previousMessages: ChatMessage[] = [],
+    options: {
+      model?: string;
+      temperature?: number;
+      max_tokens?: number;
+    } = {}
+  ): Promise<ChatCompletion | null> {
+    // Add current timestamp to system message
+    const now = new Date().toISOString();
+
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: `You are a helpful assistant with access to the following content as context. Use this context to provide accurate and relevant responses to user questions.\n\nCurrent Time: ${now}\n\nContext:\n${context}`,
+      },
+      ...previousMessages,
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ];
+
+    // Use provided model or default to gpt-4o-mini
+    const model = options.model || 'gpt-4o-mini';
+
+    const result = await this.createChatCompletion(messages, {
+      model,
+      temperature: options.temperature || 0.7,
+      max_tokens: options.max_tokens || 1500,
+    });
+
+    return result;
+  },
+
+  // Fetch available models from OpenAI
+  async fetchAvailableModels(): Promise<any[]> {
+    if (!API.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not configured');
+      return [];
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data || [];
+    } catch (error) {
+      console.error('Error fetching OpenAI models:', error);
+      return [];
+    }
+  },
 };

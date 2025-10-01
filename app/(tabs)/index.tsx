@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
+import { chatUIActions } from '../../src/stores/chatUI';
 import ItemCard from '../../src/components/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
@@ -144,7 +145,10 @@ const HomeScreen = observer(() => {
           // The component will handle the rest
           setSelectedItem(null);
         }}
-        onChat={(item) => console.log('Chat with item:', item.title)}
+        onChat={(item) => {
+          // Open chat for this item using the chatUI store
+          chatUIActions.openChat(item);
+        }}
         onEdit={(item) => console.log('Edit item:', item.title)}
         onArchive={(item) => console.log('Archive item:', item.title)}
         onDelete={async (item) => {

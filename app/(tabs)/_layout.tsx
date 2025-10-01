@@ -2,14 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Keyboard, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
-import BottomSheet from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetModal, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
+import { chatUIStore } from '../../src/stores/chatUI';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
 import AddItemSheet from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
+import ChatSheet from '../../src/components/ChatSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
+import { Item } from '../../src/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,11 +31,26 @@ const TabLayout = observer(() => {
   const settingsSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
+  const chatSheetRef = useRef<BottomSheetModal>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
     Keyboard.dismiss();
   }, []);
+
+  // Watch chatUI store and control chat sheet
+  const isChatOpen = chatUIStore.isOpen.get();
+  useEffect(() => {
+    console.log('🔔 [TabLayout] isChatOpen changed to:', isChatOpen);
+    console.log('🔔 [TabLayout] chatSheetRef.current exists?', !!chatSheetRef.current);
+    if (isChatOpen) {
+      console.log('🔔 [TabLayout] Calling present()...');
+      chatSheetRef.current?.present();
+    } else {
+      console.log('🔔 [TabLayout] Calling dismiss()...');
+      chatSheetRef.current?.dismiss();
+    }
+  }, [isChatOpen]);
 
   const handleSettingsPress = () => {
     if (isSettingsOpen) {
@@ -100,9 +118,10 @@ const TabLayout = observer(() => {
   };
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Main Content - extends full screen */}
-      <View style={styles.fullScreenContent}>
+    <BottomSheetModalProvider>
+      <View style={[styles.container, isDarkMode && styles.containerDark]}>
+        {/* Main Content - extends full screen */}
+        <View style={styles.fullScreenContent}>
         <Animated.View
           style={[
             styles.slidingContainer,
@@ -134,24 +153,28 @@ const TabLayout = observer(() => {
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
-        <SettingsSheet 
-          ref={settingsSheetRef} 
+        <SettingsSheet
+          ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
           onClose={() => setIsSettingsOpen(false)}
         />
-        <AddItemSheet 
-          ref={addItemSheetRef} 
+        <AddItemSheet
+          ref={addItemSheetRef}
           preSelectedSpaceId={currentSpaceId}
           onOpen={() => setIsAddSheetOpen(true)}
           onClose={() => setIsAddSheetOpen(false)}
         />
-        <CreateSpaceSheet 
+        <CreateSpaceSheet
           ref={createSpaceSheetRef}
           onOpen={() => setIsAddSheetOpen(true)}
           onClose={() => setIsAddSheetOpen(false)}
         />
       </View>
-    </View>
+
+      {/* Chat Sheet Modal - Renders on native layer above everything */}
+      <ChatSheet ref={chatSheetRef} />
+      </View>
+    </BottomSheetModalProvider>
   );
 });
 

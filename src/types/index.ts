@@ -106,6 +106,8 @@ export interface ItemChat {
   item_id: string;
   user_id: string;
   created_at: string;
+  title?: string;
+  updated_at?: string;
 }
 
 export interface SpaceChat {
@@ -113,9 +115,22 @@ export interface SpaceChat {
   space_id: string;
   user_id: string;
   created_at: string;
+  title?: string;
+  updated_at?: string;
 }
 
 export type ChatType = 'item' | 'space';
+
+export interface ChatMessageMetadata {
+  model?: string;
+  tokens?: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
+  timestamp?: string;
+  context_version?: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -124,6 +139,7 @@ export interface ChatMessage {
   role: 'user' | 'system' | 'assistant';
   content: string;
   created_at: string;
+  metadata?: ChatMessageMetadata;
 }
 
 export type ActionType =

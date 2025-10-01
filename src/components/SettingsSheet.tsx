@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo, useCallback } from 'react';
+import React, { forwardRef, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import { itemMetadataActions } from '../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
 import { offlineQueueActions } from '../stores/offlineQueue';
 import { syncStatusStore, syncStatusComputed } from '../stores/syncStatus';
+import { aiSettingsStore, aiSettingsActions, aiSettingsComputed } from '../stores/aiSettings';
+import ModelPickerSheet from './ModelPickerSheet';
 import { useState } from 'react';
 
 interface SettingsSheetProps {
@@ -35,7 +37,9 @@ const SettingsSheet = observer(
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
     const [isSyncing, setIsSyncing] = useState(false);
-    
+    const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+    const modelPickerSheetRef = useRef<BottomSheet>(null);
+
     // Sync status observables
     const pendingChanges = syncStatusStore.pendingChanges.get();
     const isOnline = syncStatusStore.isOnline.get();
@@ -43,6 +47,13 @@ const SettingsSheet = observer(
     const formattedLastSync = syncStatusComputed.formattedLastSync();
     const statusText = syncStatusComputed.statusText();
     const statusColor = syncStatusComputed.statusColor();
+
+    // AI settings observables
+    const selectedModel = aiSettingsStore.selectedModel.get();
+    const availableModels = aiSettingsStore.availableModels.get();
+    const hasApiKey = aiSettingsStore.hasApiKey.get();
+    const isLoadingModels = aiSettingsStore.isLoadingModels.get();
+    const timeSinceLastFetch = aiSettingsComputed.timeSinceLastFetch();
     
     // Snap points for the bottom sheet - single point at 82%
     const snapPoints = useMemo(() => ['82%'], []);
@@ -83,6 +94,7 @@ const SettingsSheet = observer(
     };
 
     return (
+      <>
       <BottomSheet
         ref={ref}
         index={-1}
@@ -162,7 +174,7 @@ const SettingsSheet = observer(
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
               Appearance
             </Text>
-            
+
             <View style={styles.row}>
               <MaterialIcons
                 name="brightness-6"
@@ -182,6 +194,127 @@ const SettingsSheet = observer(
               />
             </View>
 
+          </View>
+
+          {/* AI & Chat Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              AI & CHAT
+            </Text>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                if (availableModels.length === 0 || !hasApiKey) {
+                  Alert.alert(
+                    'No Models Available',
+                    hasApiKey
+                      ? 'Please refresh the models list first.'
+                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
+                  );
+                  return;
+                }
+
+                // Open model picker sheet
+                modelPickerSheetRef.current?.snapToIndex(0);
+              }}
+            >
+              <MaterialIcons
+                name="smart-toy"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Model Selection
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {selectedModel}
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="vpn-key"
+                size={24}
+                color={hasApiKey ? (isDarkMode ? '#FFFFFF' : '#333333') : '#FF9500'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  OpenAI API Key
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {hasApiKey ? 'Configured ✅' : 'Not configured ⚠️'}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={async () => {
+                if (!hasApiKey) {
+                  Alert.alert(
+                    'API Key Required',
+                    'Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file to use AI features.'
+                  );
+                  return;
+                }
+
+                setIsRefreshingModels(true);
+                try {
+                  await aiSettingsActions.fetchModels(true);
+                  Alert.alert('Success', `Loaded ${availableModels.length} models`);
+                } catch (error: any) {
+                  Alert.alert('Error', error.message || 'Failed to refresh models');
+                } finally {
+                  setIsRefreshingModels(false);
+                }
+              }}
+              disabled={isRefreshingModels || isLoadingModels}
+            >
+              <MaterialIcons
+                name="refresh"
+                size={24}
+                color={
+                  isRefreshingModels || isLoadingModels
+                    ? '#999'
+                    : isDarkMode
+                    ? '#FFFFFF'
+                    : '#333333'
+                }
+              />
+              <View style={styles.rowContent}>
+                <Text
+                  style={[
+                    styles.rowTitle,
+                    isDarkMode && styles.rowTitleDark,
+                    (isRefreshingModels || isLoadingModels) && styles.rowDisabled,
+                  ]}
+                >
+                  {isRefreshingModels || isLoadingModels ? 'Refreshing...' : 'Refresh Models List'}
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {availableModels.length > 0
+                    ? `${availableModels.length} models • Last updated: ${timeSinceLastFetch}`
+                    : 'No models loaded'}
+                </Text>
+              </View>
+              {isRefreshingModels || isLoadingModels ? (
+                <Text style={[styles.syncingText, isDarkMode && styles.syncingTextDark]}>...</Text>
+              ) : (
+                <MaterialIcons
+                  name="chevron-right"
+                  size={24}
+                  color={isDarkMode ? '#666' : '#999'}
+                />
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Data & Sync Section */}
@@ -410,6 +543,15 @@ const SettingsSheet = observer(
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
+
+      {/* Model Picker Sheet */}
+      <ModelPickerSheet
+        ref={modelPickerSheetRef}
+        onModelSelected={(modelId) => {
+          console.log('Selected model:', modelId);
+        }}
+      />
+    </>
     );
   })
 );

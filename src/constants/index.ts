@@ -101,6 +101,10 @@ export const STORAGE_KEYS = {
   SPACES: 'spaces',
   VIDEO_TRANSCRIPTS: '@memex_video_transcripts',
   SYNC_STATUS: 'sync_status',
+  AI_SETTINGS: '@memex_ai_settings',
+  AI_MODELS: '@memex_ai_models',
+  ITEM_CHATS: '@memex_item_chats',
+  CHAT_MESSAGES: '@memex_chat_messages',
 };
 
 // Share extension
