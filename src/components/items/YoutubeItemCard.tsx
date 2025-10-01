@@ -61,17 +61,31 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
           {/* Play Button Overlay - Different for Shorts */}
           <View style={styles.playButtonOverlay} pointerEvents="none">
             {isShort ? (
-              <Image
-                source={require('../../../assets/icon_youtube_shorts.svg')}
-                style={styles.shortsLogo}
-                contentFit="contain"
-              />
+              <>
+                <Image
+                  source={require('../../../assets/icon_youtube_shorts.svg')}
+                  style={styles.shortsLogo}
+                  contentFit="contain"
+                />
+                <Image
+                  source={require('../../../assets/icon_youtube_play.svg')}
+                  style={styles.shortsPlayIcon}
+                  contentFit="contain"
+                />
+              </>
             ) : (
-              <Image
-                source={require('../../../assets/icon_youtube.svg')}
-                style={styles.youtubeLogo}
-                contentFit="contain"
-              />
+              <>
+                <Image
+                  source={require('../../../assets/icon_youtube.svg')}
+                  style={styles.youtubeLogo}
+                  contentFit="contain"
+                />
+                <Image
+                  source={require('../../../assets/icon_youtube_play.svg')}
+                  style={styles.youtubePlayIcon}
+                  contentFit="contain"
+                />
+              </>
             )}
           </View>
         </View>
@@ -141,12 +155,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   youtubeLogo: {
-    width: 56,
-    height: 40,
+    width: 42,
+    height: 30,
+    opacity: 0.75,
+  },
+  youtubePlayIcon: {
+    position: 'absolute',
+    width: 42,
+    height:30,
+    opacity: 1,
   },
   shortsLogo: {
     width: 48,
     height: 60,
+    opacity: 0.75,
+  },
+  shortsPlayIcon: {
+    position: 'absolute',
+    width: 56,
+    height: 68,
+    opacity: 1,
   },
   titleContainer: {
     paddingHorizontal: 4,
