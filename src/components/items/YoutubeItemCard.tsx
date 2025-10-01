@@ -26,9 +26,10 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
       onLongPress={() => onLongPress?.(item)}
       activeOpacity={0.7}
     >
-      <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        {/* Video Thumbnail - Full Bleed */}
-        <View style={styles.thumbnailContainer}>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* Video Thumbnail - Full Bleed */}
+          <View style={styles.thumbnailContainer}>
           {item.thumbnail_url ? (
             <Image
               source={{ uri: item.thumbnail_url }}
@@ -96,13 +97,14 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
             {formatDate(item.created_at)}
           </Text>
         </View> */}
-      </View>
+        </View>
 
-      {/* Title Below Video */}
-      <View style={styles.titleContainer}>
-        <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
-          {item.title}
-        </Text>
+        {/* Title Below Video */}
+        <View style={styles.titleContainer}>
+          <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
+            {item.title}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -111,20 +113,25 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
 export default YoutubeItemCard;
 
 const styles = StyleSheet.create({
+  shadowContainer: {
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  shadowContainerDark: {
+    shadowOpacity: 0.4,
+  },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardDark: {
     backgroundColor: '#1C1C1E',
-    shadowOpacity: 0.3,
   },
   thumbnailContainer: {
     position: 'relative',

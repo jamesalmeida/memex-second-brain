@@ -50,11 +50,12 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
       onLongPress={() => onLongPress?.(item)}
       activeOpacity={0.7}
     >
-      <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        {/* X Icon Badge - Top Right */}
-        <View style={styles.xIconContainer}>
-          <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
-        </View>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* X Icon Badge - Top Right */}
+          <View style={styles.xIconContainer}>
+            <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
+          </View>
 
         {/* Tweet-style Header */}
         <View style={styles.header}>
@@ -155,6 +156,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
             {formatDate(item.created_at)}
           </Text>
         </View> */}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -163,6 +165,17 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
 export default XItemCard;
 
 const styles = StyleSheet.create({
+  shadowContainer: {
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  shadowContainerDark: {
+    shadowOpacity: 0.4,
+  },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
@@ -170,15 +183,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 5,
     borderTopColor: '#1DA1F2',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardDark: {
     backgroundColor: '#1C1C1E',
-    shadowOpacity: 0.3,
   },
   header: {
     flexDirection: 'row',

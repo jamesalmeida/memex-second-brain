@@ -40,8 +40,9 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
 
   return (
-    <View style={[styles.card, isDarkMode && styles.cardDark]}>
-      {/* Thumbnail or Content Preview */}
+    <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+      <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        {/* Thumbnail or Content Preview */}
       {videoUrl && player ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
@@ -206,6 +207,7 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
           </View>
         </View>
       </TouchableOpacity> */}
+      </View>
     </View>
   );
 });
@@ -213,20 +215,25 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
 export default MovieTVItemCard;
 
 const styles = StyleSheet.create({
+  shadowContainer: {
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  shadowContainerDark: {
+    shadowOpacity: 0.4,
+  },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 0,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardDark: {
     backgroundColor: '#1C1C1E',
-    shadowOpacity: 0.3,
   },
   thumbnail: {
     width: '100%',
