@@ -53,7 +53,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
         {/* X Icon Badge - Top Right */}
         <View style={styles.xIconContainer}>
-          <Text style={styles.xIcon}>𝕏</Text>
+          <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
         </View>
 
         {/* Tweet-style Header */}
@@ -147,21 +147,6 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
               }}
             />
           </View>
-        ) : item.thumbnail_url ? (
-          <View style={styles.mediaContainer}>
-            <Image
-              source={{ uri: item.thumbnail_url }}
-              style={[styles.media, imageHeight ? { height: imageHeight } : { height: 200 }]}
-              contentFit="cover"
-              onLoad={(e: any) => {
-                if (e.source && e.source.width && e.source.height) {
-                  const aspectRatio = e.source.height / e.source.width;
-                  const calculatedHeight = mediaWidth * aspectRatio;
-                  setImageHeight(calculatedHeight);
-                }
-              }}
-            />
-          </View>
         ) : null}
 
         {/* Footer */}
@@ -214,7 +199,10 @@ const styles = StyleSheet.create({
   },
   xIcon: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: '#666666',
+  },
+  xIconDark: {
+    color: '#D3D3D3',
   },
   username: {
     fontSize: 13,

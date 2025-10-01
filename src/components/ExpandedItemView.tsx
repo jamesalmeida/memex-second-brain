@@ -677,8 +677,29 @@ const ExpandedItemView = observer(({
               >
 
               <Animated.View style={[contentStyle]}>
-                {/* Hero Image/Video with Close Button Overlay */}
-                <View style={styles.heroContainer}>
+                {/* Close Button - Always visible */}
+                <TouchableOpacity
+                  style={[styles.closeButton, { position: 'absolute', top: 16, right: 16, zIndex: 1000 }]}
+                  onPress={onClose}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+
+                {/* Hero Image/Video - Skip for X posts without media */}
+                {(() => {
+                  // Check if this is an X post without media
+                  const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
+                  const isXPostWithoutMedia = itemToDisplay?.content_type === 'x' &&
+                                               !videoUrl &&
+                                               (!imageUrls || imageUrls.length === 0);
+
+                  if (isXPostWithoutMedia) {
+                    return null; // Skip hero section for text-only X posts
+                  }
+
+                  return (
+                    <View style={styles.heroContainer}>
                   {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && getYouTubeVideoId(itemToDisplay?.url) ? (
                     // YouTube video embed (different aspect ratios for regular vs shorts)
                     <View style={itemToDisplay?.content_type === 'youtube_short' ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
@@ -815,8 +836,8 @@ const ExpandedItemView = observer(({
                       );
                     }
                     return null;
-                  })() || (itemToDisplay?.thumbnail_url ? (
-                    // Show image for non-video items
+                  })() || (itemToDisplay?.thumbnail_url && itemToDisplay?.content_type !== 'x' ? (
+                    // Show image for non-video, non-X items
                     <Image
                       source={{ uri: itemToDisplay.thumbnail_url }}
                       style={[
@@ -836,22 +857,15 @@ const ExpandedItemView = observer(({
                         }
                       }}
                     />
-                  ) : (
-                    // Placeholder when no media
+                  ) : itemToDisplay?.content_type !== 'x' ? (
+                    // Placeholder when no media (but not for X posts)
                     <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
                       <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
                     </View>
-                  ))}
-
-                  {/* Close Button Overlay */}
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.closeButtonText}>✕</Text>
-                  </TouchableOpacity>
+                  ) : null)}
                 </View>
+                  );
+                })()}
 
                 {/* Content */}
                 <View style={styles.content}>
