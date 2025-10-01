@@ -24,22 +24,38 @@ const HomeScreen = observer(() => {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const cardRefs = useRef<{ [key: string]: any }>({});
+  const listRef = useRef<FlashList<Item>>(null);
+  const previousItemCount = useRef(allItems.length);
 
   // Initialize items on first load
   useEffect(() => {
     const initializeItems = async () => {
       // Load items from storage first
       await itemsActions.loadItems();
-      
+
       // If no items exist after loading, generate mock items
       if (itemsStore.items.get().length === 0) {
         const mockItems = generateMockItems(20);
         await itemsActions.setItems(mockItems);
       }
     };
-    
+
     initializeItems();
   }, []);
+
+  // Auto-scroll to top when new items are added
+  useEffect(() => {
+    const currentItemCount = allItems.length;
+
+    // Check if items were added (not removed or initial load)
+    if (currentItemCount > previousItemCount.current && previousItemCount.current > 0) {
+      // Scroll to top to show the new item, accounting for the content padding
+      listRef.current?.scrollToOffset({ offset: -insets.top, animated: true });
+    }
+
+    // Update previous count
+    previousItemCount.current = currentItemCount;
+  }, [allItems.length, insets.top]);
 
   // Filter items based on showMockData toggle and sort by created_at (newest first)
   const displayItems = useMemo(() => {
@@ -117,6 +133,7 @@ const HomeScreen = observer(() => {
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Items Grid - extends full height */}
       <FlashList
+        ref={listRef}
         data={displayItems}
         renderItem={renderItem}
         keyExtractor={item => item.id}
