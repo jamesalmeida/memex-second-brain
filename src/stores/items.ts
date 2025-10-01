@@ -282,6 +282,66 @@ export const itemsActions = {
     }
   },
 
+  // Refresh metadata for an item - re-extract from URL based on current content type
+  refreshMetadata: async (itemId: string): Promise<boolean> => {
+    const currentItems = itemsStore.items.get();
+    const item = currentItems.find(i => i.id === itemId);
+
+    if (!item || !item.url) {
+      console.error('Cannot refresh metadata: item not found or has no URL');
+      return false;
+    }
+
+    try {
+      // Import extractURLMetadata dynamically to avoid circular dependencies
+      const { extractURLMetadata } = await import('../services/urlMetadata');
+      const { itemTypeMetadataActions } = await import('./itemTypeMetadata');
+      const { itemMetadataActions } = await import('./itemMetadata');
+
+      console.log(`Refreshing metadata for item ${itemId} as content type: ${item.content_type}`);
+
+      // Re-extract metadata using the current URL
+      const metadata = await extractURLMetadata(item.url);
+
+      // Update item with new metadata
+      const updates: Partial<Item> = {
+        title: metadata.title || item.title,
+        desc: metadata.description || item.desc,
+        thumbnail_url: metadata.image || item.thumbnail_url,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update the item in store and database
+      await itemsActions.updateItemWithSync(itemId, updates);
+
+      // Update type-specific metadata if available
+      if (metadata.videoUrl || metadata.images) {
+        await itemTypeMetadataActions.upsertTypeMetadata({
+          item_id: itemId,
+          data: {
+            video_url: metadata.videoUrl,
+            image_urls: metadata.images,
+          },
+        });
+      }
+
+      // Update general metadata if available
+      if (metadata.author || metadata.siteName) {
+        await itemMetadataActions.upsertMetadata({
+          item_id: itemId,
+          author: metadata.author,
+          domain: metadata.siteName,
+        });
+      }
+
+      console.log('✅ Metadata refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('Error refreshing metadata:', error);
+      return false;
+    }
+  },
+
   // Note: Full sync is handled by syncService
   // Individual operations use syncOperations directly
 };

@@ -13,7 +13,8 @@
       "Bash(pod install:*)",
       "Bash(lsof:*)",
       "Bash(sips:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl -s -H \"Authorization: Bearer jina_67ee204e71ce49fc8654b0ab69908ab204Vc0gH5J2kxhpRqCABnwM87QVxD\" -H \"Accept: application/json\" -H \"X-With-Images-Summary: true\" -H \"X-With-Links-Summary: true\" \"https://r.jina.ai/https://www.kaseyklimes.com/notes/2024/12/22/universal-heirloom-what-if-everything-you-touched-was-made-to-last\")"
     ],
     "deny": [],
     "ask": []

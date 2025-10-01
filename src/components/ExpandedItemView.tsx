@@ -136,6 +136,7 @@ const ExpandedItemView = observer(({
   const [showTagInput, setShowTagInput] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
   
   // Get video URL from item type metadata
   const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
@@ -566,24 +567,83 @@ const ExpandedItemView = observer(({
   // Helper function to save tags to database
   const saveTagsToDatabase = async (tagsToSave: string[]) => {
     if (!itemToDisplay) return;
-    
+
     try {
       const { error } = await supabase
         .from('items')
         .update({ tags: tagsToSave })
         .eq('id', itemToDisplay.id);
-      
+
       if (error) throw error;
-      
+
       // Update the item in the store
       await itemsActions.updateItem(itemToDisplay.id, { tags: tagsToSave });
-      
+
       // No alert needed for auto-save
       console.log('Tags auto-saved successfully');
     } catch (error) {
       console.error('Error saving tags:', error);
       // Only show error alert, not success
       alert('Failed to save tags');
+    }
+  };
+
+  // Handle metadata refresh
+  const handleRefreshMetadata = async () => {
+    if (!itemToDisplay) return;
+
+    setIsRefreshingMetadata(true);
+    try {
+      const success = await itemsActions.refreshMetadata(itemToDisplay.id);
+      if (success) {
+        Alert.alert('Success', 'Metadata refreshed successfully');
+        // Force re-render by updating displayItem with latest from store
+        const updatedItem = itemsStore.items.get().find(i => i.id === itemToDisplay.id);
+        if (updatedItem) {
+          setDisplayItem(updatedItem);
+        }
+      } else {
+        Alert.alert('Error', 'Failed to refresh metadata');
+      }
+    } catch (error) {
+      console.error('Metadata refresh error:', error);
+      Alert.alert('Error', 'Failed to refresh metadata');
+    } finally {
+      setIsRefreshingMetadata(false);
+    }
+  };
+
+  // Handle content type change
+  const handleContentTypeChange = async (newType: ContentType) => {
+    if (!itemToDisplay) return;
+
+    setSelectedType(newType);
+    setShowTypeSelector(false);
+
+    try {
+      // Update the content type in the database
+      await itemsActions.updateItemWithSync(itemToDisplay.id, { content_type: newType });
+
+      // Update local displayItem
+      setDisplayItem({ ...itemToDisplay, content_type: newType });
+
+      // Ask if user wants to refresh metadata with new type
+      if (itemToDisplay.url) {
+        Alert.alert(
+          'Refresh Metadata?',
+          'Would you like to re-extract metadata for this item based on the new content type?',
+          [
+            { text: 'Not Now', style: 'cancel' },
+            {
+              text: 'Refresh',
+              onPress: handleRefreshMetadata,
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error updating content type:', error);
+      Alert.alert('Error', 'Failed to update content type');
     }
   };
 
@@ -782,7 +842,7 @@ const ExpandedItemView = observer(({
                       <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
                     </View>
                   ))}
-                  
+
                   {/* Close Button Overlay */}
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -1194,15 +1254,7 @@ const ExpandedItemView = observer(({
                               styles.typeOption,
                               selectedType === option.type && styles.typeOptionSelected
                             ]}
-                            onPress={() => {
-                              setSelectedType(option.type);
-                              // Update the item's type
-                              if (itemToDisplay) {
-                                itemToDisplay.content_type = option.type;
-                                // TODO: Call onEdit or update function to persist the change
-                              }
-                              setShowTypeSelector(false);
-                            }}
+                            onPress={() => handleContentTypeChange(option.type)}
                           >
                             <View style={styles.typeOptionContent}>
                               <Text style={styles.typeOptionIcon}>{option.icon}</Text>
@@ -1354,6 +1406,19 @@ const ExpandedItemView = observer(({
                           ✏️ Edit
                         </Text>
                       </TouchableOpacity>
+
+                      {itemToDisplay?.url && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={handleRefreshMetadata}
+                          disabled={isRefreshingMetadata}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
+                            {isRefreshingMetadata ? '⏳ Refreshing...' : '🔄 Refresh'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         style={styles.actionButton}
