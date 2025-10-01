@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
 import { itemsStore, itemsActions } from '../stores/items';
 import { itemSpacesComputed } from '../stores/itemSpaces';
-import ItemCard from './ItemCard';
+import ItemCard from './items/ItemCard';
 import ExpandedItemView from './ExpandedItemView';
 import { Item, Space } from '../types';
 import { getEmptyStateMessage } from '../utils/mockData';

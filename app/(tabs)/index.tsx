@@ -7,7 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { chatUIActions } from '../../src/stores/chatUI';
-import ItemCard from '../../src/components/ItemCard';
+import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';

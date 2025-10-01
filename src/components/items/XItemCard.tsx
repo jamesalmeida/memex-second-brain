@@ -1,0 +1,300 @@
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { observer } from '@legendapp/state/react';
+import { themeStore } from '../../stores/theme';
+import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { Item } from '../../types';
+import { formatDate, extractUsername } from '../../utils/itemCardHelpers';
+
+const { width: screenWidth } = Dimensions.get('window');
+
+interface XItemCardProps {
+  item: Item;
+  onPress: (item: Item) => void;
+  onLongPress?: (item: Item) => void;
+}
+
+const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
+  const isDarkMode = themeStore.isDarkMode.get();
+  const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Get video URL and image URLs from item type metadata
+  const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+
+  // Set up video player if item has video
+  const player = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
+      player.loop = true;
+      player.muted = true;
+      player.volume = 0;
+      player.play();
+    }
+  });
+
+  const hasMultipleImages = imageUrls && imageUrls.length > 1;
+  const cardWidth = screenWidth / 2 - 18;
+  const username = extractUsername(item);
+
+  // Tweet text content (prefer desc over title for X posts)
+  const tweetText = item.desc || item.title;
+
+  return (
+    <TouchableOpacity
+      onPress={() => onPress(item)}
+      onLongPress={() => onLongPress?.(item)}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        {/* Tweet-style Header */}
+        <View style={styles.header}>
+          <View style={styles.xIconContainer}>
+            <Text style={styles.xIcon}>𝕏</Text>
+          </View>
+          {username && (
+            <Text style={[styles.username, isDarkMode && styles.usernameDark]}>
+              @{username}
+            </Text>
+          )}
+        </View>
+
+        {/* Tweet Text Content */}
+        <View style={styles.contentContainer}>
+          <Text style={[styles.tweetText, isDarkMode && styles.tweetTextDark]} numberOfLines={4}>
+            {tweetText}
+          </Text>
+        </View>
+
+        {/* Media Below (Video or Images) */}
+        {videoUrl && player ? (
+          <View style={styles.mediaContainer}>
+            <VideoView
+              player={player}
+              style={[styles.media, { height: imageHeight || 180 }]}
+              contentFit="cover"
+              allowsFullscreen={false}
+              showsTimecodes={false}
+              muted={true}
+            />
+            <View style={styles.playButtonOverlay} pointerEvents="none">
+              <View style={styles.playButton}>
+                <Text style={styles.playButtonIcon}>▶</Text>
+              </View>
+            </View>
+          </View>
+        ) : hasMultipleImages ? (
+          <View style={styles.mediaContainer}>
+            <ScrollView
+              ref={scrollViewRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+                setCurrentImageIndex(newIndex);
+              }}
+              scrollEventThrottle={16}
+            >
+              {imageUrls!.map((imageUrl, index) => (
+                <TouchableWithoutFeedback key={index}>
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={[styles.media, { width: cardWidth, height: imageHeight || 180 }]}
+                    contentFit="cover"
+                    onLoad={(e: any) => {
+                      if (index === 0 && e.source && e.source.width && e.source.height) {
+                        const aspectRatio = e.source.height / e.source.width;
+                        const calculatedHeight = cardWidth * aspectRatio;
+                        const finalHeight = Math.min(calculatedHeight, cardWidth * 1.2);
+                        setImageHeight(finalHeight);
+                      }
+                    }}
+                  />
+                </TouchableWithoutFeedback>
+              ))}
+            </ScrollView>
+            {/* Dots indicator */}
+            <View style={styles.dotsContainer} pointerEvents="none">
+              {imageUrls!.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    index === currentImageIndex && styles.activeDot
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        ) : imageUrls && imageUrls.length === 1 ? (
+          <View style={styles.mediaContainer}>
+            <Image
+              source={{ uri: imageUrls[0] }}
+              style={[styles.media, imageHeight ? { height: imageHeight } : null]}
+              contentFit="cover"
+              onLoad={(e: any) => {
+                if (e.source && e.source.width && e.source.height) {
+                  const aspectRatio = e.source.height / e.source.width;
+                  const calculatedHeight = cardWidth * aspectRatio;
+                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.2);
+                  setImageHeight(finalHeight);
+                }
+              }}
+            />
+          </View>
+        ) : item.thumbnail_url ? (
+          <View style={styles.mediaContainer}>
+            <Image
+              source={{ uri: item.thumbnail_url }}
+              style={[styles.media, imageHeight ? { height: imageHeight } : null]}
+              contentFit="cover"
+              onLoad={(e: any) => {
+                if (e.source && e.source.width && e.source.height) {
+                  const aspectRatio = e.source.height / e.source.width;
+                  const calculatedHeight = cardWidth * aspectRatio;
+                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.2);
+                  setImageHeight(finalHeight);
+                }
+              }}
+            />
+          </View>
+        ) : null}
+
+        {/* Footer with Date */}
+        <View style={styles.footer}>
+          <Text style={[styles.date, isDarkMode && styles.dateDark]}>
+            {formatDate(item.created_at)}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+export default XItemCard;
+
+const styles = StyleSheet.create({
+  card: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardDark: {
+    backgroundColor: '#1C1C1E',
+    shadowOpacity: 0.3,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    paddingBottom: 8,
+  },
+  xIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  xIcon: {
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  username: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  usernameDark: {
+    color: '#FFFFFF',
+  },
+  contentContainer: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  tweetText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#000000',
+  },
+  tweetTextDark: {
+    color: '#FFFFFF',
+  },
+  mediaContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  media: {
+    width: '100%',
+    minHeight: 120,
+    backgroundColor: '#F0F0F0',
+  },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  playButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButtonIcon: {
+    fontSize: 16,
+    marginLeft: 2,
+    color: '#FFFFFF',
+  },
+  footer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  date: {
+    fontSize: 11,
+    color: '#999999',
+  },
+  dateDark: {
+    color: '#666666',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 2,
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+});
