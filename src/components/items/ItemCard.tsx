@@ -3,6 +3,7 @@ import { observer } from '@legendapp/state/react';
 import { Item } from '../../types';
 import XItemCard from './XItemCard';
 import YoutubeItemCard from './YoutubeItemCard';
+import MovieTVItemCard from './MovieTVItemCard';
 import DefaultItemCard from './DefaultItemCard';
 
 interface ItemCardProps {
@@ -19,6 +20,10 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
     case 'youtube':
     case 'youtube_short':
       return <YoutubeItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
+
+    case 'movie':
+    case 'tv_show':
+      return <MovieTVItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
 
     default:
       return <DefaultItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
