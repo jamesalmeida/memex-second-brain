@@ -3,14 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,7 +37,7 @@ interface ChatSheetProps {
 }
 
 const ChatSheet = observer(
-  forwardRef<BottomSheetModal, ChatSheetProps>(({ onOpen, onClose }, ref) => {
+  forwardRef<BottomSheet, ChatSheetProps>(({ onOpen, onClose }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const insets = useSafeAreaInsets();
     const item = chatUIStore.currentItem.get();
@@ -52,7 +50,8 @@ const ChatSheet = observer(
     const [isTyping, setIsTyping] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
-    const snapPoints = useMemo(() => ['90%'], []);
+    // const snapPoints = useMemo(() => ['90%'], []);
+    const snapPoints = ['90%'];
     const selectedModel = aiSettingsComputed.selectedModel();
 
     // Load or create chat when item changes
@@ -254,14 +253,14 @@ const ChatSheet = observer(
     };
 
     return (
-      <BottomSheetModal
+      <BottomSheet
         ref={ref}
+        index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         topInset={50}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
+        keyboardBehavior="extend"
         android_keyboardInputMode="adjustResize"
         backgroundStyle={[
           styles.sheetBackground,
@@ -305,48 +304,43 @@ const ChatSheet = observer(
           </BottomSheetScrollView>
 
           {/* Input Bar */}
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          <View
+            style={[
+              styles.inputContainer,
+              isDarkMode && styles.inputContainerDark,
+              { paddingBottom: insets.bottom || 10 },
+            ]}
           >
-            <View
+            <BottomSheetTextInput
               style={[
-                styles.inputContainer,
-                isDarkMode && styles.inputContainerDark,
-                { paddingBottom: insets.bottom || 10 },
+                styles.input,
+                isDarkMode && styles.inputDark,
               ]}
+              placeholder="Ask a question..."
+              placeholderTextColor={isDarkMode ? '#666' : '#999'}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+              editable={!isTyping}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isTyping) && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSend}
+              disabled={!inputText.trim() || isTyping}
             >
-              <TextInput
-                style={[
-                  styles.input,
-                  isDarkMode && styles.inputDark,
-                ]}
-                placeholder="Ask a question..."
-                placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-                maxLength={1000}
-                editable={!isTyping}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (!inputText.trim() || isTyping) && styles.sendButtonDisabled,
-                ]}
-                onPress={handleSend}
-                disabled={!inputText.trim() || isTyping}
-              >
-                {isTyping ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <MaterialIcons name="send" size={20} color="#fff" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
+              {isTyping ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <MaterialIcons name="send" size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-      </BottomSheetModal>
+      </BottomSheet>
     );
   })
 );

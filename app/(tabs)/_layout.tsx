@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Keyboard, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
-import BottomSheet, { BottomSheetModal, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import { chatUIStore } from '../../src/stores/chatUI';
 import BottomNavigation from '../../src/components/BottomNavigation';
@@ -23,6 +23,7 @@ const TabLayout = observer(() => {
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isChatSheetOpen, setIsChatSheetOpen] = useState(false);
   
   // Animation value for sliding views
   const slideAnimation = useRef(new Animated.Value(0)).current;
@@ -31,7 +32,7 @@ const TabLayout = observer(() => {
   const settingsSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
-  const chatSheetRef = useRef<BottomSheetModal>(null);
+  const chatSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
@@ -44,11 +45,11 @@ const TabLayout = observer(() => {
     console.log('🔔 [TabLayout] isChatOpen changed to:', isChatOpen);
     console.log('🔔 [TabLayout] chatSheetRef.current exists?', !!chatSheetRef.current);
     if (isChatOpen) {
-      console.log('🔔 [TabLayout] Calling present()...');
-      chatSheetRef.current?.present();
+      console.log('🔔 [TabLayout] Calling expand()...');
+      chatSheetRef.current?.expand();
     } else {
-      console.log('🔔 [TabLayout] Calling dismiss()...');
-      chatSheetRef.current?.dismiss();
+      console.log('🔔 [TabLayout] Calling close()...');
+      chatSheetRef.current?.close();
     }
   }, [isChatOpen]);
 
@@ -149,6 +150,7 @@ const TabLayout = observer(() => {
         onSettingsPress={handleSettingsPress}
         onAddPress={handleAddPress}
         isSheetOpen={isAddSheetOpen}
+        visible={!isChatSheetOpen}
       />
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
@@ -172,7 +174,11 @@ const TabLayout = observer(() => {
       </View>
 
       {/* Chat Sheet Modal - Renders on native layer above everything */}
-      <ChatSheet ref={chatSheetRef} />
+      <ChatSheet
+        ref={chatSheetRef}
+        onOpen={() => setIsChatSheetOpen(true)}
+        onClose={() => setIsChatSheetOpen(false)}
+      />
       </View>
     </BottomSheetModalProvider>
   );

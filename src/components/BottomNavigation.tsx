@@ -22,6 +22,7 @@ interface BottomNavigationProps {
   onSettingsPress: () => void;
   onAddPress: () => void;
   isSheetOpen?: boolean;
+  visible?: boolean;
 }
 
 const BottomNavigation = observer(({
@@ -30,15 +31,19 @@ const BottomNavigation = observer(({
   onSettingsPress,
   onAddPress,
   isSheetOpen = false,
+  visible = true,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
-  
+
   // Animation value for the sliding indicator
   const slideAnimation = useRef(new Animated.Value(currentView === 'everything' ? 0 : 1)).current;
-  
+
   // Animation value for the add button rotation
   const rotateAnimation = useRef(new Animated.Value(0)).current;
+
+  // Animation value for hiding/showing the navigation
+  const visibilityAnimation = useRef(new Animated.Value(visible ? 0 : 1)).current;
   
   // Animate the indicator when currentView changes
   useEffect(() => {
@@ -57,6 +62,15 @@ const BottomNavigation = observer(({
       useNativeDriver: true,
     }).start();
   }, [isSheetOpen]);
+
+  // Animate visibility when visible prop changes
+  useEffect(() => {
+    Animated.timing(visibilityAnimation, {
+      toValue: visible ? 0 : 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [visible]);
   
   // Interpolate rotation value
   const rotateInterpolate = rotateAnimation.interpolate({
@@ -64,8 +78,14 @@ const BottomNavigation = observer(({
     outputRange: ['0deg', '45deg'] // 45 degrees turns + into ×
   });
 
+  // Interpolate translateY for visibility animation
+  const translateY = visibilityAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 150] // Slide down 150px to hide
+  });
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
       <BlurView 
         intensity={80} 
         tint={isDarkMode ? 'dark' : 'light'}
@@ -145,7 +165,7 @@ const BottomNavigation = observer(({
           </TouchableOpacity>
         </View>
       </BlurView>
-    </View>
+    </Animated.View>
   );
 });
 

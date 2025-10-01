@@ -1335,7 +1335,10 @@ const ExpandedItemView = observer(({
                   <View style={styles.actions}>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.primaryAction]}
-                      onPress={() => onChat?.(itemToDisplay!)}
+                      onPress={() => {
+                        onChat?.(itemToDisplay!);
+                        onClose();
+                      }}
                       activeOpacity={0.7}
                     >
                       <Text style={styles.actionButtonTextPrimary}>💬 Chat</Text>
