@@ -50,11 +50,13 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
       activeOpacity={0.7}
     >
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        {/* X Icon Badge - Top Right */}
+        <View style={styles.xIconContainer}>
+          <Text style={styles.xIcon}>𝕏</Text>
+        </View>
+
         {/* Tweet-style Header */}
         <View style={styles.header}>
-          <View style={styles.xIconContainer}>
-            <Text style={styles.xIcon}>𝕏</Text>
-          </View>
           {username && (
             <Text style={[styles.username, isDarkMode && styles.usernameDark]}>
               @{username}
@@ -164,12 +166,12 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
           </View>
         ) : null}
 
-        {/* Footer with Date */}
-        <View style={styles.footer}>
+        {/* Footer */}
+        {/* <View style={styles.footer}>
           <Text style={[styles.date, isDarkMode && styles.dateDark]}>
             {formatDate(item.created_at)}
           </Text>
-        </View>
+        </View> */}
       </View>
     </TouchableOpacity>
   );
@@ -182,6 +184,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    borderTopWidth: 5,
+    borderTopColor: '#1DA1F2',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -200,16 +204,18 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   xIconContainer: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    zIndex: 10,
   },
   xIcon: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#FFFFFF',
   },
   username: {
@@ -235,21 +241,25 @@ const styles = StyleSheet.create({
   mediaContainer: {
     position: 'relative',
     width: '100%',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   media: {
     width: '100%',
     minHeight: 120,
     backgroundColor: '#F0F0F0',
+    borderRadius: 8,
   },
   playButtonOverlay: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 12,
+    right: 12,
+    bottom: 12,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
   },
   playButton: {
     width: 40,
@@ -277,9 +287,9 @@ const styles = StyleSheet.create({
   },
   dotsContainer: {
     position: 'absolute',
-    bottom: 8,
-    left: 0,
-    right: 0,
+    bottom: 20,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
