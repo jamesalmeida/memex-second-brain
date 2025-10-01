@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { Item } from '../../types';
-import { formatDate } from '../../utils/itemCardHelpers';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -59,11 +58,21 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
             </View>
           )}
 
-          {/* Play Button Overlay */}
+          {/* Play Button Overlay - Different for Shorts */}
           <View style={styles.playButtonOverlay} pointerEvents="none">
-            <View style={styles.playButton}>
-              <Text style={styles.playButtonIcon}>▶</Text>
-            </View>
+            {isShort ? (
+              <Image
+                source={require('../../../assets/icon_youtube_shorts.svg')}
+                style={styles.shortsLogo}
+                contentFit="contain"
+              />
+            ) : (
+              <Image
+                source={require('../../../assets/icon_youtube.svg')}
+                style={styles.youtubeLogo}
+                contentFit="contain"
+              />
+            )}
           </View>
         </View>
 
@@ -131,18 +140,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playButton: {
-    width: 52,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  youtubeLogo: {
+    width: 56,
+    height: 40,
   },
-  playButtonIcon: {
-    fontSize: 20,
-    marginLeft: 3,
-    color: '#FFFFFF',
+  shortsLogo: {
+    width: 48,
+    height: 60,
   },
   titleContainer: {
     paddingHorizontal: 4,
