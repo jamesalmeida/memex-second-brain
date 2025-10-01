@@ -123,7 +123,7 @@ const HomeScreen = observer(() => {
         masonry
         numColumns={2}
         estimatedItemSize={200}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top, paddingHorizontal: isDarkMode ? -4 : 4 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
         refreshControl={
@@ -179,7 +179,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   listContent: {
-    paddingHorizontal: 4,
     paddingBottom: 80, // Account for nav bar height
   },
   emptyContainer: {

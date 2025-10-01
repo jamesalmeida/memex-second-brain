@@ -37,7 +37,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
   });
 
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
-  const cardWidth = screenWidth / 2 - 18;
+  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
   const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
   const username = extractUsername(item);
 

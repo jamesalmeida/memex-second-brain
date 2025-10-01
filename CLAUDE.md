@@ -100,3 +100,6 @@ Required in `.env` or `.env.local`:
 - Verify offline functionality works correctly
 - Check auth flow including sign up, sign in, and session persistence
 - Ensure data syncs properly when coming back online
+
+## Version Control
+- After making changes always include a short commit message that the user could choose to use to commit that work if they are ready to do it themselves manually. 
