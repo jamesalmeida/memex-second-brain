@@ -172,7 +172,12 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
 
   return (
     <Animated.View
-      style={[styles.container, cardStyle]}
+      style={[
+        styles.container,
+        cardStyle,
+        // Add glow when menu is visible
+        isMenuVisible && styles.cardGlow,
+      ]}
       onStartShouldSetResponder={onStartShouldSetResponder}
       onStartShouldSetResponderCapture={onStartShouldSetResponderCapture}
       onMoveShouldSetResponder={onMoveShouldSetResponder}
@@ -202,5 +207,13 @@ export default RadialActionMenu;
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    zIndex: 1000, // Ensure card is above other content
+  },
+  cardGlow: {
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 999,
   },
 });

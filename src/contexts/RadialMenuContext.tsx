@@ -5,6 +5,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSpring,
+  Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
@@ -44,6 +46,59 @@ export const useRadialMenu = () => {
 const BUTTON_RADIUS = 80;
 const BUTTON_SIZE = 56;
 const ARC_ANGLE = 180;
+
+// Animated button component
+const RadialButton: React.FC<{
+  button: ActionButton;
+  position: { x: number; y: number };
+  isHovered: boolean;
+}> = ({ button, position, isHovered }) => {
+  const scale = useSharedValue(1);
+  const iconSize = useSharedValue(24);
+
+  React.useEffect(() => {
+    if (isHovered) {
+      // Instant scale-up for immediate feedback
+      scale.value = 1.3;
+      iconSize.value = 30;
+    } else {
+      // Smooth scale-down for polish
+      scale.value = withTiming(1, {
+        duration: 150,
+        easing: Easing.out(Easing.ease),
+      });
+      iconSize.value = withTiming(24, {
+        duration: 150,
+        easing: Easing.out(Easing.ease),
+      });
+    }
+  }, [isHovered]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.actionButton,
+        {
+          left: position.x - BUTTON_SIZE / 2,
+          top: position.y - BUTTON_SIZE / 2,
+          backgroundColor: button.color,
+        },
+        animatedStyle,
+      ]}
+      pointerEvents="none"
+    >
+      <Ionicons
+        name={button.icon}
+        size={isHovered ? 30 : 24}
+        color="#FFFFFF"
+      />
+    </Animated.View>
+  );
+};
 
 interface RadialMenuOverlayProps {
   visible: boolean;
@@ -162,32 +217,22 @@ const RadialMenuOverlay = observer(({
       onRequestClose={onHide}
     >
       <View style={styles.modalContainer} pointerEvents="box-none">
-        <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents="none" />
+        <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents="none">
+          {/* Cut out area for the selected card */}
+          <View style={styles.cardCutout} pointerEvents="none" />
+        </Animated.View>
 
         {actionButtons.map((button, index) => {
           const position = buttonPositions[index];
           const isHovered = hoveredButtonId === button.id;
 
           return (
-            <View
+            <RadialButton
               key={button.id}
-              style={[
-                styles.actionButton,
-                {
-                  left: position.x - BUTTON_SIZE / 2,
-                  top: position.y - BUTTON_SIZE / 2,
-                  backgroundColor: button.color,
-                  transform: [{ scale: isHovered ? 1.3 : 1.0 }],
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <Ionicons
-                name={button.icon}
-                size={isHovered ? 30 : 24}
-                color="#FFFFFF"
-              />
-            </View>
+              button={button}
+              position={position}
+              isHovered={isHovered}
+            />
           );
         })}
       </View>
@@ -287,7 +332,8 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const distance = Math.sqrt(
         Math.pow(touchX - pos.x, 2) + Math.pow(touchY - pos.y, 2)
       );
-      if (distance < BUTTON_SIZE / 2) {
+      // Expanded hit area for more responsive detection
+      if (distance < BUTTON_SIZE * 0.85) {
         return actionButtons[i].id;
       }
     }
@@ -371,7 +417,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)', // Reduced opacity so card shows through
+  },
+  cardCutout: {
+    // Placeholder for potential card cutout effect
   },
   actionButton: {
     position: 'absolute',
