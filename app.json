@@ -37,23 +37,9 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "expo-share-extension",
-        {
-          "ios": {
-            "activationRules": {
-              "NSExtensionActivationSupportsText": true,
-              "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
-              "NSExtensionActivationSupportsImageWithMaxCount": 1,
-              "NSExtensionActivationSupportsMovieWithMaxCount": 1,
-              "NSExtensionActivationSupportsFileWithMaxCount": 1
-            },
-            "groupIdentifier": "group.com.jamesalmeida.memex"
-          }
-        }
-      ],
       "expo-video",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ]
   }
 }
