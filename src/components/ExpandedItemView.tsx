@@ -15,6 +15,7 @@ import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getYouTubeTranscript } from '../services/youtube';
+import { getXVideoTranscript, getVideoUrlFromMetadata } from '../services/twitter';
 import { STORAGE_KEYS } from '../constants';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../stores/videoTranscripts';
@@ -234,8 +235,8 @@ const ExpandedItemView = observer(
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
 
-      // Check for existing transcript if YouTube video or short
-      if (item.content_type === 'youtube' || item.content_type === 'youtube_short') {
+      // Check for existing transcript if YouTube video or short, or X video
+      if (item.content_type === 'youtube' || item.content_type === 'youtube_short' || (item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id))) {
         checkForExistingTranscript(item.id);
       }
 
@@ -322,55 +323,83 @@ const ExpandedItemView = observer(
   
   // Download thumbnail to device
   const generateTranscript = async () => {
-    if (!itemToDisplay || (itemToDisplay.content_type !== 'youtube' && itemToDisplay.content_type !== 'youtube_short') || !itemToDisplay.url) return;
+    const isYouTube = itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short';
+    const isXVideo = itemToDisplay?.content_type === 'x';
+
+    if (!itemToDisplay || (!isYouTube && !isXVideo) || (!itemToDisplay.url && !isXVideo)) return;
 
     setIsGeneratingTranscript(true);
-    
-    try {
-      // Extract video ID from URL
-      const videoIdMatch = itemToDisplay.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-      if (!videoIdMatch) {
-        throw new Error('Invalid YouTube URL');
-      }
-      const videoId = videoIdMatch[1];
 
-      // Fetch transcript from YouTube
-      const { transcript: fetchedTranscript, language } = await getYouTubeTranscript(videoId);
-      
+    try {
+      let fetchedTranscript: string;
+      let language: string;
+      let platform: 'youtube' | 'x';
+
+      if (isYouTube) {
+        // Extract video ID from URL for YouTube
+        const videoIdMatch = itemToDisplay.url!.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+        if (!videoIdMatch) {
+          throw new Error('Invalid YouTube URL');
+        }
+        const videoId = videoIdMatch[1];
+
+        // Fetch transcript from YouTube
+        const result = await getYouTubeTranscript(videoId);
+        fetchedTranscript = result.transcript;
+        language = result.language;
+        platform = 'youtube';
+      } else if (isXVideo) {
+        // Get video URL from metadata for X posts
+        const videoUrl = itemTypeMetadataComputed.getVideoUrl(itemToDisplay.id);
+        if (!videoUrl) {
+          throw new Error('No video found for this X post');
+        }
+
+        // Fetch transcript from AssemblyAI
+        const result = await getXVideoTranscript(videoUrl, (status) => {
+          console.log('Transcription status:', status);
+        });
+        fetchedTranscript = result.transcript;
+        language = result.language;
+        platform = 'x';
+      } else {
+        throw new Error('Unsupported content type for transcription');
+      }
+
       // Create video transcript object
       console.log('Creating video transcript for item:', itemToDisplay.id);
       const transcriptData: VideoTranscript = {
         id: uuid.v4() as string,
         item_id: itemToDisplay.id,
         transcript: fetchedTranscript,
-        platform: 'youtube', // Since this is YouTube content
+        platform,
         language,
         duration: itemToDisplay.duration,
         fetched_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      
+
       // Save to local store and sync to Supabase
       await videoTranscriptsActions.addTranscript(transcriptData);
       console.log('Transcript saved to local store and queued for sync');
-      
+
       // Update local state
       setTranscript(fetchedTranscript);
       setTranscriptStats(calculateTranscriptStats(fetchedTranscript));
       setTranscriptExists(true);
-      
+
       // Animate transition from button to dropdown
       buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
         transcriptOpacity.value = withTiming(1, { duration: 150 });
       });
-      
+
       // Auto-expand dropdown after generation
       setTimeout(() => {
         setShowTranscript(true);
         // Note: Auto-scroll to transcript removed for bottom sheet compatibility
       }, 300);
-      
+
     } catch (error) {
       console.error('Error generating transcript:', error);
       alert('Failed to generate transcript. The video may not have captions available.');
@@ -1239,8 +1268,8 @@ const ExpandedItemView = observer(
                     </View>
                   )}
 
-                  {/* Transcript Section (for YouTube and YouTube Shorts) */}
-                  {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && (
+                  {/* Transcript Section (for YouTube, YouTube Shorts, and X Videos) */}
+                  {((itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') || (itemToDisplay?.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(itemToDisplay.id))) && (
                     <View 
                       style={styles.transcriptSection}
                       onLayout={(event) => {

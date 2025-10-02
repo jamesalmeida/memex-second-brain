@@ -30,7 +30,13 @@ export const API_CONFIG = {
   YOUTUBE: {
     // youtubei.js handles authentication internally
   },
-  
+
+  // AssemblyAI for X video transcription
+  ASSEMBLYAI: {
+    API_KEY: process.env.EXPO_PUBLIC_ASSEMBLYAI_API_KEY || '',
+    BASE_URL: 'https://api.assemblyai.com/v2',
+  },
+
   // Instagram/Meta oEmbed API
   INSTAGRAM: {
     ACCESS_TOKEN: process.env.EXPO_PUBLIC_META_ACCESS_TOKEN || '',
@@ -43,5 +49,6 @@ export const isAPIConfigured = {
   jina: () => !!API_CONFIG.JINA_AI.API_KEY,
   twitter: () => !!API_CONFIG.TWITTER.BEARER_TOKEN,
   openai: () => !!API_CONFIG.OPENAI.API_KEY,
+  assemblyai: () => !!API_CONFIG.ASSEMBLYAI.API_KEY,
   instagram: () => !!API_CONFIG.INSTAGRAM.ACCESS_TOKEN,
 };
