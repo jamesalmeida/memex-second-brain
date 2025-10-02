@@ -1379,8 +1379,6 @@ const ExpandedItemView = observer(
                     </View>
                   </View>
 
-                  {/* Bottom Padding */}
-                  <View style={{ height: 40 }} />
                 </View>
       </BottomSheetScrollView>
     </BottomSheet>
@@ -1404,7 +1402,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#666666',
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: 20,
   },
   heroContainer: {
     position: 'relative',
