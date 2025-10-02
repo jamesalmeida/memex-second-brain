@@ -684,7 +684,7 @@ const ExpandedItemView = observer(
                           { height: SCREEN_WIDTH / (16/9) } // Set aspect ratio for videos
                         ]}
                         contentFit="contain"
-                        allowsFullscreen={true}
+                        fullscreenOptions={{ enable: true }}
                         showsTimecodes={true}
                         nativeControls={true}
                       />

@@ -54,7 +54,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
               player={player}
               style={[styles.thumbnail, { height: 200 }]}
               contentFit="cover"
-              allowsFullscreen={false}
+              fullscreenOptions={{ enable: false }}
               showsTimecodes={false}
               muted={true}
             />
