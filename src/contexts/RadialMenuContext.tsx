@@ -192,13 +192,13 @@ const RadialMenuOverlay = observer(({
 
     let baseAngle = 0;
     if (isLeftSide && isUpperHalf) {
-      baseAngle = -45;
+      baseAngle = -45;   // Upper left: point right and down
     } else if (isLeftSide && !isUpperHalf) {
-      baseAngle = 45;
+      baseAngle = -135;  // Lower left: point right and up
     } else if (!isLeftSide && isUpperHalf) {
-      baseAngle = -135;
+      baseAngle = 45;    // Upper right: point left and down
     } else {
-      baseAngle = 135;
+      baseAngle = 135;   // Lower right: point left and up
     }
 
     const numberOfButtons = actionButtons.length;
@@ -358,13 +358,13 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     let baseAngle = 0;
     if (isLeftSide && isUpperHalf) {
-      baseAngle = -45;
+      baseAngle = -45;   // Upper left: point right and down
     } else if (isLeftSide && !isUpperHalf) {
-      baseAngle = 45;
+      baseAngle = -135;  // Lower left: point right and up
     } else if (!isLeftSide && isUpperHalf) {
-      baseAngle = -135;
+      baseAngle = 45;    // Upper right: point left and down
     } else {
-      baseAngle = 135;
+      baseAngle = 135;   // Lower right: point left and up
     }
 
     const numberOfButtons = actionButtons.length;
