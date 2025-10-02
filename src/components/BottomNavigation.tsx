@@ -67,7 +67,7 @@ const BottomNavigation = observer(({
   useEffect(() => {
     Animated.timing(visibilityAnimation, {
       toValue: visible ? 0 : 1,
-      duration: 300,
+      duration: 150,
       useNativeDriver: true,
     }).start();
   }, [visible]);

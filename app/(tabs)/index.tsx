@@ -88,6 +88,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, []);
 
   const handleItemPress = (item: Item) => {
+    onExpandedItemOpen?.(); // Start hiding navigation immediately
     setSelectedItem(item);
     expandedItemSheetRef.current?.snapToIndex(0);
   };
