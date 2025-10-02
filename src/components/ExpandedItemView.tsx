@@ -602,15 +602,6 @@ const ExpandedItemView = observer(
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-                {/* Close Button - Always visible */}
-                <TouchableOpacity
-                  style={[styles.closeButton, { position: 'absolute', top: 16, right: 16, zIndex: 1000 }]}
-                  onPress={() => onClose?.()}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.closeButtonText}>✕</Text>
-                </TouchableOpacity>
-
                 {/* Hero Image/Video - Skip for X posts without media */}
                 {(() => {
                   // Check if this is an X post without media
@@ -1417,23 +1408,6 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     position: 'relative',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '400',
   },
   heroImage: {
     width: '100%',
