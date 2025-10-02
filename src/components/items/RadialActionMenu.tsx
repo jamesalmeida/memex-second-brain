@@ -14,15 +14,25 @@ interface RadialActionMenuProps {
   item: Item;
   onPress?: (item: Item) => void;
   children: React.ReactNode;
+  disabled?: boolean; // Disable wrapper for floating clones
 }
 
-const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, children }) => {
-  const { showMenu, hideMenu, updateHoveredButton, executeAction, isMenuVisible } = useRadialMenu();
+const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, children, disabled = false }) => {
+  const { showMenu, hideMenu, updateHoveredButton, executeAction, isMenuVisible, activeItemId } = useRadialMenu();
+
+  // If disabled, just render children without wrapper
+  if (disabled) {
+    return <>{children}</>;
+  }
+
+  // Check if THIS specific item has the menu open
+  const isThisItemActive = activeItemId === item.id;
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const touchStart = useRef({ x: 0, y: 0 });
   const menuWasVisible = useRef(false);
   const touchStartTime = useRef(0);
   const isLongPressing = useRef(false); // Track if we're in the middle of handling a long press
+  const cardRef = useRef<any>(null);
 
   // Animated values for card
   const cardScale = useSharedValue(1);
@@ -42,7 +52,14 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       cardScale.value = withSpring(1.05);
       cardRotate.value = withSpring(2);
       menuWasVisible.current = true;
-      showMenu(item, touch.pageX, touch.pageY);
+
+      // Measure card position before showing menu
+      if (cardRef.current) {
+        cardRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
+          console.log('📏 Card measured at:', { x, y, width, height });
+          showMenu(item, touch.pageX, touch.pageY, { x, y, width, height });
+        });
+      }
     }, LONG_PRESS_DURATION);
   }, [item, showMenu, cardScale, cardRotate]);
 
@@ -168,15 +185,17 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       { scale: cardScale.value },
       { rotate: `${cardRotate.value}deg` },
     ],
+    opacity: isThisItemActive ? 0 : 1, // Hide THIS card when its menu is open
   }));
 
   return (
     <Animated.View
+      ref={cardRef}
       style={[
         styles.container,
         cardStyle,
-        // Add glow when menu is visible
-        isMenuVisible && styles.cardGlow,
+        // Add glow when THIS item's menu is open
+        isThisItemActive && styles.cardGlow,
       ]}
       onStartShouldSetResponder={onStartShouldSetResponder}
       onStartShouldSetResponderCapture={onStartShouldSetResponderCapture}

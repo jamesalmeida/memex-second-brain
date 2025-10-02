@@ -15,9 +15,10 @@ interface XItemCardProps {
   item: Item;
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
+  disabled?: boolean;
 }
 
-const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
+const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -46,7 +47,7 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
   const tweetText = item.desc || item.title;
 
   return (
-    <RadialActionMenu item={item} onPress={onPress}>
+    <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <TouchableOpacity
         onPress={() => onPress(item)}
         activeOpacity={0.7}

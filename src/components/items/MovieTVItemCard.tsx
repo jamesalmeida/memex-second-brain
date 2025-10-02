@@ -15,9 +15,10 @@ interface MovieTVItemCardProps {
   item: Item;
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
+  disabled?: boolean;
 }
 
-const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCardProps) => {
+const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: MovieTVItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -41,7 +42,7 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
 
   return (
-    <RadialActionMenu item={item} onPress={onPress}>
+    <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           {/* Thumbnail or Content Preview */}

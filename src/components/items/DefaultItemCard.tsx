@@ -15,9 +15,10 @@ interface DefaultItemCardProps {
   item: Item;
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
+  disabled?: boolean;
 }
 
-const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCardProps) => {
+const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: DefaultItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -41,7 +42,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
   const cardWidth = screenWidth / 2 - 18;
 
   return (
-    <RadialActionMenu item={item} onPress={onPress}>
+    <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           {/* Thumbnail or Content Preview */}

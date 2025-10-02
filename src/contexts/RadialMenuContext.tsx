@@ -13,6 +13,10 @@ import { themeStore } from '../stores/theme';
 import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
 import { Item } from '../types';
+import DefaultItemCard from '../components/items/DefaultItemCard';
+import XItemCard from '../components/items/XItemCard';
+import YoutubeItemCard from '../components/items/YoutubeItemCard';
+import MovieTVItemCard from '../components/items/MovieTVItemCard';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -24,12 +28,20 @@ interface ActionButton {
   action: (item: Item) => void;
 }
 
+interface CardLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface RadialMenuContextType {
-  showMenu: (item: Item, x: number, y: number) => void;
+  showMenu: (item: Item, x: number, y: number, cardLayout: CardLayout) => void;
   hideMenu: () => void;
   updateHoveredButton: (x: number, y: number) => void;
   executeAction: () => void;
   isMenuVisible: boolean;
+  activeItemId: string | null; // Track which specific item has menu open
   shouldDisableScroll: boolean; // New: tells parent to disable scrolling
 }
 
@@ -104,6 +116,7 @@ interface RadialMenuOverlayProps {
   visible: boolean;
   item: Item | null;
   touchPosition: { x: number; y: number };
+  cardLayout: CardLayout | null;
   hoveredButtonId: string | null;
   onHide: () => void;
   onExecuteAction: () => void;
@@ -113,6 +126,7 @@ const RadialMenuOverlay = observer(({
   visible,
   item,
   touchPosition,
+  cardLayout,
   hoveredButtonId,
   onHide,
 }: RadialMenuOverlayProps) => {
@@ -217,11 +231,51 @@ const RadialMenuOverlay = observer(({
       onRequestClose={onHide}
     >
       <View style={styles.modalContainer} pointerEvents="box-none">
-        <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents="none">
-          {/* Cut out area for the selected card */}
-          <View style={styles.cardCutout} pointerEvents="none" />
-        </Animated.View>
+        {/* Overlay behind everything */}
+        <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents="none" />
 
+        {/* Floating card - render after overlay so it appears on top */}
+        {item && cardLayout && (() => {
+          // Render card directly without RadialActionMenu wrapper
+          let CardComponent;
+          switch (item.content_type) {
+            case 'x':
+              CardComponent = XItemCard;
+              break;
+            case 'youtube':
+            case 'youtube_short':
+              CardComponent = YoutubeItemCard;
+              break;
+            case 'movie':
+            case 'tv_show':
+              CardComponent = MovieTVItemCard;
+              break;
+            default:
+              CardComponent = DefaultItemCard;
+          }
+
+          return (
+            <View
+              style={{
+                position: 'absolute',
+                left: cardLayout.x,
+                top: cardLayout.y,
+                width: cardLayout.width,
+                height: cardLayout.height,
+                transform: [
+                  { scale: 1.05 },
+                  { rotate: '2deg' },
+                ],
+                zIndex: 100,
+              }}
+              pointerEvents="none"
+            >
+              <CardComponent item={item} onPress={() => {}} disabled={true} />
+            </View>
+          );
+        })()}
+
+        {/* Buttons on top */}
         {actionButtons.map((button, index) => {
           const position = buttonPositions[index];
           const isHovered = hoveredButtonId === button.id;
@@ -244,8 +298,10 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [visible, setVisible] = useState(false);
   const [item, setItem] = useState<Item | null>(null);
   const [touchPosition, setTouchPosition] = useState({ x: 0, y: 0 });
+  const [cardLayout, setCardLayout] = useState<CardLayout | null>(null);
   const [hoveredButtonId, setHoveredButtonId] = useState<string | null>(null);
   const [shouldDisableScroll, setShouldDisableScroll] = useState(false);
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const actionButtons: ActionButton[] = [
     {
@@ -340,21 +396,23 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return null;
   }, [touchPosition, getButtonPositions]);
 
-  const showMenu = useCallback((newItem: Item, x: number, y: number) => {
-    console.log('📌 RadialMenu: Disabling parent scroll');
+  const showMenu = useCallback((newItem: Item, x: number, y: number, layout: CardLayout) => {
     setShouldDisableScroll(true); // Disable scroll when menu opens
     setItem(newItem);
     setTouchPosition({ x, y });
+    setCardLayout(layout);
+    setActiveItemId(newItem.id); // Track which item has menu open
     setVisible(true);
   }, []);
 
   const hideMenu = useCallback(() => {
-    console.log('📌 RadialMenu: Re-enabling parent scroll');
     setShouldDisableScroll(false); // Re-enable scroll when menu closes
     setTimeout(() => {
       setVisible(false);
       setHoveredButtonId(null);
       setItem(null);
+      setCardLayout(null);
+      setActiveItemId(null);
     }, 200);
   }, []);
 
@@ -389,6 +447,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     updateHoveredButton,
     executeAction,
     isMenuVisible: visible,
+    activeItemId,
     shouldDisableScroll,
   };
 
@@ -399,6 +458,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         visible={visible}
         item={item}
         touchPosition={touchPosition}
+        cardLayout={cardLayout}
         hoveredButtonId={hoveredButtonId}
         onHide={hideMenu}
         onExecuteAction={executeAction}
@@ -418,9 +478,20 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.75)', // Reduced opacity so card shows through
+    zIndex: 1,
   },
   cardCutout: {
     // Placeholder for potential card cutout effect
+  },
+  floatingCard: {
+    position: 'absolute',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 999,
+    zIndex: 100,
+    backgroundColor: 'transparent',
   },
   actionButton: {
     position: 'absolute',
@@ -434,5 +505,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 200,
   },
 });

@@ -12,9 +12,10 @@ interface YoutubeItemCardProps {
   item: Item;
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
+  disabled?: boolean;
 }
 
-const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCardProps) => {
+const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: YoutubeItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
 
@@ -22,7 +23,7 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
   const isShort = item.content_type === 'youtube_short';
 
   return (
-    <RadialActionMenu item={item} onPress={onPress}>
+    <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <TouchableOpacity
         onPress={() => onPress(item)}
         activeOpacity={0.7}
