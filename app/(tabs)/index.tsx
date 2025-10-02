@@ -12,6 +12,7 @@ import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
+import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -31,6 +32,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const expandedItemSheetRef = useRef<BottomSheet>(null);
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
+
+  // Get radial menu state to disable scroll when menu is active
+  const { shouldDisableScroll } = useRadialMenu();
 
   // Initialize items on first load
   useEffect(() => {
@@ -137,6 +141,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         estimatedItemSize={200}
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top, paddingHorizontal: isDarkMode ? -4 : 4 }]}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!shouldDisableScroll}
         ListEmptyComponent={EmptyState}
         refreshControl={
           <RefreshControl

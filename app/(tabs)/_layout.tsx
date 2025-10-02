@@ -7,6 +7,7 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { chatUIStore } from '../../src/stores/chatUI';
+import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
 import AddItemSheet from '../../src/components/AddItemSheet';
@@ -26,6 +27,9 @@ const TabLayout = observer(() => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
+
+  // Get radial menu state to disable swipe gesture
+  const { shouldDisableScroll } = useRadialMenu();
 
   // Animation value for sliding views using reanimated
   const translateX = useSharedValue(0);
@@ -128,6 +132,7 @@ const TabLayout = observer(() => {
 
   // Pan gesture for swipe navigation
   const panGesture = Gesture.Pan()
+    .enabled(!shouldDisableScroll) // Disable swipe when radial menu is active
     .onStart(() => {
       startX.value = translateX.value;
     })

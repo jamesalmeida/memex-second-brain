@@ -7,6 +7,7 @@ import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain, getContentTypeIcon, getContentTypeColor } from '../../utils/itemCardHelpers';
+import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -40,13 +41,13 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
   const cardWidth = screenWidth / 2 - 18;
 
   return (
-    <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-      <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        {/* Thumbnail or Content Preview */}
-      {videoUrl && player ? (
+    <RadialActionMenu item={item} onPress={onPress}>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* Thumbnail or Content Preview */}
+        {videoUrl && player ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View style={{ position: 'relative' }}>
@@ -83,7 +84,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
               <TouchableWithoutFeedback
                 key={index}
                 onPress={() => onPress(item)}
-                onLongPress={() => onLongPress?.(item)}
               >
                 <Image
                   source={{ uri: imageUrl }}
@@ -120,7 +120,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
       ) : item.thumbnail_url ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View>
@@ -145,7 +144,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
       ) : item.content ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
@@ -157,7 +155,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
       ) : (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View style={[styles.placeholder, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
@@ -181,7 +178,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
       {/* Card Content */}
       <TouchableOpacity
         onPress={() => onPress(item)}
-        onLongPress={() => onLongPress?.(item)}
         activeOpacity={0.7}
       >
         <View style={styles.cardContent}>
@@ -207,8 +203,9 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress }: DefaultItemCar
           </View>
         </View>
       </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </RadialActionMenu>
   );
 });
 

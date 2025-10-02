@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { Item } from '../../types';
+import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -21,15 +22,15 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
   const isShort = item.content_type === 'youtube_short';
 
   return (
-    <TouchableOpacity
-      onPress={() => onPress(item)}
-      onLongPress={() => onLongPress?.(item)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
-          {/* Video Thumbnail - Full Bleed */}
-          <View style={styles.thumbnailContainer}>
+    <RadialActionMenu item={item} onPress={onPress}>
+      <TouchableOpacity
+        onPress={() => onPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+          <View style={[styles.card, isDarkMode && styles.cardDark]}>
+            {/* Video Thumbnail - Full Bleed */}
+            <View style={styles.thumbnailContainer}>
           {item.thumbnail_url ? (
             <Image
               source={{ uri: item.thumbnail_url }}
@@ -105,8 +106,9 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress }: YoutubeItemCar
             {item.title}
           </Text>
         </View>
-      </View>
-    </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </RadialActionMenu>
   );
 });
 

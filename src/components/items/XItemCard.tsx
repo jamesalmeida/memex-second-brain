@@ -7,6 +7,7 @@ import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import { formatDate, extractUsername } from '../../utils/itemCardHelpers';
+import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -45,15 +46,15 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
   const tweetText = item.desc || item.title;
 
   return (
-    <TouchableOpacity
-      onPress={() => onPress(item)}
-      onLongPress={() => onLongPress?.(item)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
-          {/* X Icon Badge - Top Right */}
-          <View style={styles.xIconContainer}>
+    <RadialActionMenu item={item} onPress={onPress}>
+      <TouchableOpacity
+        onPress={() => onPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+          <View style={[styles.card, isDarkMode && styles.cardDark]}>
+            {/* X Icon Badge - Top Right */}
+            <View style={styles.xIconContainer}>
             <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
           </View>
 
@@ -156,9 +157,10 @@ const XItemCard = observer(({ item, onPress, onLongPress }: XItemCardProps) => {
             {formatDate(item.created_at)}
           </Text>
         </View> */}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </RadialActionMenu>
   );
 });
 
