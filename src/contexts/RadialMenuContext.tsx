@@ -57,7 +57,7 @@ export const useRadialMenu = () => {
 
 const BUTTON_RADIUS = 80;
 const BUTTON_SIZE = 56;
-const ARC_ANGLE = 180;
+const ARC_ANGLE = 140;
 
 // Animated button component
 const RadialButton: React.FC<{
@@ -138,15 +138,6 @@ const RadialMenuOverlay = observer(({
   }, [visible]);
 
   const actionButtons: ActionButton[] = [
-    {
-      id: 'delete',
-      label: 'Delete',
-      icon: 'trash-outline',
-      color: '#FF3B30',
-      action: (item: Item) => {
-        console.log('🗑️ DELETE button pressed for item:', item.title);
-      },
-    },
     {
       id: 'chat',
       label: 'Chat',
@@ -304,15 +295,6 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const actionButtons: ActionButton[] = [
-    {
-      id: 'delete',
-      label: 'Delete',
-      icon: 'trash-outline',
-      color: '#FF3B30',
-      action: (item: Item) => {
-        console.log('🗑️ DELETE button pressed for item:', item.title);
-      },
-    },
     {
       id: 'chat',
       label: 'Chat',
