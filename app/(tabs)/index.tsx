@@ -16,7 +16,12 @@ import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockDat
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 
-const HomeScreen = observer(() => {
+interface HomeScreenProps {
+  onExpandedItemOpen?: () => void;
+  onExpandedItemClose?: () => void;
+}
+
+const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const showMockData = themeStore.showMockData.get();
@@ -143,8 +148,10 @@ const HomeScreen = observer(() => {
       <ExpandedItemView
         ref={expandedItemSheetRef}
         item={selectedItem}
+        onOpen={onExpandedItemOpen}
         onClose={() => {
           setSelectedItem(null);
+          onExpandedItemClose?.();
         }}
         onChat={(item) => {
           // Open chat for this item using the chatUI store

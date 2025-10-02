@@ -23,7 +23,7 @@ const TabLayout = observer(() => {
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
-  const [isChatSheetOpen, setIsChatSheetOpen] = useState(false);
+  const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
   
   // Animation value for sliding views
   const slideAnimation = useRef(new Animated.Value(0)).current;
@@ -133,7 +133,10 @@ const TabLayout = observer(() => {
         >
           {/* Everything View */}
           <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
-            <HomeScreen />
+            <HomeScreen
+              onExpandedItemOpen={() => setIsExpandedItemOpen(true)}
+              onExpandedItemClose={() => setIsExpandedItemOpen(false)}
+            />
           </View>
           
           {/* Spaces View */}
@@ -150,7 +153,7 @@ const TabLayout = observer(() => {
         onSettingsPress={handleSettingsPress}
         onAddPress={handleAddPress}
         isSheetOpen={isAddSheetOpen}
-        visible={!isChatSheetOpen}
+        visible={!isExpandedItemOpen}
       />
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
@@ -176,8 +179,6 @@ const TabLayout = observer(() => {
       {/* Chat Sheet Modal - Renders on native layer above everything */}
       <ChatSheet
         ref={chatSheetRef}
-        onOpen={() => setIsChatSheetOpen(true)}
-        onClose={() => setIsChatSheetOpen(false)}
       />
       </View>
     </BottomSheetModalProvider>

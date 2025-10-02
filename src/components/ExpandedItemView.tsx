@@ -1304,7 +1304,6 @@ const ExpandedItemView = observer(
                       style={[styles.actionButton, styles.primaryAction]}
                       onPress={() => {
                         onChat?.(itemToDisplay!);
-                        onClose?.();
                       }}
                       activeOpacity={0.7}
                     >
