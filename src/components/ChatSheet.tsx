@@ -240,7 +240,11 @@ const ChatSheet = observer(
                 : [styles.assistantBubble, isDarkMode && styles.assistantBubbleDark],
             ]}
           >
-            <Text style={[styles.messageText, isUser && styles.userMessageText]}>
+            <Text style={[
+              styles.messageText,
+              isUser && styles.userMessageText,
+              !isUser && isDarkMode && styles.assistantMessageTextDark
+            ]}>
               {message.content}
             </Text>
           </View>
@@ -504,6 +508,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userMessageText: {
+    color: '#FFFFFF',
+  },
+  assistantMessageTextDark: {
     color: '#FFFFFF',
   },
   messageTime: {
