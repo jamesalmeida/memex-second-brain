@@ -100,7 +100,7 @@ const ExpandedItemView = observer(
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
 
   // Bottom sheet configuration
-  const snapPoints = useMemo(() => ['95%'], []);
+  const snapPoints = useMemo(() => ['94%'], []);
 
   // Render backdrop
   const renderBackdrop = useCallback(
