@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, forwardRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,11 @@ import {
   ScrollView,
   Image,
   Dimensions,
-  Modal,
-  StatusBar,
-  Platform,
-  SafeAreaView,
   Alert,
   Linking,
   TextInput,
 } from 'react-native';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getYouTubeTranscript } from '../services/youtube';
@@ -29,13 +26,8 @@ import * as MediaLibrary from 'expo-media-library';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
-  interpolate,
-  runOnJS,
-  Easing,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { observer, useObservable } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
@@ -73,9 +65,8 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 
 interface ExpandedItemViewProps {
   item: Item | null;
-  isVisible: boolean;
-  cardPosition?: { x: number; y: number; width: number; height: number };
-  onClose: () => void;
+  onClose?: () => void;
+  onOpen?: () => void;
   onChat?: (item: Item) => void;
   onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
@@ -85,11 +76,11 @@ interface ExpandedItemViewProps {
   currentSpaceId?: string | null;
 }
 
-const ExpandedItemView = observer(({
+const ExpandedItemView = observer(
+  forwardRef<BottomSheet, ExpandedItemViewProps>(({
   item,
-  isVisible,
-  cardPosition,
   onClose,
+  onOpen,
   onChat,
   onEdit,
   onArchive,
@@ -97,26 +88,36 @@ const ExpandedItemView = observer(({
   onShare,
   onSpaceChange,
   currentSpaceId,
-}: ExpandedItemViewProps) => {
+}, ref) => {
   const isDarkMode = themeStore.isDarkMode.get();
-  const insets = useSafeAreaInsets();
-  const animationProgress = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0);
   const [showSpaceSelector, setShowSpaceSelector] = useState(false);
   const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
   const allSpaces = spacesStore.spaces.get();
-  
+
   // Just use all spaces without filtering
   const spaces = allSpaces;
-  const [modalVisible, setModalVisible] = useState(false);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
+
+  // Bottom sheet configuration
+  const snapPoints = useMemo(() => ['95%'], []);
+
+  // Render backdrop
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.9}
+      />
+    ),
+    []
+  );
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  const mainScrollViewRef = useRef<ScrollView>(null);
   const [transcriptSectionY, setTranscriptSectionY] = useState<number>(0);
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -206,20 +207,20 @@ const ExpandedItemView = observer(({
   };
 
   useEffect(() => {
-    if (isVisible && item) {
+    if (item) {
       // Store the item for display
       setDisplayItem(item);
       setSelectedType(item.content_type);
       // Initialize selected spaces from item_spaces relationships
       const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
       setSelectedSpaceIds(spaceIds);
-      
+
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
-      
+
       // Reset video playing state for new item
       setIsVideoPlaying(false);
-      
+
       // Debug: Check metadata store
       if (item.content_type === 'x') {
         const allMetadata = itemTypeMetadataComputed.typeMetadata();
@@ -227,110 +228,22 @@ const ExpandedItemView = observer(({
         const itemMetadata = itemTypeMetadataComputed.getTypeMetadataForItem(item.id);
         console.log('Metadata for this item:', itemMetadata);
       }
-      
+
       // Initialize tags
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
-      
+
       // Check for existing transcript if YouTube video or short
       if (item.content_type === 'youtube' || item.content_type === 'youtube_short') {
         checkForExistingTranscript(item.id);
       }
-      
-      // Show modal first, then animate in
-      setModalVisible(true);
-      setTimeout(() => {
-        animationProgress.value = withSpring(1, {
-          damping: 15,
-          stiffness: 150,
-          mass: 0.8,
-        });
-        opacity.value = withTiming(1, { duration: 150 });
-      }, 50);
-    } else if (!isVisible && modalVisible) {
-      // Animate out first, then hide modal
-      // Keep displayItem during animation
-      animationProgress.value = withSpring(0, {
-        damping: 18,
-        stiffness: 120,
-      }, (finished) => {
-        'worklet';
-        if (finished) {
-          runOnJS(setModalVisible)(false);
-          runOnJS(setDisplayItem)(null);
-        }
-      });
-      opacity.value = withTiming(0, { duration: 180 });
     }
-  }, [isVisible, item]);
+  }, [item]);
 
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      if (e.translationY > 0) {
-        translateY.value = e.translationY;
-      }
-    })
-    .onEnd(() => {
-      if (translateY.value > 100) {
-        runOnJS(onClose)();
-      } else {
-        translateY.value = withSpring(0);
-      }
-    });
 
-  const containerStyle = useAnimatedStyle(() => {
-    const initialX = cardPosition?.x || SCREEN_WIDTH / 2;
-    const initialY = cardPosition?.y || SCREEN_HEIGHT / 2;
-    const initialWidth = cardPosition?.width || 100;
-    const initialHeight = cardPosition?.height || 100;
-
-    // Leave some space at top (about 10% of screen height)
-    const finalY = SCREEN_HEIGHT * 0.1;
-    const finalHeight = SCREEN_HEIGHT * 0.9;
-
-    const x = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialX, 0]
-    );
-    const y = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialY, finalY]
-    );
-    const width = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialWidth, SCREEN_WIDTH]
-    );
-    const height = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialHeight, finalHeight]
-    );
-
-    return {
-      position: 'absolute',
-      left: x,
-      top: y,
-      width,
-      height,
-      transform: [{ translateY: translateY.value }],
-    };
-  });
-
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value * 0.9,
-  }));
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  // Use displayItem which persists during closing animation
-  if (!displayItem && !modalVisible) return null;
-  
+  // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
+  if (!itemToDisplay) return null;
 
   const getContentTypeIcon = () => {
     switch (itemToDisplay?.content_type) {
@@ -434,16 +347,7 @@ const ExpandedItemView = observer(({
       // Auto-expand dropdown after generation
       setTimeout(() => {
         setShowTranscript(true);
-        
-        // Auto-scroll to transcript section after dropdown opens
-        setTimeout(() => {
-          if (mainScrollViewRef.current && transcriptSectionY > 0) {
-            mainScrollViewRef.current.scrollTo({
-              y: transcriptSectionY,
-              animated: true
-            });
-          }
-        }, 400); // Allow time for dropdown animation
+        // Note: Auto-scroll to transcript removed for bottom sheet compatibility
       }, 300);
       
     } catch (error) {
@@ -648,39 +552,36 @@ const ExpandedItemView = observer(({
   };
 
   return (
-    <Modal
-      visible={modalVisible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
+    <BottomSheet
+      ref={ref}
+      index={-1}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      backgroundStyle={[
+        styles.sheetBackground,
+        isDarkMode && styles.sheetBackgroundDark,
+      ]}
+      handleIndicatorStyle={[
+        styles.handleIndicator,
+        isDarkMode && styles.handleIndicatorDark,
+      ]}
+      onChange={(index) => {
+        if (index === -1) {
+          onClose?.();
+        } else if (index >= 0) {
+          onOpen?.();
+        }
+      }}
     >
-      <View style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
-        {/* Backdrop */}
-        <Animated.View
-          style={[
-            styles.backdrop,
-            isDarkMode && styles.backdropDark,
-            backdropStyle,
-          ]}
-        />
-
-        {/* Expanded Card */}
-        <GestureDetector gesture={pan}>
-          <Animated.View style={[containerStyle]}>
-            <View style={[styles.container, isDarkMode && styles.containerDark]}>
-              <ScrollView
-                ref={mainScrollViewRef}
-                style={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                bounces={true}
-              >
-
-              <Animated.View style={[contentStyle]}>
+      <BottomSheetScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
                 {/* Close Button - Always visible */}
                 <TouchableOpacity
                   style={[styles.closeButton, { position: 'absolute', top: 16, right: 16, zIndex: 1000 }]}
-                  onPress={onClose}
+                  onPress={() => onClose?.()}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.closeButtonText}>✕</Text>
@@ -1403,7 +1304,7 @@ const ExpandedItemView = observer(({
                       style={[styles.actionButton, styles.primaryAction]}
                       onPress={() => {
                         onChat?.(itemToDisplay!);
-                        onClose();
+                        onClose?.();
                       }}
                       activeOpacity={0.7}
                     >
@@ -1467,50 +1368,29 @@ const ExpandedItemView = observer(({
                   {/* Bottom Padding */}
                   <View style={{ height: 40 }} />
                 </View>
-              </Animated.View>
-              </ScrollView>
-            </View>
-          </Animated.View>
-        </GestureDetector>
-      </View>
-    </Modal>
+      </BottomSheetScrollView>
+    </BottomSheet>
   );
-});
+}));
 
 export default ExpandedItemView;
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  modalContainerDark: {
-    backgroundColor: 'transparent',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-  },
-  backdropDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-  },
-  container: {
-    flex: 1,
+  sheetBackground: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 0, // No radius for full screen
-    borderTopRightRadius: 0,
-    overflow: 'hidden',
+  },
+  sheetBackgroundDark: {
+    backgroundColor: '#1C1C1E',
+  },
+  handleIndicator: {
+    backgroundColor: '#CCCCCC',
+    width: 40,
+  },
+  handleIndicatorDark: {
+    backgroundColor: '#666666',
   },
   scrollContent: {
-    flex: 1,
-  },
-  containerDark: {
-    backgroundColor: '#1C1C1E',
+    paddingBottom: 120,
   },
   heroContainer: {
     position: 'relative',

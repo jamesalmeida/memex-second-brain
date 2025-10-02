@@ -4,6 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { chatUIActions } from '../../src/stores/chatUI';
@@ -22,8 +23,7 @@ const HomeScreen = observer(() => {
   const allItems = itemsStore.items.get();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
-  const cardRefs = useRef<{ [key: string]: any }>({});
+  const expandedItemSheetRef = useRef<BottomSheet>(null);
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
 
@@ -83,17 +83,8 @@ const HomeScreen = observer(() => {
   }, []);
 
   const handleItemPress = (item: Item) => {
-    // Get the position of the card for animation
-    const cardRef = cardRefs.current[item.id];
-    if (cardRef) {
-      cardRef.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-        setCardPosition({ x: pageX, y: pageY, width, height });
-        setSelectedItem(item);
-      });
-    } else {
-      // Fallback if ref not available
-      setSelectedItem(item);
-    }
+    setSelectedItem(item);
+    expandedItemSheetRef.current?.snapToIndex(0);
   };
 
   const handleItemLongPress = (item: Item) => {
@@ -102,13 +93,9 @@ const HomeScreen = observer(() => {
   };
 
   const renderItem = ({ item }: { item: Item }) => (
-    <View 
-      ref={(ref) => cardRefs.current[item.id] = ref}
-      collapsable={false}
-      style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}
-    >
-      <ItemCard 
-        item={item} 
+    <View style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}>
+      <ItemCard
+        item={item}
         onPress={handleItemPress}
         onLongPress={handleItemLongPress}
       />
@@ -154,12 +141,9 @@ const HomeScreen = observer(() => {
 
       {/* Expanded Item View */}
       <ExpandedItemView
+        ref={expandedItemSheetRef}
         item={selectedItem}
-        isVisible={!!selectedItem}
-        cardPosition={cardPosition}
         onClose={() => {
-          // Just set selectedItem to null to trigger closing animation
-          // The component will handle the rest
           setSelectedItem(null);
         }}
         onChat={(item) => {

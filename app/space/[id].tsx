@@ -14,6 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { observer } from '@legendapp/state/react';
 import { MaterialIcons } from '@expo/vector-icons';
+import BottomSheet from '@gorhom/bottom-sheet';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -65,8 +66,7 @@ const SpaceDetailScreen = observer(() => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
-  const cardRefs = useRef<{ [key: string]: any }>({});
+  const expandedItemSheetRef = useRef<BottomSheet>(null);
 
   // Parse animation params
   const initialX = cardX ? Number(cardX) : SCREEN_WIDTH / 2;
@@ -149,15 +149,8 @@ const SpaceDetailScreen = observer(() => {
   }, [space.id]);
 
   const handleItemPress = (item: Item) => {
-    const cardRef = cardRefs.current[item.id];
-    if (cardRef) {
-      cardRef.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-        setCardPosition({ x: pageX, y: pageY, width, height });
-        setSelectedItem(item);
-      });
-    } else {
-      setSelectedItem(item);
-    }
+    setSelectedItem(item);
+    expandedItemSheetRef.current?.snapToIndex(0);
   };
 
   const handleItemLongPress = (item: Item) => {
@@ -173,13 +166,9 @@ const SpaceDetailScreen = observer(() => {
   };
 
   const renderItem = ({ item, index }: { item: Item; index: number }) => (
-    <View 
-      style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}
-      ref={(ref) => cardRefs.current[item.id] = ref}
-      collapsable={false}
-    >
-      <ItemCard 
-        item={item} 
+    <View style={index % 2 === 0 ? styles.leftColumn : styles.rightColumn}>
+      <ItemCard
+        item={item}
         onPress={handleItemPress}
         onLongPress={handleItemLongPress}
       />
@@ -299,14 +288,10 @@ const SpaceDetailScreen = observer(() => {
 
         {/* Expanded Item View */}
         <ExpandedItemView
+          ref={expandedItemSheetRef}
           item={selectedItem}
-          isVisible={!!selectedItem}
-          cardPosition={cardPosition}
           onClose={() => {
             setSelectedItem(null);
-            setTimeout(() => {
-              setCardPosition(undefined);
-            }, 300);
           }}
           onChat={(item) => console.log('Chat with item:', item.title)}
           onEdit={(item) => console.log('Edit item:', item.title)}
