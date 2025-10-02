@@ -1,0 +1,2 @@
+- Run `npm install`.
+- Re-run `npx expo prebuild --clean`.
