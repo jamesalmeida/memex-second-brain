@@ -150,7 +150,7 @@ const SpaceDetailScreen = observer(() => {
 
   const handleItemPress = (item: Item) => {
     setSelectedItem(item);
-    expandedItemSheetRef.current?.snapToIndex(0);
+    // ExpandedItemView will handle opening via its controlled index prop
   };
 
   const handleItemLongPress = (item: Item) => {

@@ -88,9 +88,11 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, []);
 
   const handleItemPress = (item: Item) => {
+    console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
     onExpandedItemOpen?.(); // Start hiding navigation immediately
+    console.log('📱 [HomeScreen] Called onExpandedItemOpen');
     setSelectedItem(item);
-    expandedItemSheetRef.current?.snapToIndex(0);
+    console.log('📱 [HomeScreen] Set selectedItem - ExpandedItemView will handle opening via index prop');
   };
 
   const handleItemLongPress = (item: Item) => {

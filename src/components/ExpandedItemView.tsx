@@ -138,7 +138,7 @@ const ExpandedItemView = observer(
   const [showAllTags, setShowAllTags] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
-  
+
   // Get video URL from item type metadata
   const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
   
@@ -207,6 +207,7 @@ const ExpandedItemView = observer(
   };
 
   useEffect(() => {
+    console.log('📄 [ExpandedItemView] useEffect - item changed:', item?.title || 'null');
     if (item) {
       // Store the item for display
       setDisplayItem(item);
@@ -237,13 +238,33 @@ const ExpandedItemView = observer(
       if (item.content_type === 'youtube' || item.content_type === 'youtube_short') {
         checkForExistingTranscript(item.id);
       }
+
+      // Open the sheet after a small delay to ensure it's mounted
+      console.log('📄 [ExpandedItemView] Scheduling sheet open');
+      setTimeout(() => {
+        console.log('📄 [ExpandedItemView] Opening sheet via ref, ref exists?', !!(ref && typeof ref !== 'function' && ref.current));
+        if (ref && typeof ref !== 'function' && ref.current) {
+          console.log('📄 [ExpandedItemView] Calling snapToIndex(0)');
+          ref.current.snapToIndex(0);
+        }
+      }, 50);
+    } else {
+      // Close the sheet when item is cleared
+      console.log('📄 [ExpandedItemView] Closing sheet');
+      if (ref && typeof ref !== 'function' && ref.current) {
+        ref.current.close();
+      }
     }
-  }, [item]);
+  }, [item, ref]);
 
 
   // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
-  if (!itemToDisplay) return null;
+  console.log('📄 [ExpandedItemView] Rendering - itemToDisplay:', itemToDisplay?.title || 'null');
+  if (!itemToDisplay) {
+    console.log('📄 [ExpandedItemView] Returning null - no item to display');
+    return null;
+  }
 
   const getContentTypeIcon = () => {
     switch (itemToDisplay?.content_type) {
@@ -567,9 +588,12 @@ const ExpandedItemView = observer(
         isDarkMode && styles.handleIndicatorDark,
       ]}
       onChange={(index) => {
+        console.log('📄 [ExpandedItemView] onChange - index:', index);
         if (index === -1) {
+          console.log('📄 [ExpandedItemView] Sheet closed - calling onClose');
           onClose?.();
         } else if (index >= 0) {
+          console.log('📄 [ExpandedItemView] Sheet opened - calling onOpen');
           onOpen?.();
         }
       }}

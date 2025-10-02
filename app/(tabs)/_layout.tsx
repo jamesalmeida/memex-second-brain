@@ -53,6 +53,11 @@ const TabLayout = observer(() => {
     }
   }, [isChatOpen]);
 
+  // Log when isExpandedItemOpen changes
+  useEffect(() => {
+    console.log('🏠 [TabLayout] isExpandedItemOpen state changed to:', isExpandedItemOpen);
+  }, [isExpandedItemOpen]);
+
   const handleSettingsPress = () => {
     if (isSettingsOpen) {
       settingsSheetRef.current?.close();
@@ -134,8 +139,14 @@ const TabLayout = observer(() => {
           {/* Everything View */}
           <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
             <HomeScreen
-              onExpandedItemOpen={() => setIsExpandedItemOpen(true)}
-              onExpandedItemClose={() => setIsExpandedItemOpen(false)}
+              onExpandedItemOpen={() => {
+                console.log('🏠 [TabLayout] onExpandedItemOpen called - setting isExpandedItemOpen to true');
+                setIsExpandedItemOpen(true);
+              }}
+              onExpandedItemClose={() => {
+                console.log('🏠 [TabLayout] onExpandedItemClose called - setting isExpandedItemOpen to false');
+                setIsExpandedItemOpen(false);
+              }}
             />
           </View>
           
