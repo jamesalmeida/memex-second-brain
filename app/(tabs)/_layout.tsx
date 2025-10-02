@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Keyboard, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
 import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { chatUIStore } from '../../src/stores/chatUI';
 import BottomNavigation from '../../src/components/BottomNavigation';
@@ -24,10 +26,11 @@ const TabLayout = observer(() => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
-  
-  // Animation value for sliding views
-  const slideAnimation = useRef(new Animated.Value(0)).current;
-  
+
+  // Animation value for sliding views using reanimated
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
+
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<any>(null);
@@ -114,48 +117,87 @@ const TabLayout = observer(() => {
     }
 
     // Animate the slide based on the view
-    Animated.timing(slideAnimation, {
-      toValue: view === 'everything' ? 0 : -SCREEN_WIDTH,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    const targetX = view === 'everything' ? 0 : -SCREEN_WIDTH;
+    translateX.value = withTiming(targetX, {
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
+    });
 
     setCurrentView(view);
   };
+
+  // Pan gesture for swipe navigation
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      startX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      // Calculate new position with boundaries
+      const newX = startX.value + event.translationX;
+      // Clamp between -SCREEN_WIDTH (spaces) and 0 (everything)
+      translateX.value = Math.max(-SCREEN_WIDTH, Math.min(0, newX));
+    })
+    .onEnd((event) => {
+      const velocity = event.velocityX;
+      const position = translateX.value;
+
+      // Determine which view to snap to based on velocity and position
+      let targetView: 'everything' | 'spaces';
+
+      // If velocity is strong enough, use velocity to determine direction
+      if (Math.abs(velocity) > 500) {
+        targetView = velocity > 0 ? 'everything' : 'spaces';
+      } else {
+        // Otherwise use position (snap to nearest)
+        targetView = position > -SCREEN_WIDTH / 2 ? 'everything' : 'spaces';
+      }
+
+      // Animate to target position
+      const targetX = targetView === 'everything' ? 0 : -SCREEN_WIDTH;
+      translateX.value = withTiming(targetX, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+      });
+
+      // Update the view state
+      if (targetView !== currentView) {
+        runOnJS(setCurrentView)(targetView);
+      }
+    });
+
+  // Animated style for the sliding container
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   return (
     <BottomSheetModalProvider>
       <View style={[styles.container, isDarkMode && styles.containerDark]}>
         {/* Main Content - extends full screen */}
         <View style={styles.fullScreenContent}>
-        <Animated.View
-          style={[
-            styles.slidingContainer,
-            {
-              transform: [{ translateX: slideAnimation }]
-            }
-          ]}
-        >
-          {/* Everything View */}
-          <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
-            <HomeScreen
-              onExpandedItemOpen={() => {
-                console.log('🏠 [TabLayout] onExpandedItemOpen called - setting isExpandedItemOpen to true');
-                setIsExpandedItemOpen(true);
-              }}
-              onExpandedItemClose={() => {
-                console.log('🏠 [TabLayout] onExpandedItemClose called - setting isExpandedItemOpen to false');
-                setIsExpandedItemOpen(false);
-              }}
-            />
-          </View>
-          
-          {/* Spaces View */}
-          <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
-            <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
-          </View>
-        </Animated.View>
-      </View>
+          <GestureDetector gesture={panGesture}>
+            <Animated.View style={[styles.slidingContainer, animatedStyle]}>
+              {/* Everything View */}
+              <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
+                <HomeScreen
+                  onExpandedItemOpen={() => {
+                    console.log('🏠 [TabLayout] onExpandedItemOpen called - setting isExpandedItemOpen to true');
+                    setIsExpandedItemOpen(true);
+                  }}
+                  onExpandedItemClose={() => {
+                    console.log('🏠 [TabLayout] onExpandedItemClose called - setting isExpandedItemOpen to false');
+                    setIsExpandedItemOpen(false);
+                  }}
+                />
+              </View>
+
+              {/* Spaces View */}
+              <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
+                <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+              </View>
+            </Animated.View>
+          </GestureDetector>
+        </View>
 
       {/* Custom Bottom Navigation */}
       <BottomNavigation
