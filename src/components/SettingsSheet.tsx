@@ -25,6 +25,7 @@ import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
 import { offlineQueueActions } from '../stores/offlineQueue';
 import { syncStatusStore, syncStatusComputed } from '../stores/syncStatus';
 import { aiSettingsStore, aiSettingsActions, aiSettingsComputed } from '../stores/aiSettings';
+import { expandedItemUIStore, expandedItemUIActions } from '../stores/expandedItemUI';
 import ModelPickerSheet from './ModelPickerSheet';
 import { useState } from 'react';
 
@@ -56,7 +57,10 @@ const SettingsSheet = observer(
     const timeSinceLastFetch = aiSettingsComputed.timeSinceLastFetch();
     const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
     const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
-    
+
+    // Expanded item UI settings
+    const autoplayXVideos = expandedItemUIStore.autoplayXVideos.get();
+
     // Snap points for the bottom sheet - single point at 82%
     const snapPoints = useMemo(() => ['82%'], []);
 
@@ -193,6 +197,28 @@ const SettingsSheet = observer(
                 onValueChange={(value) => themeActions.setDarkMode(value)}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
                 thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="play-circle-outline"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Autoplay X Videos
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Automatically play video previews in the grid
+                </Text>
+              </View>
+              <Switch
+                value={autoplayXVideos}
+                onValueChange={(value) => expandedItemUIActions.setAutoplayXVideos(value)}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={autoplayXVideos ? '#fff' : '#f4f3f4'}
               />
             </View>
 

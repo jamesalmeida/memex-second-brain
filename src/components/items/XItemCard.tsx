@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TouchableWithoutFeedback, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { expandedItemUIStore } from '../../stores/expandedItemUI';
 import { Item } from '../../types';
 import { formatDate, extractUsername } from '../../utils/itemCardHelpers';
 import RadialActionMenu from './RadialActionMenu';
@@ -20,6 +21,7 @@ interface XItemCardProps {
 
 const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const autoplayEnabled = expandedItemUIStore.autoplayXVideos.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -34,9 +36,24 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
       player.loop = true;
       player.muted = true;
       player.volume = 0;
-      player.play();
+
+      // Only autoplay if the setting is enabled
+      if (autoplayEnabled) {
+        player.play();
+      }
     }
   });
+
+  // React to autoplay setting changes
+  useEffect(() => {
+    if (player && videoUrl) {
+      if (autoplayEnabled) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }
+  }, [autoplayEnabled, player, videoUrl]);
 
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;

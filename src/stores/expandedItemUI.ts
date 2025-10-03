@@ -2,7 +2,8 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Item } from '../types';
 
-const STORAGE_KEY = 'expandedItemUI_xVideoMuted';
+const STORAGE_KEY_MUTED = 'expandedItemUI_xVideoMuted';
+const STORAGE_KEY_AUTOPLAY = 'expandedItemUI_autoplayXVideos';
 
 /**
  * UI state store for managing expanded item sheet visibility and current item
@@ -11,6 +12,7 @@ const STORAGE_KEY = 'expandedItemUI_xVideoMuted';
 export const expandedItemUIStore = observable({
   currentItem: null as Item | null,
   xVideoMuted: true, // Global preference for X video mute state
+  autoplayXVideos: true, // Global preference for X video autoplay in grid
 });
 
 export const expandedItemUIActions = {
@@ -44,7 +46,7 @@ export const expandedItemUIActions = {
 
       console.log('🔇 [xVideoMuted] Setting mute preference:', currentValue, '->', muted);
       expandedItemUIStore.xVideoMuted.set(muted);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(muted));
+      await AsyncStorage.setItem(STORAGE_KEY_MUTED, JSON.stringify(muted));
       console.log('🔇 [xVideoMuted] Saved to AsyncStorage');
     } catch (error) {
       console.error('Error saving X video mute preference:', error);
@@ -56,7 +58,7 @@ export const expandedItemUIActions = {
    */
   loadXVideoMutedPreference: async () => {
     try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      const saved = await AsyncStorage.getItem(STORAGE_KEY_MUTED);
       if (saved !== null) {
         const value = JSON.parse(saved);
         console.log('🔇 [xVideoMuted] Loaded from AsyncStorage:', value);
@@ -68,4 +70,40 @@ export const expandedItemUIActions = {
       console.error('Error loading X video mute preference:', error);
     }
   },
+
+  /**
+   * Set X video autoplay preference
+   */
+  setAutoplayXVideos: async (autoplay: boolean) => {
+    try {
+      const currentValue = expandedItemUIStore.autoplayXVideos.get();
+      if (currentValue === autoplay) {
+        return;
+      }
+
+      expandedItemUIStore.autoplayXVideos.set(autoplay);
+      await AsyncStorage.setItem(STORAGE_KEY_AUTOPLAY, JSON.stringify(autoplay));
+    } catch (error) {
+      console.error('Error saving X video autoplay preference:', error);
+    }
+  },
+
+  /**
+   * Load X video autoplay preference from storage
+   */
+  loadAutoplayPreference: async () => {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY_AUTOPLAY);
+      if (saved !== null) {
+        const value = JSON.parse(saved);
+        expandedItemUIStore.autoplayXVideos.set(value);
+      }
+    } catch (error) {
+      console.error('Error loading X video autoplay preference:', error);
+    }
+  },
 };
+
+// Load preferences on app start
+expandedItemUIActions.loadXVideoMutedPreference();
+expandedItemUIActions.loadAutoplayPreference();
