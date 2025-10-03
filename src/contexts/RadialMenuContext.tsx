@@ -64,12 +64,21 @@ const ARC_ANGLE = 110;
 const RadialButton: React.FC<{
   button: ActionButton;
   position: { x: number; y: number };
+  touchPosition: { x: number; y: number };
   isHovered: boolean;
   visible: boolean;
-}> = ({ button, position, isHovered, visible }) => {
+}> = ({ button, position, touchPosition, isHovered, visible }) => {
   const scale = useSharedValue(1);
   const iconSize = useSharedValue(24);
-  const opacity = useSharedValue(visible ? 1 : 0);
+  const opacity = useSharedValue(0);
+
+  // Calculate the offset from touch point to final position
+  const finalOffsetX = position.x - touchPosition.x;
+  const finalOffsetY = position.y - touchPosition.y;
+
+  // Animated position - starts at 0 (touch point), animates to final offset
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
   React.useEffect(() => {
     if (isHovered) {
@@ -90,15 +99,43 @@ const RadialButton: React.FC<{
   }, [isHovered]);
 
   React.useEffect(() => {
-    // Quick fade out when menu closes
-    opacity.value = withTiming(visible ? 1 : 0, {
-      duration: 250,
-      easing: Easing.out(Easing.ease),
-    });
-  }, [visible]);
+    if (visible) {
+      // Animate from touch point to final position
+      translateX.value = withSpring(finalOffsetX, {
+        damping: 60,
+        stiffness: 700,
+      });
+      translateY.value = withSpring(finalOffsetY, {
+        damping: 60,
+        stiffness: 700,
+      });
+      opacity.value = withTiming(1, {
+        duration: 150,
+        easing: Easing.out(Easing.ease),
+      });
+    } else {
+      // Quick fade out and return to center when menu closes
+      translateX.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.in(Easing.ease),
+      });
+      translateY.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.in(Easing.ease),
+      });
+      opacity.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+      });
+    }
+  }, [visible, finalOffsetX, finalOffsetY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
     opacity: opacity.value,
   }));
 
@@ -107,8 +144,8 @@ const RadialButton: React.FC<{
       style={[
         styles.actionButton,
         {
-          left: position.x - BUTTON_SIZE / 2,
-          top: position.y - BUTTON_SIZE / 2,
+          left: touchPosition.x - BUTTON_SIZE / 2,
+          top: touchPosition.y - BUTTON_SIZE / 2,
           backgroundColor: button.color,
         },
         animatedStyle,
@@ -299,6 +336,7 @@ const RadialMenuOverlay = observer(({
               key={button.id}
               button={button}
               position={position}
+              touchPosition={touchPosition}
               isHovered={isHovered}
               visible={!isClosing}
             />
