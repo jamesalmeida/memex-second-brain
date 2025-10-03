@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
   withSpring,
   Easing,
+  interpolateColor,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
@@ -71,6 +72,7 @@ const RadialButton: React.FC<{
   const scale = useSharedValue(1);
   const iconSize = useSharedValue(24);
   const opacity = useSharedValue(0);
+  const hoverProgress = useSharedValue(0); // 0 = not hovered, 1 = hovered
 
   // Calculate the offset from touch point to final position
   const finalOffsetX = position.x - touchPosition.x;
@@ -82,16 +84,24 @@ const RadialButton: React.FC<{
 
   React.useEffect(() => {
     if (isHovered) {
-      // Instant scale-up for immediate feedback
+      // Instant scale-up and color change for immediate feedback
       scale.value = 1.3;
       iconSize.value = 30;
+      hoverProgress.value = withTiming(1, {
+        duration: 100,
+        easing: Easing.out(Easing.ease),
+      });
     } else {
-      // Smooth scale-down for polish
+      // Smooth scale-down and color change for polish
       scale.value = withTiming(1, {
         duration: 150,
         easing: Easing.out(Easing.ease),
       });
       iconSize.value = withTiming(24, {
+        duration: 150,
+        easing: Easing.out(Easing.ease),
+      });
+      hoverProgress.value = withTiming(0, {
         duration: 150,
         easing: Easing.out(Easing.ease),
       });
@@ -130,14 +140,24 @@ const RadialButton: React.FC<{
     }
   }, [visible, finalOffsetX, finalOffsetY]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    // Push out 15% further when hovered
+    const pushOutMultiplier = 1 + (hoverProgress.value * 0.15);
+
+    return {
+      transform: [
+        { translateX: translateX.value * pushOutMultiplier },
+        { translateY: translateY.value * pushOutMultiplier },
+        { scale: scale.value },
+      ],
+      opacity: opacity.value,
+      backgroundColor: interpolateColor(
+        hoverProgress.value,
+        [0, 1],
+        ['#3A3A3C', '#FFFFFF'] // dark gray -> white
+      ),
+    };
+  });
 
   return (
     <Animated.View
@@ -146,7 +166,6 @@ const RadialButton: React.FC<{
         {
           left: touchPosition.x - BUTTON_SIZE / 2,
           top: touchPosition.y - BUTTON_SIZE / 2,
-          backgroundColor: button.color,
         },
         animatedStyle,
       ]}
@@ -155,7 +174,7 @@ const RadialButton: React.FC<{
       <Ionicons
         name={button.icon}
         size={isHovered ? 30 : 24}
-        color="#FFFFFF"
+        color={isHovered ? '#3A3A3C' : '#FFFFFF'}
       />
     </Animated.View>
   );
