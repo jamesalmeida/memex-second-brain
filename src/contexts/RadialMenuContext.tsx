@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
+import { expandedItemUIActions } from '../stores/expandedItemUI';
 import { Item } from '../types';
 import DefaultItemCard from '../components/items/DefaultItemCard';
 import XItemCard from '../components/items/XItemCard';
@@ -217,6 +218,8 @@ const RadialMenuOverlay = observer(({
       color: '#007AFF',
       action: (item: Item) => {
         console.log('💬 CHAT button pressed for item:', item.title);
+        expandedItemUIActions.expandItem(item);
+        chatUIActions.openChat(item);
       },
     },
     {
@@ -386,6 +389,8 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       color: '#007AFF',
       action: (item: Item) => {
         console.log('💬 CHAT button pressed for item:', item.title);
+        expandedItemUIActions.expandItem(item);
+        chatUIActions.openChat(item);
       },
     },
     {

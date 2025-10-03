@@ -25,6 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../../src/stores/theme';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item, Space } from '../../src/types';
@@ -83,6 +84,29 @@ const SpaceDetailScreen = observer(() => {
       });
       opacity.value = withTiming(1, { duration: 200 });
     }, 50);
+  }, []);
+
+  // Observe expandedItemUIStore and update selectedItem when it changes
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      console.log('📱 [SpaceDetailScreen] expandedItemUIStore changed, new value:', value?.title || 'null');
+      if (value) {
+        console.log('📱 [SpaceDetailScreen] Setting selectedItem:', value.title);
+        setSelectedItem(value);
+      } else {
+        console.log('📱 [SpaceDetailScreen] Clearing selectedItem');
+        setSelectedItem(null);
+      }
+    });
+
+    // Check initial value on mount
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      console.log('📱 [SpaceDetailScreen] Initial item in store:', initialItem.title);
+      setSelectedItem(initialItem);
+    }
+
+    return unsubscribe;
   }, []);
 
   const handleClose = () => {
@@ -292,6 +316,7 @@ const SpaceDetailScreen = observer(() => {
           item={selectedItem}
           onClose={() => {
             setSelectedItem(null);
+            expandedItemUIActions.closeExpandedItem();
           }}
           onChat={(item) => console.log('Chat with item:', item.title)}
           onEdit={(item) => console.log('Edit item:', item.title)}

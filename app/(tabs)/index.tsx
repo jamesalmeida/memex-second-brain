@@ -8,6 +8,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { chatUIActions } from '../../src/stores/chatUI';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
@@ -51,6 +52,31 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
     initializeItems();
   }, []);
+
+  // Observe expandedItemUIStore and update selectedItem when it changes
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      console.log('📱 [HomeScreen] expandedItemUIStore changed, new value:', value?.title || 'null');
+      if (value) {
+        console.log('📱 [HomeScreen] Setting selectedItem:', value.title);
+        onExpandedItemOpen?.();
+        setSelectedItem(value);
+      } else {
+        console.log('📱 [HomeScreen] Clearing selectedItem');
+        setSelectedItem(null);
+      }
+    });
+
+    // Check initial value on mount
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      console.log('📱 [HomeScreen] Initial item in store:', initialItem.title);
+      onExpandedItemOpen?.();
+      setSelectedItem(initialItem);
+    }
+
+    return unsubscribe;
+  }, [onExpandedItemOpen]);
 
   // Auto-scroll to top when new items are added
   useEffect(() => {
@@ -159,6 +185,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         onOpen={onExpandedItemOpen}
         onClose={() => {
           setSelectedItem(null);
+          expandedItemUIActions.closeExpandedItem();
           onExpandedItemClose?.();
         }}
         onChat={(item) => {
