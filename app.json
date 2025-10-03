@@ -14,6 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "icon": "./assets/app.icon",
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
       "buildNumber": "1",

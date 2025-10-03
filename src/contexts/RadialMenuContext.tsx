@@ -114,11 +114,11 @@ const RadialButton: React.FC<{
       // Animate from touch point to final position
       translateX.value = withSpring(finalOffsetX, {
         damping: 60,
-        stiffness: 700,
+        stiffness: 1000,
       });
       translateY.value = withSpring(finalOffsetY, {
         damping: 60,
-        stiffness: 700,
+        stiffness: 1000,
       });
       opacity.value = withTiming(1, {
         duration: 150,
