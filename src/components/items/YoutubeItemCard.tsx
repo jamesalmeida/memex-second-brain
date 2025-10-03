@@ -131,6 +131,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    borderTopWidth: 5,
+    borderTopColor: 'rgba(255, 0, 0, 0.8)',
     overflow: 'hidden',
   },
   cardDark: {
