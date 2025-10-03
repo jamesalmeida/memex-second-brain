@@ -1,15 +1,17 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
   RefreshControl,
   SafeAreaView,
   TextInput,
   Dimensions,
-  Modal
+  Modal,
+  Share,
+  Alert
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { observer } from '@legendapp/state/react';
@@ -326,7 +328,20 @@ const SpaceDetailScreen = observer(() => {
             setItems(prev => prev.filter(i => i.id !== item.id));
             setSelectedItem(null);
           }}
-          onShare={(item) => console.log('Share item:', item.title)}
+          onShare={async (item) => {
+            if (item.url) {
+              try {
+                await Share.share({
+                  url: item.url,
+                  message: item.title,
+                });
+              } catch (error) {
+                console.error('Error sharing:', error);
+              }
+            } else {
+              Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+            }
+          }}
           onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
           currentSpaceId={space.id}
         />

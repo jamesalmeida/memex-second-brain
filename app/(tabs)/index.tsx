@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, Share, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -199,7 +199,20 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
           await itemsActions.removeItemWithSync(item.id);
           setSelectedItem(null);
         }}
-        onShare={(item) => console.log('Share item:', item.title)}
+        onShare={async (item) => {
+          if (item.url) {
+            try {
+              await Share.share({
+                url: item.url,
+                message: item.title,
+              });
+            } catch (error) {
+              console.error('Error sharing:', error);
+            }
+          } else {
+            Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+          }
+        }}
         onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
         currentSpaceId={null}
       />
