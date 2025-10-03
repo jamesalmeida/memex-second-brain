@@ -8,7 +8,7 @@ import Animated, {
 import { useRadialMenu } from '../../contexts/RadialMenuContext';
 import { Item } from '../../types';
 
-const LONG_PRESS_DURATION = 350; // ms
+const LONG_PRESS_DURATION = 200; // ms
 
 interface RadialActionMenuProps {
   item: Item;
