@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { View, StyleSheet, Dimensions, Share, Alert, Modal } from 'react-native';
 import { observer } from '@legendapp/state/react';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -412,6 +413,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [touchPosition, getButtonPositions]);
 
   const showMenu = useCallback((newItem: Item, x: number, y: number, layout: CardLayout) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShouldDisableScroll(true); // Disable scroll when menu opens
     setIsClosing(false); // Reset closing state
     setItem(newItem);
@@ -440,6 +442,9 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const hoveredId = getHoveredButton(x, y);
       if (hoveredId !== hoveredButtonId) {
         console.log('🎯 Hovered button changed:', hoveredId);
+        if (hoveredId) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         setHoveredButtonId(hoveredId);
       }
     }
@@ -451,6 +456,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const button = actionButtons.find(b => b.id === hoveredButtonId);
       if (button) {
         console.log('✨ Executing action for button:', button.label);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         button.action(item);
       } else {
         console.log('⚠️ No button found for id:', hoveredButtonId);
