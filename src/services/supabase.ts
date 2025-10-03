@@ -193,6 +193,37 @@ export const db = {
     return { error };
   },
 
+  // Image descriptions
+  saveImageDescription: async (description: {
+    item_id: string;
+    image_url: string;
+    description: string;
+    model: string;
+  }) => {
+    const { data, error } = await supabase
+      .from('image_descriptions')
+      .upsert({
+        ...description,
+        fetched_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  deleteImageDescription: async (itemId: string, imageUrl?: string) => {
+    let query = supabase.from('image_descriptions').delete().eq('item_id', itemId);
+
+    // If imageUrl is provided, delete specific description, otherwise delete all for item
+    if (imageUrl) {
+      query = query.eq('image_url', imageUrl);
+    }
+
+    const { error } = await query;
+    return { error };
+  },
+
   // Spaces
   getSpaces: async (userId: string) => {
     const { data, error } = await supabase

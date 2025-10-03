@@ -15,6 +15,8 @@ interface AISettingsState {
   lastModelsFetch: string | null;
   isLoadingModels: boolean;
   hasApiKey: boolean;
+  autoGenerateTranscripts: boolean;
+  autoGenerateImageDescriptions: boolean;
 }
 
 const initialState: AISettingsState = {
@@ -23,6 +25,8 @@ const initialState: AISettingsState = {
   lastModelsFetch: null,
   isLoadingModels: false,
   hasApiKey: !!API.OPENAI_API_KEY,
+  autoGenerateTranscripts: false,
+  autoGenerateImageDescriptions: false,
 };
 
 export const aiSettingsStore = observable(initialState);
@@ -33,6 +37,8 @@ export const aiSettingsComputed = {
   availableModels: () => aiSettingsStore.availableModels.get(),
   isLoadingModels: () => aiSettingsStore.isLoadingModels.get(),
   hasApiKey: () => aiSettingsStore.hasApiKey.get(),
+  autoGenerateTranscripts: () => aiSettingsStore.autoGenerateTranscripts.get(),
+  autoGenerateImageDescriptions: () => aiSettingsStore.autoGenerateImageDescriptions.get(),
 
   // Check if models need refresh (24h cache)
   needsRefresh: (): boolean => {
@@ -70,13 +76,45 @@ export const aiSettingsActions = {
   setSelectedModel: async (modelId: string) => {
     aiSettingsStore.selectedModel.set(modelId);
     try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.AI_SETTINGS,
-        JSON.stringify({ selectedModel: modelId })
-      );
+      const settings = {
+        selectedModel: modelId,
+        autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
+        autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
       console.log('🤖 Selected model:', modelId);
     } catch (error) {
       console.error('Error saving selected model:', error);
+    }
+  },
+
+  setAutoGenerateTranscripts: async (enabled: boolean) => {
+    aiSettingsStore.autoGenerateTranscripts.set(enabled);
+    try {
+      const settings = {
+        selectedModel: aiSettingsStore.selectedModel.get(),
+        autoGenerateTranscripts: enabled,
+        autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
+      console.log('🤖 Auto-generate transcripts:', enabled);
+    } catch (error) {
+      console.error('Error saving auto-generate transcripts setting:', error);
+    }
+  },
+
+  setAutoGenerateImageDescriptions: async (enabled: boolean) => {
+    aiSettingsStore.autoGenerateImageDescriptions.set(enabled);
+    try {
+      const settings = {
+        selectedModel: aiSettingsStore.selectedModel.get(),
+        autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
+        autoGenerateImageDescriptions: enabled,
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
+      console.log('🤖 Auto-generate image descriptions:', enabled);
+    } catch (error) {
+      console.error('Error saving auto-generate image descriptions setting:', error);
     }
   },
 
@@ -161,12 +199,18 @@ export const aiSettingsActions = {
 
   loadSettings: async () => {
     try {
-      // Load selected model
+      // Load AI settings
       const saved = await AsyncStorage.getItem(STORAGE_KEYS.AI_SETTINGS);
       if (saved) {
         const settings = JSON.parse(saved);
         if (settings.selectedModel) {
           aiSettingsStore.selectedModel.set(settings.selectedModel);
+        }
+        if (typeof settings.autoGenerateTranscripts === 'boolean') {
+          aiSettingsStore.autoGenerateTranscripts.set(settings.autoGenerateTranscripts);
+        }
+        if (typeof settings.autoGenerateImageDescriptions === 'boolean') {
+          aiSettingsStore.autoGenerateImageDescriptions.set(settings.autoGenerateImageDescriptions);
         }
       }
 

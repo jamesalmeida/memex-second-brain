@@ -26,6 +26,9 @@ import { chatUIStore, chatUIActions } from '../stores/chatUI';
 import { aiSettingsComputed } from '../stores/aiSettings';
 import { itemChatsActions, itemChatsComputed } from '../stores/itemChats';
 import { chatMessagesActions, chatMessagesComputed } from '../stores/chatMessages';
+import { videoTranscriptsComputed, videoTranscriptsActions } from '../stores/videoTranscripts';
+import { imageDescriptionsComputed, imageDescriptionsActions } from '../stores/imageDescriptions';
+import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { buildItemContext, formatContextMetadata } from '../services/contextBuilder';
 import { openai } from '../services/openai';
 import { Item, ItemChat, ChatMessage } from '../types';
@@ -48,6 +51,10 @@ const ChatSheet = observer(
     const [chat, setChat] = useState<ItemChat | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
+    const [showTranscriptButton, setShowTranscriptButton] = useState(false);
+    const [showDescriptionButton, setShowDescriptionButton] = useState(false);
+    const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
+    const [isGeneratingDescriptions, setIsGeneratingDescriptions] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -57,26 +64,128 @@ const ChatSheet = observer(
     // Load or create chat when item changes
     useEffect(() => {
       if (item) {
-        loadOrCreateChat();
+        loadOrCreateChat().then(() => {
+          checkForMissingContent();
+        });
       }
     }, [item?.id]);
 
     const loadOrCreateChat = async () => {
       if (!item) return;
 
-      // Try to find existing chat
-      let existingChat = itemChatsComputed.getChatByItemId(item.id);
+      try {
+        // First check local store
+        let existingChat = itemChatsComputed.getChatByItemId(item.id);
 
-      if (!existingChat) {
-        // Create new chat
-        existingChat = await itemChatsActions.createChat(item.id);
+        // If not found locally, sync from Supabase and check again
+        if (!existingChat) {
+          await itemChatsActions.syncFromSupabase();
+          existingChat = itemChatsComputed.getChatByItemId(item.id);
+        }
+
+        // If still not found, create new chat
+        if (!existingChat) {
+          console.log('💬 Creating new chat for item:', item.id);
+          existingChat = await itemChatsActions.createChat(item.id);
+        }
+
+        if (existingChat) {
+          setChat(existingChat);
+          // Load messages for this chat
+          const chatMessages = await chatMessagesActions.loadMessagesForChat(existingChat.id);
+          setMessages(chatMessages);
+          console.log('💬 Loaded chat:', existingChat.id, 'with', chatMessages.length, 'messages');
+        } else {
+          console.error('❌ Failed to create or load chat for item:', item.id);
+        }
+      } catch (error) {
+        console.error('❌ Error loading/creating chat:', error);
       }
+    };
 
-      if (existingChat) {
-        setChat(existingChat);
-        // Load messages for this chat
-        const chatMessages = await chatMessagesActions.loadMessagesForChat(existingChat.id);
-        setMessages(chatMessages);
+    const checkForMissingContent = () => {
+      if (!item) return;
+
+      // Check if video item without transcript
+      const needsTranscript =
+        ['youtube', 'youtube_short', 'video', 'tiktok', 'instagram'].includes(item.content_type) &&
+        !videoTranscriptsComputed.hasTranscript(item.id);
+
+      // Check if item has images without descriptions
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      const needsDescriptions =
+        imageUrls && imageUrls.length > 0 && !imageDescriptionsComputed.hasDescriptions(item.id);
+
+      setShowTranscriptButton(needsTranscript);
+      setShowDescriptionButton(needsDescriptions);
+    };
+
+    const handleGenerateTranscript = async () => {
+      if (!item) return;
+
+      setIsGeneratingTranscript(true);
+      try {
+        // TODO: Implement actual transcript fetching service
+        // For now, this is a placeholder
+        console.log('🎬 Generating transcript for', item.id);
+
+        // Placeholder: You'll need to implement actual transcript generation
+        // This would call your transcript service API
+
+        alert('Transcript generation not yet implemented. This will fetch transcripts from video platforms.');
+
+        // Once implemented:
+        // const transcript = await transcriptService.fetchTranscript(item);
+        // await videoTranscriptsActions.addTranscript(transcript);
+        // setShowTranscriptButton(false);
+      } catch (error) {
+        console.error('Error generating transcript:', error);
+        alert('Failed to generate transcript. Please try again.');
+      } finally {
+        setIsGeneratingTranscript(false);
+      }
+    };
+
+    const handleGenerateDescriptions = async () => {
+      if (!item) return;
+
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      if (!imageUrls || imageUrls.length === 0) return;
+
+      setIsGeneratingDescriptions(true);
+      try {
+        console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
+
+        for (const imageUrl of imageUrls) {
+          // Generate description for each image
+          const description = await openai.describeImage(imageUrl, {
+            model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+          });
+
+          if (description) {
+            // Create and save the description
+            const imageDescription = {
+              id: `${item.id}-${imageUrl}`, // Temporary ID
+              item_id: item.id,
+              image_url: imageUrl,
+              description,
+              model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+              fetched_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+
+            await imageDescriptionsActions.addDescription(imageDescription);
+          }
+        }
+
+        setShowDescriptionButton(false);
+        alert(`Generated descriptions for ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''}!`);
+      } catch (error) {
+        console.error('Error generating image descriptions:', error);
+        alert('Failed to generate image descriptions. Please try again.');
+      } finally {
+        setIsGeneratingDescriptions(false);
       }
     };
 
@@ -98,7 +207,7 @@ const ChatSheet = observer(
 
       try {
         // Add user message optimistically
-        const userMsg = chatMessagesActions.addMessageOptimistic(
+        const userMsg = await chatMessagesActions.addMessageOptimistic(
           chat.id,
           'item',
           'user',
@@ -143,7 +252,7 @@ const ChatSheet = observer(
           };
 
           // Add assistant message
-          const assistantMsg = chatMessagesActions.addMessageOptimistic(
+          const assistantMsg = await chatMessagesActions.addMessageOptimistic(
             chat.id,
             'item',
             'assistant',
@@ -153,7 +262,7 @@ const ChatSheet = observer(
           setMessages(prev => [...prev, assistantMsg]);
         } else {
           // Show error message
-          const errorMsg = chatMessagesActions.addMessageOptimistic(
+          const errorMsg = await chatMessagesActions.addMessageOptimistic(
             chat.id,
             'item',
             'assistant',
@@ -163,7 +272,7 @@ const ChatSheet = observer(
         }
       } catch (error) {
         console.error('Error sending message:', error);
-        const errorMsg = chatMessagesActions.addMessageOptimistic(
+        const errorMsg = await chatMessagesActions.addMessageOptimistic(
           chat.id,
           'item',
           'assistant',
@@ -299,6 +408,53 @@ const ChatSheet = observer(
             showsVerticalScrollIndicator={false}
           >
             {renderSystemMessage()}
+
+            {/* Generation buttons */}
+            {(showTranscriptButton || showDescriptionButton) && (
+              <View style={styles.generationButtonsContainer}>
+                {showTranscriptButton && (
+                  <TouchableOpacity
+                    style={[
+                      styles.generateButton,
+                      isDarkMode && styles.generateButtonDark,
+                      isGeneratingTranscript && styles.generateButtonDisabled,
+                    ]}
+                    onPress={handleGenerateTranscript}
+                    disabled={isGeneratingTranscript}
+                  >
+                    {isGeneratingTranscript ? (
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                    ) : (
+                      <MaterialIcons name="subtitles" size={20} color={COLORS.primary} />
+                    )}
+                    <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
+                      {isGeneratingTranscript ? 'Generating...' : 'Generate Transcript'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {showDescriptionButton && (
+                  <TouchableOpacity
+                    style={[
+                      styles.generateButton,
+                      isDarkMode && styles.generateButtonDark,
+                      isGeneratingDescriptions && styles.generateButtonDisabled,
+                    ]}
+                    onPress={handleGenerateDescriptions}
+                    disabled={isGeneratingDescriptions}
+                  >
+                    {isGeneratingDescriptions ? (
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                    ) : (
+                      <MaterialIcons name="image" size={20} color={COLORS.primary} />
+                    )}
+                    <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
+                      {isGeneratingDescriptions ? 'Generating...' : 'Generate Image Descriptions'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {messages.map((msg, idx) => renderMessage(msg, idx))}
 
@@ -584,6 +740,34 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  generationButtonsContainer: {
+    paddingVertical: 12,
+    gap: 10,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 10,
+  },
+  generateButtonDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  generateButtonDisabled: {
+    opacity: 0.5,
+  },
+  generateButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+    flex: 1,
+  },
+  generateButtonTextDark: {
+    color: COLORS.primary,
   },
 });
 

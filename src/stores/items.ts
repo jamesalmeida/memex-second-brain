@@ -7,6 +7,10 @@ import { authStore } from './auth';
 import { itemSpacesComputed, itemSpacesActions } from './itemSpaces';
 import { spacesActions } from './spaces';
 import { videoTranscriptsActions } from './videoTranscripts';
+import { aiSettingsStore } from './aiSettings';
+import { imageDescriptionsActions } from './imageDescriptions';
+import { itemTypeMetadataComputed } from './itemTypeMetadata';
+import { openai } from '../services/openai';
 
 interface ItemsState {
   items: Item[];
@@ -62,21 +66,78 @@ export const itemsActions = {
   addItemWithSync: async (newItem: Item) => {
     const currentItems = itemsStore.items.get();
     const updatedItems = [newItem, ...currentItems];
-    
+
     // Save locally first
     itemsStore.items.set(updatedItems);
     itemsStore.filteredItems.set(updatedItems);
-    
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
-      
+
       // Sync with Supabase if authenticated
       const user = authStore.user.get();
       if (user) {
         await syncOperations.uploadItem(newItem, user.id);
       }
+
+      // Auto-generate content in background (non-blocking)
+      setTimeout(() => {
+        itemsActions._autoGenerateContent(newItem).catch(err => {
+          console.error('Error auto-generating content:', err);
+        });
+      }, 100);
     } catch (error) {
       console.error('Error saving item:', error);
+    }
+  },
+
+  // Auto-generate transcripts and image descriptions if enabled
+  _autoGenerateContent: async (item: Item) => {
+    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
+    const selectedModel = aiSettingsStore.selectedModel.get();
+
+    // Auto-generate video transcript if enabled
+    if (autoGenerateTranscripts) {
+      const videoContentTypes = ['youtube', 'youtube_short', 'video', 'tiktok', 'instagram'];
+      if (videoContentTypes.includes(item.content_type)) {
+        console.log('🎬 Auto-generating transcript for', item.id);
+        // TODO: Implement actual transcript fetching
+        // This would call your transcript service API
+        // For now, this is a placeholder
+      }
+    }
+
+    // Auto-generate image descriptions if enabled
+    if (autoGenerateImageDescriptions) {
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      if (imageUrls && imageUrls.length > 0) {
+        console.log('🖼️  Auto-generating descriptions for', imageUrls.length, 'images');
+        try {
+          for (const imageUrl of imageUrls) {
+            const description = await openai.describeImage(imageUrl, {
+              model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+            });
+
+            if (description) {
+              const imageDescription = {
+                id: `${item.id}-${imageUrl}`,
+                item_id: item.id,
+                image_url: imageUrl,
+                description,
+                model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+                fetched_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              await imageDescriptionsActions.addDescription(imageDescription);
+            }
+          }
+        } catch (error) {
+          console.error('Error generating image descriptions:', error);
+        }
+      }
     }
   },
 

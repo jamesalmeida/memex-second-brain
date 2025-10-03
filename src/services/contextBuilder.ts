@@ -1,5 +1,6 @@
 import { Item, ContentType } from '../types';
 import { videoTranscriptsComputed } from '../stores/videoTranscripts';
+import { imageDescriptionsComputed } from '../stores/imageDescriptions';
 import { itemMetadataComputed } from '../stores/itemMetadata';
 import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 
@@ -7,6 +8,7 @@ export interface ContextMetadata {
   includedFields: string[];
   wordCount: number;
   hasTranscript: boolean;
+  hasImageDescriptions: boolean;
   contentType: ContentType;
 }
 
@@ -105,6 +107,20 @@ export const buildItemContext = (item: Item): ContextResult => {
     includedFields.push('transcript');
   }
 
+  // Add image descriptions
+  let hasImageDescriptions = false;
+  const imageDescriptions = imageDescriptionsComputed.getDescriptionsByItemId(item.id);
+  if (imageDescriptions && imageDescriptions.length > 0) {
+    hasImageDescriptions = true;
+    contextParts.push(`\n--- Image Descriptions (${imageDescriptions.length} image${imageDescriptions.length > 1 ? 's' : ''}) ---`);
+    imageDescriptions.forEach((desc, idx) => {
+      contextParts.push(`\nImage ${idx + 1} (${desc.image_url}):`);
+      contextParts.push(desc.description);
+    });
+    contextParts.push('--- End Image Descriptions ---\n');
+    includedFields.push('image_descriptions');
+  }
+
   // Add main content
   if (item.content) {
     contextParts.push(`\n--- Content ---`);
@@ -140,6 +156,7 @@ export const buildItemContext = (item: Item): ContextResult => {
       includedFields,
       wordCount,
       hasTranscript,
+      hasImageDescriptions,
       contentType: item.content_type,
     },
   };
@@ -191,6 +208,10 @@ export const formatContextMetadata = (metadata: ContextMetadata): string => {
     parts.push('with transcript');
   }
 
+  if (metadata.hasImageDescriptions) {
+    parts.push('with image descriptions');
+  }
+
   const fieldLabels = metadata.includedFields
     .filter(field => !['content_type', 'title'].includes(field))
     .map(field => {
@@ -198,6 +219,7 @@ export const formatContextMetadata = (metadata: ContextMetadata): string => {
         description: 'Description',
         url: 'URL',
         transcript: 'Transcript',
+        image_descriptions: 'Image Descriptions',
         content: 'Content',
         raw_text: 'Text',
         tags: 'Tags',

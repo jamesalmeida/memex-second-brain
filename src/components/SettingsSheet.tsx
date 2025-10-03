@@ -54,6 +54,8 @@ const SettingsSheet = observer(
     const hasApiKey = aiSettingsStore.hasApiKey.get();
     const isLoadingModels = aiSettingsStore.isLoadingModels.get();
     const timeSinceLastFetch = aiSettingsComputed.timeSinceLastFetch();
+    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
     
     // Snap points for the bottom sheet - single point at 82%
     const snapPoints = useMemo(() => ['82%'], []);
@@ -315,6 +317,50 @@ const SettingsSheet = observer(
                 />
               )}
             </TouchableOpacity>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="subtitles"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Auto-generate Transcripts
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Automatically fetch video transcripts when saving items
+                </Text>
+              </View>
+              <Switch
+                value={autoGenerateTranscripts}
+                onValueChange={(value) => aiSettingsActions.setAutoGenerateTranscripts(value)}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={autoGenerateTranscripts ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="image"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Auto-generate Image Descriptions
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Automatically describe images when saving items
+                </Text>
+              </View>
+              <Switch
+                value={autoGenerateImageDescriptions}
+                onValueChange={(value) => aiSettingsActions.setAutoGenerateImageDescriptions(value)}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={autoGenerateImageDescriptions ? '#fff' : '#f4f3f4'}
+              />
+            </View>
           </View>
 
           {/* Data & Sync Section */}
