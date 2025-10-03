@@ -57,7 +57,7 @@ export const useRadialMenu = () => {
 
 const BUTTON_RADIUS = 80;
 const BUTTON_SIZE = 56;
-const ARC_ANGLE = 140;
+const ARC_ANGLE = 110;
 
 // Animated button component
 const RadialButton: React.FC<{
@@ -137,6 +137,8 @@ const RadialMenuOverlay = observer(({
     overlayOpacity.value = withTiming(visible ? 1 : 0, { duration: 200 });
   }, [visible]);
 
+  // TODO: Add settings feature to let users choose which 3 buttons to show
+  // Currently showing 3 buttons max to prevent finger from covering one during interaction
   const actionButtons: ActionButton[] = [
     {
       id: 'chat',
@@ -156,15 +158,15 @@ const RadialMenuOverlay = observer(({
         console.log('📤 SHARE button pressed for item:', item.title);
       },
     },
-    {
-      id: 'move',
-      label: 'Move',
-      icon: 'folder-outline',
-      color: '#AF52DE',
-      action: (item: Item) => {
-        console.log('📁 MOVE button pressed for item:', item.title);
-      },
-    },
+    // {
+    //   id: 'move',
+    //   label: 'Move',
+    //   icon: 'folder-outline',
+    //   color: '#AF52DE',
+    //   action: (item: Item) => {
+    //     console.log('📁 MOVE button pressed for item:', item.title);
+    //   },
+    // },
     {
       id: 'archive',
       label: 'Archive',
@@ -174,29 +176,36 @@ const RadialMenuOverlay = observer(({
         console.log('📦 ARCHIVE button pressed for item:', item.title);
       },
     },
+    // {
+    //   id: 'delete',
+    //   label: 'Delete',
+    //   icon: 'trash-outline',
+    //   color: '#FF3B30',
+    //   action: (item: Item) => {
+    //     console.log('🗑️ DELETE button pressed for item:', item.title);
+    //   },
+    // },
   ];
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
     const isLeftSide = touchX < screenWidth / 2;
-    const isUpperHalf = touchY < screenHeight / 2;
 
-    let baseAngle = 0;
-    if (isLeftSide && isUpperHalf) {
-      baseAngle = -45;   // Upper left: point right and down
-    } else if (isLeftSide && !isUpperHalf) {
-      baseAngle = -135;  // Lower left: point right and up
-    } else if (!isLeftSide && isUpperHalf) {
-      baseAngle = 45;    // Upper right: point left and down
+    // Always above the finger, angled left or right
+    let centerAngle = 0;
+    if (isLeftSide) {
+      centerAngle = -45;  // 45° to the right (upper-right)
     } else {
-      baseAngle = 135;   // Lower right: point left and up
+      centerAngle = -135; // 45° to the left (upper-left)
     }
 
+    // Center the arc around the centerAngle
+    const startAngle = centerAngle - (ARC_ANGLE / 2);
     const numberOfButtons = actionButtons.length;
     const angleStep = ARC_ANGLE / (numberOfButtons - 1);
 
     for (let i = 0; i < numberOfButtons; i++) {
-      const angle = baseAngle + (i * angleStep);
+      const angle = startAngle + (i * angleStep);
       const radian = (angle * Math.PI) / 180;
       const x = touchX + BUTTON_RADIUS * Math.cos(radian);
       const y = touchY + BUTTON_RADIUS * Math.sin(radian);
@@ -294,6 +303,8 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [shouldDisableScroll, setShouldDisableScroll] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
+  // TODO: Add settings feature to let users choose which 3 buttons to show
+  // Currently showing 3 buttons max to prevent finger from covering one during interaction
   const actionButtons: ActionButton[] = [
     {
       id: 'chat',
@@ -313,15 +324,15 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         console.log('📤 SHARE button pressed for item:', item.title);
       },
     },
-    {
-      id: 'move',
-      label: 'Move',
-      icon: 'folder-outline',
-      color: '#AF52DE',
-      action: (item: Item) => {
-        console.log('📁 MOVE button pressed for item:', item.title);
-      },
-    },
+    // {
+    //   id: 'move',
+    //   label: 'Move',
+    //   icon: 'folder-outline',
+    //   color: '#AF52DE',
+    //   action: (item: Item) => {
+    //     console.log('📁 MOVE button pressed for item:', item.title);
+    //   },
+    // },
     {
       id: 'archive',
       label: 'Archive',
@@ -331,29 +342,36 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         console.log('📦 ARCHIVE button pressed for item:', item.title);
       },
     },
+    // {
+    //   id: 'delete',
+    //   label: 'Delete',
+    //   icon: 'trash-outline',
+    //   color: '#FF3B30',
+    //   action: (item: Item) => {
+    //     console.log('🗑️ DELETE button pressed for item:', item.title);
+    //   },
+    // },
   ];
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
     const isLeftSide = touchX < screenWidth / 2;
-    const isUpperHalf = touchY < screenHeight / 2;
 
-    let baseAngle = 0;
-    if (isLeftSide && isUpperHalf) {
-      baseAngle = -45;   // Upper left: point right and down
-    } else if (isLeftSide && !isUpperHalf) {
-      baseAngle = -135;  // Lower left: point right and up
-    } else if (!isLeftSide && isUpperHalf) {
-      baseAngle = 45;    // Upper right: point left and down
+    // Always above the finger, angled left or right
+    let centerAngle = 0;
+    if (isLeftSide) {
+      centerAngle = -45;  // 45° to the right (upper-right)
     } else {
-      baseAngle = 135;   // Lower right: point left and up
+      centerAngle = -135; // 45° to the left (upper-left)
     }
 
+    // Center the arc around the centerAngle
+    const startAngle = centerAngle - (ARC_ANGLE / 2);
     const numberOfButtons = actionButtons.length;
     const angleStep = ARC_ANGLE / (numberOfButtons - 1);
 
     for (let i = 0; i < numberOfButtons; i++) {
-      const angle = baseAngle + (i * angleStep);
+      const angle = startAngle + (i * angleStep);
       const radian = (angle * Math.PI) / 180;
       const x = touchX + BUTTON_RADIUS * Math.cos(radian);
       const y = touchY + BUTTON_RADIUS * Math.sin(radian);
