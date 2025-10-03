@@ -42,6 +42,8 @@ import { supabase } from '../services/supabase';
 import { generateTags, URLMetadata } from '../services/urlMetadata';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CONTENT_PADDING = 20;
+const CONTENT_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 
 const contentTypeOptions: { type: ContentType; label: string; icon: string }[] = [
   { type: 'bookmark', label: 'Bookmark', icon: '🔖' },
@@ -676,12 +678,12 @@ const ExpandedItemView = observer(
                     </View>
                   ) : videoUrl && videoPlayer ? (
                     // Show video player for Twitter/X videos
-                    <View style={{ position: 'relative' }}>
+                    <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
                       <VideoView
                         player={videoPlayer}
                         style={[
                           styles.heroMedia,
-                          { height: SCREEN_WIDTH / (16/9) } // Set aspect ratio for videos
+                          { height: CONTENT_WIDTH / (16/9) } // Set aspect ratio for videos
                         ]}
                         contentFit="contain"
                         fullscreenOptions={{ enable: true }}
@@ -713,7 +715,7 @@ const ExpandedItemView = observer(
                     if (hasMultipleImages) {
                       return (
                         // Show carousel for multiple images
-                        <View style={{ position: 'relative', width: SCREEN_WIDTH, height: SCREEN_WIDTH }}>
+                        <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
                           <ScrollView
                             ref={scrollViewRef}
                             horizontal
@@ -722,20 +724,20 @@ const ExpandedItemView = observer(
                             nestedScrollEnabled={true}
                             directionalLockEnabled={true}
                             onMomentumScrollEnd={(event) => {
-                              const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                              const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
                               setCurrentImageIndex(newIndex);
                             }}
                             scrollEventThrottle={16}
-                            style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH }}
-                            contentContainerStyle={{ height: SCREEN_WIDTH }}
+                            style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
+                            contentContainerStyle={{ height: CONTENT_WIDTH }}
                           >
                             {imageUrls!.map((imageUrl, index) => (
                               <Image
                                 key={index}
                                 source={{ uri: imageUrl }}
                                 style={{
-                                  width: SCREEN_WIDTH,
-                                  height: SCREEN_WIDTH,
+                                  width: CONTENT_WIDTH,
+                                  height: CONTENT_WIDTH,
                                   backgroundColor: '#000000'
                                 }}
                                 resizeMode="contain"
@@ -764,9 +766,10 @@ const ExpandedItemView = observer(
                           style={[
                             styles.heroMedia,
                             imageAspectRatio ? {
-                              width: SCREEN_WIDTH,
-                              height: SCREEN_WIDTH / imageAspectRatio,
-                              maxHeight: SCREEN_HEIGHT * 0.6
+                              width: CONTENT_WIDTH,
+                              height: CONTENT_WIDTH / imageAspectRatio,
+                              maxHeight: SCREEN_HEIGHT * 0.6,
+                              borderRadius: 12
                             } : {}
                           ]}
                           resizeMode="contain"
@@ -788,9 +791,10 @@ const ExpandedItemView = observer(
                       style={[
                         styles.heroMedia,
                         imageAspectRatio ? {
-                          width: SCREEN_WIDTH,
-                          height: SCREEN_WIDTH / imageAspectRatio,
-                          maxHeight: SCREEN_HEIGHT * 0.6
+                          width: CONTENT_WIDTH,
+                          height: CONTENT_WIDTH / imageAspectRatio,
+                          maxHeight: SCREEN_HEIGHT * 0.6,
+                          borderRadius: 12
                         } : {}
                       ]}
                       resizeMode="contain"
@@ -1435,6 +1439,8 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     position: 'relative',
+    paddingHorizontal: CONTENT_PADDING,
+    overflow: 'hidden',
   },
   heroImage: {
     width: '100%',
@@ -1442,10 +1448,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
   },
   heroMedia: {
-    width: SCREEN_WIDTH,
+    width: CONTENT_WIDTH,
     minHeight: 250,
     maxHeight: SCREEN_HEIGHT * 0.6,
     backgroundColor: '#000000',
+    borderRadius: 12,
   },
   placeholderHero: {
     width: '100%',
@@ -1453,6 +1460,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 12,
   },
   placeholderHeroDark: {
     backgroundColor: '#2C2C2E',
@@ -1895,15 +1903,19 @@ const styles = StyleSheet.create({
   },
   // YouTube embed styles
   youtubeEmbed: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio for regular videos
+    width: CONTENT_WIDTH,
+    height: CONTENT_WIDTH * (9/16), // 16:9 aspect ratio for regular videos
     backgroundColor: '#000',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   youtubeShortEmbed: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * (16/9), // 9:16 aspect ratio for YouTube Shorts (vertical)
+    width: CONTENT_WIDTH,
+    height: CONTENT_WIDTH * (16/9), // 9:16 aspect ratio for YouTube Shorts (vertical)
     backgroundColor: '#000',
     maxHeight: SCREEN_HEIGHT * 0.8, // Limit max height to 70% of screen
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   webView: {
     flex: 1,
