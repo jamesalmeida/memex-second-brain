@@ -126,13 +126,13 @@ export const chatMessagesActions = {
   },
 
   // Optimistically add a message (for UI responsiveness)
-  addMessageOptimistic: (
+  addMessageOptimistic: async (
     chatId: string,
     chatType: ChatType,
     role: 'user' | 'assistant' | 'system',
     content: string,
     metadata?: ChatMessageMetadata
-  ): ChatMessage => {
+  ): Promise<ChatMessage> => {
     const newMessage: ChatMessage = {
       id: uuid.v4() as string,
       chat_id: chatId,
@@ -148,15 +148,16 @@ export const chatMessagesActions = {
     const updatedMessages = [...currentMessages, newMessage];
     chatMessagesStore.messages.set(updatedMessages);
 
-    // Persist in background
-    AsyncStorage.setItem(STORAGE_KEYS.CHAT_MESSAGES, JSON.stringify(updatedMessages)).catch(
-      console.error
-    );
+    // Persist to AsyncStorage
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.CHAT_MESSAGES, JSON.stringify(updatedMessages));
+    } catch (error) {
+      console.error('Error saving messages to AsyncStorage:', error);
+    }
 
-    // Sync to Supabase in background
-    supabase
-      .from('chat_messages')
-      .insert({
+    // Sync to Supabase
+    try {
+      const { error } = await supabase.from('chat_messages').insert({
         id: newMessage.id,
         chat_id: newMessage.chat_id,
         chat_type: newMessage.chat_type,
@@ -164,12 +165,19 @@ export const chatMessagesActions = {
         content: newMessage.content,
         created_at: newMessage.created_at,
         metadata: newMessage.metadata,
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.error('Error syncing message to Supabase:', error);
-        }
       });
+
+      if (error) {
+        console.error('Error syncing message to Supabase:', error);
+        console.error('Message details:', {
+          chat_id: newMessage.chat_id,
+          chat_type: newMessage.chat_type,
+          role: newMessage.role,
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing message to Supabase:', error);
+    }
 
     return newMessage;
   },

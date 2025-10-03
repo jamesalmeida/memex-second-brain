@@ -1,12 +1,19 @@
 import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Item, SearchFilters } from '../types';
+import { Item, SearchFilters, VideoTranscript } from '../types';
 import { STORAGE_KEYS } from '../constants';
 import { syncOperations } from '../services/syncOperations';
 import { authStore } from './auth';
 import { itemSpacesComputed, itemSpacesActions } from './itemSpaces';
 import { spacesActions } from './spaces';
 import { videoTranscriptsActions } from './videoTranscripts';
+import { aiSettingsStore } from './aiSettings';
+import { imageDescriptionsActions } from './imageDescriptions';
+import { itemTypeMetadataComputed } from './itemTypeMetadata';
+import { openai } from '../services/openai';
+import { getYouTubeTranscript } from '../services/youtube';
+import { getXVideoTranscript } from '../services/twitter';
+import uuid from 'react-native-uuid';
 
 interface ItemsState {
   items: Item[];
@@ -62,21 +69,139 @@ export const itemsActions = {
   addItemWithSync: async (newItem: Item) => {
     const currentItems = itemsStore.items.get();
     const updatedItems = [newItem, ...currentItems];
-    
+
     // Save locally first
     itemsStore.items.set(updatedItems);
     itemsStore.filteredItems.set(updatedItems);
-    
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
-      
+
       // Sync with Supabase if authenticated
       const user = authStore.user.get();
       if (user) {
         await syncOperations.uploadItem(newItem, user.id);
       }
+
+      // Auto-generate content in background (non-blocking)
+      setTimeout(() => {
+        itemsActions._autoGenerateContent(newItem).catch(err => {
+          console.error('Error auto-generating content:', err);
+        });
+      }, 100);
     } catch (error) {
       console.error('Error saving item:', error);
+    }
+  },
+
+  // Auto-generate transcripts and image descriptions if enabled
+  _autoGenerateContent: async (item: Item) => {
+    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
+    const selectedModel = aiSettingsStore.selectedModel.get();
+
+    // Auto-generate video transcript if enabled
+    if (autoGenerateTranscripts) {
+      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
+      const isXVideo = item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id);
+
+      if (isYouTube || isXVideo) {
+        console.log('🎬 Auto-generating transcript for', item.id);
+        videoTranscriptsActions.setGenerating(item.id, true);
+
+        try {
+          let fetchedTranscript: string;
+          let language: string;
+          let platform: 'youtube' | 'x';
+
+          if (isYouTube && item.url) {
+            // Extract video ID from URL for YouTube
+            const videoIdMatch = item.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+            if (!videoIdMatch) {
+              throw new Error('Invalid YouTube URL');
+            }
+            const videoId = videoIdMatch[1];
+
+            // Fetch transcript from YouTube
+            const result = await getYouTubeTranscript(videoId);
+            fetchedTranscript = result.transcript;
+            language = result.language;
+            platform = 'youtube';
+          } else if (isXVideo) {
+            // Get video URL from metadata for X posts
+            const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+            if (!videoUrl) {
+              throw new Error('No video found for this X post');
+            }
+
+            // Fetch transcript from AssemblyAI
+            const result = await getXVideoTranscript(videoUrl, (status) => {
+              console.log('Transcription status:', status);
+            });
+            fetchedTranscript = result.transcript;
+            language = result.language;
+            platform = 'x';
+          } else {
+            throw new Error('Unsupported content type for transcription');
+          }
+
+          // Create video transcript object
+          const transcriptData: VideoTranscript = {
+            id: uuid.v4() as string,
+            item_id: item.id,
+            transcript: fetchedTranscript,
+            platform,
+            language,
+            duration: item.duration,
+            fetched_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          // Save to local store and sync to Supabase
+          await videoTranscriptsActions.addTranscript(transcriptData);
+          console.log('🎬 Auto-generated transcript saved for item:', item.id);
+        } catch (error) {
+          console.error('Error auto-generating transcript:', error);
+        } finally {
+          videoTranscriptsActions.setGenerating(item.id, false);
+        }
+      }
+    }
+
+    // Auto-generate image descriptions if enabled
+    if (autoGenerateImageDescriptions) {
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      if (imageUrls && imageUrls.length > 0) {
+        console.log('🖼️  Auto-generating descriptions for', imageUrls.length, 'images');
+        imageDescriptionsActions.setGenerating(item.id, true);
+        try {
+          for (const imageUrl of imageUrls) {
+            const description = await openai.describeImage(imageUrl, {
+              model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+            });
+
+            if (description) {
+              const imageDescription = {
+                id: `${item.id}-${imageUrl}`,
+                item_id: item.id,
+                image_url: imageUrl,
+                description,
+                model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+                fetched_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              await imageDescriptionsActions.addDescription(imageDescription);
+            }
+          }
+        } catch (error) {
+          console.error('Error generating image descriptions:', error);
+        } finally {
+          imageDescriptionsActions.setGenerating(item.id, false);
+        }
+      }
     }
   },
 

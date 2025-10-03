@@ -101,6 +101,17 @@ export interface VideoTranscript {
   updated_at: string;
 }
 
+export interface ImageDescription {
+  id: string;
+  item_id: string;
+  image_url: string;
+  description: string;
+  model: string;
+  fetched_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ItemChat {
   id: string;
   item_id: string;

@@ -186,6 +186,68 @@ export const openai = {
     return result;
   },
 
+  // Describe an image using OpenAI Vision API
+  async describeImage(
+    imageUrl: string,
+    options: {
+      model?: string;
+    } = {}
+  ): Promise<string | null> {
+    if (!API.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not configured');
+      return null;
+    }
+
+    try {
+      // Use a vision-capable model (gpt-4o or gpt-4o-mini)
+      const model = options.model || 'gpt-4o-mini';
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Describe this image in extreme detail and precision. Your description will be used as context for another AI model that cannot see the image, so be thorough about all visible elements, text, colors, composition, mood, and any other relevant details. Focus on what is actually shown in the image.',
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageUrl,
+                  },
+                },
+              ],
+            },
+          ],
+          max_tokens: 500,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.choices && data.choices[0]) {
+        return data.choices[0].message.content;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('OpenAI Vision API error:', error);
+      return null;
+    }
+  },
+
   // Fetch available models from OpenAI
   async fetchAvailableModels(): Promise<any[]> {
     if (!API.OPENAI_API_KEY) {

@@ -19,7 +19,8 @@ import { getXVideoTranscript, getVideoUrlFromMetadata } from '../services/twitte
 import { STORAGE_KEYS } from '../constants';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../stores/videoTranscripts';
-import { VideoTranscript } from '../types';
+import { imageDescriptionsActions, imageDescriptionsComputed } from '../stores/imageDescriptions';
+import { VideoTranscript, ImageDescription } from '../types';
 import uuid from 'react-native-uuid';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
@@ -37,9 +38,11 @@ import { itemsStore, itemsActions } from '../stores/items';
 import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { itemMetadataComputed } from '../stores/itemMetadata';
+import { aiSettingsComputed } from '../stores/aiSettings';
 import { Item, Space, ContentType } from '../types';
 import { supabase } from '../services/supabase';
 import { generateTags, URLMetadata } from '../services/urlMetadata';
+import { openai } from '../services/openai';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -132,6 +135,14 @@ const ExpandedItemView = observer(
   const [transcriptStats, setTranscriptStats] = useState({ chars: 0, words: 0, readTime: 0 });
   const transcriptOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
+
+  // Image descriptions state
+  const [imageDescriptions, setImageDescriptions] = useState<ImageDescription[]>([]);
+  const [showImageDescriptions, setShowImageDescriptions] = useState(false);
+  const [isGeneratingImageDescriptions, setIsGeneratingImageDescriptions] = useState(false);
+  const [imageDescriptionsExist, setImageDescriptionsExist] = useState(false);
+  const imageDescriptionsOpacity = useSharedValue(0);
+  const imageDescriptionsButtonOpacity = useSharedValue(1);
   
   // Tags state
   const [tags, setTags] = useState<string[]>([]);
@@ -242,6 +253,12 @@ const ExpandedItemView = observer(
         checkForExistingTranscript(item.id);
       }
 
+      // Check for existing image descriptions if item has images
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      if (imageUrls && imageUrls.length > 0) {
+        checkForExistingImageDescriptions(item.id);
+      }
+
       // Open the sheet after a small delay to ensure it's mounted
       console.log('📄 [ExpandedItemView] Scheduling sheet open');
       setTimeout(() => {
@@ -260,6 +277,58 @@ const ExpandedItemView = observer(
     }
   }, [item, ref]);
 
+  // Watch for changes in image descriptions store to update UI state
+  useEffect(() => {
+    if (itemToDisplay) {
+      // Access the observable to establish reactivity
+      const descriptions = imageDescriptionsComputed.getDescriptionsByItemId(itemToDisplay.id);
+
+      if (descriptions && descriptions.length > 0) {
+        console.log('📄 [ExpandedItemView] Image descriptions detected in store:', descriptions.length);
+        setImageDescriptions(descriptions);
+        setImageDescriptionsExist(true);
+
+        // Animate transition from button to dropdown
+        imageDescriptionsButtonOpacity.value = withTiming(0, { duration: 150 }, () => {
+          imageDescriptionsOpacity.value = withTiming(1, { duration: 150 });
+        });
+      } else {
+        // Reset to button state if descriptions were removed
+        setImageDescriptions([]);
+        setImageDescriptionsExist(false);
+        imageDescriptionsOpacity.value = 0;
+        imageDescriptionsButtonOpacity.value = 1;
+      }
+    }
+  }, [itemToDisplay?.id, imageDescriptionsComputed.descriptions()]);
+
+  // Watch for changes in video transcripts store to update UI state
+  useEffect(() => {
+    if (itemToDisplay) {
+      // Access the observable to establish reactivity
+      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemToDisplay.id);
+
+      if (existingTranscript && existingTranscript.transcript) {
+        console.log('📄 [ExpandedItemView] Transcript detected in store, length:', existingTranscript.transcript.length);
+        const transcriptText = existingTranscript.transcript;
+        setTranscript(transcriptText);
+        setTranscriptStats(calculateTranscriptStats(transcriptText));
+        setTranscriptExists(true);
+
+        // Animate transition from button to dropdown
+        buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
+          transcriptOpacity.value = withTiming(1, { duration: 150 });
+        });
+      } else {
+        // Reset to button state if transcript was removed
+        setTranscript('');
+        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
+        setTranscriptExists(false);
+        transcriptOpacity.value = 0;
+        buttonOpacity.value = 1;
+      }
+    }
+  }, [itemToDisplay?.id, videoTranscriptsComputed.transcripts()]);
 
   // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
@@ -331,6 +400,7 @@ const ExpandedItemView = observer(
     if (!itemToDisplay || (!isYouTube && !isXVideo) || (!itemToDisplay.url && !isXVideo)) return;
 
     setIsGeneratingTranscript(true);
+    videoTranscriptsActions.setGenerating(itemToDisplay.id, true);
 
     try {
       let fetchedTranscript: string;
@@ -407,12 +477,120 @@ const ExpandedItemView = observer(
       alert('Failed to generate transcript. The video may not have captions available.');
     } finally {
       setIsGeneratingTranscript(false);
+      videoTranscriptsActions.setGenerating(itemToDisplay.id, false);
     }
   };
 
   const copyTranscriptToClipboard = async () => {
     if (transcript) {
       await Clipboard.setStringAsync(transcript);
+      // Could add a toast notification here
+    }
+  };
+
+  // Image description helper functions
+  const checkForExistingImageDescriptions = async (itemId: string) => {
+    try {
+      console.log('Checking for existing image descriptions for item:', itemId);
+
+      // Check local store for descriptions
+      const existingDescriptions = imageDescriptionsComputed.getDescriptionsByItemId(itemId);
+
+      if (existingDescriptions && existingDescriptions.length > 0) {
+        console.log('Found', existingDescriptions.length, 'image descriptions in local store');
+        setImageDescriptions(existingDescriptions);
+        setImageDescriptionsExist(true);
+        imageDescriptionsOpacity.value = 1;
+        imageDescriptionsButtonOpacity.value = 0;
+        return;
+      }
+
+      // No descriptions found
+      console.log('No existing image descriptions found for item:', itemId);
+      setImageDescriptions([]);
+      setImageDescriptionsExist(false);
+      imageDescriptionsOpacity.value = 0;
+      imageDescriptionsButtonOpacity.value = 1;
+    } catch (error) {
+      console.error('Error checking for image descriptions:', error);
+      // Set default state on error
+      setImageDescriptions([]);
+      setImageDescriptionsExist(false);
+      imageDescriptionsOpacity.value = 0;
+      imageDescriptionsButtonOpacity.value = 1;
+    }
+  };
+
+  const generateImageDescriptions = async () => {
+    if (!itemToDisplay) return;
+
+    const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
+    if (!imageUrls || imageUrls.length === 0) {
+      alert('No images found for this item.');
+      return;
+    }
+
+    setIsGeneratingImageDescriptions(true);
+    imageDescriptionsActions.setGenerating(itemToDisplay.id, true);
+
+    try {
+      console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
+      const selectedModel = aiSettingsComputed.selectedModel();
+      const generatedDescriptions: ImageDescription[] = [];
+
+      for (const imageUrl of imageUrls) {
+        // Generate description for each image
+        const description = await openai.describeImage(imageUrl, {
+          model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+        });
+
+        if (description) {
+          // Create and save the description
+          const imageDescription: ImageDescription = {
+            id: `${itemToDisplay.id}-${imageUrl}`,
+            item_id: itemToDisplay.id,
+            image_url: imageUrl,
+            description,
+            model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+            fetched_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          await imageDescriptionsActions.addDescription(imageDescription);
+          generatedDescriptions.push(imageDescription);
+        }
+      }
+
+      // Update local state
+      setImageDescriptions(generatedDescriptions);
+      setImageDescriptionsExist(true);
+
+      // Animate transition from button to dropdown
+      imageDescriptionsButtonOpacity.value = withTiming(0, { duration: 150 }, () => {
+        imageDescriptionsOpacity.value = withTiming(1, { duration: 150 });
+      });
+
+      // Auto-expand dropdown after generation
+      setTimeout(() => {
+        setShowImageDescriptions(true);
+      }, 300);
+
+    } catch (error) {
+      console.error('Error generating image descriptions:', error);
+      alert('Failed to generate image descriptions. Please try again.');
+    } finally {
+      setIsGeneratingImageDescriptions(false);
+      imageDescriptionsActions.setGenerating(itemToDisplay.id, false);
+    }
+  };
+
+  const copyImageDescriptionsToClipboard = async () => {
+    if (imageDescriptions.length > 0) {
+      const text = imageDescriptions.map((desc, idx) =>
+        `Image ${idx + 1}:\n${desc.description}`
+      ).join('\n\n');
+      await Clipboard.setStringAsync(text);
       // Could add a toast notification here
     }
   };
@@ -1231,6 +1409,77 @@ const ExpandedItemView = observer(
                     )}
                   </View>
 
+                  {/* Image Descriptions Section (for items with images) */}
+                  {(() => {
+                    const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
+                    return imageUrls && imageUrls.length > 0;
+                  })() && (
+                    <View style={styles.imageDescriptionsSection}>
+                      <Text style={[styles.imageDescriptionsSectionLabel, isDarkMode && styles.imageDescriptionsSectionLabelDark]}>
+                        IMAGE DESCRIPTIONS
+                      </Text>
+
+                      {/* Show button or dropdown based on descriptions existence */}
+                      {!imageDescriptionsExist ? (
+                        <Animated.View style={{ opacity: imageDescriptionsButtonOpacity }}>
+                          <TouchableOpacity
+                            style={[
+                              styles.imageDescriptionsGenerateButton,
+                              (isGeneratingImageDescriptions || imageDescriptionsComputed.isGenerating(itemToDisplay?.id || '')) && styles.imageDescriptionsGenerateButtonDisabled,
+                              isDarkMode && styles.imageDescriptionsGenerateButtonDark
+                            ]}
+                            onPress={generateImageDescriptions}
+                            disabled={isGeneratingImageDescriptions || imageDescriptionsComputed.isGenerating(itemToDisplay?.id || '')}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.imageDescriptionsGenerateButtonText}>
+                              {(isGeneratingImageDescriptions || imageDescriptionsComputed.isGenerating(itemToDisplay?.id || '')) ? '⏳ Processing...' : '⚡ Generate'}
+                            </Text>
+                          </TouchableOpacity>
+                        </Animated.View>
+                      ) : (
+                        <Animated.View style={{ opacity: imageDescriptionsOpacity }}>
+                          <TouchableOpacity
+                            style={[styles.imageDescriptionsSelector, isDarkMode && styles.imageDescriptionsSelectorDark]}
+                            onPress={() => setShowImageDescriptions(!showImageDescriptions)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.imageDescriptionsSelectorText, isDarkMode && styles.imageDescriptionsSelectorTextDark]}>
+                              {showImageDescriptions ? 'Hide Descriptions' : `View Descriptions (${imageDescriptions.length})`}
+                            </Text>
+                            <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
+                              {showImageDescriptions ? '▲' : '▼'}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {showImageDescriptions && (
+                            <View style={[styles.imageDescriptionsContent, isDarkMode && styles.imageDescriptionsContentDark]}>
+                              <ScrollView style={styles.imageDescriptionsScrollView} showsVerticalScrollIndicator={false}>
+                                {imageDescriptions.map((desc, idx) => (
+                                  <View key={desc.id} style={styles.imageDescriptionItem}>
+                                    <Text style={[styles.imageDescriptionLabel, isDarkMode && styles.imageDescriptionLabelDark]}>
+                                      Image {idx + 1}:
+                                    </Text>
+                                    <Text style={[styles.imageDescriptionText, isDarkMode && styles.imageDescriptionTextDark]}>
+                                      {desc.description}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </ScrollView>
+                              <TouchableOpacity
+                                style={styles.imageDescriptionsCopyButton}
+                                onPress={copyImageDescriptionsToClipboard}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.imageDescriptionsCopyButtonText}>📋</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </Animated.View>
+                      )}
+                    </View>
+                  )}
+
                   {/* Thumbnail Section (for YouTube and YouTube Shorts) */}
                   {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && itemToDisplay?.thumbnail_url && (
                     <View style={styles.thumbnailSection}>
@@ -1291,15 +1540,15 @@ const ExpandedItemView = observer(
                           <TouchableOpacity
                             style={[
                               styles.transcriptGenerateButton,
-                              isGeneratingTranscript && styles.transcriptGenerateButtonDisabled,
+                              (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) && styles.transcriptGenerateButtonDisabled,
                               isDarkMode && styles.transcriptGenerateButtonDark
                             ]}
                             onPress={generateTranscript}
-                            disabled={isGeneratingTranscript}
+                            disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')}
                             activeOpacity={0.7}
                           >
                             <Text style={styles.transcriptGenerateButtonText}>
-                              {isGeneratingTranscript ? '⏳ Processing...' : '⚡ Generate'}
+                              {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) ? '⏳ Processing...' : '⚡ Generate'}
                             </Text>
                           </TouchableOpacity>
                         </Animated.View>
@@ -2106,6 +2355,111 @@ const styles = StyleSheet.create({
   },
   transcriptFooterTextDark: {
     color: '#999',
+  },
+  // Image descriptions section styles
+  imageDescriptionsSection: {
+    marginBottom: 20,
+  },
+  imageDescriptionsSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  imageDescriptionsSectionLabelDark: {
+    color: '#999',
+  },
+  imageDescriptionsGenerateButton: {
+    backgroundColor: '#007AFF',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageDescriptionsGenerateButtonDark: {
+    backgroundColor: '#0A84FF',
+  },
+  imageDescriptionsGenerateButtonDisabled: {
+    backgroundColor: '#999',
+  },
+  imageDescriptionsGenerateButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  imageDescriptionsSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  imageDescriptionsSelectorDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3C3C3E',
+  },
+  imageDescriptionsSelectorText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  imageDescriptionsSelectorTextDark: {
+    color: '#FFF',
+  },
+  imageDescriptionsContent: {
+    marginTop: 8,
+    padding: 16,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    position: 'relative',
+  },
+  imageDescriptionsContentDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  imageDescriptionsScrollView: {
+    maxHeight: 300,
+    paddingBottom: 35, // Make room for sticky footer
+  },
+  imageDescriptionItem: {
+    marginBottom: 16,
+  },
+  imageDescriptionLabel: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  imageDescriptionLabelDark: {
+    color: '#999',
+  },
+  imageDescriptionText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 22,
+  },
+  imageDescriptionTextDark: {
+    color: '#CCC',
+  },
+  imageDescriptionsCopyButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageDescriptionsCopyButtonText: {
+    fontSize: 20,
   },
   videoPlayButtonOverlay: {
     position: 'absolute',

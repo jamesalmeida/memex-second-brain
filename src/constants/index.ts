@@ -100,6 +100,7 @@ export const STORAGE_KEYS = {
   ITEM_TYPE_METADATA: 'item_type_metadata',
   SPACES: 'spaces',
   VIDEO_TRANSCRIPTS: '@memex_video_transcripts',
+  IMAGE_DESCRIPTIONS: '@memex_image_descriptions',
   SYNC_STATUS: 'sync_status',
   AI_SETTINGS: '@memex_ai_settings',
   AI_MODELS: '@memex_ai_models',

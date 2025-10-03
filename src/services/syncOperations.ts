@@ -1,5 +1,5 @@
 import { supabase, db } from './supabase';
-import { Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, VideoTranscript } from '../types';
+import { Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, VideoTranscript, ImageDescription } from '../types';
 import { authStore } from '../stores/auth';
 
 export const syncOperations = {
@@ -159,6 +159,24 @@ export const syncOperations = {
     const { error } = await db.deleteVideoTranscript(itemId);
     if (error) throw error;
     console.log(`✅ Deleted video transcript for item ${itemId}`);
+  },
+
+  async uploadImageDescription(description: ImageDescription) {
+    const { error } = await db.saveImageDescription({
+      item_id: description.item_id,
+      image_url: description.image_url,
+      description: description.description,
+      model: description.model,
+    });
+
+    if (error) throw error;
+    console.log(`✅ Uploaded image description for item ${description.item_id} (${description.image_url})`);
+  },
+
+  async deleteImageDescription(itemId: string, imageUrl?: string) {
+    const { error } = await db.deleteImageDescription(itemId, imageUrl);
+    if (error) throw error;
+    console.log(`✅ Deleted image description(s) for item ${itemId}${imageUrl ? ` (${imageUrl})` : ''}`);
   },
 
   async checkConnection(): Promise<boolean> {

@@ -26,10 +26,16 @@ import { chatUIStore, chatUIActions } from '../stores/chatUI';
 import { aiSettingsComputed } from '../stores/aiSettings';
 import { itemChatsActions, itemChatsComputed } from '../stores/itemChats';
 import { chatMessagesActions, chatMessagesComputed } from '../stores/chatMessages';
+import { videoTranscriptsComputed, videoTranscriptsActions } from '../stores/videoTranscripts';
+import { imageDescriptionsComputed, imageDescriptionsActions } from '../stores/imageDescriptions';
+import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { buildItemContext, formatContextMetadata } from '../services/contextBuilder';
 import { openai } from '../services/openai';
-import { Item, ItemChat, ChatMessage } from '../types';
+import { getYouTubeTranscript } from '../services/youtube';
+import { getXVideoTranscript } from '../services/twitter';
+import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
+import uuid from 'react-native-uuid';
 
 interface ChatSheetProps {
   onOpen?: () => void;
@@ -48,6 +54,10 @@ const ChatSheet = observer(
     const [chat, setChat] = useState<ItemChat | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
+    const [showTranscriptButton, setShowTranscriptButton] = useState(false);
+    const [showDescriptionButton, setShowDescriptionButton] = useState(false);
+    const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
+    const [isGeneratingDescriptions, setIsGeneratingDescriptions] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -57,26 +67,200 @@ const ChatSheet = observer(
     // Load or create chat when item changes
     useEffect(() => {
       if (item) {
-        loadOrCreateChat();
+        loadOrCreateChat().then(() => {
+          checkForMissingContent();
+        });
       }
     }, [item?.id]);
+
+    // Watch for changes in image descriptions store to update button visibility
+    useEffect(() => {
+      if (item) {
+        // Access the observable to establish reactivity
+        const hasDescriptions = imageDescriptionsComputed.hasDescriptions(item.id);
+        checkForMissingContent();
+      }
+    }, [item?.id, imageDescriptionsComputed.descriptions()]);
+
+    // Watch for changes in video transcripts store to update button visibility
+    useEffect(() => {
+      if (item) {
+        // Access the observable to establish reactivity
+        const hasTranscript = videoTranscriptsComputed.hasTranscript(item.id);
+        checkForMissingContent();
+      }
+    }, [item?.id, videoTranscriptsComputed.transcripts()]);
 
     const loadOrCreateChat = async () => {
       if (!item) return;
 
-      // Try to find existing chat
-      let existingChat = itemChatsComputed.getChatByItemId(item.id);
+      try {
+        // First check local store
+        let existingChat = itemChatsComputed.getChatByItemId(item.id);
 
-      if (!existingChat) {
-        // Create new chat
-        existingChat = await itemChatsActions.createChat(item.id);
+        // If not found locally, sync from Supabase and check again
+        if (!existingChat) {
+          await itemChatsActions.syncFromSupabase();
+          existingChat = itemChatsComputed.getChatByItemId(item.id);
+        }
+
+        // If still not found, create new chat
+        if (!existingChat) {
+          console.log('💬 Creating new chat for item:', item.id);
+          existingChat = await itemChatsActions.createChat(item.id);
+        }
+
+        if (existingChat) {
+          setChat(existingChat);
+          // Load messages for this chat
+          const chatMessages = await chatMessagesActions.loadMessagesForChat(existingChat.id);
+          setMessages(chatMessages);
+          console.log('💬 Loaded chat:', existingChat.id, 'with', chatMessages.length, 'messages');
+        } else {
+          console.error('❌ Failed to create or load chat for item:', item.id);
+        }
+      } catch (error) {
+        console.error('❌ Error loading/creating chat:', error);
       }
+    };
 
-      if (existingChat) {
-        setChat(existingChat);
-        // Load messages for this chat
-        const chatMessages = await chatMessagesActions.loadMessagesForChat(existingChat.id);
-        setMessages(chatMessages);
+    const checkForMissingContent = () => {
+      if (!item) return;
+
+      // Check if video item without transcript
+      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
+      const isXVideo = item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id);
+      const needsTranscript =
+        (isYouTube || isXVideo) && !videoTranscriptsComputed.hasTranscript(item.id);
+
+      // Check if item has images without descriptions
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      const needsDescriptions =
+        imageUrls && imageUrls.length > 0 && !imageDescriptionsComputed.hasDescriptions(item.id);
+
+      setShowTranscriptButton(needsTranscript);
+      setShowDescriptionButton(needsDescriptions);
+    };
+
+    const handleGenerateTranscript = async () => {
+      if (!item) return;
+
+      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
+      const isXVideo = item.content_type === 'x';
+
+      if (!isYouTube && !isXVideo) return;
+
+      setIsGeneratingTranscript(true);
+      videoTranscriptsActions.setGenerating(item.id, true);
+
+      try {
+        console.log('🎬 Generating transcript for', item.id);
+        let fetchedTranscript: string;
+        let language: string;
+        let platform: 'youtube' | 'x';
+
+        if (isYouTube && item.url) {
+          // Extract video ID from URL for YouTube
+          const videoIdMatch = item.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+          if (!videoIdMatch) {
+            throw new Error('Invalid YouTube URL');
+          }
+          const videoId = videoIdMatch[1];
+
+          // Fetch transcript from YouTube
+          const result = await getYouTubeTranscript(videoId);
+          fetchedTranscript = result.transcript;
+          language = result.language;
+          platform = 'youtube';
+        } else if (isXVideo) {
+          // Get video URL from metadata for X posts
+          const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+          if (!videoUrl) {
+            throw new Error('No video found for this X post');
+          }
+
+          // Fetch transcript from AssemblyAI
+          const result = await getXVideoTranscript(videoUrl, (status) => {
+            console.log('Transcription status:', status);
+          });
+          fetchedTranscript = result.transcript;
+          language = result.language;
+          platform = 'x';
+        } else {
+          throw new Error('Unsupported content type for transcription');
+        }
+
+        // Create video transcript object
+        const transcriptData: VideoTranscript = {
+          id: uuid.v4() as string,
+          item_id: item.id,
+          transcript: fetchedTranscript,
+          platform,
+          language,
+          duration: item.duration,
+          fetched_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Save to local store and sync to Supabase
+        await videoTranscriptsActions.addTranscript(transcriptData);
+        console.log('🎬 Transcript saved for item:', item.id);
+
+        // Hide the button
+        setShowTranscriptButton(false);
+        alert('Transcript generated successfully!');
+      } catch (error) {
+        console.error('Error generating transcript:', error);
+        alert('Failed to generate transcript. The video may not have captions available.');
+      } finally {
+        setIsGeneratingTranscript(false);
+        videoTranscriptsActions.setGenerating(item.id, false);
+      }
+    };
+
+    const handleGenerateDescriptions = async () => {
+      if (!item) return;
+
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      if (!imageUrls || imageUrls.length === 0) return;
+
+      setIsGeneratingDescriptions(true);
+      imageDescriptionsActions.setGenerating(item.id, true);
+      try {
+        console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
+
+        for (const imageUrl of imageUrls) {
+          // Generate description for each image
+          const description = await openai.describeImage(imageUrl, {
+            model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+          });
+
+          if (description) {
+            // Create and save the description
+            const imageDescription = {
+              id: `${item.id}-${imageUrl}`, // Temporary ID
+              item_id: item.id,
+              image_url: imageUrl,
+              description,
+              model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
+              fetched_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+
+            await imageDescriptionsActions.addDescription(imageDescription);
+          }
+        }
+
+        setShowDescriptionButton(false);
+        alert(`Generated descriptions for ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''}!`);
+      } catch (error) {
+        console.error('Error generating image descriptions:', error);
+        alert('Failed to generate image descriptions. Please try again.');
+      } finally {
+        setIsGeneratingDescriptions(false);
+        imageDescriptionsActions.setGenerating(item.id, false);
       }
     };
 
@@ -98,7 +282,7 @@ const ChatSheet = observer(
 
       try {
         // Add user message optimistically
-        const userMsg = chatMessagesActions.addMessageOptimistic(
+        const userMsg = await chatMessagesActions.addMessageOptimistic(
           chat.id,
           'item',
           'user',
@@ -143,7 +327,7 @@ const ChatSheet = observer(
           };
 
           // Add assistant message
-          const assistantMsg = chatMessagesActions.addMessageOptimistic(
+          const assistantMsg = await chatMessagesActions.addMessageOptimistic(
             chat.id,
             'item',
             'assistant',
@@ -153,7 +337,7 @@ const ChatSheet = observer(
           setMessages(prev => [...prev, assistantMsg]);
         } else {
           // Show error message
-          const errorMsg = chatMessagesActions.addMessageOptimistic(
+          const errorMsg = await chatMessagesActions.addMessageOptimistic(
             chat.id,
             'item',
             'assistant',
@@ -163,7 +347,7 @@ const ChatSheet = observer(
         }
       } catch (error) {
         console.error('Error sending message:', error);
-        const errorMsg = chatMessagesActions.addMessageOptimistic(
+        const errorMsg = await chatMessagesActions.addMessageOptimistic(
           chat.id,
           'item',
           'assistant',
@@ -299,6 +483,53 @@ const ChatSheet = observer(
             showsVerticalScrollIndicator={false}
           >
             {renderSystemMessage()}
+
+            {/* Generation buttons */}
+            {(showTranscriptButton || showDescriptionButton) && (
+              <View style={styles.generationButtonsContainer}>
+                {showTranscriptButton && (
+                  <TouchableOpacity
+                    style={[
+                      styles.generateButton,
+                      isDarkMode && styles.generateButtonDark,
+                      (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) && styles.generateButtonDisabled,
+                    ]}
+                    onPress={handleGenerateTranscript}
+                    disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')}
+                  >
+                    {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) ? (
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                    ) : (
+                      <MaterialIcons name="subtitles" size={20} color={COLORS.primary} />
+                    )}
+                    <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
+                      {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) ? 'Processing...' : 'Generate Transcript'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {showDescriptionButton && (
+                  <TouchableOpacity
+                    style={[
+                      styles.generateButton,
+                      isDarkMode && styles.generateButtonDark,
+                      (isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) && styles.generateButtonDisabled,
+                    ]}
+                    onPress={handleGenerateDescriptions}
+                    disabled={isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')}
+                  >
+                    {(isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) ? (
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                    ) : (
+                      <MaterialIcons name="image" size={20} color={COLORS.primary} />
+                    )}
+                    <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
+                      {(isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) ? 'Processing Images...' : 'Generate Image Descriptions'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {messages.map((msg, idx) => renderMessage(msg, idx))}
 
@@ -584,6 +815,34 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  generationButtonsContainer: {
+    paddingVertical: 12,
+    gap: 10,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 10,
+  },
+  generateButtonDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  generateButtonDisabled: {
+    opacity: 0.5,
+  },
+  generateButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+    flex: 1,
+  },
+  generateButtonTextDark: {
+    color: COLORS.primary,
   },
 });
 

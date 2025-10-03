@@ -7,11 +7,13 @@ import { syncOperations } from '../services/syncOperations';
 interface VideoTranscriptsState {
   transcripts: VideoTranscript[];
   isLoading: boolean;
+  generatingForItems: string[]; // Track which items are currently being processed
 }
 
 const initialState: VideoTranscriptsState = {
   transcripts: [],
   isLoading: false,
+  generatingForItems: [],
 };
 
 export const videoTranscriptsStore = observable(initialState);
@@ -20,23 +22,30 @@ export const videoTranscriptsStore = observable(initialState);
 export const videoTranscriptsComputed = {
   transcripts: () => videoTranscriptsStore.transcripts.get(),
   isLoading: () => videoTranscriptsStore.isLoading.get(),
-  
+  generatingForItems: () => videoTranscriptsStore.generatingForItems.get(),
+
   // Get transcript by item ID
   getTranscriptByItemId: (itemId: string): VideoTranscript | null => {
     const transcripts = videoTranscriptsStore.transcripts.get();
     return transcripts.find(t => t.item_id === itemId) || null;
   },
-  
+
   // Get transcripts by platform
   getTranscriptsByPlatform: (platform: VideoPlatform): VideoTranscript[] => {
     const transcripts = videoTranscriptsStore.transcripts.get();
     return transcripts.filter(t => t.platform === platform);
   },
-  
+
   // Check if item has transcript
   hasTranscript: (itemId: string): boolean => {
     const transcripts = videoTranscriptsStore.transcripts.get();
     return transcripts.some(t => t.item_id === itemId);
+  },
+
+  // Check if transcript is currently being generated for an item
+  isGenerating: (itemId: string): boolean => {
+    const generatingItems = videoTranscriptsStore.generatingForItems.get();
+    return generatingItems.includes(itemId);
   },
 };
 
@@ -143,6 +152,15 @@ export const videoTranscriptsActions = {
       console.log('📝 Cleared all video transcripts');
     } catch (error) {
       console.error('Error clearing video transcripts:', error);
+    }
+  },
+
+  setGenerating: (itemId: string, isGenerating: boolean) => {
+    const current = videoTranscriptsStore.generatingForItems.get();
+    if (isGenerating && !current.includes(itemId)) {
+      videoTranscriptsStore.generatingForItems.set([...current, itemId]);
+    } else if (!isGenerating) {
+      videoTranscriptsStore.generatingForItems.set(current.filter(id => id !== itemId));
     }
   },
 };
