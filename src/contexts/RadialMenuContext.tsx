@@ -64,9 +64,11 @@ const RadialButton: React.FC<{
   button: ActionButton;
   position: { x: number; y: number };
   isHovered: boolean;
-}> = ({ button, position, isHovered }) => {
+  visible: boolean;
+}> = ({ button, position, isHovered, visible }) => {
   const scale = useSharedValue(1);
   const iconSize = useSharedValue(24);
+  const opacity = useSharedValue(visible ? 1 : 0);
 
   React.useEffect(() => {
     if (isHovered) {
@@ -86,8 +88,17 @@ const RadialButton: React.FC<{
     }
   }, [isHovered]);
 
+  React.useEffect(() => {
+    // Quick fade out when menu closes
+    opacity.value = withTiming(visible ? 1 : 0, {
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+    });
+  }, [visible]);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+    opacity: opacity.value,
   }));
 
   return (
@@ -114,6 +125,7 @@ const RadialButton: React.FC<{
 
 interface RadialMenuOverlayProps {
   visible: boolean;
+  isClosing: boolean;
   item: Item | null;
   touchPosition: { x: number; y: number };
   cardLayout: CardLayout | null;
@@ -124,6 +136,7 @@ interface RadialMenuOverlayProps {
 
 const RadialMenuOverlay = observer(({
   visible,
+  isClosing,
   item,
   touchPosition,
   cardLayout,
@@ -134,8 +147,8 @@ const RadialMenuOverlay = observer(({
   const overlayOpacity = useSharedValue(visible ? 1 : 0);
 
   React.useEffect(() => {
-    overlayOpacity.value = withTiming(visible ? 1 : 0, { duration: 200 });
-  }, [visible]);
+    overlayOpacity.value = withTiming(visible && !isClosing ? 1 : 0, { duration: 250 });
+  }, [visible, isClosing]);
 
   // TODO: Add settings feature to let users choose which 3 buttons to show
   // Currently showing 3 buttons max to prevent finger from covering one during interaction
@@ -286,6 +299,7 @@ const RadialMenuOverlay = observer(({
               button={button}
               position={position}
               isHovered={isHovered}
+              visible={!isClosing}
             />
           );
         })}
@@ -296,6 +310,7 @@ const RadialMenuOverlay = observer(({
 
 export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [visible, setVisible] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [item, setItem] = useState<Item | null>(null);
   const [touchPosition, setTouchPosition] = useState({ x: 0, y: 0 });
   const [cardLayout, setCardLayout] = useState<CardLayout | null>(null);
@@ -398,6 +413,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const showMenu = useCallback((newItem: Item, x: number, y: number, layout: CardLayout) => {
     setShouldDisableScroll(true); // Disable scroll when menu opens
+    setIsClosing(false); // Reset closing state
     setItem(newItem);
     setTouchPosition({ x, y });
     setCardLayout(layout);
@@ -407,13 +423,16 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const hideMenu = useCallback(() => {
     setShouldDisableScroll(false); // Re-enable scroll when menu closes
+    setIsClosing(true); // Trigger fade animations immediately
+    // Delay cleanup until fade animations complete
     setTimeout(() => {
       setVisible(false);
+      setIsClosing(false);
       setHoveredButtonId(null);
       setItem(null);
       setCardLayout(null);
       setActiveItemId(null);
-    }, 200);
+    }, 250);
   }, []);
 
   const updateHoveredButton = useCallback((x: number, y: number) => {
@@ -456,6 +475,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       {children}
       <RadialMenuOverlay
         visible={visible}
+        isClosing={isClosing}
         item={item}
         touchPosition={touchPosition}
         cardLayout={cardLayout}
@@ -477,7 +497,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)', // Reduced opacity so card shows through
+    backgroundColor: 'rgba(0, 0, 0, 1)', // 100% dark overlay
     zIndex: 1,
   },
   cardCutout: {
