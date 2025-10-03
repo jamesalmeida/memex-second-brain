@@ -1,7 +1,9 @@
 Run locally:
 npx expo start --clear
 
-Pre-upgrade this is on:
- "react": "19.0.0"
- "react-native": "0.79.6"
- "expo": "~53.0.22"
+Currently on:
+ "react": "19.1.0"
+ "react-native": "^0.81.4"
+ "expo": "~54.0.12"
+
+ Use Node v20.19.4
