@@ -1,15 +1,17 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
   RefreshControl,
   SafeAreaView,
   TextInput,
   Dimensions,
-  Modal
+  Modal,
+  Share,
+  Alert
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { observer } from '@legendapp/state/react';
@@ -25,6 +27,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../../src/stores/theme';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item, Space } from '../../src/types';
@@ -83,6 +86,29 @@ const SpaceDetailScreen = observer(() => {
       });
       opacity.value = withTiming(1, { duration: 200 });
     }, 50);
+  }, []);
+
+  // Observe expandedItemUIStore and update selectedItem when it changes
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      console.log('📱 [SpaceDetailScreen] expandedItemUIStore changed, new value:', value?.title || 'null');
+      if (value) {
+        console.log('📱 [SpaceDetailScreen] Setting selectedItem:', value.title);
+        setSelectedItem(value);
+      } else {
+        console.log('📱 [SpaceDetailScreen] Clearing selectedItem');
+        setSelectedItem(null);
+      }
+    });
+
+    // Check initial value on mount
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      console.log('📱 [SpaceDetailScreen] Initial item in store:', initialItem.title);
+      setSelectedItem(initialItem);
+    }
+
+    return unsubscribe;
   }, []);
 
   const handleClose = () => {
@@ -292,6 +318,7 @@ const SpaceDetailScreen = observer(() => {
           item={selectedItem}
           onClose={() => {
             setSelectedItem(null);
+            expandedItemUIActions.closeExpandedItem();
           }}
           onChat={(item) => console.log('Chat with item:', item.title)}
           onEdit={(item) => console.log('Edit item:', item.title)}
@@ -301,7 +328,20 @@ const SpaceDetailScreen = observer(() => {
             setItems(prev => prev.filter(i => i.id !== item.id));
             setSelectedItem(null);
           }}
-          onShare={(item) => console.log('Share item:', item.title)}
+          onShare={async (item) => {
+            if (item.url) {
+              try {
+                await Share.share({
+                  url: item.url,
+                  message: item.title,
+                });
+              } catch (error) {
+                console.error('Error sharing:', error);
+              }
+            } else {
+              Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+            }
+          }}
           onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
           currentSpaceId={space.id}
         />

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, Share, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,10 +8,12 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { chatUIActions } from '../../src/stores/chatUI';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
+import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -32,6 +34,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
 
+  // Get radial menu state to disable scroll when menu is active
+  const { shouldDisableScroll } = useRadialMenu();
+
   // Initialize items on first load
   useEffect(() => {
     const initializeItems = async () => {
@@ -47,6 +52,31 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
     initializeItems();
   }, []);
+
+  // Observe expandedItemUIStore and update selectedItem when it changes
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      console.log('📱 [HomeScreen] expandedItemUIStore changed, new value:', value?.title || 'null');
+      if (value) {
+        console.log('📱 [HomeScreen] Setting selectedItem:', value.title);
+        onExpandedItemOpen?.();
+        setSelectedItem(value);
+      } else {
+        console.log('📱 [HomeScreen] Clearing selectedItem');
+        setSelectedItem(null);
+      }
+    });
+
+    // Check initial value on mount
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      console.log('📱 [HomeScreen] Initial item in store:', initialItem.title);
+      onExpandedItemOpen?.();
+      setSelectedItem(initialItem);
+    }
+
+    return unsubscribe;
+  }, [onExpandedItemOpen]);
 
   // Auto-scroll to top when new items are added
   useEffect(() => {
@@ -137,6 +167,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         estimatedItemSize={200}
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top, paddingHorizontal: isDarkMode ? -4 : 4 }]}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!shouldDisableScroll}
         ListEmptyComponent={EmptyState}
         refreshControl={
           <RefreshControl
@@ -154,6 +185,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         onOpen={onExpandedItemOpen}
         onClose={() => {
           setSelectedItem(null);
+          expandedItemUIActions.closeExpandedItem();
           onExpandedItemClose?.();
         }}
         onChat={(item) => {
@@ -167,7 +199,20 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
           await itemsActions.removeItemWithSync(item.id);
           setSelectedItem(null);
         }}
-        onShare={(item) => console.log('Share item:', item.title)}
+        onShare={async (item) => {
+          if (item.url) {
+            try {
+              await Share.share({
+                url: item.url,
+                message: item.title,
+              });
+            } catch (error) {
+              console.error('Error sharing:', error);
+            }
+          } else {
+            Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+          }
+        }}
         onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
         currentSpaceId={null}
       />

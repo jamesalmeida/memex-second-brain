@@ -7,6 +7,7 @@ import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain, getContentTypeIcon, getContentTypeColor } from '../../utils/itemCardHelpers';
+import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -14,9 +15,10 @@ interface MovieTVItemCardProps {
   item: Item;
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
+  disabled?: boolean;
 }
 
-const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCardProps) => {
+const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: MovieTVItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -40,13 +42,13 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
 
   return (
-    <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-      <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        {/* Thumbnail or Content Preview */}
-      {videoUrl && player ? (
+    <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* Thumbnail or Content Preview */}
+        {videoUrl && player ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View style={{ position: 'relative' }}>
@@ -83,7 +85,6 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
               <TouchableWithoutFeedback
                 key={index}
                 onPress={() => onPress(item)}
-                onLongPress={() => onLongPress?.(item)}
               >
                 <Image
                   source={{ uri: imageUrl }}
@@ -120,7 +121,6 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
       ) : item.thumbnail_url ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View>
@@ -145,7 +145,6 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
       ) : item.content ? (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
@@ -157,7 +156,6 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
       ) : (
         <TouchableOpacity
           onPress={() => onPress(item)}
-          onLongPress={() => onLongPress?.(item)}
           activeOpacity={0.7}
         >
           <View style={[styles.placeholder, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
@@ -181,7 +179,6 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
       {/* Card Content */}
       {/* <TouchableOpacity
         onPress={() => onPress(item)}
-        onLongPress={() => onLongPress?.(item)}
         activeOpacity={0.7}
       >
         <View style={styles.cardContent}>
@@ -207,8 +204,9 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress }: MovieTVItemCar
           </View>
         </View>
       </TouchableOpacity> */}
+        </View>
       </View>
-    </View>
+    </RadialActionMenu>
   );
 });
 

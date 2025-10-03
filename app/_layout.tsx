@@ -9,6 +9,7 @@ import { observer, useObservable } from '@legendapp/state/react';
 import { useEffect } from 'react';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
+import { RadialMenuProvider } from '../src/contexts/RadialMenuContext';
 
 const RootLayoutContent = observer(() => {
   // Initialize auth - but only once due to the global flag in useAuth
@@ -83,7 +84,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <RootLayoutContent />
+        <RadialMenuProvider>
+          <RootLayoutContent />
+        </RadialMenuProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
