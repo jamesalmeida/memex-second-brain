@@ -31,8 +31,11 @@ import { imageDescriptionsComputed, imageDescriptionsActions } from '../stores/i
 import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { buildItemContext, formatContextMetadata } from '../services/contextBuilder';
 import { openai } from '../services/openai';
-import { Item, ItemChat, ChatMessage } from '../types';
+import { getYouTubeTranscript } from '../services/youtube';
+import { getXVideoTranscript } from '../services/twitter';
+import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
+import uuid from 'react-native-uuid';
 
 interface ChatSheetProps {
   onOpen?: () => void;
@@ -79,6 +82,15 @@ const ChatSheet = observer(
       }
     }, [item?.id, imageDescriptionsComputed.descriptions()]);
 
+    // Watch for changes in video transcripts store to update button visibility
+    useEffect(() => {
+      if (item) {
+        // Access the observable to establish reactivity
+        const hasTranscript = videoTranscriptsComputed.hasTranscript(item.id);
+        checkForMissingContent();
+      }
+    }, [item?.id, videoTranscriptsComputed.transcripts()]);
+
     const loadOrCreateChat = async () => {
       if (!item) return;
 
@@ -116,9 +128,10 @@ const ChatSheet = observer(
       if (!item) return;
 
       // Check if video item without transcript
+      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
+      const isXVideo = item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id);
       const needsTranscript =
-        ['youtube', 'youtube_short', 'video', 'tiktok', 'instagram'].includes(item.content_type) &&
-        !videoTranscriptsComputed.hasTranscript(item.id);
+        (isYouTube || isXVideo) && !videoTranscriptsComputed.hasTranscript(item.id);
 
       // Check if item has images without descriptions
       const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
@@ -132,26 +145,77 @@ const ChatSheet = observer(
     const handleGenerateTranscript = async () => {
       if (!item) return;
 
+      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
+      const isXVideo = item.content_type === 'x';
+
+      if (!isYouTube && !isXVideo) return;
+
       setIsGeneratingTranscript(true);
+      videoTranscriptsActions.setGenerating(item.id, true);
+
       try {
-        // TODO: Implement actual transcript fetching service
-        // For now, this is a placeholder
         console.log('🎬 Generating transcript for', item.id);
+        let fetchedTranscript: string;
+        let language: string;
+        let platform: 'youtube' | 'x';
 
-        // Placeholder: You'll need to implement actual transcript generation
-        // This would call your transcript service API
+        if (isYouTube && item.url) {
+          // Extract video ID from URL for YouTube
+          const videoIdMatch = item.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+          if (!videoIdMatch) {
+            throw new Error('Invalid YouTube URL');
+          }
+          const videoId = videoIdMatch[1];
 
-        alert('Transcript generation not yet implemented. This will fetch transcripts from video platforms.');
+          // Fetch transcript from YouTube
+          const result = await getYouTubeTranscript(videoId);
+          fetchedTranscript = result.transcript;
+          language = result.language;
+          platform = 'youtube';
+        } else if (isXVideo) {
+          // Get video URL from metadata for X posts
+          const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+          if (!videoUrl) {
+            throw new Error('No video found for this X post');
+          }
 
-        // Once implemented:
-        // const transcript = await transcriptService.fetchTranscript(item);
-        // await videoTranscriptsActions.addTranscript(transcript);
-        // setShowTranscriptButton(false);
+          // Fetch transcript from AssemblyAI
+          const result = await getXVideoTranscript(videoUrl, (status) => {
+            console.log('Transcription status:', status);
+          });
+          fetchedTranscript = result.transcript;
+          language = result.language;
+          platform = 'x';
+        } else {
+          throw new Error('Unsupported content type for transcription');
+        }
+
+        // Create video transcript object
+        const transcriptData: VideoTranscript = {
+          id: uuid.v4() as string,
+          item_id: item.id,
+          transcript: fetchedTranscript,
+          platform,
+          language,
+          duration: item.duration,
+          fetched_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Save to local store and sync to Supabase
+        await videoTranscriptsActions.addTranscript(transcriptData);
+        console.log('🎬 Transcript saved for item:', item.id);
+
+        // Hide the button
+        setShowTranscriptButton(false);
+        alert('Transcript generated successfully!');
       } catch (error) {
         console.error('Error generating transcript:', error);
-        alert('Failed to generate transcript. Please try again.');
+        alert('Failed to generate transcript. The video may not have captions available.');
       } finally {
         setIsGeneratingTranscript(false);
+        videoTranscriptsActions.setGenerating(item.id, false);
       }
     };
 
@@ -428,18 +492,18 @@ const ChatSheet = observer(
                     style={[
                       styles.generateButton,
                       isDarkMode && styles.generateButtonDark,
-                      isGeneratingTranscript && styles.generateButtonDisabled,
+                      (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) && styles.generateButtonDisabled,
                     ]}
                     onPress={handleGenerateTranscript}
-                    disabled={isGeneratingTranscript}
+                    disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')}
                   >
-                    {isGeneratingTranscript ? (
+                    {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) ? (
                       <ActivityIndicator size="small" color={COLORS.primary} />
                     ) : (
                       <MaterialIcons name="subtitles" size={20} color={COLORS.primary} />
                     )}
                     <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
-                      {isGeneratingTranscript ? 'Generating...' : 'Generate Transcript'}
+                      {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) ? 'Processing...' : 'Generate Transcript'}
                     </Text>
                   </TouchableOpacity>
                 )}
