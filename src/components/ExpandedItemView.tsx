@@ -39,6 +39,7 @@ import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 import { itemMetadataComputed } from '../stores/itemMetadata';
 import { aiSettingsComputed } from '../stores/aiSettings';
+import { expandedItemUIStore, expandedItemUIActions } from '../stores/expandedItemUI';
 import { Item, Space, ContentType } from '../types';
 import { supabase } from '../services/supabase';
 import { generateTags, URLMetadata } from '../services/urlMetadata';
@@ -152,29 +153,65 @@ const ExpandedItemView = observer(
   const [showAllTags, setShowAllTags] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
+  const hasInitializedVideo = useRef(false);
 
   // Get video URL from item type metadata
   const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
-  
+
   // Set up video player if item has video
   const videoPlayer = useVideoPlayer(videoUrl || null, player => {
-    if (player && videoUrl) {
+    if (player && videoUrl && !hasInitializedVideo.current) {
+      hasInitializedVideo.current = true;
+      console.log('🎬 [VideoPlayer] Initializing video player for:', displayItem?.content_type);
       player.loop = true;
       // For X posts, don't autoplay - user must press play
       // For other videos, allow autoplay
       if (displayItem?.content_type === 'x') {
-        player.muted = true; // Start muted for X posts
+        const initialMuted = expandedItemUIStore.xVideoMuted.get();
+        console.log('🎬 [VideoPlayer] Setting initial mute state for X video:', initialMuted);
+        player.muted = initialMuted; // Use global mute preference for X posts
         // Don't call player.play() - user must manually play
-        
+
         // Add event listeners to track playing state
         player.addListener('playingChange', (isPlaying) => {
+          console.log('🎬 [VideoPlayer] Playing state changed:', isPlaying);
           setIsVideoPlaying(isPlaying);
         });
+
+        // Listen for mute changes and sync to global preference
+        // Use a timer to debounce rapid changes from volume slider dragging
+        let volumeChangeTimer: NodeJS.Timeout | null = null;
+        let lastMutedValue = initialMuted;
+
+        player.addListener('volumeChange', ({ volume, isMuted }) => {
+          console.log('🔇 [VideoPlayer] Volume changed - isMuted:', isMuted, 'volume:', volume);
+
+          // Only care about mute state changes, not volume level changes
+          if (isMuted === lastMutedValue) {
+            console.log('🔇 [VideoPlayer] Mute state unchanged, ignoring');
+            return;
+          }
+
+          // Clear any pending timer
+          if (volumeChangeTimer) {
+            clearTimeout(volumeChangeTimer);
+          }
+
+          // Debounce: wait for user to finish dragging before saving
+          volumeChangeTimer = setTimeout(() => {
+            console.log('🔇 [VideoPlayer] Debounced: updating mute preference to:', isMuted);
+            lastMutedValue = isMuted;
+            expandedItemUIActions.setXVideoMuted(isMuted);
+          }, 500); // Wait 500ms after user stops interacting
+        });
       } else {
+        console.log('🎬 [VideoPlayer] Setting up non-X video (autoplay, unmuted)');
         player.muted = false;
         player.play();
         setIsVideoPlaying(true);
       }
+    } else if (player && videoUrl && hasInitializedVideo.current) {
+      console.log('⚠️ [VideoPlayer] Callback called but already initialized');
     }
   });
 
@@ -235,6 +272,8 @@ const ExpandedItemView = observer(
 
       // Reset video playing state for new item
       setIsVideoPlaying(false);
+      console.log('🎬 [VideoPlayer] Resetting initialization flag for new item');
+      hasInitializedVideo.current = false; // Reset video initialization flag
 
       // Debug: Check metadata store
       if (item.content_type === 'x') {
