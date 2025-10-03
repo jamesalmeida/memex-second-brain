@@ -302,6 +302,34 @@ const ExpandedItemView = observer(
     }
   }, [itemToDisplay?.id, imageDescriptionsComputed.descriptions()]);
 
+  // Watch for changes in video transcripts store to update UI state
+  useEffect(() => {
+    if (itemToDisplay) {
+      // Access the observable to establish reactivity
+      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemToDisplay.id);
+
+      if (existingTranscript && existingTranscript.transcript) {
+        console.log('📄 [ExpandedItemView] Transcript detected in store, length:', existingTranscript.transcript.length);
+        const transcriptText = existingTranscript.transcript;
+        setTranscript(transcriptText);
+        setTranscriptStats(calculateTranscriptStats(transcriptText));
+        setTranscriptExists(true);
+
+        // Animate transition from button to dropdown
+        buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
+          transcriptOpacity.value = withTiming(1, { duration: 150 });
+        });
+      } else {
+        // Reset to button state if transcript was removed
+        setTranscript('');
+        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
+        setTranscriptExists(false);
+        transcriptOpacity.value = 0;
+        buttonOpacity.value = 1;
+      }
+    }
+  }, [itemToDisplay?.id, videoTranscriptsComputed.transcripts()]);
+
   // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
   console.log('📄 [ExpandedItemView] Rendering - itemToDisplay:', itemToDisplay?.title || 'null');
@@ -372,6 +400,7 @@ const ExpandedItemView = observer(
     if (!itemToDisplay || (!isYouTube && !isXVideo) || (!itemToDisplay.url && !isXVideo)) return;
 
     setIsGeneratingTranscript(true);
+    videoTranscriptsActions.setGenerating(itemToDisplay.id, true);
 
     try {
       let fetchedTranscript: string;
@@ -448,6 +477,7 @@ const ExpandedItemView = observer(
       alert('Failed to generate transcript. The video may not have captions available.');
     } finally {
       setIsGeneratingTranscript(false);
+      videoTranscriptsActions.setGenerating(itemToDisplay.id, false);
     }
   };
 
@@ -1510,15 +1540,15 @@ const ExpandedItemView = observer(
                           <TouchableOpacity
                             style={[
                               styles.transcriptGenerateButton,
-                              isGeneratingTranscript && styles.transcriptGenerateButtonDisabled,
+                              (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) && styles.transcriptGenerateButtonDisabled,
                               isDarkMode && styles.transcriptGenerateButtonDark
                             ]}
                             onPress={generateTranscript}
-                            disabled={isGeneratingTranscript}
+                            disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')}
                             activeOpacity={0.7}
                           >
                             <Text style={styles.transcriptGenerateButtonText}>
-                              {isGeneratingTranscript ? '⏳ Processing...' : '⚡ Generate'}
+                              {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) ? '⏳ Processing...' : '⚡ Generate'}
                             </Text>
                           </TouchableOpacity>
                         </Animated.View>

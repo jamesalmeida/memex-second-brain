@@ -1,6 +1,6 @@
 import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Item, SearchFilters } from '../types';
+import { Item, SearchFilters, VideoTranscript } from '../types';
 import { STORAGE_KEYS } from '../constants';
 import { syncOperations } from '../services/syncOperations';
 import { authStore } from './auth';
@@ -11,6 +11,9 @@ import { aiSettingsStore } from './aiSettings';
 import { imageDescriptionsActions } from './imageDescriptions';
 import { itemTypeMetadataComputed } from './itemTypeMetadata';
 import { openai } from '../services/openai';
+import { getYouTubeTranscript } from '../services/youtube';
+import { getXVideoTranscript } from '../services/twitter';
+import uuid from 'react-native-uuid';
 
 interface ItemsState {
   items: Item[];
@@ -99,12 +102,70 @@ export const itemsActions = {
 
     // Auto-generate video transcript if enabled
     if (autoGenerateTranscripts) {
-      const videoContentTypes = ['youtube', 'youtube_short', 'video', 'tiktok', 'instagram'];
-      if (videoContentTypes.includes(item.content_type)) {
+      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
+      const isXVideo = item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id);
+
+      if (isYouTube || isXVideo) {
         console.log('🎬 Auto-generating transcript for', item.id);
-        // TODO: Implement actual transcript fetching
-        // This would call your transcript service API
-        // For now, this is a placeholder
+        videoTranscriptsActions.setGenerating(item.id, true);
+
+        try {
+          let fetchedTranscript: string;
+          let language: string;
+          let platform: 'youtube' | 'x';
+
+          if (isYouTube && item.url) {
+            // Extract video ID from URL for YouTube
+            const videoIdMatch = item.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+            if (!videoIdMatch) {
+              throw new Error('Invalid YouTube URL');
+            }
+            const videoId = videoIdMatch[1];
+
+            // Fetch transcript from YouTube
+            const result = await getYouTubeTranscript(videoId);
+            fetchedTranscript = result.transcript;
+            language = result.language;
+            platform = 'youtube';
+          } else if (isXVideo) {
+            // Get video URL from metadata for X posts
+            const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+            if (!videoUrl) {
+              throw new Error('No video found for this X post');
+            }
+
+            // Fetch transcript from AssemblyAI
+            const result = await getXVideoTranscript(videoUrl, (status) => {
+              console.log('Transcription status:', status);
+            });
+            fetchedTranscript = result.transcript;
+            language = result.language;
+            platform = 'x';
+          } else {
+            throw new Error('Unsupported content type for transcription');
+          }
+
+          // Create video transcript object
+          const transcriptData: VideoTranscript = {
+            id: uuid.v4() as string,
+            item_id: item.id,
+            transcript: fetchedTranscript,
+            platform,
+            language,
+            duration: item.duration,
+            fetched_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          // Save to local store and sync to Supabase
+          await videoTranscriptsActions.addTranscript(transcriptData);
+          console.log('🎬 Auto-generated transcript saved for item:', item.id);
+        } catch (error) {
+          console.error('Error auto-generating transcript:', error);
+        } finally {
+          videoTranscriptsActions.setGenerating(item.id, false);
+        }
       }
     }
 
