@@ -228,15 +228,23 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 0,
+    borderWidth: 4,
+    borderColor: '#C0C0C0',
     overflow: 'hidden',
   },
   cardDark: {
     backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
   },
   thumbnail: {
     width: '100%',
     minHeight: 100,
     backgroundColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: -5,
   },
   textPreview: {
     width: '100%',
