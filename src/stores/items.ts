@@ -113,6 +113,7 @@ export const itemsActions = {
       const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
       if (imageUrls && imageUrls.length > 0) {
         console.log('🖼️  Auto-generating descriptions for', imageUrls.length, 'images');
+        imageDescriptionsActions.setGenerating(item.id, true);
         try {
           for (const imageUrl of imageUrls) {
             const description = await openai.describeImage(imageUrl, {
@@ -136,6 +137,8 @@ export const itemsActions = {
           }
         } catch (error) {
           console.error('Error generating image descriptions:', error);
+        } finally {
+          imageDescriptionsActions.setGenerating(item.id, false);
         }
       }
     }

@@ -7,11 +7,13 @@ import { syncOperations } from '../services/syncOperations';
 interface ImageDescriptionsState {
   descriptions: ImageDescription[];
   isLoading: boolean;
+  generatingForItems: string[]; // Track which items are currently being processed
 }
 
 const initialState: ImageDescriptionsState = {
   descriptions: [],
   isLoading: false,
+  generatingForItems: [],
 };
 
 export const imageDescriptionsStore = observable(initialState);
@@ -20,6 +22,7 @@ export const imageDescriptionsStore = observable(initialState);
 export const imageDescriptionsComputed = {
   descriptions: () => imageDescriptionsStore.descriptions.get(),
   isLoading: () => imageDescriptionsStore.isLoading.get(),
+  generatingForItems: () => imageDescriptionsStore.generatingForItems.get(),
 
   // Get all descriptions for an item
   getDescriptionsByItemId: (itemId: string): ImageDescription[] => {
@@ -37,6 +40,12 @@ export const imageDescriptionsComputed = {
   hasDescriptions: (itemId: string): boolean => {
     const descriptions = imageDescriptionsStore.descriptions.get();
     return descriptions.some(d => d.item_id === itemId);
+  },
+
+  // Check if descriptions are currently being generated for an item
+  isGenerating: (itemId: string): boolean => {
+    const generatingItems = imageDescriptionsStore.generatingForItems.get();
+    return generatingItems.includes(itemId);
   },
 
   // Get total count of descriptions for an item
@@ -173,6 +182,15 @@ export const imageDescriptionsActions = {
       console.log('🖼️  Cleared all image descriptions');
     } catch (error) {
       console.error('Error clearing image descriptions:', error);
+    }
+  },
+
+  setGenerating: (itemId: string, isGenerating: boolean) => {
+    const current = imageDescriptionsStore.generatingForItems.get();
+    if (isGenerating && !current.includes(itemId)) {
+      imageDescriptionsStore.generatingForItems.set([...current, itemId]);
+    } else if (!isGenerating) {
+      imageDescriptionsStore.generatingForItems.set(current.filter(id => id !== itemId));
     }
   },
 };

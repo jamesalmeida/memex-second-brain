@@ -153,6 +153,7 @@ const ChatSheet = observer(
       if (!imageUrls || imageUrls.length === 0) return;
 
       setIsGeneratingDescriptions(true);
+      imageDescriptionsActions.setGenerating(item.id, true);
       try {
         console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
 
@@ -186,6 +187,7 @@ const ChatSheet = observer(
         alert('Failed to generate image descriptions. Please try again.');
       } finally {
         setIsGeneratingDescriptions(false);
+        imageDescriptionsActions.setGenerating(item.id, false);
       }
     };
 
@@ -438,18 +440,18 @@ const ChatSheet = observer(
                     style={[
                       styles.generateButton,
                       isDarkMode && styles.generateButtonDark,
-                      isGeneratingDescriptions && styles.generateButtonDisabled,
+                      (isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) && styles.generateButtonDisabled,
                     ]}
                     onPress={handleGenerateDescriptions}
-                    disabled={isGeneratingDescriptions}
+                    disabled={isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')}
                   >
-                    {isGeneratingDescriptions ? (
+                    {(isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) ? (
                       <ActivityIndicator size="small" color={COLORS.primary} />
                     ) : (
                       <MaterialIcons name="image" size={20} color={COLORS.primary} />
                     )}
                     <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
-                      {isGeneratingDescriptions ? 'Generating...' : 'Generate Image Descriptions'}
+                      {(isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) ? 'Processing Images...' : 'Generate Image Descriptions'}
                     </Text>
                   </TouchableOpacity>
                 )}
