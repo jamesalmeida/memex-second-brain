@@ -28,7 +28,7 @@ interface ActionButton {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
-  action: (item: Item) => void;
+  action: (item: Item) => void | Promise<void>;
 }
 
 interface CardLayout {
@@ -227,8 +227,23 @@ const RadialMenuOverlay = observer(({
       label: 'Share',
       icon: 'share-outline',
       color: '#34C759',
-      action: (item: Item) => {
+      action: async (item: Item) => {
         console.log('📤 SHARE button pressed for item:', item.title);
+        // Delay to let the radial menu modal close first to avoid modal conflicts
+        setTimeout(async () => {
+          if (item.url) {
+            try {
+              await Share.share({
+                url: item.url,
+                message: item.title,
+              });
+            } catch (error) {
+              console.error('Error sharing:', error);
+            }
+          } else {
+            Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+          }
+        }, 300);
       },
     },
     // {
@@ -398,8 +413,23 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       label: 'Share',
       icon: 'share-outline',
       color: '#34C759',
-      action: (item: Item) => {
+      action: async (item: Item) => {
         console.log('📤 SHARE button pressed for item:', item.title);
+        // Delay to let the radial menu modal close first to avoid modal conflicts
+        setTimeout(async () => {
+          if (item.url) {
+            try {
+              await Share.share({
+                url: item.url,
+                message: item.title,
+              });
+            } catch (error) {
+              console.error('Error sharing:', error);
+            }
+          } else {
+            Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+          }
+        }, 300);
       },
     },
     // {
