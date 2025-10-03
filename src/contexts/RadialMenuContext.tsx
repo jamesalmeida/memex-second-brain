@@ -388,8 +388,8 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const distance = Math.sqrt(
         Math.pow(touchX - pos.x, 2) + Math.pow(touchY - pos.y, 2)
       );
-      // Expanded hit area for more responsive detection
-      if (distance < BUTTON_SIZE * 0.85) {
+      // Moderately expanded hit area for responsive detection without overlap
+      if (distance < BUTTON_SIZE * 1.1) {
         return actionButtons[i].id;
       }
     }
