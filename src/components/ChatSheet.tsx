@@ -70,6 +70,15 @@ const ChatSheet = observer(
       }
     }, [item?.id]);
 
+    // Watch for changes in image descriptions store to update button visibility
+    useEffect(() => {
+      if (item) {
+        // Access the observable to establish reactivity
+        const hasDescriptions = imageDescriptionsComputed.hasDescriptions(item.id);
+        checkForMissingContent();
+      }
+    }, [item?.id, imageDescriptionsComputed.descriptions()]);
+
     const loadOrCreateChat = async () => {
       if (!item) return;
 

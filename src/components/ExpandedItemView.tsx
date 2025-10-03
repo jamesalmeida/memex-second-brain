@@ -277,6 +277,30 @@ const ExpandedItemView = observer(
     }
   }, [item, ref]);
 
+  // Watch for changes in image descriptions store to update UI state
+  useEffect(() => {
+    if (itemToDisplay) {
+      // Access the observable to establish reactivity
+      const descriptions = imageDescriptionsComputed.getDescriptionsByItemId(itemToDisplay.id);
+
+      if (descriptions && descriptions.length > 0) {
+        console.log('📄 [ExpandedItemView] Image descriptions detected in store:', descriptions.length);
+        setImageDescriptions(descriptions);
+        setImageDescriptionsExist(true);
+
+        // Animate transition from button to dropdown
+        imageDescriptionsButtonOpacity.value = withTiming(0, { duration: 150 }, () => {
+          imageDescriptionsOpacity.value = withTiming(1, { duration: 150 });
+        });
+      } else {
+        // Reset to button state if descriptions were removed
+        setImageDescriptions([]);
+        setImageDescriptionsExist(false);
+        imageDescriptionsOpacity.value = 0;
+        imageDescriptionsButtonOpacity.value = 1;
+      }
+    }
+  }, [itemToDisplay?.id, imageDescriptionsComputed.descriptions()]);
 
   // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
