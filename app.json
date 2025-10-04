@@ -15,6 +15,7 @@
     },
     "ios": {
       "icon": "./assets/appIcon.icon",
+      "ios": { "icon": "./assets/appIcon.png" },
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
       "buildNumber": "1",
