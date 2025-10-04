@@ -1278,8 +1278,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: CONTENT_PADDING,
     paddingVertical: 12,
-    borderTopWidth: 5,
-    borderTopColor: '#1DA1F2', // Twitter blue
     backgroundColor: '#FFFFFF',
     gap: 8,
   },

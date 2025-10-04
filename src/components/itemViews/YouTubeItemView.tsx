@@ -451,18 +451,6 @@ const YouTubeItemView = observer(({
 
   return (
     <View style={styles.container}>
-      {/* YouTube Header with Red Border */}
-      <View style={[styles.youtubeHeader, isDarkMode && styles.youtubeHeaderDark]}>
-        <Image
-          source={require('../../../assets/icon_youtube.svg')}
-          style={styles.youtubeIcon}
-          contentFit="contain"
-        />
-        <Text style={[styles.youtubeLabel, isDarkMode && styles.youtubeLabelDark]}>
-          {isShort ? 'YouTube Short' : 'YouTube'}
-        </Text>
-      </View>
-
       {/* YouTube Video Embed */}
       {getYouTubeVideoId(itemToDisplay?.url) && (
         <View style={styles.videoContainer}>
@@ -1049,31 +1037,6 @@ export default YouTubeItemView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  youtubeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: CONTENT_PADDING,
-    paddingVertical: 12,
-    borderTopWidth: 5,
-    borderTopColor: 'rgba(255, 0, 0, 0.8)', // YouTube red
-    backgroundColor: '#FFFFFF',
-    gap: 8,
-  },
-  youtubeHeaderDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  youtubeIcon: {
-    width: 24,
-    height: 24,
-  },
-  youtubeLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF0000',
-  },
-  youtubeLabelDark: {
-    color: '#FF6B6B',
   },
   videoContainer: {
     paddingHorizontal: CONTENT_PADDING,

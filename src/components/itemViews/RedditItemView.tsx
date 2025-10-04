@@ -1064,8 +1064,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: CONTENT_PADDING,
     paddingVertical: 12,
-    borderTopWidth: 5,
-    borderTopColor: '#FF4500', // Reddit orange
+    // borderTopWidth: 5,
+    // borderTopColor: '#FF4500', // Reddit orange
     backgroundColor: '#FFFFFF',
     gap: 8,
   },

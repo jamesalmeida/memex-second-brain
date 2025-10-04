@@ -210,16 +210,6 @@ const MovieTVItemView = observer(({
 
   return (
     <View style={styles.container}>
-      {/* Header with Movie/TV Icon */}
-      <View style={styles.header}>
-        <Text style={[styles.headerIcon, isDarkMode && styles.headerIconDark]}>
-          {item.content_type === 'movie' ? '🎬' : '📺'}
-        </Text>
-        <Text style={[styles.headerLabel, isDarkMode && styles.headerLabelDark]}>
-          {item.content_type === 'movie' ? 'Movie' : 'TV Show'}
-        </Text>
-      </View>
-
       {/* Title */}
       <Text style={[styles.title, isDarkMode && styles.titleDark]}>
         {itemToDisplay.title}
@@ -550,29 +540,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 4,
-    borderBottomColor: '#C0C0C0',
-    marginBottom: 16,
-  },
-  headerIcon: {
-    fontSize: 24,
-    marginRight: 8,
-  },
-  headerIconDark: {
-    opacity: 0.9,
-  },
-  headerLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  headerLabelDark: {
-    color: '#FFFFFF',
-  },
   title: {
     fontSize: 22,
     fontWeight: '700',
@@ -638,9 +605,6 @@ const styles = StyleSheet.create({
   singleImage: {
     width: '100%',
     height: 300,
-    borderRadius: 0,
-    borderWidth: 4,
-    borderColor: '#C0C0C0',
     backgroundColor: '#F0F0F0',
   },
   dotsContainer: {
