@@ -7,6 +7,7 @@ import { Item } from '../types';
 import RedditItemView from './itemViews/RedditItemView';
 import YouTubeItemView from './itemViews/YouTubeItemView';
 import XItemView from './itemViews/XItemView';
+import MovieTVItemView from './itemViews/MovieTVItemView';
 import DefaultItemView from './itemViews/DefaultItemView';
 
 interface ExpandedItemViewProps {
@@ -97,6 +98,20 @@ const ExpandedItemView = observer(
       case 'x':
         return (
           <XItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
+
+      case 'movie':
+      case 'tv_show':
+        return (
+          <MovieTVItemView
             item={item}
             onChat={onChat}
             onEdit={onEdit}
