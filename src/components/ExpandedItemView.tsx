@@ -6,6 +6,7 @@ import { themeStore } from '../stores/theme';
 import { Item } from '../types';
 import RedditItemView from './itemViews/RedditItemView';
 import YouTubeItemView from './itemViews/YouTubeItemView';
+import XItemView from './itemViews/XItemView';
 import DefaultItemView from './itemViews/DefaultItemView';
 
 interface ExpandedItemViewProps {
@@ -83,6 +84,19 @@ const ExpandedItemView = observer(
       case 'youtube_short':
         return (
           <YouTubeItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
+
+      case 'x':
+        return (
+          <XItemView
             item={item}
             onChat={onChat}
             onEdit={onEdit}
