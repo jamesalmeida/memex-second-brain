@@ -94,6 +94,15 @@ const isDarkMode = useObservable(themeStore.isDarkMode);
 Required in `.env` or `.env.local`:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_ENVIRONMENT`
+- `EXPO_PUBLIC_OPENAI_API_KEY`
+- `EXPO_PUBLIC_JINA_AI_API_KEY`
+- `EXPO_PUBLIC_X_API_KEY`
+- `EXPO_PUBLIC_X_API_KEY_SECRET`
+- `EXPO_PUBLIC_X_BEARER_TOKEN`
+- `EXPO_PUBLIC_X_ACCESS_TOKEN`
+- `EXPO_PUBLIC_X_ACCESS_TOKEN_SECRET`
+- `EXPO_PUBLIC_ASSEMBLYAI_API_KEY`
 
 ## Testing Considerations
 - Test both light and dark modes

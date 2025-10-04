@@ -13,6 +13,7 @@ export const expandedItemUIStore = observable({
   currentItem: null as Item | null,
   xVideoMuted: true, // Global preference for X video mute state
   autoplayXVideos: true, // Global preference for X video autoplay in grid
+  activeVideoPlayer: null as any, // Track the currently active/playing video player globally
 });
 
 export const expandedItemUIActions = {

@@ -154,6 +154,7 @@ const ExpandedItemView = observer(
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
   const hasInitializedVideo = useRef(false);
+  const currentItemId = useRef<string | null>(null);
 
   // Get video URL from item type metadata
   const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
@@ -270,10 +271,23 @@ const ExpandedItemView = observer(
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
 
-      // Reset video playing state for new item
-      setIsVideoPlaying(false);
-      console.log('🎬 [VideoPlayer] Resetting initialization flag for new item');
-      hasInitializedVideo.current = false; // Reset video initialization flag
+      // Check if this is a different item or the same item being reopened
+      const isDifferentItem = currentItemId.current !== item.id;
+      currentItemId.current = item.id;
+
+      if (isDifferentItem) {
+        // Different item - reset video playing state for UI, but don't stop previous video
+        console.log('🎬 [VideoPlayer] Different item opened - resetting UI state (previous video continues)');
+        setIsVideoPlaying(false);
+        hasInitializedVideo.current = false; // Reset video initialization flag for new item
+      } else {
+        // Same item reopened - check if video is already playing
+        if (videoPlayer && item.content_type === 'x') {
+          const isCurrentlyPlaying = videoPlayer.playing;
+          console.log('🎬 [VideoPlayer] Same item reopened - checking player state:', isCurrentlyPlaying);
+          setIsVideoPlaying(isCurrentlyPlaying);
+        }
+      }
 
       // Debug: Check metadata store
       if (item.content_type === 'x') {
@@ -907,7 +921,7 @@ const ExpandedItemView = observer(
                         showsTimecodes={true}
                         nativeControls={true}
                       />
-                      {/* Play button overlay for X posts */}
+                      {/* Play button overlay for X posts - only show before video starts playing */}
                       {itemToDisplay?.content_type === 'x' && !isVideoPlaying && (
                         <TouchableOpacity
                           style={styles.videoPlayButtonOverlay}
