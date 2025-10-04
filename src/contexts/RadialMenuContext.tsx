@@ -20,6 +20,7 @@ import DefaultItemCard from '../components/items/DefaultItemCard';
 import XItemCard from '../components/items/XItemCard';
 import YoutubeItemCard from '../components/items/YoutubeItemCard';
 import MovieTVItemCard from '../components/items/MovieTVItemCard';
+import RedditItemCard from '../components/items/RedditItemCard';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -337,6 +338,9 @@ const RadialMenuOverlay = observer(({
             case 'movie':
             case 'tv_show':
               CardComponent = MovieTVItemCard;
+              break;
+            case 'reddit':
+              CardComponent = RedditItemCard;
               break;
             default:
               CardComponent = DefaultItemCard;
