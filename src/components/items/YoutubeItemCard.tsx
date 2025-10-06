@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     width: '100%',
-    minHeight: 120,
+    minHeight: 100,
     backgroundColor: '#F0F0F0',
   },
   placeholderThumbnail: {
