@@ -14,9 +14,24 @@ export interface RedditPostData {
   created_utc: number;
   ups: number;
   num_comments: number;
+  upvote_ratio: number;
   post_hint?: string;
   is_gallery?: boolean;
   is_video?: boolean;
+  // Flair
+  link_flair_text?: string;
+  link_flair_background_color?: string;
+  link_flair_text_color?: string;
+  // Video metadata
+  video_duration?: number; // in seconds
+  // Post status flags
+  spoiler: boolean;
+  over_18: boolean;
+  locked: boolean;
+  stickied: boolean;
+  // Engagement
+  total_awards_received: number;
+  num_crossposts: number;
 }
 
 interface RedditAPIResponse {
@@ -227,6 +242,12 @@ export async function fetchRedditPostData(url: string): Promise<RedditPostData |
     // Extract video URL
     const videoUrl = extractVideoUrl(postData);
 
+    // Extract video duration (if video)
+    let videoDuration: number | undefined;
+    if (postData.is_video && postData.media?.reddit_video?.duration) {
+      videoDuration = postData.media.reddit_video.duration;
+    }
+
     // Extract thumbnail (if not a placeholder)
     let thumbnail: string | undefined;
     if (postData.thumbnail &&
@@ -253,9 +274,24 @@ export async function fetchRedditPostData(url: string): Promise<RedditPostData |
       created_utc: postData.created_utc || 0,
       ups: postData.ups || 0,
       num_comments: postData.num_comments || 0,
+      upvote_ratio: postData.upvote_ratio || 0,
       post_hint: postData.post_hint,
       is_gallery: postData.is_gallery || false,
       is_video: postData.is_video || false,
+      // Flair
+      link_flair_text: postData.link_flair_text || undefined,
+      link_flair_background_color: postData.link_flair_background_color || undefined,
+      link_flair_text_color: postData.link_flair_text_color || undefined,
+      // Video metadata
+      video_duration: videoDuration,
+      // Post status flags
+      spoiler: postData.spoiler || false,
+      over_18: postData.over_18 || false,
+      locked: postData.locked || false,
+      stickied: postData.stickied || false,
+      // Engagement
+      total_awards_received: postData.total_awards_received || 0,
+      num_crossposts: postData.num_crossposts || 0,
     };
 
     console.log('Extracted Reddit data:', {

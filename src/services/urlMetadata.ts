@@ -19,6 +19,22 @@ export interface URLMetadata {
   duration?: string; // For videos
   tags?: string[];
   error?: string;
+  // Reddit-specific metadata
+  redditMetadata?: {
+    ups: number;
+    num_comments: number;
+    upvote_ratio: number;
+    link_flair_text?: string;
+    link_flair_background_color?: string;
+    link_flair_text_color?: string;
+    video_duration?: number;
+    spoiler: boolean;
+    over_18: boolean;
+    locked: boolean;
+    stickied: boolean;
+    total_awards_received: number;
+    num_crossposts: number;
+  };
 }
 
 // Detect URL type
@@ -285,6 +301,22 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
         siteName: 'Reddit',
         contentType: 'reddit',
         publishedDate: new Date(redditData.created_utc * 1000).toISOString(),
+        // Reddit-specific metadata
+        redditMetadata: {
+          ups: redditData.ups,
+          num_comments: redditData.num_comments,
+          upvote_ratio: redditData.upvote_ratio,
+          link_flair_text: redditData.link_flair_text,
+          link_flair_background_color: redditData.link_flair_background_color,
+          link_flair_text_color: redditData.link_flair_text_color,
+          video_duration: redditData.video_duration,
+          spoiler: redditData.spoiler,
+          over_18: redditData.over_18,
+          locked: redditData.locked,
+          stickied: redditData.stickied,
+          total_awards_received: redditData.total_awards_received,
+          num_crossposts: redditData.num_crossposts,
+        },
       };
 
       return redditMetadata;

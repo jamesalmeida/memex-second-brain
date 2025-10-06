@@ -253,14 +253,15 @@ const AddItemSheet = observer(
       // Add to the items store with Supabase sync
       await itemsActions.addItemWithSync(newItem);
       
-      // Create item_type_metadata if we have video_url or image_urls
-      if (metadata?.videoUrl || metadata?.images) {
+      // Create item_type_metadata if we have video_url, image_urls, or reddit metadata
+      if (metadata?.videoUrl || metadata?.images || metadata?.redditMetadata) {
         await itemTypeMetadataActions.upsertTypeMetadata({
           item_id: newItem.id,
           content_type: newItem.content_type,
           data: {
             video_url: metadata?.videoUrl,
             image_urls: metadata?.images,
+            reddit_metadata: metadata?.redditMetadata,
           },
         });
       }

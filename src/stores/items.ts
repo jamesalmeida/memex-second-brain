@@ -440,13 +440,14 @@ export const itemsActions = {
       await itemsActions.updateItemWithSync(itemId, updates);
 
       // Update type-specific metadata if available
-      if (metadata.videoUrl || metadata.images) {
+      if (metadata.videoUrl || metadata.images || metadata.redditMetadata) {
         await itemTypeMetadataActions.upsertTypeMetadata({
           item_id: itemId,
           content_type: item.content_type,
           data: {
             video_url: metadata.videoUrl,
             image_urls: metadata.images,
+            reddit_metadata: metadata.redditMetadata,
           },
         });
       }

@@ -159,6 +159,10 @@ const RedditItemView = observer(({
     return null;
   }
 
+  // Get Reddit metadata from ItemTypeMetadata
+  const typeMetadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemToDisplay.id);
+  const redditMetadata = typeMetadata?.data?.reddit_metadata;
+
   // Extract subreddit from desc field (format: "r/subreddit: description" or just "r/subreddit")
   const subreddit = itemToDisplay.desc?.startsWith('r/')
     ? itemToDisplay.desc.split(':')[0]
@@ -173,6 +177,19 @@ const RedditItemView = observer(({
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}k`;
+    }
+    return num.toString();
   };
 
   // Image description helper functions
@@ -439,6 +456,27 @@ const RedditItemView = observer(({
             {subreddit}
           </Text>
         )}
+        {redditMetadata?.link_flair_text && (
+          <View
+            style={[
+              styles.flairBadge,
+              {
+                backgroundColor: redditMetadata.link_flair_background_color || '#373c3f',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.flairText,
+                {
+                  color: redditMetadata.link_flair_text_color === 'light' ? '#FFFFFF' : '#000000',
+                },
+              ]}
+            >
+              {redditMetadata.link_flair_text}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Hero Image/Carousel */}
@@ -514,6 +552,14 @@ const RedditItemView = observer(({
                 style={styles.heroMedia}
                 resizeMode="contain"
               />
+              {/* Video duration overlay */}
+              {redditMetadata?.video_duration && (
+                <View style={styles.durationOverlay}>
+                  <Text style={styles.durationText}>
+                    ⏱️ {formatDuration(redditMetadata.video_duration)}
+                  </Text>
+                </View>
+              )}
             </View>
           );
         }
@@ -526,6 +572,51 @@ const RedditItemView = observer(({
         <Text style={[styles.title, isDarkMode && styles.titleDark]}>
           {itemToDisplay?.title}
         </Text>
+
+        {/* Content Warning Badges */}
+        {redditMetadata && (redditMetadata.spoiler || redditMetadata.over_18 || redditMetadata.locked || redditMetadata.stickied) && (
+          <View style={styles.warningBadges}>
+            {redditMetadata.spoiler && (
+              <View style={[styles.warningBadge, styles.spoilerBadge]}>
+                <Text style={styles.warningBadgeText}>⚠️ SPOILER</Text>
+              </View>
+            )}
+            {redditMetadata.over_18 && (
+              <View style={[styles.warningBadge, styles.nsfwBadge]}>
+                <Text style={styles.warningBadgeText}>🔞 NSFW</Text>
+              </View>
+            )}
+            {redditMetadata.locked && (
+              <View style={[styles.warningBadge, styles.lockedBadge]}>
+                <Text style={styles.warningBadgeText}>🔒 Locked</Text>
+              </View>
+            )}
+            {redditMetadata.stickied && (
+              <View style={[styles.warningBadge, styles.stickiedBadge]}>
+                <Text style={styles.warningBadgeText}>📌 Pinned</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Engagement Metrics */}
+        {redditMetadata && (
+          <View style={[styles.engagementBar, isDarkMode && styles.engagementBarDark]}>
+            <Text style={[styles.engagementText, isDarkMode && styles.engagementTextDark]}>
+              ⬆️ {formatNumber(redditMetadata.ups)} • 💬 {formatNumber(redditMetadata.num_comments)} • {Math.round(redditMetadata.upvote_ratio * 100)}% upvoted
+            </Text>
+            {redditMetadata.total_awards_received > 0 && (
+              <Text style={[styles.engagementText, isDarkMode && styles.engagementTextDark]}>
+                {' '}• 🏆 {redditMetadata.total_awards_received}
+              </Text>
+            )}
+            {redditMetadata.num_crossposts > 0 && (
+              <Text style={[styles.engagementText, isDarkMode && styles.engagementTextDark]}>
+                {' '}• 🔄 {redditMetadata.num_crossposts}
+              </Text>
+            )}
+          </View>
+        )}
 
         <View style={styles.metadata}>
           {getDomain() && (
@@ -1744,5 +1835,79 @@ const styles = StyleSheet.create({
   },
   showMoreTextDark: {
     color: '#FFF',
+  },
+  // Flair badge styles
+  flairBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  flairText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  // Video duration overlay
+  durationOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  durationText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Warning badges
+  warningBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  warningBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  spoilerBadge: {
+    backgroundColor: '#FFB300',
+  },
+  nsfwBadge: {
+    backgroundColor: '#FF3B30',
+  },
+  lockedBadge: {
+    backgroundColor: '#8E8E93',
+  },
+  stickiedBadge: {
+    backgroundColor: '#34C759',
+  },
+  warningBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  // Engagement bar
+  engagementBar: {
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  engagementBarDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  engagementText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  engagementTextDark: {
+    color: '#E5E5E7',
   },
 });
