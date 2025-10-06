@@ -256,14 +256,52 @@ const extractIMDBMetadata = async (url: string): Promise<URLMetadata> => {
 
 // Extract Reddit metadata
 const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
+  // First, try Reddit's JSON API for rich metadata
   try {
-    console.log('Using Jina for Reddit extraction');
+    console.log('Attempting to fetch Reddit post data via JSON API');
+    const { fetchRedditPostData } = await import('./reddit');
+    const redditData = await fetchRedditPostData(url);
+
+    if (redditData) {
+      console.log('Successfully fetched Reddit data via JSON API');
+
+      // Format description with subreddit info and selftext
+      let description = `r/${redditData.subreddit}`;
+      if (redditData.selftext) {
+        description += `: ${redditData.selftext.slice(0, 400)}`;
+      }
+
+      // Format author with Reddit username format
+      const author = redditData.author ? `u/${redditData.author}` : `r/${redditData.subreddit}`;
+
+      const redditMetadata: URLMetadata = {
+        url,
+        title: redditData.title.slice(0, 200),
+        description: description.slice(0, 500),
+        image: redditData.thumbnail || redditData.images?.[0],
+        images: redditData.images,
+        videoUrl: redditData.videoUrl,
+        author,
+        siteName: 'Reddit',
+        contentType: 'reddit',
+        publishedDate: new Date(redditData.created_utc * 1000).toISOString(),
+      };
+
+      return redditMetadata;
+    }
+  } catch (redditError) {
+    console.error('Reddit JSON API extraction failed, falling back to Jina:', redditError);
+  }
+
+  // Fallback to Jina if Reddit API fails
+  try {
+    console.log('Using Jina for Reddit extraction (fallback)');
     const metadata = await extractWithJina(url);
-    
+
     // Reddit-specific parsing of Jina response
     let title = metadata.title || 'Reddit Post';
     let description = metadata.description || '';
-    
+
     // Reddit OG titles often include "r/subreddit - Post Title"
     // Clean up the title format
     if (title.includes(' : ')) {
@@ -277,16 +315,16 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
         title = parts.slice(1).join(' - ');
       }
     }
-    
+
     // Extract subreddit from URL
     const subredditMatch = url.match(/reddit\.com\/r\/([^/]+)/);
     const subreddit = subredditMatch ? subredditMatch[1] : null;
-    
+
     // Format the description to include subreddit info
     if (subreddit && !description.includes(`r/${subreddit}`)) {
       description = `r/${subreddit}${description ? ': ' + description : ''}`;
     }
-    
+
     const redditMetadata = {
       ...metadata,
       title: title.slice(0, 200),
@@ -295,7 +333,7 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
       siteName: 'Reddit',
       author: subreddit ? `r/${subreddit}` : metadata.author,
     };
-    
+
     // Fill any missing fields
     return fillMissingMetadata(redditMetadata);
   } catch (jinaError) {

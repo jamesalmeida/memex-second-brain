@@ -443,6 +443,7 @@ export const itemsActions = {
       if (metadata.videoUrl || metadata.images) {
         await itemTypeMetadataActions.upsertTypeMetadata({
           item_id: itemId,
+          content_type: item.content_type,
           data: {
             video_url: metadata.videoUrl,
             image_urls: metadata.images,

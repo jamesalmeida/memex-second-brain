@@ -52,7 +52,7 @@ export const itemTypeMetadataActions = {
   upsertTypeMetadata: async (metadata: ItemTypeMetadata) => {
     const currentMetadata = itemTypeMetadataStore.typeMetadata.get();
     const existingIndex = currentMetadata.findIndex(m => m.item_id === metadata.item_id);
-    
+
     let updatedMetadata: ItemTypeMetadata[];
     if (existingIndex >= 0) {
       // Update existing
@@ -62,11 +62,15 @@ export const itemTypeMetadataActions = {
       // Add new
       updatedMetadata = [...currentMetadata, metadata];
     }
-    
+
     itemTypeMetadataStore.typeMetadata.set(updatedMetadata);
-    
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(updatedMetadata));
+
+      // Sync to Supabase
+      const { syncOperations } = await import('../services/syncOperations');
+      await syncOperations.upsertItemTypeMetadata(metadata);
     } catch (error) {
       console.error('Error saving item type metadata:', error);
     }
@@ -75,11 +79,15 @@ export const itemTypeMetadataActions = {
   removeTypeMetadata: async (itemId: string) => {
     const currentMetadata = itemTypeMetadataStore.typeMetadata.get();
     const updatedMetadata = currentMetadata.filter(m => m.item_id !== itemId);
-    
+
     itemTypeMetadataStore.typeMetadata.set(updatedMetadata);
-    
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(updatedMetadata));
+
+      // Sync to Supabase
+      const { syncOperations } = await import('../services/syncOperations');
+      await syncOperations.deleteItemTypeMetadata(itemId);
     } catch (error) {
       console.error('Error removing item type metadata:', error);
     }

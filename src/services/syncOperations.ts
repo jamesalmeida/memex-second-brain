@@ -35,6 +35,31 @@ export const syncOperations = {
     console.log(`✅ Updated item ${itemId} in Supabase`);
   },
 
+  async upsertItemTypeMetadata(metadata: ItemTypeMetadata) {
+    const { error } = await supabase
+      .from('item_type_metadata')
+      .upsert({
+        item_id: metadata.item_id,
+        content_type: metadata.content_type,
+        data: metadata.data,
+      }, {
+        onConflict: 'item_id',
+      });
+
+    if (error) throw error;
+    console.log(`✅ Upserted item_type_metadata for item ${metadata.item_id}`);
+  },
+
+  async deleteItemTypeMetadata(itemId: string) {
+    const { error } = await supabase
+      .from('item_type_metadata')
+      .delete()
+      .eq('item_id', itemId);
+
+    if (error) throw error;
+    console.log(`✅ Deleted item_type_metadata for item ${itemId}`);
+  },
+
   async deleteItem(itemId: string) {
     const { error } = await db.deleteItem(itemId);
     if (error) throw error;

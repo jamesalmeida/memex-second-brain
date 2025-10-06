@@ -257,6 +257,7 @@ const AddItemSheet = observer(
       if (metadata?.videoUrl || metadata?.images) {
         await itemTypeMetadataActions.upsertTypeMetadata({
           item_id: newItem.id,
+          content_type: newItem.content_type,
           data: {
             video_url: metadata?.videoUrl,
             image_urls: metadata?.images,
