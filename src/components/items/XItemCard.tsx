@@ -31,13 +31,14 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
 
   // Set up video player if item has video
+  // Grid view: Always muted, only autoplays if setting is enabled
   const player = useVideoPlayer(videoUrl || null, player => {
     if (player && videoUrl) {
       player.loop = true;
       player.muted = true;
       player.volume = 0;
 
-      // Only autoplay if the setting is enabled
+      // Only autoplay if setting is enabled
       if (autoplayEnabled) {
         player.play();
       }
@@ -95,9 +96,9 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
               player={player}
               style={[styles.media, { height: imageHeight || 200 }]}
               contentFit="cover"
-              fullscreenOptions={{ enable: false }}
+              nativeControls={false}
+              allowsFullscreen={false}
               showsTimecodes={false}
-              muted={true}
             />
             <View style={styles.playButtonOverlay} pointerEvents="none">
               <View style={styles.playButton}>

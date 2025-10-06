@@ -129,8 +129,9 @@ const XItemView = observer(({
       hasInitializedVideo.current = true;
       console.log('🎬 [VideoPlayer] Initializing video player for X post');
       player.loop = true;
-      const initialMuted = expandedItemUIStore.xVideoMuted.get();
-      console.log('🎬 [VideoPlayer] Setting initial mute state for X video:', initialMuted);
+      // Always start unmuted in expanded view
+      const initialMuted = false;
+      console.log('🎬 [VideoPlayer] Setting initial mute state for X video (always unmuted):', initialMuted);
       player.muted = initialMuted;
 
       player.addListener('playingChange', (isPlaying) => {
@@ -143,6 +144,12 @@ const XItemView = observer(({
 
       player.addListener('volumeChange', ({ volume, isMuted }) => {
         console.log('🔇 [VideoPlayer] Volume changed - isMuted:', isMuted, 'volume:', volume);
+
+        // Ignore undefined values
+        if (isMuted === undefined) {
+          console.log('🔇 [VideoPlayer] isMuted is undefined, ignoring');
+          return;
+        }
 
         if (isMuted === lastMutedValue) {
           console.log('🔇 [VideoPlayer] Mute state unchanged, ignoring');
