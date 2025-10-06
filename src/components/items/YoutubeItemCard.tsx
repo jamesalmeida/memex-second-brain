@@ -35,12 +35,20 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: Yout
                 styles.thumbnail,
                 imageHeight ? { height: imageHeight } : null,
               ]}
-              contentFit="fill"
+              contentFit="cover"
               onLoad={(e: any) => {
                 if (e.source && e.source.width && e.source.height) {
-                  // Set height to match exact aspect ratio - width is 100%, so height adjusts
-                  const aspectRatio = e.source.height / e.source.width;
-                  setImageHeight(cardWidth * aspectRatio);
+                  if (isShort) {
+                    // YouTube Shorts: Force 9:16 vertical aspect ratio
+                    // Use the shorter dimension to ensure full coverage
+                    const actualAspectRatio = e.source.height / e.source.width;
+                    const targetAspectRatio = 16/9; // Height will be taller than width
+                    setImageHeight(cardWidth * targetAspectRatio);
+                  } else {
+                    // Regular YouTube: use actual thumbnail aspect ratio
+                    const aspectRatio = e.source.height / e.source.width;
+                    setImageHeight(cardWidth * aspectRatio);
+                  }
                 }
               }}
             />
