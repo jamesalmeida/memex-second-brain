@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   TextInput,
   Dimensions
 } from 'react-native';
@@ -20,7 +19,7 @@ import Animated, {
   interpolate,
   runOnJS,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { themeStore } from '../stores/theme';
 import { itemsStore, itemsActions } from '../stores/items';
 import { itemSpacesComputed } from '../stores/itemSpaces';

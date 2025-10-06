@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   TextInput,
   Dimensions,
   Modal,
@@ -25,7 +24,7 @@ import Animated, {
   interpolate,
   runOnJS,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { themeStore } from '../../src/stores/theme';
 import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import ItemCard from '../../src/components/items/ItemCard';
