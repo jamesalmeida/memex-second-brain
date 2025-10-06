@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
@@ -65,14 +65,10 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
-      <TouchableOpacity
-        onPress={() => onPress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-          <View style={[styles.card, isDarkMode && styles.cardDark]}>
-            {/* X Icon Badge - Top Right */}
-            <View style={styles.xIconContainer}>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* X Icon Badge - Top Right */}
+          <View style={styles.xIconContainer}>
             <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
           </View>
 
@@ -123,20 +119,19 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
               scrollEventThrottle={16}
             >
               {imageUrls!.map((imageUrl, index) => (
-                <TouchableWithoutFeedback key={index}>
-                  <Image
-                    source={{ uri: imageUrl }}
-                    style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
-                    contentFit="cover"
-                    onLoad={(e: any) => {
-                      if (index === 0 && e.source && e.source.width && e.source.height) {
-                        const aspectRatio = e.source.height / e.source.width;
-                        const calculatedHeight = mediaWidth * aspectRatio;
-                        setImageHeight(calculatedHeight);
-                      }
-                    }}
-                  />
-                </TouchableWithoutFeedback>
+                <Image
+                  key={index}
+                  source={{ uri: imageUrl }}
+                  style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
+                  contentFit="cover"
+                  onLoad={(e: any) => {
+                    if (index === 0 && e.source && e.source.width && e.source.height) {
+                      const aspectRatio = e.source.height / e.source.width;
+                      const calculatedHeight = mediaWidth * aspectRatio;
+                      setImageHeight(calculatedHeight);
+                    }
+                  }}
+                />
               ))}
             </ScrollView>
             {/* Dots indicator */}
@@ -175,9 +170,8 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
             {formatDate(item.created_at)}
           </Text>
         </View> */}
-          </View>
         </View>
-      </TouchableOpacity>
+      </View>
     </RadialActionMenu>
   );
 });
