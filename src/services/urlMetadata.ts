@@ -34,6 +34,7 @@ export interface URLMetadata {
     stickied: boolean;
     total_awards_received: number;
     num_crossposts: number;
+    raw_json?: string; // Full Reddit API JSON response
   };
 }
 
@@ -316,6 +317,7 @@ const extractRedditMetadata = async (url: string): Promise<URLMetadata> => {
           stickied: redditData.stickied,
           total_awards_received: redditData.total_awards_received,
           num_crossposts: redditData.num_crossposts,
+          raw_json: redditData.raw_json,
         },
       };
 

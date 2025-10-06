@@ -32,6 +32,8 @@ export interface RedditPostData {
   // Engagement
   total_awards_received: number;
   num_crossposts: number;
+  // Raw API response for AI context
+  raw_json?: string; // Full JSON response from Reddit API
 }
 
 interface RedditAPIResponse {
@@ -214,6 +216,9 @@ export async function fetchRedditPostData(url: string): Promise<RedditPostData |
 
     // console.log('[Reddit] Full JSON response:', JSON.stringify(data, null, 2));
 
+    // Store the raw JSON response for AI chat context
+    const rawJsonString = JSON.stringify(data, null, 2);
+
     // Reddit returns an array with 2 elements: [post, comments]
     // We only need the post data from the first element
     if (!data || !data[0] || !data[0].data || !data[0].data.children || !data[0].data.children[0]) {
@@ -292,6 +297,8 @@ export async function fetchRedditPostData(url: string): Promise<RedditPostData |
       // Engagement
       total_awards_received: postData.total_awards_received || 0,
       num_crossposts: postData.num_crossposts || 0,
+      // Raw JSON for AI context
+      raw_json: rawJsonString,
     };
 
     console.log('Extracted Reddit data:', {
