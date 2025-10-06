@@ -73,7 +73,7 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
         Math.pow(touch.pageY - touchStart.current.y, 2)
       );
 
-      if (distance > 10 && longPressTimer.current) {
+      if (distance > 20 && longPressTimer.current) {
         console.log('❌ Long press cancelled - finger moved too much:', distance);
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;

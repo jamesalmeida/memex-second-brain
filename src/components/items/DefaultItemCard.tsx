@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
@@ -47,10 +47,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           {/* Thumbnail or Content Preview */}
         {videoUrl && player ? (
-        <TouchableOpacity
-          onPress={() => onPress(item)}
-          activeOpacity={0.7}
-        >
           <View style={{ position: 'relative' }}>
             <VideoView
               player={player}
@@ -66,7 +62,6 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
               </View>
             </View>
           </View>
-        </TouchableOpacity>
       ) : hasMultipleImages ? (
         <View style={{ position: 'relative' }}>
           <ScrollView
@@ -82,27 +77,23 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             style={{ width: '100%' }}
           >
             {imageUrls!.map((imageUrl, index) => (
-              <TouchableWithoutFeedback
+              <Image
                 key={index}
-                onPress={() => onPress(item)}
-              >
-                <Image
-                  source={{ uri: imageUrl }}
-                  style={[
-                    styles.thumbnail,
-                    { width: cardWidth, height: imageHeight || 200 }
-                  ]}
-                  contentFit="cover"
-                  onLoad={(e: any) => {
-                    if (index === 0 && e.source && e.source.width && e.source.height) {
-                      const aspectRatio = e.source.height / e.source.width;
-                      const calculatedHeight = cardWidth * aspectRatio;
-                      const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-                      setImageHeight(finalHeight);
-                    }
-                  }}
-                />
-              </TouchableWithoutFeedback>
+                source={{ uri: imageUrl }}
+                style={[
+                  styles.thumbnail,
+                  { width: cardWidth, height: imageHeight || 200 }
+                ]}
+                contentFit="cover"
+                onLoad={(e: any) => {
+                  if (index === 0 && e.source && e.source.width && e.source.height) {
+                    const aspectRatio = e.source.height / e.source.width;
+                    const calculatedHeight = cardWidth * aspectRatio;
+                    const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                    setImageHeight(finalHeight);
+                  }
+                }}
+              />
             ))}
           </ScrollView>
           {/* Dots indicator */}
@@ -119,49 +110,34 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
           </View>
         </View>
       ) : item.thumbnail_url ? (
-        <TouchableOpacity
-          onPress={() => onPress(item)}
-          activeOpacity={0.7}
-        >
-          <View>
-            <Image
-              source={{ uri: item.thumbnail_url }}
-              style={[
-                styles.thumbnail,
-                imageHeight ? { height: imageHeight } : null
-              ]}
-              contentFit="cover"
-              onLoad={(e: any) => {
-                if (e.source && e.source.width && e.source.height) {
-                  const aspectRatio = e.source.height / e.source.width;
-                  const calculatedHeight = cardWidth * aspectRatio;
-                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-                  setImageHeight(finalHeight);
-                }
-              }}
-            />
-          </View>
-        </TouchableOpacity>
+        <View>
+          <Image
+            source={{ uri: item.thumbnail_url }}
+            style={[
+              styles.thumbnail,
+              imageHeight ? { height: imageHeight } : null
+            ]}
+            contentFit="cover"
+            onLoad={(e: any) => {
+              if (e.source && e.source.width && e.source.height) {
+                const aspectRatio = e.source.height / e.source.width;
+                const calculatedHeight = cardWidth * aspectRatio;
+                const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                setImageHeight(finalHeight);
+              }
+            }}
+          />
+        </View>
       ) : item.content ? (
-        <TouchableOpacity
-          onPress={() => onPress(item)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
-            <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
-              {item.content}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
+          <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
+            {item.content}
+          </Text>
+        </View>
       ) : (
-        <TouchableOpacity
-          onPress={() => onPress(item)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.placeholder, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
-            <Text style={styles.placeholderIcon}>{getContentTypeIcon(item.content_type)}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={[styles.placeholder, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
+          <Text style={styles.placeholderIcon}>{getContentTypeIcon(item.content_type)}</Text>
+        </View>
       )}
 
       {/* Content Type Badge */}
@@ -177,33 +153,28 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
       </View>
 
       {/* Card Content */}
-      <TouchableOpacity
-        onPress={() => onPress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardContent}>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
-            {item.title}
-          </Text>
+      <View style={styles.cardContent}>
+        <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
+          {item.title}
+        </Text>
 
-          {item.desc && (
-            <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
-              {item.desc}
+        {item.desc && (
+          <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
+            {item.desc}
+          </Text>
+        )}
+
+        <View style={styles.footer}>
+          {getDomain(item) && (
+            <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
+              {getDomain(item)}
             </Text>
           )}
-
-          <View style={styles.footer}>
-            {getDomain(item) && (
-              <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
-                {getDomain(item)}
-              </Text>
-            )}
-            <Text style={[styles.date, isDarkMode && styles.dateDark]}>
-              {formatDate(item.created_at)}
-            </Text>
-          </View>
+          <Text style={[styles.date, isDarkMode && styles.dateDark]}>
+            {formatDate(item.created_at)}
+          </Text>
         </View>
-      </TouchableOpacity>
+      </View>
         </View>
       </View>
     </RadialActionMenu>

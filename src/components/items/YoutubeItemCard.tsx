@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
@@ -24,14 +24,10 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: Yout
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
-      <TouchableOpacity
-        onPress={() => onPress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-          <View style={[styles.card, isDarkMode && styles.cardDark]}>
-            {/* Video Thumbnail - Full Bleed */}
-            <View style={styles.thumbnailContainer}>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* Video Thumbnail - Full Bleed */}
+          <View style={styles.thumbnailContainer}>
           {item.thumbnail_url ? (
             <Image
               source={{ uri: item.thumbnail_url }}
@@ -99,16 +95,15 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: Yout
             {formatDate(item.created_at)}
           </Text>
         </View> */}
-        </View>
 
         {/* Title Below Video */}
         <View style={styles.titleContainer}>
-          <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
-            {item.title}
-          </Text>
+            <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
+              {item.title}
+            </Text>
+          </View>
         </View>
-        </View>
-      </TouchableOpacity>
+      </View>
     </RadialActionMenu>
   );
 });

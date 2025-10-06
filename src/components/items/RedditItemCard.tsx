@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
@@ -39,16 +39,12 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
-      <TouchableOpacity
-        onPress={() => onPress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-          <View style={[styles.card, isDarkMode && styles.cardDark]}>
-            {/* Reddit Icon Badge - Top Right */}
-            <View style={styles.redditIconContainer}>
-              <Text style={[styles.redditIcon, isDarkMode && styles.redditIconDark]}>🤖</Text>
-            </View>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* Reddit Icon Badge - Top Right */}
+          <View style={styles.redditIconContainer}>
+            <Text style={[styles.redditIcon, isDarkMode && styles.redditIconDark]}>🤖</Text>
+          </View>
 
             {/* Subreddit Header */}
             {subreddit && (
@@ -81,20 +77,19 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                   scrollEventThrottle={16}
                 >
                   {imageUrls!.map((imageUrl, index) => (
-                    <TouchableWithoutFeedback key={index}>
-                      <Image
-                        source={{ uri: imageUrl }}
-                        style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
-                        contentFit="cover"
-                        onLoad={(e: any) => {
-                          if (index === 0 && e.source && e.source.width && e.source.height) {
-                            const aspectRatio = e.source.height / e.source.width;
-                            const calculatedHeight = mediaWidth * aspectRatio;
-                            setImageHeight(calculatedHeight);
-                          }
-                        }}
-                      />
-                    </TouchableWithoutFeedback>
+                    <Image
+                      key={index}
+                      source={{ uri: imageUrl }}
+                      style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
+                      contentFit="cover"
+                      onLoad={(e: any) => {
+                        if (index === 0 && e.source && e.source.width && e.source.height) {
+                          const aspectRatio = e.source.height / e.source.width;
+                          const calculatedHeight = mediaWidth * aspectRatio;
+                          setImageHeight(calculatedHeight);
+                        }
+                      }}
+                    />
                   ))}
                 </ScrollView>
                 {/* Dots indicator */}
@@ -141,9 +136,8 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                 />
               </View>
             ) : null}
-          </View>
         </View>
-      </TouchableOpacity>
+      </View>
     </RadialActionMenu>
   );
 });
