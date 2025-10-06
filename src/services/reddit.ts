@@ -212,7 +212,7 @@ export async function fetchRedditPostData(url: string): Promise<RedditPostData |
 
     const data: RedditAPIResponse[] = await response.json();
 
-    console.log('[Reddit] Full JSON response:', JSON.stringify(data, null, 2));
+    // console.log('[Reddit] Full JSON response:', JSON.stringify(data, null, 2));
 
     // Reddit returns an array with 2 elements: [post, comments]
     // We only need the post data from the first element
