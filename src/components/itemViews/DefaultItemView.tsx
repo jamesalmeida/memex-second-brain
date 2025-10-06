@@ -802,7 +802,6 @@ const DefaultItemView = observer(({
                 uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
               }}
               style={styles.webView}
-              allowsFullscreenVideo={true}
               allowsInlineMediaPlayback={true}
               mediaPlaybackRequiresUserAction={false}
               javaScriptEnabled={true}

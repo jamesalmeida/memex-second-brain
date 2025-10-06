@@ -97,7 +97,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
               style={[styles.media, { height: imageHeight || 200 }]}
               contentFit="cover"
               nativeControls={false}
-              allowsFullscreen={false}
+              fullscreenOptions={{ enabled: false }}
               showsTimecodes={false}
             />
             {/* Only show play button overlay when autoplay is OFF */}
