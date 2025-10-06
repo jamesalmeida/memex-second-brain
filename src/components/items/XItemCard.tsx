@@ -100,11 +100,14 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
               allowsFullscreen={false}
               showsTimecodes={false}
             />
-            <View style={styles.playButtonOverlay} pointerEvents="none">
-              <View style={styles.playButton}>
-                <Text style={styles.playButtonIcon}>▶</Text>
+            {/* Only show play button overlay when autoplay is OFF */}
+            {!autoplayEnabled && (
+              <View style={styles.playButtonOverlay} pointerEvents="none">
+                <View style={styles.playButton}>
+                  <Text style={styles.playButtonIcon}>▶</Text>
+                </View>
               </View>
-            </View>
+            )}
           </View>
         ) : hasMultipleImages ? (
           <View style={styles.mediaContainer}>
