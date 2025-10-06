@@ -34,20 +34,13 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: Yout
               style={[
                 styles.thumbnail,
                 imageHeight ? { height: imageHeight } : null,
-                // Force specific aspect ratio for YouTube Shorts
-                isShort ? { height: cardWidth * (16/9) } : null,
               ]}
-              contentFit="cover"
+              contentFit="fill"
               onLoad={(e: any) => {
-                if (isShort) {
-                  // YouTube Shorts: 9:16 vertical aspect ratio
-                  setImageHeight(cardWidth * (16/9));
-                } else if (e.source && e.source.width && e.source.height) {
-                  // Regular YouTube: use actual aspect ratio, capped at 1.5x width
+                if (e.source && e.source.width && e.source.height) {
+                  // Set height to match exact aspect ratio - width is 100%, so height adjusts
                   const aspectRatio = e.source.height / e.source.width;
-                  const calculatedHeight = cardWidth * aspectRatio;
-                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-                  setImageHeight(finalHeight);
+                  setImageHeight(cardWidth * aspectRatio);
                 }
               }}
             />
@@ -96,12 +89,12 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: Yout
           </Text>
         </View> */}
 
-        {/* Title Below Video */}
-        <View style={styles.titleContainer}>
-            <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
-              {item.title}
-            </Text>
-          </View>
+      </View>
+      {/* Title Below Video */}
+      <View style={styles.titleContainer}>
+          <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
+            {item.title}
+          </Text>
         </View>
       </View>
     </RadialActionMenu>
