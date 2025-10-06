@@ -15,12 +15,7 @@ import { themeStore } from '../stores/theme';
 import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
 import { expandedItemUIActions } from '../stores/expandedItemUI';
-import { Item } from '../types';
-import DefaultItemCard from '../components/items/DefaultItemCard';
-import XItemCard from '../components/items/XItemCard';
-import YoutubeItemCard from '../components/items/YoutubeItemCard';
-import MovieTVItemCard from '../components/items/MovieTVItemCard';
-import RedditItemCard from '../components/items/RedditItemCard';
+import { Item, ContentType } from '../types';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -325,26 +320,25 @@ const RadialMenuOverlay = observer(({
 
         {/* Floating card - render after overlay so it appears on top */}
         {item && cardLayout && (() => {
-          // Render card directly without RadialActionMenu wrapper
-          let CardComponent;
-          switch (item.content_type) {
-            case 'x':
-              CardComponent = XItemCard;
-              break;
-            case 'youtube':
-            case 'youtube_short':
-              CardComponent = YoutubeItemCard;
-              break;
-            case 'movie':
-            case 'tv_show':
-              CardComponent = MovieTVItemCard;
-              break;
-            case 'reddit':
-              CardComponent = RedditItemCard;
-              break;
-            default:
-              CardComponent = DefaultItemCard;
-          }
+          // Lazy load card component to avoid circular dependency
+          const getCardComponent = (contentType: ContentType) => {
+            switch (contentType) {
+              case 'x':
+                return require('../components/items/XItemCard').default;
+              case 'youtube':
+              case 'youtube_short':
+                return require('../components/items/YoutubeItemCard').default;
+              case 'movie':
+              case 'tv_show':
+                return require('../components/items/MovieTVItemCard').default;
+              case 'reddit':
+                return require('../components/items/RedditItemCard').default;
+              default:
+                return require('../components/items/DefaultItemCard').default;
+            }
+          };
+
+          const CardComponent = getCardComponent(item.content_type);
 
           return (
             <View
