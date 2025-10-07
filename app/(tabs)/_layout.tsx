@@ -212,52 +212,55 @@ const TabLayout = observer(() => {
       {!isExpandedItemOpen && (
         <>
           {/* Hamburger Menu Button - Bottom Left */}
-          <Host
+          <View
             style={[
               styles.glassButtonHost,
               styles.leftButton,
-              { bottom: insets.bottom + 16 }
-            ]}
-          >
-            <Circle
-              modifiers={[
-                frame({ width: 56, height: 56 }),
-                glassEffect({ glass: { variant: 'regular', interactive: true } }),
-                onTapGesture(handleSettingsPress)
-              ]}
-            >
-              <Image
-                systemImage="line.3.horizontal"
+              { bottom: insets.bottom - 20 }
+            ]}          >
+            <Host style={{ width: 60, height: 60 }}>
+              <Circle
                 modifiers={[
-                  foregroundStyle(isDarkMode ? 'white' : 'black')
+                  frame({ width: 60, height: 60 }),
+                  glassEffect({ glass: { variant: 'regular', interactive: true } }),
+                  onTapGesture(handleSettingsPress)
                 ]}
-              />
-            </Circle>
-          </Host>
+              >
+                <Image
+                  systemImage="line.3.horizontal"
+                  modifiers={[
+                    foregroundStyle(isDarkMode ? 'white' : 'black')
+                  ]}
+                />
+              </Circle>
+            </Host>
+          </View>
 
           {/* Add Item Button - Bottom Right */}
-          <Host
+          <View
             style={[
               styles.glassButtonHost,
               styles.rightButton,
-              { bottom: insets.bottom + 16 }
+              { bottom: insets.bottom - 20 }
             ]}
           >
-            <Circle
-              modifiers={[
-                frame({ width: 56, height: 56 }),
-                glassEffect({ glass: { variant: 'regular', interactive: true, tint: '#FF6B35' } }),
-                onTapGesture(handleAddPress)
-              ]}
-            >
-              <Image
-                systemImage="plus"
+            <Host style={{ width: 60, height: 60 }}>
+              <Circle
                 modifiers={[
-                  foregroundStyle('white')
+                  frame({ width: 60, height: 60 }),
+                  glassEffect({ glass: { variant: 'regular', interactive: true, tint: '#FF6B35' } }),
+                  onTapGesture(handleAddPress)
                 ]}
-              />
-            </Circle>
-          </Host>
+              >
+                <Image
+                  systemImage="plus"
+                  modifiers={[
+                    foregroundStyle('white')
+                  ]}
+                />
+              </Circle>
+            </Host>
+          </View>
         </>
       )}
 
