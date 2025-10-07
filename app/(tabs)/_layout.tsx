@@ -5,6 +5,8 @@ import { observer } from '@legendapp/state/react';
 import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import { MaterialIcons } from '@expo/vector-icons';
+import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
 import { themeStore } from '../../src/stores/theme';
 import { chatUIStore } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
@@ -204,15 +206,45 @@ const TabLayout = observer(() => {
           </GestureDetector>
         </View>
 
-      {/* Custom Bottom Navigation */}
-      <BottomNavigation
-        currentView={currentView}
-        onViewChange={handleViewChange}
-        onSettingsPress={handleSettingsPress}
-        onAddPress={handleAddPress}
-        isSheetOpen={isAddSheetOpen}
-        visible={!isExpandedItemOpen}
-      />
+      {/* Native Tabs with Liquid Glass Effect */}
+      {!isExpandedItemOpen && (
+        <NativeTabs
+          blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
+          backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
+        >
+          <NativeTabs.Trigger
+            name="index"
+            onPress={() => handleViewChange('everything')}
+          >
+            <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} />
+            <Label>Home</Label>
+          </NativeTabs.Trigger>
+
+          <NativeTabs.Trigger
+            name="spaces"
+            onPress={() => handleViewChange('spaces')}
+          >
+            <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
+            <Label>Spaces</Label>
+          </NativeTabs.Trigger>
+
+          <NativeTabs.Trigger
+            name="add"
+            onPress={handleAddPress}
+          >
+            <Icon src={<VectorIcon family={MaterialIcons} name="add" />} />
+            <Label>Add</Label>
+          </NativeTabs.Trigger>
+
+          <NativeTabs.Trigger
+            name="settings"
+            onPress={handleSettingsPress}
+          >
+            <Icon src={<VectorIcon family={MaterialIcons} name="settings" />} />
+            <Label>Settings</Label>
+          </NativeTabs.Trigger>
+        </NativeTabs>
+      )}
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>

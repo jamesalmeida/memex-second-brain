@@ -13,6 +13,7 @@
     "android:prod": "APP_VARIANT=production expo run:android"
   },
   "dependencies": {
+    "@expo/ui": "~0.2.0-beta.6",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.4",
     "@legendapp/state": "^2.1.15",
