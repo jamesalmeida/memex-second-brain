@@ -7,6 +7,7 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { MaterialIcons } from '@expo/vector-icons';
 import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { usePathname } from 'expo-router';
 import { Button as ButtonPrimitive, Host, Circle, Image } from '@expo/ui/swift-ui';
 import { frame, glassEffect, onTapGesture, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../../src/stores/theme';
@@ -26,6 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -49,6 +51,18 @@ const TabLayout = observer(() => {
   useEffect(() => {
     Keyboard.dismiss();
   }, []);
+
+  // Sync currentView with actual route from expo-router
+  useEffect(() => {
+    console.log('📍 Route changed - pathname:', pathname, 'currentView:', currentView);
+    if (pathname.includes('/spaces') && currentView !== 'spaces') {
+      console.log('✅ Switching to spaces view');
+      setCurrentView('spaces');
+    } else if (pathname === '/(tabs)' || pathname === '/' && currentView !== 'everything') {
+      console.log('✅ Switching to everything view');
+      setCurrentView('everything');
+    }
+  }, [pathname]);
 
   // Watch chatUI store and control chat sheet
   const isChatOpen = chatUIStore.isOpen.get();
@@ -86,6 +100,7 @@ const TabLayout = observer(() => {
   };
 
   const handleAddPress = () => {
+    console.log('🏠🏠🏠 handleAddPress called');
     if (isAddSheetOpen) {
       // Close the open sheet
       addItemSheetRef.current?.close();
@@ -113,6 +128,7 @@ const TabLayout = observer(() => {
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
+    console.log('🏠🏠🏠 handleViewChange called - setting currentView to:');
     // Close any open sheets when switching views
     if (isAddSheetOpen) {
       addItemSheetRef.current?.close();
@@ -125,13 +141,14 @@ const TabLayout = observer(() => {
     }
 
     // Animate the slide based on the view
-    const targetX = view === 'everything' ? 0 : -SCREEN_WIDTH;
-    translateX.value = withTiming(targetX, {
-      duration: 250,
-      easing: Easing.out(Easing.cubic),
-    });
+    // const targetX = view === 'everything' ? 0 : -SCREEN_WIDTH;
+    // translateX.value = withTiming(targetX, {
+    //   duration: 250,
+    //   easing: Easing.out(Easing.cubic),
+    // });
 
     setCurrentView(view);
+    console.log('🏠 [TabLayout] handleViewChange called - setting currentView to:', view);
   };
 
   // Pan gesture for swipe navigation
