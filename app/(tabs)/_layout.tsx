@@ -311,10 +311,10 @@ const TabLayout = observer(() => {
         />
       </View>
 
-      {/* Chat Sheet Modal - Renders on native layer above everything */}
-      <ChatSheet
-        ref={chatSheetRef}
-      />
+      {/* Chat Sheet Modal - absolute container with higher z-index so it sits above everything */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
+        <ChatSheet ref={chatSheetRef} />
+      </View>
       </View>
     </BottomSheetModalProvider>
   );
