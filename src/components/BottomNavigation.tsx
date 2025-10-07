@@ -26,7 +26,7 @@ const BottomNavigation = observer(({
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
 
-  if (!visible) return null;
+  // if (!visible) return null;
 
   return (
     <>
@@ -104,28 +104,6 @@ const BottomNavigation = observer(({
           </Circle>
         </Host>
       </View>
-
-      {/* Native Tabs with Liquid Glass Effect */}
-      {/* <NativeTabs
-        blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
-        backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
-      >
-        <NativeTabs.Trigger
-          name="index"
-          onPress={() => onViewChange('everything')}
-        >
-          <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} />
-          <Label>Home</Label>
-        </NativeTabs.Trigger>
-
-        <NativeTabs.Trigger
-          name="spaces"
-          onPress={() => onViewChange('spaces')}
-        >
-          <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
-          <Label>Spaces</Label>
-        </NativeTabs.Trigger>
-      </NativeTabs> */}
     </>
   );
 });
