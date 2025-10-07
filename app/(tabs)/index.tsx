@@ -136,10 +136,11 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         masonry
         numColumns={2}
         estimatedItemSize={200}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top, paddingHorizontal: isDarkMode ? -4 : 4 }]}
+        contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!shouldDisableScroll}
         ListEmptyComponent={EmptyState}
+        contentInsetAdjustmentBehavior="automatic"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
