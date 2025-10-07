@@ -57,6 +57,28 @@ const BottomNavigation = observer(({
         </Host>
       </View>
 
+      {/* Native Tabs with Liquid Glass Effect */}
+      <NativeTabs
+        blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
+        backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
+      >
+        <NativeTabs.Trigger
+          name="index"
+          onPress={() => onViewChange('everything')}
+        >
+          <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} />
+          <Label>Home</Label>
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger
+          name="spaces"
+          onPress={() => onViewChange('spaces')}
+        >
+          <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
+          <Label>Spaces</Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+
       {/* Add Item Button - Bottom Right */}
       <View
         style={[
@@ -84,7 +106,7 @@ const BottomNavigation = observer(({
       </View>
 
       {/* Native Tabs with Liquid Glass Effect */}
-      <NativeTabs
+      {/* <NativeTabs
         blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
         backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
       >
@@ -103,7 +125,7 @@ const BottomNavigation = observer(({
           <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
           <Label>Spaces</Label>
         </NativeTabs.Trigger>
-      </NativeTabs>
+      </NativeTabs> */}
     </>
   );
 });
@@ -113,7 +135,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 56,
     height: 56,
-    zIndex: 1000,
+    zIndex: 1
   },
   leftButton: {
     left: 30,
