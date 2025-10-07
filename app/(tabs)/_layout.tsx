@@ -265,7 +265,7 @@ const TabLayout = observer(() => {
               <Circle
                 modifiers={[
                   frame({ width: 60, height: 60 }),
-                  glassEffect({ glass: { variant: 'regular', interactive: true, tint: '#FF6B35' } }),
+                  glassEffect({ glass: { variant: 'regular', interactive: true } }),
                   onTapGesture(handleAddPress)
                 ]}
               >
