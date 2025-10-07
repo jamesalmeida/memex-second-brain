@@ -5,11 +5,7 @@ import { observer } from '@legendapp/state/react';
 import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
-import { MaterialIcons } from '@expo/vector-icons';
-import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
 import { usePathname } from 'expo-router';
-import { Button as ButtonPrimitive, Host, Circle, Image } from '@expo/ui/swift-ui';
-import { frame, glassEffect, onTapGesture, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../../src/stores/theme';
 import { chatUIStore } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
@@ -225,85 +221,14 @@ const TabLayout = observer(() => {
           </GestureDetector>
         </View>
 
-      {/* Liquid Glass Action Buttons */}
-      {!isExpandedItemOpen && (
-        <>
-          {/* Hamburger Menu Button - Bottom Left */}
-          <View
-            style={[
-              styles.glassButtonHost,
-              styles.leftButton,
-              { bottom: insets.bottom - 20 }
-            ]}          >
-            <Host style={{ width: 60, height: 60 }}>
-              <Circle
-                modifiers={[
-                  frame({ width: 60, height: 60 }),
-                  glassEffect({ glass: { variant: 'regular', interactive: true } }),
-                  onTapGesture(handleSettingsPress)
-                ]}
-              >
-                <Image
-                  systemImage="line.3.horizontal"
-                  modifiers={[
-                    foregroundStyle(isDarkMode ? 'white' : 'black')
-                  ]}
-                />
-              </Circle>
-            </Host>
-          </View>
-
-          {/* Add Item Button - Bottom Right */}
-          <View
-            style={[
-              styles.glassButtonHost,
-              styles.rightButton,
-              { bottom: insets.bottom - 20 }
-            ]}
-          >
-            <Host style={{ width: 60, height: 60 }}>
-              <Circle
-                modifiers={[
-                  frame({ width: 60, height: 60 }),
-                  glassEffect({ glass: { variant: 'regular', interactive: true } }),
-                  onTapGesture(handleAddPress)
-                ]}
-              >
-                <Image
-                  systemImage="plus"
-                  modifiers={[
-                    foregroundStyle('white')
-                  ]}
-                />
-              </Circle>
-            </Host>
-          </View>
-        </>
-      )}
-
-      {/* Native Tabs with Liquid Glass Effect */}
-      {!isExpandedItemOpen && (
-        <NativeTabs
-          blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
-          backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
-        >
-          <NativeTabs.Trigger
-            name="index"
-            onPress={() => handleViewChange('everything')}
-          >
-            <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} />
-            <Label>Home</Label>
-          </NativeTabs.Trigger>
-
-          <NativeTabs.Trigger
-            name="spaces"
-            onPress={() => handleViewChange('spaces')}
-          >
-            <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
-            <Label>Spaces</Label>
-          </NativeTabs.Trigger>
-        </NativeTabs>
-      )}
+      {/* Bottom Navigation */}
+      <BottomNavigation
+        currentView={currentView}
+        onViewChange={handleViewChange}
+        onSettingsPress={handleSettingsPress}
+        onAddPress={handleAddPress}
+        visible={!isExpandedItemOpen}
+      />
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
@@ -358,18 +283,6 @@ const styles = StyleSheet.create({
   viewContainer: {
     width: SCREEN_WIDTH,
     height: '100%',
-  },
-  glassButtonHost: {
-    position: 'absolute',
-    width: 56,
-    height: 56,
-    zIndex: 1000,
-  },
-  leftButton: {
-    left: 30,
-  },
-  rightButton: {
-    right: 30,
   },
 });
 
