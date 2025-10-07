@@ -7,7 +7,7 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { usePathname } from 'expo-router';
 import { themeStore } from '../../src/stores/theme';
-import { chatUIStore } from '../../src/stores/chatUI';
+import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
@@ -267,7 +267,7 @@ const TabLayout = observer(() => {
             setIsExpandedItemOpen(false);
           }}
           onChat={(item) => {
-            chatUIStore.isOpen.set(true);
+            chatUIActions.openChat(item);
           }}
           onEdit={(item) => console.log('Edit item:', item.title)}
           onArchive={(item) => console.log('Archive item:', item.title)}

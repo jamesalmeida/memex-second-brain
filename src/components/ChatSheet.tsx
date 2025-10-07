@@ -64,6 +64,12 @@ const ChatSheet = observer(
     const snapPoints = ['90%'];
     const selectedModel = aiSettingsComputed.selectedModel();
 
+    // Reset input state when switching items/chats
+    useEffect(() => {
+      setInputText('');
+      setIsTyping(false);
+    }, [item?.id]);
+
     // Load or create chat when item changes
     useEffect(() => {
       if (item) {
@@ -562,10 +568,10 @@ const ChatSheet = observer(
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                (!inputText.trim() || isTyping) && styles.sendButtonDisabled,
+                ((!inputText.trim() || isTyping || !chat) && styles.sendButtonDisabled),
               ]}
               onPress={handleSend}
-              disabled={!inputText.trim() || isTyping}
+              disabled={!inputText.trim() || isTyping || !chat}
             >
               {isTyping ? (
                 <ActivityIndicator size="small" color="#fff" />
