@@ -349,10 +349,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   leftButton: {
-    left: 16,
+    left: 30,
   },
   rightButton: {
-    right: 16,
+    right: 30,
   },
 });
 
