@@ -32,6 +32,7 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
   const menuWasVisible = useRef(false);
   const touchStartTime = useRef(0);
   const isLongPressing = useRef(false); // Track if we're in the middle of handling a long press
+  const wasCancelled = useRef(false); // Track if long press was cancelled due to movement
   const cardRef = useRef<any>(null);
 
   // Animated values for card
@@ -45,6 +46,7 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
     touchStartTime.current = Date.now();
     menuWasVisible.current = false;
     isLongPressing.current = true; // Mark that we're potentially long pressing
+    wasCancelled.current = false; // Reset cancellation flag
 
     // Start long-press timer
     longPressTimer.current = setTimeout(() => {
@@ -56,7 +58,7 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       // Measure card position before showing menu
       if (cardRef.current) {
         cardRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
-          console.log('📏 Card measured at:', { x, y, width, height });
+          // console.log('📏 Card measured at:', { x, y, width, height });
           showMenu(item, touch.pageX, touch.pageY, { x, y, width, height });
         });
       }
@@ -74,21 +76,19 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       );
 
       if (distance > 20 && longPressTimer.current) {
-        console.log('❌ Long press cancelled - finger moved too much:', distance);
+        // console.log('❌ Long press cancelled - finger moved too much:', distance);
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
         isLongPressing.current = false;
+        wasCancelled.current = true; // Mark as cancelled to prevent tap handler
       }
     } else {
       // Menu is visible - update hovered button
-      console.log('👆 Touch Move - updating hover at:', touch.pageX, touch.pageY);
       updateHoveredButton(touch.pageX, touch.pageY);
     }
   }, [isMenuVisible, updateHoveredButton]);
 
   const handleTouchEnd = useCallback(() => {
-    console.log('🔴 Touch End - menuWasVisible:', menuWasVisible.current, 'isMenuVisible:', isMenuVisible);
-
     // Clear long-press timer
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
@@ -96,8 +96,6 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
     }
 
     if (menuWasVisible.current && isMenuVisible) {
-      console.log('✅ Executing action and hiding menu');
-
       // Execute action first
       executeAction();
 
@@ -109,8 +107,8 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       hideMenu();
       menuWasVisible.current = false;
       isLongPressing.current = false;
-    } else if (!menuWasVisible.current && !isMenuVisible) {
-      // This was a regular tap (not a long press)
+    } else if (!menuWasVisible.current && !isMenuVisible && !wasCancelled.current) {
+      // This was a regular tap (not a long press and not cancelled by scrolling)
       const touchDuration = Date.now() - touchStartTime.current;
 
       // If touch was quick and didn't move much, treat as tap
@@ -123,8 +121,6 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
   }, [isMenuVisible, executeAction, hideMenu, cardScale, cardRotate, onPress, item]);
 
   const handleTouchCancel = useCallback(() => {
-    console.log('⚠️ Touch Cancelled - this should NOT happen if we prevent parent scroll!');
-
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -137,30 +133,27 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       menuWasVisible.current = false;
     }
     isLongPressing.current = false;
+    wasCancelled.current = true;
   }, [hideMenu, cardScale, cardRotate]);
 
   // Use responder system to capture touches when menu is visible
   const onStartShouldSetResponder = useCallback(() => {
-    return true; // Always claim touch events
+    return true; // Claim initial touch
   }, []);
 
   const onStartShouldSetResponderCapture = useCallback(() => {
-    // Capture touches before children (TouchableOpacity) get them
-    console.log('🎯 Capture phase - stealing touch from children');
+    // Capture touches before children get them
     return true;
   }, []);
 
   const onMoveShouldSetResponder = useCallback(() => {
-    const shouldClaim = isLongPressing.current || menuWasVisible.current || isMenuVisible;
-    console.log('🤔 onMoveShouldSetResponder - claiming:', shouldClaim, '(longPress:', isLongPressing.current, 'wasVisible:', menuWasVisible.current, 'visible:', isMenuVisible, ')');
-    return shouldClaim;
+    // Only claim moves when menu is actually visible
+    return menuWasVisible.current || isMenuVisible;
   }, [isMenuVisible]);
 
   const onMoveShouldSetResponderCapture = useCallback(() => {
-    // Aggressively capture move events when menu is active
-    const shouldCapture = isLongPressing.current || menuWasVisible.current || isMenuVisible;
-    console.log('🛑 onMoveShouldSetResponderCapture - capturing:', shouldCapture);
-    return shouldCapture;
+    // Only capture move events when menu is active
+    return menuWasVisible.current || isMenuVisible;
   }, [isMenuVisible]);
 
   const onResponderGrant = useCallback((event: any) => {
@@ -205,15 +198,9 @@ const RadialActionMenu: React.FC<RadialActionMenuProps> = ({ item, onPress, chil
       onResponderMove={onResponderMove}
       onResponderRelease={onResponderRelease}
       onResponderTerminate={onResponderTerminate}
-      onResponderTerminationRequest={(e) => {
-        // NEVER let parent steal responder if menu was triggered or is visible
-        const shouldKeep = isLongPressing.current || menuWasVisible.current || isMenuVisible;
-        console.log('⚠️⚠️⚠️ Parent (ScrollView) wants to steal responder!');
-        console.log('   - isLongPressing:', isLongPressing.current);
-        console.log('   - menuWasVisible:', menuWasVisible.current);
-        console.log('   - isMenuVisible:', isMenuVisible);
-        console.log('   - Decision: DENYING termination request!');
-        return false; // ALWAYS deny - never let parent take over
+      onResponderTerminationRequest={() => {
+        // Only prevent termination if menu is actually visible
+        return !(menuWasVisible.current || isMenuVisible);
       }}
     >
       {children}
