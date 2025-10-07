@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard, Dimensions } from 'react-native';
+import { View, StyleSheet, Keyboard, Dimensions, Share, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
 import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -17,6 +17,9 @@ import ChatSheet from '../../src/components/ChatSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
 import { Item } from '../../src/types';
+import { itemsActions } from '../../src/stores/items';
+import ExpandedItemView from '../../src/components/ExpandedItemView';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -42,6 +45,7 @@ const TabLayout = observer(() => {
   const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
+  const expandedItemSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
@@ -78,6 +82,27 @@ const TabLayout = observer(() => {
   useEffect(() => {
     console.log('🏠 [TabLayout] isExpandedItemOpen state changed to:', isExpandedItemOpen);
   }, [isExpandedItemOpen]);
+
+  // Observe expandedItemUIStore to control overlayed ExpandedItemView and nav visibility
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      if (value) {
+        setIsExpandedItemOpen(true);
+        // Open the sheet
+        expandedItemSheetRef.current?.snapToIndex(0);
+      } else {
+        setIsExpandedItemOpen(false);
+        expandedItemSheetRef.current?.close();
+      }
+    });
+    // Initialize if a value exists
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      setIsExpandedItemOpen(true);
+      setTimeout(() => expandedItemSheetRef.current?.snapToIndex(0), 0);
+    }
+    return unsubscribe;
+  }, []);
 
   const handleSettingsPress = () => {
     if (isSettingsOpen) {
@@ -232,6 +257,42 @@ const TabLayout = observer(() => {
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
+        {/* Expanded Item Overlay - placed under Settings/Add sheets so they can still cover it if needed */}
+        <ExpandedItemView
+          ref={expandedItemSheetRef}
+          item={expandedItemUIStore.currentItem.get()}
+          onOpen={() => setIsExpandedItemOpen(true)}
+          onClose={() => {
+            expandedItemUIActions.closeExpandedItem();
+            setIsExpandedItemOpen(false);
+          }}
+          onChat={(item) => {
+            chatUIStore.isOpen.set(true);
+          }}
+          onEdit={(item) => console.log('Edit item:', item.title)}
+          onArchive={(item) => console.log('Archive item:', item.title)}
+          onDelete={async (item) => {
+            console.log('Delete item:', item.title);
+            await itemsActions.removeItemWithSync(item.id);
+            expandedItemUIActions.closeExpandedItem();
+          }}
+          onShare={async (item) => {
+            if (item.url) {
+              try {
+                await Share.share({
+                  url: item.url,
+                  message: item.title,
+                });
+              } catch (error) {
+                console.error('Error sharing:', error);
+              }
+            } else {
+              Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+            }
+          }}
+          onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
+          currentSpaceId={null}
+        />
         <SettingsSheet
           ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
