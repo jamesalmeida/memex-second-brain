@@ -7,6 +7,8 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { MaterialIcons } from '@expo/vector-icons';
 import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { Button as ButtonPrimitive, Host, Circle, Image } from '@expo/ui/swift-ui';
+import { frame, glassEffect, onTapGesture, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../../src/stores/theme';
 import { chatUIStore } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
@@ -206,6 +208,59 @@ const TabLayout = observer(() => {
           </GestureDetector>
         </View>
 
+      {/* Liquid Glass Action Buttons */}
+      {!isExpandedItemOpen && (
+        <>
+          {/* Hamburger Menu Button - Bottom Left */}
+          <Host
+            style={[
+              styles.glassButtonHost,
+              styles.leftButton,
+              { bottom: insets.bottom + 16 }
+            ]}
+          >
+            <Circle
+              modifiers={[
+                frame({ width: 56, height: 56 }),
+                glassEffect({ glass: { variant: 'regular', interactive: true } }),
+                onTapGesture(handleSettingsPress)
+              ]}
+            >
+              <Image
+                systemImage="line.3.horizontal"
+                modifiers={[
+                  foregroundStyle(isDarkMode ? 'white' : 'black')
+                ]}
+              />
+            </Circle>
+          </Host>
+
+          {/* Add Item Button - Bottom Right */}
+          <Host
+            style={[
+              styles.glassButtonHost,
+              styles.rightButton,
+              { bottom: insets.bottom + 16 }
+            ]}
+          >
+            <Circle
+              modifiers={[
+                frame({ width: 56, height: 56 }),
+                glassEffect({ glass: { variant: 'regular', interactive: true, tint: '#FF6B35' } }),
+                onTapGesture(handleAddPress)
+              ]}
+            >
+              <Image
+                systemImage="plus"
+                modifiers={[
+                  foregroundStyle('white')
+                ]}
+              />
+            </Circle>
+          </Host>
+        </>
+      )}
+
       {/* Native Tabs with Liquid Glass Effect */}
       {!isExpandedItemOpen && (
         <NativeTabs
@@ -226,22 +281,6 @@ const TabLayout = observer(() => {
           >
             <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
             <Label>Spaces</Label>
-          </NativeTabs.Trigger>
-
-          <NativeTabs.Trigger
-            name="add"
-            onPress={handleAddPress}
-          >
-            <Icon src={<VectorIcon family={MaterialIcons} name="add" />} />
-            <Label>Add</Label>
-          </NativeTabs.Trigger>
-
-          <NativeTabs.Trigger
-            name="settings"
-            onPress={handleSettingsPress}
-          >
-            <Icon src={<VectorIcon family={MaterialIcons} name="settings" />} />
-            <Label>Settings</Label>
           </NativeTabs.Trigger>
         </NativeTabs>
       )}
@@ -299,6 +338,18 @@ const styles = StyleSheet.create({
   viewContainer: {
     width: SCREEN_WIDTH,
     height: '100%',
+  },
+  glassButtonHost: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    zIndex: 1000,
+  },
+  leftButton: {
+    left: 16,
+  },
+  rightButton: {
+    right: 16,
   },
 });
 
