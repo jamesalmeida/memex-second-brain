@@ -1,19 +1,19 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
-import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
-import { chatUIActions } from '../../src/stores/chatUI';
-import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
+import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import ItemCard from '../../src/components/items/ItemCard';
-import ExpandedItemView from '../../src/components/ExpandedItemView';
+// Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
+import { spacesComputed, spacesActions } from '../../src/stores/spaces';
+import { itemSpacesComputed } from '../../src/stores/itemSpaces';
+import HeaderBar from '../../src/components/HeaderBar';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -29,8 +29,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const showMockData = themeStore.showMockData.get();
   const allItems = itemsStore.items.get();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const expandedItemSheetRef = useRef<BottomSheet>(null);
+  // Expanded item is controlled at the TabLayout overlay via expandedItemUI store
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
 
@@ -53,30 +52,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     initializeItems();
   }, []);
 
-  // Observe expandedItemUIStore and update selectedItem when it changes
-  useEffect(() => {
-    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
-      console.log('📱 [HomeScreen] expandedItemUIStore changed, new value:', value?.title || 'null');
-      if (value) {
-        console.log('📱 [HomeScreen] Setting selectedItem:', value.title);
-        onExpandedItemOpen?.();
-        setSelectedItem(value);
-      } else {
-        console.log('📱 [HomeScreen] Clearing selectedItem');
-        setSelectedItem(null);
-      }
-    });
-
-    // Check initial value on mount
-    const initialItem = expandedItemUIStore.currentItem.get();
-    if (initialItem) {
-      console.log('📱 [HomeScreen] Initial item in store:', initialItem.title);
-      onExpandedItemOpen?.();
-      setSelectedItem(initialItem);
-    }
-
-    return unsubscribe;
-  }, [onExpandedItemOpen]);
+  // Expanded item is orchestrated by TabLayout; no local subscription needed here
 
   // Auto-scroll to top when new items are added
   useEffect(() => {
@@ -109,6 +85,45 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     });
   }, [allItems, showMockData]);
 
+  // Spaces and pager state
+  const spaces = spacesComputed.spaces();
+  const [selectedPage, setSelectedPage] = useState(0); // 0 = Everything, 1..n = spaces
+  const pagerRef = useRef<ScrollView>(null);
+
+  const tabs = useMemo(() => [
+    'Everything',
+    ...spaces.map(s => s.name)
+  ], [spaces]);
+
+  const getItemsForSpace = useCallback((spaceId: string) => {
+    const ids = itemSpacesComputed.getItemIdsInSpace(spaceId);
+    return displayItems.filter(item => ids.includes(item.id));
+  }, [displayItems]);
+
+  const scrollToPage = useCallback((index: number) => {
+    setSelectedPage(index);
+    pagerRef.current?.scrollTo({ x: index * screenWidth, animated: true });
+    if (index === 0) {
+      spacesActions.setSelectedSpace(null);
+    } else {
+      const space = spaces[index - 1];
+      if (space) spacesActions.setSelectedSpace(space);
+    }
+  }, [spaces]);
+
+  const handlePageChange = useCallback((e: any) => {
+    const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+    if (page !== selectedPage) {
+      setSelectedPage(page);
+      if (page === 0) {
+        spacesActions.setSelectedSpace(null);
+      } else {
+        const space = spaces[page - 1];
+        if (space) spacesActions.setSelectedSpace(space);
+      }
+    }
+  }, [selectedPage, spaces]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     // TODO: Refresh from backend
@@ -119,10 +134,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const handleItemPress = (item: Item) => {
     console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
-    onExpandedItemOpen?.(); // Start hiding navigation immediately
-    console.log('📱 [HomeScreen] Called onExpandedItemOpen');
-    setSelectedItem(item);
-    console.log('📱 [HomeScreen] Set selectedItem - ExpandedItemView will handle opening via index prop');
+    onExpandedItemOpen?.(); // Hint TabLayout to hide nav immediately
+    expandedItemUIActions.expandItem(item); // Open expanded item via global store
   };
 
   const handleItemLongPress = (item: Item) => {
@@ -156,66 +169,69 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Items Grid - extends full height */}
-      <FlashList
-        ref={listRef}
-        data={displayItems}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        masonry
-        numColumns={2}
-        estimatedItemSize={200}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top, paddingHorizontal: isDarkMode ? -4 : 4 }]}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!shouldDisableScroll}
-        ListEmptyComponent={EmptyState}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-          />
-        }
-      />
+      <HeaderBar tabs={tabs} selectedIndex={selectedPage} onTabPress={scrollToPage} />
 
-      {/* Expanded Item View */}
-      <ExpandedItemView
-        ref={expandedItemSheetRef}
-        item={selectedItem}
-        onOpen={onExpandedItemOpen}
-        onClose={() => {
-          setSelectedItem(null);
-          expandedItemUIActions.closeExpandedItem();
-          onExpandedItemClose?.();
-        }}
-        onChat={(item) => {
-          // Open chat for this item using the chatUI store
-          chatUIActions.openChat(item);
-        }}
-        onEdit={(item) => console.log('Edit item:', item.title)}
-        onArchive={(item) => console.log('Archive item:', item.title)}
-        onDelete={async (item) => {
-          console.log('Delete item:', item.title);
-          await itemsActions.removeItemWithSync(item.id);
-          setSelectedItem(null);
-        }}
-        onShare={async (item) => {
-          if (item.url) {
-            try {
-              await Share.share({
-                url: item.url,
-                message: item.title,
-              });
-            } catch (error) {
-              console.error('Error sharing:', error);
+      <ScrollView
+        ref={pagerRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handlePageChange}
+        scrollEnabled={!shouldDisableScroll}
+      >
+        {/* Page 0: Everything */}
+        <View style={{ width: screenWidth }}>
+          <FlashList
+            ref={listRef}
+            data={displayItems}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            masonry
+            numColumns={2}
+            estimatedItemSize={200}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!shouldDisableScroll}
+            ListEmptyComponent={EmptyState}
+            contentInsetAdjustmentBehavior="automatic"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
             }
-          } else {
-            Alert.alert('No URL', 'This item doesn\'t have a URL to share');
-          }
-        }}
-        onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
-        currentSpaceId={null}
-      />
+          />
+        </View>
+
+        {/* Pages 1..n: one per space */}
+        {spaces.map(space => (
+          <View key={space.id} style={{ width: screenWidth }}>
+            <FlashList
+              data={getItemsForSpace(space.id)}
+              renderItem={renderItem}
+              keyExtractor={item => item.id}
+              masonry
+              numColumns={2}
+              estimatedItemSize={200}
+              contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={!shouldDisableScroll}
+              ListEmptyComponent={EmptyState}
+              contentInsetAdjustmentBehavior="automatic"
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+              }
+            />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Expanded Item View moved to TabLayout overlay */}
     </View>
   );
 });
@@ -226,6 +242,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+    zIndex: 1,
   },
   containerDark: {
     backgroundColor: '#000000',

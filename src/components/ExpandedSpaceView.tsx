@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0, // Full screen, navigation will overlay on top
-    zIndex: 10, // Lower than navigation and bottom sheets
+    zIndex: 1000, // Lower than navigation and bottom sheets
     backgroundColor: 'transparent', // Let the content provide background
   },
   fullScreenOverlayDark: {

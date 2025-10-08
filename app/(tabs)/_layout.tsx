@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard, Dimensions } from 'react-native';
+import { View, StyleSheet, Keyboard, Dimensions, Share, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
 import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import { usePathname } from 'expo-router';
 import { themeStore } from '../../src/stores/theme';
-import { chatUIStore } from '../../src/stores/chatUI';
+import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
@@ -16,12 +17,16 @@ import ChatSheet from '../../src/components/ChatSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
 import { Item } from '../../src/types';
+import { itemsActions } from '../../src/stores/items';
+import ExpandedItemView from '../../src/components/ExpandedItemView';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -40,11 +45,24 @@ const TabLayout = observer(() => {
   const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
+  const expandedItemSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
     Keyboard.dismiss();
   }, []);
+
+  // Sync currentView with actual route from expo-router
+  useEffect(() => {
+    console.log('📍 Route changed - pathname:', pathname, 'currentView:', currentView);
+    if (pathname.includes('/spaces') && currentView !== 'spaces') {
+      console.log('✅ Switching to spaces view');
+      setCurrentView('spaces');
+    } else if (pathname === '/(tabs)' || pathname === '/' && currentView !== 'everything') {
+      console.log('✅ Switching to everything view');
+      setCurrentView('everything');
+    }
+  }, [pathname]);
 
   // Watch chatUI store and control chat sheet
   const isChatOpen = chatUIStore.isOpen.get();
@@ -65,6 +83,27 @@ const TabLayout = observer(() => {
     console.log('🏠 [TabLayout] isExpandedItemOpen state changed to:', isExpandedItemOpen);
   }, [isExpandedItemOpen]);
 
+  // Observe expandedItemUIStore to control overlayed ExpandedItemView and nav visibility
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      if (value) {
+        setIsExpandedItemOpen(true);
+        // Open the sheet
+        expandedItemSheetRef.current?.snapToIndex(0);
+      } else {
+        setIsExpandedItemOpen(false);
+        expandedItemSheetRef.current?.close();
+      }
+    });
+    // Initialize if a value exists
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      setIsExpandedItemOpen(true);
+      setTimeout(() => expandedItemSheetRef.current?.snapToIndex(0), 0);
+    }
+    return unsubscribe;
+  }, []);
+
   const handleSettingsPress = () => {
     if (isSettingsOpen) {
       settingsSheetRef.current?.close();
@@ -82,6 +121,7 @@ const TabLayout = observer(() => {
   };
 
   const handleAddPress = () => {
+    console.log('🏠🏠🏠 handleAddPress called');
     if (isAddSheetOpen) {
       // Close the open sheet
       addItemSheetRef.current?.close();
@@ -109,6 +149,7 @@ const TabLayout = observer(() => {
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
+    console.log('🏠🏠🏠 handleViewChange called - setting currentView to:');
     // Close any open sheets when switching views
     if (isAddSheetOpen) {
       addItemSheetRef.current?.close();
@@ -121,13 +162,14 @@ const TabLayout = observer(() => {
     }
 
     // Animate the slide based on the view
-    const targetX = view === 'everything' ? 0 : -SCREEN_WIDTH;
-    translateX.value = withTiming(targetX, {
-      duration: 250,
-      easing: Easing.out(Easing.cubic),
-    });
+    // const targetX = view === 'everything' ? 0 : -SCREEN_WIDTH;
+    // translateX.value = withTiming(targetX, {
+    //   duration: 250,
+    //   easing: Easing.out(Easing.cubic),
+    // });
 
     setCurrentView(view);
+    console.log('🏠 [TabLayout] handleViewChange called - setting currentView to:', view);
   };
 
   // Pan gesture for swipe navigation
@@ -204,18 +246,53 @@ const TabLayout = observer(() => {
           </GestureDetector>
         </View>
 
-      {/* Custom Bottom Navigation */}
+      {/* Bottom Navigation */}
       <BottomNavigation
         currentView={currentView}
         onViewChange={handleViewChange}
         onSettingsPress={handleSettingsPress}
         onAddPress={handleAddPress}
-        isSheetOpen={isAddSheetOpen}
         visible={!isExpandedItemOpen}
       />
 
       {/* Bottom Sheets - Higher z-index to appear above expanded views */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
+        {/* Expanded Item Overlay - placed under Settings/Add sheets so they can still cover it if needed */}
+        <ExpandedItemView
+          ref={expandedItemSheetRef}
+          item={expandedItemUIStore.currentItem.get()}
+          onOpen={() => setIsExpandedItemOpen(true)}
+          onClose={() => {
+            expandedItemUIActions.closeExpandedItem();
+            setIsExpandedItemOpen(false);
+          }}
+          onChat={(item) => {
+            chatUIActions.openChat(item);
+          }}
+          onEdit={(item) => console.log('Edit item:', item.title)}
+          onArchive={(item) => console.log('Archive item:', item.title)}
+          onDelete={async (item) => {
+            console.log('Delete item:', item.title);
+            await itemsActions.removeItemWithSync(item.id);
+            expandedItemUIActions.closeExpandedItem();
+          }}
+          onShare={async (item) => {
+            if (item.url) {
+              try {
+                await Share.share({
+                  url: item.url,
+                  message: item.title,
+                });
+              } catch (error) {
+                console.error('Error sharing:', error);
+              }
+            } else {
+              Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+            }
+          }}
+          onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
+          currentSpaceId={null}
+        />
         <SettingsSheet
           ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
@@ -234,10 +311,10 @@ const TabLayout = observer(() => {
         />
       </View>
 
-      {/* Chat Sheet Modal - Renders on native layer above everything */}
-      <ChatSheet
-        ref={chatSheetRef}
-      />
+      {/* Chat Sheet Modal - absolute container with higher z-index so it sits above everything */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
+        <ChatSheet ref={chatSheetRef} />
+      </View>
       </View>
     </BottomSheetModalProvider>
   );
@@ -247,6 +324,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    zIndex: 0,
   },
   containerDark: {
     backgroundColor: '#000000',
