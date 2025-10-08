@@ -34,24 +34,14 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const openDrawer = useCallback(() => {
     console.log('🍔 [DrawerContext] openDrawer called');
     console.log('🍔 [DrawerContext] drawerRef.current:', drawerRef.current);
-
-    if (drawerRef.current) {
-      console.log('🍔 [DrawerContext] Calling openDrawer() on ref');
-      drawerRef.current.openDrawer();
-    } else {
-      console.log('🍔 [DrawerContext] drawerRef is null, setting state instead');
-      setIsDrawerOpen(true);
-    }
+    console.log('🍔 [DrawerContext] Setting isDrawerOpen to true');
+    setIsDrawerOpen(true);
   }, []);
 
   const closeDrawer = useCallback(() => {
     console.log('🚪 [DrawerContext] closeDrawer called');
-
-    if (drawerRef.current) {
-      drawerRef.current.closeDrawer();
-    } else {
-      setIsDrawerOpen(false);
-    }
+    console.log('🚪 [DrawerContext] Setting isDrawerOpen to false');
+    setIsDrawerOpen(false);
   }, []);
 
   const value = {
