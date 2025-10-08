@@ -14,6 +14,7 @@ import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import { spacesComputed, spacesActions } from '../../src/stores/spaces';
 import { itemSpacesComputed } from '../../src/stores/itemSpaces';
 import HeaderBar from '../../src/components/HeaderBar';
+import { useDrawer } from '../../src/contexts/DrawerContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -24,6 +25,10 @@ interface HomeScreenProps {
 }
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
+  // Get drawer from context directly instead of via props
+  const { openDrawer } = useDrawer();
+  console.log('🏠 [HomeScreen] Component rendered, openDrawer from context:', typeof openDrawer);
+
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const showMockData = themeStore.showMockData.get();
@@ -169,7 +174,12 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <HeaderBar tabs={tabs} selectedIndex={selectedPage} onTabPress={scrollToPage} />
+      <HeaderBar
+        tabs={tabs}
+        selectedIndex={selectedPage}
+        onTabPress={scrollToPage}
+        onMenuPress={openDrawer}
+      />
 
       <ScrollView
         ref={pagerRef}

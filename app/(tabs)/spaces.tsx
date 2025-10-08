@@ -14,6 +14,7 @@ import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpac
 import { Space } from '../../src/types';
 import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
 import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
+import { useDrawer } from '../../src/contexts/DrawerContext';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
@@ -23,6 +24,10 @@ interface SpacesScreenProps {
 }
 
 const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps = {}) => {
+  // Get drawer from context directly instead of via props
+  const { openDrawer } = useDrawer();
+  console.log('📦 [SpacesScreen] Component rendered, openDrawer from context:', typeof openDrawer);
+
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -149,7 +154,7 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
       />
 
       {/* Floating Search Bar with Dynamic Contrast */}
-      <View style={[styles.searchContainer, { 
+      <View style={[styles.searchContainer, {
         position: 'absolute',
         top: insets.top - 12,
         left: 4,
@@ -157,6 +162,17 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
         zIndex: 10,
         borderBottomColor: shouldUseDarkText ? '#FF6B35' : '#FF8A65',
       }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          onPress={openDrawer}
+          style={styles.menuButton}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.menuLine, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+          <View style={[styles.menuLineShort, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+        </TouchableOpacity>
         <AnimatedTextInput
           style={[styles.searchInput, animatedTextStyle]}
           placeholder="Search Spaces..."
@@ -171,10 +187,10 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons 
-              name="close" 
-              size={20} 
-              color={shouldUseDarkText ? '#000000' : '#FFFFFF'} 
+            <MaterialIcons
+              name="close"
+              size={20}
+              color={shouldUseDarkText ? '#000000' : '#FFFFFF'}
             />
           </TouchableOpacity>
         )}
@@ -299,6 +315,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 8,
     borderBottomWidth: 0,
+  },
+  menuButton: {
+    paddingLeft: 8,
+    paddingRight: 10,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginRight: 4,
+  },
+  menuLine: {
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+  },
+  menuLineShort: {
+    width: 12,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 6,
   },
   searchInput: {
     flex: 1,

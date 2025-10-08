@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Keyboard, Dimensions, Share, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
@@ -20,6 +20,7 @@ import { Item } from '../../src/types';
 import { itemsActions } from '../../src/stores/items';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
+import { useDrawer } from '../../src/contexts/DrawerContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -222,29 +223,29 @@ const TabLayout = observer(() => {
       <View style={[styles.container, isDarkMode && styles.containerDark]}>
         {/* Main Content - extends full screen */}
         <View style={styles.fullScreenContent}>
-          <GestureDetector gesture={panGesture}>
-            <Animated.View style={[styles.slidingContainer, animatedStyle]}>
-              {/* Everything View */}
-              <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
-                <HomeScreen
-                  onExpandedItemOpen={() => {
-                    console.log('🏠 [TabLayout] onExpandedItemOpen called - setting isExpandedItemOpen to true');
-                    setIsExpandedItemOpen(true);
-                  }}
-                  onExpandedItemClose={() => {
-                    console.log('🏠 [TabLayout] onExpandedItemClose called - setting isExpandedItemOpen to false');
-                    setIsExpandedItemOpen(false);
-                  }}
-                />
-              </View>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[styles.slidingContainer, animatedStyle]}>
+                {/* Everything View */}
+                <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
+                  <HomeScreen
+                    onExpandedItemOpen={() => {
+                      console.log('🏠 [TabLayout] onExpandedItemOpen called - setting isExpandedItemOpen to true');
+                      setIsExpandedItemOpen(true);
+                    }}
+                    onExpandedItemClose={() => {
+                      console.log('🏠 [TabLayout] onExpandedItemClose called - setting isExpandedItemOpen to false');
+                      setIsExpandedItemOpen(false);
+                    }}
+                  />
+                </View>
 
-              {/* Spaces View */}
-              <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
-                <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
-              </View>
-            </Animated.View>
-          </GestureDetector>
-        </View>
+                {/* Spaces View */}
+                <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
+                  <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+                </View>
+              </Animated.View>
+            </GestureDetector>
+          </View>
 
       {/* Bottom Navigation */}
       <BottomNavigation
@@ -311,10 +312,10 @@ const TabLayout = observer(() => {
         />
       </View>
 
-      {/* Chat Sheet Modal - absolute container with higher z-index so it sits above everything */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
-        <ChatSheet ref={chatSheetRef} />
-      </View>
+        {/* Chat Sheet Modal - absolute container with higher z-index so it sits above everything */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
+          <ChatSheet ref={chatSheetRef} />
+        </View>
       </View>
     </BottomSheetModalProvider>
   );

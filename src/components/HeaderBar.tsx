@@ -12,6 +12,8 @@ interface HeaderBarProps {
 }
 
 const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, onMenuPress }: HeaderBarProps) => {
+  console.log('📌 [HeaderBar] Component rendered, onMenuPress:', typeof onMenuPress, 'value:', onMenuPress);
+
   const insets = useSafeAreaInsets();
   const isDarkMode = themeStore.isDarkMode.get();
   const scrollRef = useRef<ScrollView>(null);
@@ -44,7 +46,16 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, onMenuPress }: He
         accessibilityRole="button"
         accessibilityLabel="Open menu"
         hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        onPress={onMenuPress}
+        onPress={() => {
+          console.log('📌 [HeaderBar] Hamburger button pressed');
+          console.log('📌 [HeaderBar] onMenuPress exists?', !!onMenuPress);
+          if (onMenuPress) {
+            console.log('📌 [HeaderBar] Calling onMenuPress()');
+            onMenuPress();
+          } else {
+            console.log('❌ [HeaderBar] onMenuPress is undefined!');
+          }
+        }}
         style={styles.menuButton}
         activeOpacity={0.7}
       >

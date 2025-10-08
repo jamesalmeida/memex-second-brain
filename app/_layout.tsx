@@ -7,14 +7,20 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { observer, useObservable } from '@legendapp/state/react';
 import { useEffect } from 'react';
+import { Drawer } from 'react-native-drawer-layout';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
 import { RadialMenuProvider } from '../src/contexts/RadialMenuContext';
+import { DrawerProvider, useDrawer } from '../src/contexts/DrawerContext';
+import DrawerContentView from '../src/components/DrawerContent';
 
 const RootLayoutContent = observer(() => {
   // Initialize auth - but only once due to the global flag in useAuth
   useAuth();
-  
+
+  // Get drawer context
+  const { drawerRef, isDrawerOpen, closeDrawer } = useDrawer();
+
   const isLoading = authStore.isLoading.get();
   const isAuthenticated = authStore.isAuthenticated.get();
   const isDarkMode = themeStore.isDarkMode.get();
@@ -63,19 +69,44 @@ const RootLayoutContent = observer(() => {
   console.log('🔍 Auth state:', { isAuthenticated, isLoading });
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#ffffff' }}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen
-          name="auth"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="(tabs)"
-          options={{ headerShown: false }}
-        />
-      </Stack>
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
-    </View>
+    <Drawer
+      ref={drawerRef}
+      open={isDrawerOpen}
+      onOpen={() => {
+        console.log('📂 [RootLayout] Drawer onOpen callback fired');
+      }}
+      onClose={() => {
+        console.log('📂 [RootLayout] Drawer onClose callback fired');
+      }}
+      drawerType="slide"
+      drawerStyle={{
+        backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+        width: 280,
+      }}
+      overlayStyle={{
+        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
+      }}
+      swipeEnabled={true}
+      swipeEdgeWidth={50}
+      renderDrawerContent={() => {
+        console.log('🎨 [RootLayout] renderDrawerContent called');
+        return <DrawerContentView onClose={closeDrawer} />;
+      }}
+    >
+      <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#ffffff' }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen
+            name="auth"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="(tabs)"
+            options={{ headerShown: false }}
+          />
+        </Stack>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+      </View>
+    </Drawer>
   );
 });
 
@@ -84,9 +115,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <RadialMenuProvider>
-          <RootLayoutContent />
-        </RadialMenuProvider>
+        <DrawerProvider>
+          <RadialMenuProvider>
+            <RootLayoutContent />
+          </RadialMenuProvider>
+        </DrawerProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
