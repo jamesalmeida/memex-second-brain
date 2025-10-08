@@ -4,8 +4,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
-import { Host, Circle, Image } from '@expo/ui/swift-ui';
-import { frame, glassEffect, onTapGesture, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
+import { Host, ZStack, Image } from '@expo/ui/swift-ui';
+import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
 
 interface BottomNavigationProps {
@@ -40,20 +40,19 @@ const BottomNavigation = observer(({
         ]}
       >
         <Host style={{ width: 60, height: 60 }}>
-          <Circle
+          <ZStack
             modifiers={[
               frame({ width: 60, height: 60 }),
-              glassEffect({ glass: { variant: 'regular', interactive: true } }),
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
               onTapGesture(onSettingsPress)
             ]}
           >
             <Image
-              systemImage="line.3.horizontal"
-              modifiers={[
-                foregroundStyle(isDarkMode ? 'white' : 'black')
-              ]}
+              systemName="line.3.horizontal"
+              size={24}
+              color={isDarkMode ? 'white' : 'black'}
             />
-          </Circle>
+          </ZStack>
         </Host>
       </View>
 
@@ -88,20 +87,19 @@ const BottomNavigation = observer(({
         ]}
       >
         <Host style={{ width: 60, height: 60 }}>
-          <Circle
+          <ZStack
             modifiers={[
               frame({ width: 60, height: 60 }),
-              glassEffect({ glass: { variant: 'regular', interactive: true } }),
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
               onTapGesture(onAddPress)
             ]}
           >
             <Image
-              systemImage="plus"
-              modifiers={[
-                foregroundStyle('white')
-              ]}
+              systemName="plus"
+              size={24}
+              color={isDarkMode ? 'white' : 'black'}
             />
-          </Circle>
+          </ZStack>
         </Host>
       </View>
     </>
