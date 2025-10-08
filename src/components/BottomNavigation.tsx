@@ -7,6 +7,7 @@ import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native
 import { Host, ZStack, Image } from '@expo/ui/swift-ui';
 import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
+import { COLORS } from '../constants';
 
 interface BottomNavigationProps {
   currentView: 'everything' | 'spaces';
@@ -58,6 +59,7 @@ const BottomNavigation = observer(({
 
       {/* Native Tabs with Liquid Glass Effect */}
       <NativeTabs
+        tintColor={COLORS.warning}
         blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
         backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
       >
@@ -65,16 +67,16 @@ const BottomNavigation = observer(({
           name="index"
           onPress={() => onViewChange('everything')}
         >
-          <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} />
-          <Label>Home</Label>
+          <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Home</Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger
           name="spaces"
           onPress={() => onViewChange('spaces')}
         >
-          <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} />
-          <Label>Spaces</Label>
+          <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Spaces</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
 
