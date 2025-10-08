@@ -68,7 +68,7 @@ const BottomNavigation = observer(({
           onPress={() => onViewChange('everything')}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
-          <Label selectedStyle={{ color: COLORS.warning }}>Home</Label>
+          <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger
