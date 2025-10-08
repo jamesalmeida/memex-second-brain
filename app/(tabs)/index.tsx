@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,9 @@ import ItemCard from '../../src/components/items/ItemCard';
 import { Item } from '../../src/types';
 import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
+import { spacesComputed, spacesActions } from '../../src/stores/spaces';
+import { itemSpacesComputed } from '../../src/stores/itemSpaces';
+import HeaderBar from '../../src/components/HeaderBar';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -82,6 +85,45 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     });
   }, [allItems, showMockData]);
 
+  // Spaces and pager state
+  const spaces = spacesComputed.spaces();
+  const [selectedPage, setSelectedPage] = useState(0); // 0 = Everything, 1..n = spaces
+  const pagerRef = useRef<ScrollView>(null);
+
+  const tabs = useMemo(() => [
+    'Everything',
+    ...spaces.map(s => s.name)
+  ], [spaces]);
+
+  const getItemsForSpace = useCallback((spaceId: string) => {
+    const ids = itemSpacesComputed.getItemIdsInSpace(spaceId);
+    return displayItems.filter(item => ids.includes(item.id));
+  }, [displayItems]);
+
+  const scrollToPage = useCallback((index: number) => {
+    setSelectedPage(index);
+    pagerRef.current?.scrollTo({ x: index * screenWidth, animated: true });
+    if (index === 0) {
+      spacesActions.setSelectedSpace(null);
+    } else {
+      const space = spaces[index - 1];
+      if (space) spacesActions.setSelectedSpace(space);
+    }
+  }, [spaces]);
+
+  const handlePageChange = useCallback((e: any) => {
+    const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+    if (page !== selectedPage) {
+      setSelectedPage(page);
+      if (page === 0) {
+        spacesActions.setSelectedSpace(null);
+      } else {
+        const space = spaces[page - 1];
+        if (space) spacesActions.setSelectedSpace(space);
+      }
+    }
+  }, [selectedPage, spaces]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     // TODO: Refresh from backend
@@ -127,28 +169,67 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Items Grid - extends full height */}
-      <FlashList
-        ref={listRef}
-        data={displayItems}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        masonry
-        numColumns={2}
-        estimatedItemSize={200}
-        contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
-        showsVerticalScrollIndicator={false}
+      <HeaderBar tabs={tabs} selectedIndex={selectedPage} onTabPress={scrollToPage} />
+
+      <ScrollView
+        ref={pagerRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handlePageChange}
         scrollEnabled={!shouldDisableScroll}
-        ListEmptyComponent={EmptyState}
-        contentInsetAdjustmentBehavior="automatic"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+      >
+        {/* Page 0: Everything */}
+        <View style={{ width: screenWidth }}>
+          <FlashList
+            ref={listRef}
+            data={displayItems}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            masonry
+            numColumns={2}
+            estimatedItemSize={200}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!shouldDisableScroll}
+            ListEmptyComponent={EmptyState}
+            contentInsetAdjustmentBehavior="automatic"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
+            }
           />
-        }
-      />
+        </View>
+
+        {/* Pages 1..n: one per space */}
+        {spaces.map(space => (
+          <View key={space.id} style={{ width: screenWidth }}>
+            <FlashList
+              data={getItemsForSpace(space.id)}
+              renderItem={renderItem}
+              keyExtractor={item => item.id}
+              masonry
+              numColumns={2}
+              estimatedItemSize={200}
+              contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={!shouldDisableScroll}
+              ListEmptyComponent={EmptyState}
+              contentInsetAdjustmentBehavior="automatic"
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+              }
+            />
+          </View>
+        ))}
+      </ScrollView>
 
       {/* Expanded Item View moved to TabLayout overlay */}
     </View>
