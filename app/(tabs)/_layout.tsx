@@ -14,6 +14,7 @@ import SettingsSheet from '../../src/components/SettingsSheet';
 import AddItemSheet from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import ChatSheet from '../../src/components/ChatSheet';
+import FilterSheet from '../../src/components/FilterSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
 import { Item } from '../../src/types';
@@ -33,6 +34,7 @@ const TabLayout = observer(() => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   // Get radial menu state to disable swipe gesture
   const { shouldDisableScroll } = useRadialMenu();
@@ -54,6 +56,7 @@ const TabLayout = observer(() => {
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
   const expandedItemSheetRef = useRef<BottomSheet>(null);
+  const filterSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
@@ -128,6 +131,22 @@ const TabLayout = observer(() => {
       setIsSettingsOpen(true);
     }
   }, [isSettingsOpen, isAddSheetOpen]);
+
+  const handleFilterPress = () => {
+    console.log('🔍 [TabLayout] handleFilterPress called');
+    if (isFilterSheetOpen) {
+      filterSheetRef.current?.close();
+      setIsFilterSheetOpen(false);
+    } else {
+      // Close settings if open before opening filter
+      if (isSettingsOpen) {
+        settingsSheetRef.current?.close();
+        setIsSettingsOpen(false);
+      }
+      filterSheetRef.current?.expand();
+      setIsFilterSheetOpen(true);
+    }
+  };
 
   const handleAddPress = () => {
     console.log('🏠🏠🏠 handleAddPress called');
@@ -259,7 +278,7 @@ const TabLayout = observer(() => {
       <BottomNavigation
         currentView={currentView}
         onViewChange={handleViewChange}
-        onSettingsPress={handleSettingsPress}
+        onSettingsPress={handleFilterPress}
         onAddPress={handleAddPress}
         visible={!isExpandedItemOpen}
       />
@@ -306,6 +325,11 @@ const TabLayout = observer(() => {
           ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
           onClose={() => setIsSettingsOpen(false)}
+        />
+        <FilterSheet
+          ref={filterSheetRef}
+          onOpen={() => setIsFilterSheetOpen(true)}
+          onClose={() => setIsFilterSheetOpen(false)}
         />
         <AddItemSheet
           ref={addItemSheetRef}

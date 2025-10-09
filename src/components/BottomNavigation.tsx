@@ -49,7 +49,7 @@ const BottomNavigation = observer(({
             ]}
           >
             <Image
-              systemName="line.3.horizontal"
+              systemName="line.3.horizontal.decrease"
               size={24}
               color={isDarkMode ? 'white' : 'black'}
             />
