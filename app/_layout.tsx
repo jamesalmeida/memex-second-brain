@@ -14,7 +14,7 @@ import { RadialMenuProvider } from '../src/contexts/RadialMenuContext';
 import { DrawerProvider, useDrawer } from '../src/contexts/DrawerContext';
 import DrawerContentView from '../src/components/DrawerContent';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const BOTTOM_TAB_HEIGHT = 100; // Approximate height of bottom navigation including safe area
 
 const RootLayoutContent = observer(() => {
@@ -22,7 +22,13 @@ const RootLayoutContent = observer(() => {
   useAuth();
 
   // Get drawer context
-  const { drawerRef, isDrawerOpen, closeDrawer, openDrawer } = useDrawer();
+  const { drawerRef, isDrawerOpen, closeDrawer, openDrawer, currentView } = useDrawer();
+
+  // Dynamic swipe edge width: wider on Everything tab for easier drawer access
+  const swipeEdgeWidth = currentView === 'everything' ? 150 : 50;
+
+  // Debug flag to show swipe area
+  const showDebugSwipeArea = false;
 
   const isLoading = authStore.isLoading.get();
   const isAuthenticated = authStore.isAuthenticated.get();
@@ -103,7 +109,7 @@ const RootLayoutContent = observer(() => {
         backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
       }}
       swipeEnabled={true}
-      swipeEdgeWidth={50}
+      swipeEdgeWidth={swipeEdgeWidth}
       renderDrawerContent={() => {
         console.log('🎨 [RootLayout] renderDrawerContent called');
         return <DrawerContentView onClose={closeDrawer} />;
@@ -136,6 +142,35 @@ const RootLayoutContent = observer(() => {
           onStartShouldSetResponder={() => true} // Intercept touch events in this region
           onResponderTerminationRequest={() => false} // Don't let drawer steal these touches
         />
+
+        {/* Debug: Show swipe detection area */}
+        {showDebugSwipeArea && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: swipeEdgeWidth,
+              backgroundColor: 'rgba(255, 0, 0, 0.2)',
+              pointerEvents: 'none',
+            }}
+          >
+            <Text
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: 10,
+                color: 'red',
+                fontSize: 10,
+                fontWeight: 'bold',
+                transform: [{ rotate: '-90deg' }],
+              }}
+            >
+              {swipeEdgeWidth}px
+            </Text>
+          </View>
+        )}
       </View>
     </Drawer>
   );

@@ -3,9 +3,6 @@ import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from '
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS, interpolate, Extrapolate } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
@@ -22,60 +19,8 @@ import { useDrawer } from '../../src/contexts/DrawerContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
-const EDGE_SWIPE_WIDTH = 50; // Match drawer swipeEdgeWidth so drawer wins near the left edge
-const DRAG_THRESHOLD = 90; // Distance in px to trigger drawer open
-
-interface AnimatedChevronIndicatorProps {
-  dragX: Animated.SharedValue<number>;
-  isDarkMode: boolean;
-  isVisible: boolean;
-  topOffset: number; // Account for HeaderBar height
-}
-
-const AnimatedChevronIndicator = ({ dragX, isDarkMode, isVisible, topOffset }: AnimatedChevronIndicatorProps) => {
-  const animatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    // Calculate opacity: fade in from 0.3 to 1.0 based on drag progress
-    const opacity = interpolate(
-      dragX.value,
-      [0, DRAG_THRESHOLD],
-      [0.3, 1.0],
-      Extrapolate.CLAMP
-    );
-
-    // Calculate scale: grow from 1.0 to 1.4 as threshold approaches
-    const scale = interpolate(
-      dragX.value,
-      [0, DRAG_THRESHOLD * 0.8, DRAG_THRESHOLD],
-      [1.0, 1.2, 1.4],
-      Extrapolate.CLAMP
-    );
-
-    return {
-      opacity,
-      transform: [{ scale }],
-    };
-  });
-
-  if (!isVisible) return null;
-
-  return (
-    <Animated.View
-      style={[
-        styles.chevronIndicator,
-        {
-          top: topOffset + 100, // Below header, centered vertically
-        },
-        animatedStyle,
-      ]}
-      pointerEvents="none"
-    >
-      <Text style={[styles.chevronText, { color: isDarkMode ? '#FFFFFF' : '#000000' }]}>
-        ››
-      </Text>
-    </Animated.View>
-  );
-};
+const EDGE_SWIPE_WIDTH_EVERYTHING = 150; // Wide drawer swipe area on Everything tab
+const EDGE_SWIPE_WIDTH_DEFAULT = 50; // Normal drawer swipe area on other tabs
 
 interface HomeScreenProps {
   onExpandedItemOpen?: () => void;
@@ -101,12 +46,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
-
-  // Pull-to-open-drawer gesture state (using Reanimated for native performance)
-  const dragX = useSharedValue(0);
-  const [isGesturing, setIsGesturing] = useState(false);
-  const hasHapticsTriggeredAt50 = useRef(false);
-  const hasTriggeredDrawerOpen = useRef(false);
 
   // Initialize items and filters on first load
   useEffect(() => {
@@ -228,84 +167,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }, 1500);
   }, []);
 
-  // Haptic feedback helpers (called from gesture handlers)
-  const triggerLightHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
-
-  const triggerMediumHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, []);
-
-  const triggerHeavyHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-  }, []);
-
-  // Pull-to-open-drawer gesture handlers
-  const onGestureEvent = useCallback(
-    (event: any) => {
-      'worklet';
-      const x = event.nativeEvent.translationX;
-
-      // Only respond to rightward drags (positive X)
-      if (x > 0) {
-        dragX.value = x;
-
-        // Trigger medium haptic at 50% threshold (once per gesture)
-        if (x >= DRAG_THRESHOLD * 0.5 && !hasHapticsTriggeredAt50.current) {
-          hasHapticsTriggeredAt50.current = true;
-          runOnJS(triggerMediumHaptic)();
-        }
-
-        // Open drawer immediately when threshold is crossed (once per gesture)
-        if (x >= DRAG_THRESHOLD && !hasTriggeredDrawerOpen.current) {
-          hasTriggeredDrawerOpen.current = true;
-          runOnJS(triggerHeavyHaptic)();
-          runOnJS(openDrawer)();
-        }
-      } else {
-        dragX.value = 0;
-      }
-    },
-    [dragX, triggerMediumHaptic, triggerHeavyHaptic, openDrawer]
-  );
-
-  const onHandlerStateChange = useCallback(
-    (event: any) => {
-      'worklet';
-      const { state, translationX } = event.nativeEvent;
-
-      if (state === State.BEGAN) {
-        // Only activate if dragging right (positive translationX)
-        if (translationX >= 0) {
-          runOnJS(setIsGesturing)(true);
-          hasHapticsTriggeredAt50.current = false;
-          hasTriggeredDrawerOpen.current = false;
-          runOnJS(triggerLightHaptic)();
-        }
-      } else if (state === State.END || state === State.CANCELLED) {
-        // Reset gesture state
-        runOnJS(setIsGesturing)(false);
-        hasHapticsTriggeredAt50.current = false;
-        hasTriggeredDrawerOpen.current = false;
-
-        // Animate back to 0 smoothly
-        dragX.value = withTiming(0, {
-          duration: 250,
-        });
-      }
-    },
-    [dragX, triggerLightHaptic]
-  );
-
-  // Animated style for grid translateX (runs on native thread for 60fps)
-  const gridAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    return {
-      transform: [{ translateX: dragX.value }],
-    };
-  });
-
   const handleItemPress = (item: Item) => {
     console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
     onExpandedItemOpen?.(); // Hint TabLayout to hide nav immediately
@@ -361,7 +222,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
           // On the Everything tab, give drawer edge swipe precedence over pager
           if (selectedPage === 0) {
             const touchX = e.nativeEvent.pageX ?? 0;
-            if (touchX <= EDGE_SWIPE_WIDTH) {
+            // Use wider swipe area for Everything tab (150px)
+            if (touchX <= EDGE_SWIPE_WIDTH_EVERYTHING) {
               setIsPagerScrollEnabled(false);
             } else if (!isPagerScrollEnabled) {
               setIsPagerScrollEnabled(true);
@@ -377,44 +239,26 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       >
         {/* Page 0: Everything */}
         <View style={{ width: screenWidth }}>
-          <PanGestureHandler
-            enabled={selectedPage === 0 && !shouldDisableScroll}
-            onGestureEvent={onGestureEvent}
-            onHandlerStateChange={onHandlerStateChange}
-            activeOffsetX={5} // Require 5px horizontal movement to activate
-            failOffsetX={-5} // Fail if moving left
-          >
-            <Animated.View style={[{ flex: 1 }, gridAnimatedStyle]}>
-              <FlashList
-                ref={listRef}
-                data={displayItems}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                masonry
-                numColumns={2}
-                estimatedItemSize={200}
-                contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
-                showsVerticalScrollIndicator={false}
-                scrollEnabled={!shouldDisableScroll}
-                ListEmptyComponent={EmptyState}
-                contentInsetAdjustmentBehavior="automatic"
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-                  />
-                }
+          <FlashList
+            ref={listRef}
+            data={displayItems}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            masonry
+            numColumns={2}
+            estimatedItemSize={200}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!shouldDisableScroll}
+            ListEmptyComponent={EmptyState}
+            contentInsetAdjustmentBehavior="automatic"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
               />
-            </Animated.View>
-          </PanGestureHandler>
-
-          {/* Chevron indicator for pull-to-open gesture */}
-          <AnimatedChevronIndicator
-            dragX={dragX}
-            isDarkMode={isDarkMode}
-            isVisible={isGesturing && selectedPage === 0}
-            topOffset={insets.top}
+            }
           />
         </View>
 
@@ -513,19 +357,5 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
     fontWeight: '300',
-  },
-  chevronIndicator: {
-    position: 'absolute',
-    left: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-  },
-  chevronText: {
-    fontSize: 36,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
 });

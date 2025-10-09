@@ -7,6 +7,8 @@ interface DrawerContextType {
   drawerRef: React.MutableRefObject<any>;
   onSettingsPress: () => void;
   registerSettingsHandler: (handler: () => void) => void;
+  currentView: 'everything' | 'spaces' | null;
+  setCurrentView: (view: 'everything' | 'spaces') => void;
 }
 
 const DrawerContext = createContext<DrawerContextType | null>(null);
@@ -22,6 +24,8 @@ export const useDrawer = () => {
       drawerRef: { current: null },
       onSettingsPress: () => console.log('⚠️ Drawer context not available'),
       registerSettingsHandler: () => console.log('⚠️ Drawer context not available'),
+      currentView: null,
+      setCurrentView: () => console.log('⚠️ Drawer context not available'),
     };
   }
   return context;
@@ -33,6 +37,7 @@ interface DrawerProviderProps {
 
 export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<'everything' | 'spaces' | null>(null);
   const drawerRef = useRef<any>(null);
   const settingsHandlerRef = useRef<(() => void) | null>(null);
 
@@ -88,6 +93,8 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     drawerRef,
     onSettingsPress,
     registerSettingsHandler,
+    currentView,
+    setCurrentView,
   };
 
   return (

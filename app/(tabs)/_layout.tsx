@@ -39,12 +39,17 @@ const TabLayout = observer(() => {
   // Get radial menu state to disable swipe gesture
   const { shouldDisableScroll } = useRadialMenu();
 
-  // Register settings handler with drawer context
-  const { registerSettingsHandler } = useDrawer();
+  // Register settings handler and sync view with drawer context
+  const { registerSettingsHandler, setCurrentView: setDrawerView } = useDrawer();
   useEffect(() => {
     console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
     registerSettingsHandler(handleSettingsPress);
   }, [registerSettingsHandler, handleSettingsPress]);
+
+  // Sync currentView with drawer context for dynamic swipeEdgeWidth
+  useEffect(() => {
+    setDrawerView(currentView);
+  }, [currentView, setDrawerView]);
 
   // Animation value for sliding views using reanimated
   const translateX = useSharedValue(0);
