@@ -2,11 +2,11 @@
 import '../src/services/youtube';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, Dimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { observer, useObservable } from '@legendapp/state/react';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Drawer } from 'react-native-drawer-layout';
 import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
@@ -14,12 +14,15 @@ import { RadialMenuProvider } from '../src/contexts/RadialMenuContext';
 import { DrawerProvider, useDrawer } from '../src/contexts/DrawerContext';
 import DrawerContentView from '../src/components/DrawerContent';
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BOTTOM_TAB_HEIGHT = 100; // Approximate height of bottom navigation including safe area
+
 const RootLayoutContent = observer(() => {
   // Initialize auth - but only once due to the global flag in useAuth
   useAuth();
 
   // Get drawer context
-  const { drawerRef, isDrawerOpen, closeDrawer } = useDrawer();
+  const { drawerRef, isDrawerOpen, closeDrawer, openDrawer } = useDrawer();
 
   const isLoading = authStore.isLoading.get();
   const isAuthenticated = authStore.isAuthenticated.get();
@@ -73,10 +76,23 @@ const RootLayoutContent = observer(() => {
       ref={drawerRef}
       open={isDrawerOpen}
       onOpen={() => {
-        console.log('📂 [RootLayout] Drawer onOpen callback fired');
+        const timestamp = new Date().toISOString();
+        console.log('📂 [RootLayout] Drawer onOpen callback fired at:', timestamp);
+        console.log('📂 [RootLayout] Drawer opened - checking if this was from gesture or programmatic');
+        console.trace();
+
+        // Sync the drawer state with context when opened by gesture
+        if (!isDrawerOpen) {
+          console.log('📂 [RootLayout] Drawer opened by GESTURE - syncing context state');
+          openDrawer();
+        }
       }}
       onClose={() => {
-        console.log('📂 [RootLayout] Drawer onClose callback fired');
+        const timestamp = new Date().toISOString();
+        console.log('📂 [RootLayout] Drawer onClose callback fired at:', timestamp);
+
+        // Sync the drawer state with context when closed
+        closeDrawer();
       }}
       drawerType="slide"
       drawerStyle={{
@@ -105,6 +121,21 @@ const RootLayoutContent = observer(() => {
           />
         </Stack>
         <StatusBar style={isDarkMode ? "light" : "dark"} />
+
+        {/* Gesture blocker for bottom tab area - prevents drawer swipe from interfering with tab taps */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: BOTTOM_TAB_HEIGHT,
+            backgroundColor: 'transparent',
+            pointerEvents: 'box-none', // Allow touches to pass through to tabs, but block gestures
+          }}
+          onStartShouldSetResponder={() => true} // Intercept touch events in this region
+          onResponderTerminationRequest={() => false} // Don't let drawer steal these touches
+        />
       </View>
     </Drawer>
   );

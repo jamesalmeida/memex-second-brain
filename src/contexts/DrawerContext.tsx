@@ -42,9 +42,15 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   }, [isDrawerOpen]);
 
   const openDrawer = useCallback(() => {
-    console.log('🍔 [DrawerContext] openDrawer called');
+    const timestamp = new Date().toISOString();
+    console.log('🍔 [DrawerContext] openDrawer called at:', timestamp);
     console.log('🍔 [DrawerContext] drawerRef.current:', drawerRef.current);
     console.log('🍔 [DrawerContext] Setting isDrawerOpen to true');
+
+    // Log stack trace to see what called openDrawer
+    console.log('🍔 [DrawerContext] openDrawer call stack:');
+    console.trace();
+
     setIsDrawerOpen(true);
   }, []);
 

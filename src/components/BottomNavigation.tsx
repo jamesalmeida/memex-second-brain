@@ -68,7 +68,7 @@ const BottomNavigation = observer(({
             <ContextMenu.Items>
               {/* Reset All Filters */}
               <Button onPress={() => filterActions.clearAll()}>
-                Show Everything
+                Reset
               </Button>
 
               {/* Sort Section */}
@@ -134,8 +134,18 @@ const BottomNavigation = observer(({
         <NativeTabs.Trigger
           name="index"
           onPress={() => {
-            console.log('📱 [BottomNav] Everything tab pressed');
+            const timestamp = new Date().toISOString();
+            console.log('📱 [BottomNav] Everything tab pressed at:', timestamp);
             onViewChange('everything');
+          }}
+          onTouchStart={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Everything tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
+          }}
+          onTouchEnd={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
           }}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
@@ -145,8 +155,18 @@ const BottomNavigation = observer(({
         <NativeTabs.Trigger
           name="spaces"
           onPress={() => {
-            console.log('📱 [BottomNav] Spaces tab pressed');
+            const timestamp = new Date().toISOString();
+            console.log('📱 [BottomNav] Spaces tab pressed at:', timestamp);
             onViewChange('spaces');
+          }}
+          onTouchStart={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Spaces tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
+          }}
+          onTouchEnd={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Spaces tab TOUCH END at:', timestamp);
           }}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />

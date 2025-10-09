@@ -204,6 +204,9 @@ const TabLayout = observer(() => {
   const panGesture = Gesture.Pan()
     .enabled(!shouldDisableScroll) // Disable swipe when radial menu is active
     .onStart(() => {
+      const timestamp = new Date().toISOString();
+      console.log('🔄 [TabLayout] Pan gesture START at:', timestamp);
+      console.log('🔄 [TabLayout] Current view:', currentView);
       startX.value = translateX.value;
     })
     .onUpdate((event) => {
@@ -213,8 +216,12 @@ const TabLayout = observer(() => {
       translateX.value = Math.max(-SCREEN_WIDTH, Math.min(0, newX));
     })
     .onEnd((event) => {
+      const timestamp = new Date().toISOString();
       const velocity = event.velocityX;
       const position = translateX.value;
+
+      console.log('🔄 [TabLayout] Pan gesture END at:', timestamp);
+      console.log('🔄 [TabLayout] Velocity:', velocity, 'Position:', position);
 
       // Determine which view to snap to based on velocity and position
       let targetView: 'everything' | 'spaces';
@@ -227,6 +234,8 @@ const TabLayout = observer(() => {
         targetView = position > -SCREEN_WIDTH / 2 ? 'everything' : 'spaces';
       }
 
+      console.log('🔄 [TabLayout] Target view:', targetView);
+
       // Animate to target position
       const targetX = targetView === 'everything' ? 0 : -SCREEN_WIDTH;
       translateX.value = withTiming(targetX, {
@@ -236,6 +245,7 @@ const TabLayout = observer(() => {
 
       // Update the view state
       if (targetView !== currentView) {
+        console.log('🔄 [TabLayout] Changing view from', currentView, 'to', targetView);
         runOnJS(setCurrentView)(targetView);
       }
     });
