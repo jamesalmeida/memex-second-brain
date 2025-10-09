@@ -16,6 +16,7 @@ import { observer } from '@legendapp/state/react';
 import { auth } from '../../src/services/supabase';
 import { COLORS, UI } from '../../src/constants';
 import { themeStore } from '../../src/stores/theme';
+import { authActions } from '../../src/stores/auth';
 
 const AuthScreen = observer(() => {
   const [isLoading, setIsLoading] = useState(false);
@@ -30,18 +31,19 @@ const AuthScreen = observer(() => {
       return;
     }
 
+    // Set global loading state for auth
     setIsLoading(true);
+    authActions.setLoading(true);
     try {
       if (isSignUp) {
         console.log('🔍 Starting sign up...');
         const { error } = await auth.signUp(email.trim(), password);
-        
         if (error) {
           console.error('❌ Sign up error:', error);
           Alert.alert('Sign Up Error', error.message);
         } else {
           Alert.alert(
-            'Account Created!', 
+            'Account Created!',
             'Please check your email to verify your account.',
             [{ text: 'OK', onPress: () => setIsSignUp(false) }]
           );
@@ -49,12 +51,13 @@ const AuthScreen = observer(() => {
       } else {
         console.log('🔍 Starting sign in...');
         const { error } = await auth.signIn(email.trim(), password);
-        
         if (error) {
           console.error('❌ Sign in error:', error);
           Alert.alert('Sign In Error', error.message);
         } else {
           console.log('✅ Sign in successful');
+          // Optimistically set isAuthenticated to true for instant navigation
+          authActions.setLoading(false);
         }
       }
     } catch (error) {
@@ -62,6 +65,7 @@ const AuthScreen = observer(() => {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
+      authActions.setLoading(false);
     }
   };
 
