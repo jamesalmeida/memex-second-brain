@@ -6,6 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { useAuth } from '../hooks/useAuth';
 import { spacesComputed } from '../stores/spaces';
+import { useDrawer } from '../contexts/DrawerContext';
 
 interface DrawerContentProps {
   onClose: () => void;
@@ -18,6 +19,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
   const { signOut } = useAuth();
+  const { onSettingsPress } = useDrawer();
 
   const handleSignOut = async () => {
     console.log('🚪 [DrawerContent] Sign out pressed');
@@ -121,10 +123,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
         {/* Settings */}
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => {
-            onClose();
-            // TODO: Open settings
-          }}
+          onPress={onSettingsPress}
         >
           <MaterialIcons
             name="settings"

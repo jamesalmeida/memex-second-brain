@@ -37,6 +37,13 @@ const TabLayout = observer(() => {
   // Get radial menu state to disable swipe gesture
   const { shouldDisableScroll } = useRadialMenu();
 
+  // Register settings handler with drawer context
+  const { registerSettingsHandler } = useDrawer();
+  useEffect(() => {
+    console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
+    registerSettingsHandler(handleSettingsPress);
+  }, [registerSettingsHandler, handleSettingsPress]);
+
   // Animation value for sliding views using reanimated
   const translateX = useSharedValue(0);
   const startX = useSharedValue(0);
@@ -105,7 +112,8 @@ const TabLayout = observer(() => {
     return unsubscribe;
   }, []);
 
-  const handleSettingsPress = () => {
+  const handleSettingsPress = useCallback(() => {
+    console.log('⚙️ [TabLayout] handleSettingsPress called');
     if (isSettingsOpen) {
       settingsSheetRef.current?.close();
       setIsSettingsOpen(false);
@@ -119,7 +127,7 @@ const TabLayout = observer(() => {
       settingsSheetRef.current?.expand();
       setIsSettingsOpen(true);
     }
-  };
+  }, [isSettingsOpen, isAddSheetOpen]);
 
   const handleAddPress = () => {
     console.log('🏠🏠🏠 handleAddPress called');
