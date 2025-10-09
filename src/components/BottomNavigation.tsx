@@ -4,7 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
-import { Host, ZStack, Image, ContextMenu, Button, Submenu } from '@expo/ui/swift-ui';
+import { Host, ZStack, Image, ContextMenu, Button, Submenu, Switch } from '@expo/ui/swift-ui';
 import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
 import { filterStore, filterActions } from '../stores/filter';
@@ -29,7 +29,7 @@ const BottomNavigation = observer(({
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const sortOrder = filterStore.sortOrder.get();
-  const selectedContentTypes = filterStore.selectedContentTypes.get();
+  const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
 
   // Placeholder tags
@@ -66,6 +66,11 @@ const BottomNavigation = observer(({
             </ContextMenu.Trigger>
 
             <ContextMenu.Items>
+              {/* Reset All Filters */}
+              <Button onPress={() => filterActions.clearAll()}>
+                Show Everything
+              </Button>
+
               {/* Sort Section */}
               <Button onPress={() => filterActions.setSortOrder('recent')}>
                 {sortOrder === 'recent' ? '✓ Recently Added' : 'Recently Added'}
@@ -74,38 +79,39 @@ const BottomNavigation = observer(({
                 {sortOrder === 'oldest' ? '✓ Oldest First' : 'Oldest First'}
               </Button>
 
-              {/* Type Submenu */}
+              {/* Type Submenu - Single selection with Buttons */}
               <Submenu button={<Button>Type</Button>}>
                 {(Object.keys(CONTENT_TYPES) as ContentType[]).map((contentType) => {
-                  const isSelected = selectedContentTypes.includes(contentType);
+                  const isSelected = selectedContentType === contentType;
                   const config = CONTENT_TYPES[contentType];
                   return (
                     <Button
                       key={contentType}
-                      onPress={() => filterActions.toggleContentType(contentType)}
+                      onPress={() => filterActions.selectContentType(contentType)}
                     >
                       {isSelected ? `✓ ${config.label}` : config.label}
                     </Button>
                   );
                 })}
-                {selectedContentTypes.length > 0 && (
-                  <Button onPress={() => filterActions.clearContentTypes()}>
-                    Clear All
+                {selectedContentType !== null && (
+                  <Button onPress={() => filterActions.clearContentType()}>
+                    Clear
                   </Button>
                 )}
               </Submenu>
 
-              {/* Tags Submenu */}
+              {/* Tags Submenu - Multi-selection with Switches to keep menu open */}
               <Submenu button={<Button>Tags</Button>}>
                 {placeholderTags.map((tag) => {
                   const isSelected = selectedTags.includes(tag);
                   return (
-                    <Button
+                    <Switch
                       key={tag}
-                      onPress={() => filterActions.toggleTag(tag)}
-                    >
-                      {isSelected ? `✓ ${tag}` : tag}
-                    </Button>
+                      variant="checkbox"
+                      label={tag}
+                      value={isSelected}
+                      onValueChange={() => filterActions.toggleTag(tag)}
+                    />
                   );
                 })}
                 {selectedTags.length > 0 && (

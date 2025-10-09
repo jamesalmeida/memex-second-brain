@@ -36,7 +36,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const showMockData = themeStore.showMockData.get();
   const allItems = itemsStore.items.get();
   const sortOrder = filterStore.sortOrder.get();
-  const selectedContentTypes = filterStore.selectedContentTypes.get();
+  const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
   const [refreshing, setRefreshing] = useState(false);
   // Expanded item is controlled at the TabLayout overlay via expandedItemUI store
@@ -92,12 +92,12 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       filtered = allItems.filter(item => !item.isMockData); // Only show real items
     }
 
-    // Apply content type filter
-    if (selectedContentTypes.length > 0) {
-      filtered = filtered.filter(item => selectedContentTypes.includes(item.content_type));
+    // Apply content type filter (single selection)
+    if (selectedContentType !== null) {
+      filtered = filtered.filter(item => item.content_type === selectedContentType);
     }
 
-    // Apply tag filter
+    // Apply tag filter (multiple selection)
     if (selectedTags.length > 0) {
       filtered = filtered.filter(item => {
         // Check if item has any of the selected tags
@@ -116,7 +116,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, showMockData, selectedContentTypes, selectedTags, sortOrder]);
+  }, [allItems, showMockData, selectedContentType, selectedTags, sortOrder]);
 
   // Spaces and pager state
   const spaces = spacesComputed.spaces();

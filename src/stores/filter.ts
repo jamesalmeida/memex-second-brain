@@ -7,13 +7,13 @@ export type SortOrder = 'recent' | 'oldest';
 
 interface FilterState {
   sortOrder: SortOrder;
-  selectedContentTypes: ContentType[];
+  selectedContentType: ContentType | null;
   selectedTags: string[];
 }
 
 const initialState: FilterState = {
   sortOrder: 'recent',
-  selectedContentTypes: [],
+  selectedContentType: null,
   selectedTags: [],
 };
 
@@ -22,12 +22,12 @@ export const filterStore = observable(initialState);
 // Computed values
 export const filterComputed = {
   sortOrder: () => filterStore.sortOrder.get(),
-  selectedContentTypes: () => filterStore.selectedContentTypes.get(),
+  selectedContentType: () => filterStore.selectedContentType.get(),
   selectedTags: () => filterStore.selectedTags.get(),
   hasActiveFilters: () => {
-    const types = filterStore.selectedContentTypes.get();
+    const type = filterStore.selectedContentType.get();
     const tags = filterStore.selectedTags.get();
-    return types.length > 0 || tags.length > 0;
+    return type !== null || tags.length > 0;
   },
 };
 
@@ -46,22 +46,25 @@ export const filterActions = {
     await filterActions.persist();
   },
 
-  // Content types
-  toggleContentType: async (contentType: ContentType) => {
-    const current = filterStore.selectedContentTypes.get();
-    const exists = current.includes(contentType);
-
-    if (exists) {
-      filterStore.selectedContentTypes.set(current.filter(t => t !== contentType));
-    } else {
-      filterStore.selectedContentTypes.set([...current, contentType]);
-    }
-
+  // Content type (single selection)
+  setContentType: async (contentType: ContentType | null) => {
+    filterStore.selectedContentType.set(contentType);
     await filterActions.persist();
   },
 
-  clearContentTypes: async () => {
-    filterStore.selectedContentTypes.set([]);
+  selectContentType: async (contentType: ContentType) => {
+    // If clicking the same type, deselect it
+    const current = filterStore.selectedContentType.get();
+    if (current === contentType) {
+      filterStore.selectedContentType.set(null);
+    } else {
+      filterStore.selectedContentType.set(contentType);
+    }
+    await filterActions.persist();
+  },
+
+  clearContentType: async () => {
+    filterStore.selectedContentType.set(null);
     await filterActions.persist();
   },
 
@@ -86,7 +89,7 @@ export const filterActions = {
 
   // Clear all filters
   clearAll: async () => {
-    filterStore.selectedContentTypes.set([]);
+    filterStore.selectedContentType.set(null);
     filterStore.selectedTags.set([]);
     // Keep sort order
     await filterActions.persist();
@@ -97,7 +100,7 @@ export const filterActions = {
     try {
       const state = {
         sortOrder: filterStore.sortOrder.get(),
-        selectedContentTypes: filterStore.selectedContentTypes.get(),
+        selectedContentType: filterStore.selectedContentType.get(),
         selectedTags: filterStore.selectedTags.get(),
       };
       await AsyncStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(state));
@@ -112,7 +115,7 @@ export const filterActions = {
       if (stored) {
         const parsed = JSON.parse(stored);
         filterStore.sortOrder.set(parsed.sortOrder || 'recent');
-        filterStore.selectedContentTypes.set(parsed.selectedContentTypes || []);
+        filterStore.selectedContentType.set(parsed.selectedContentType || null);
         filterStore.selectedTags.set(parsed.selectedTags || []);
       }
     } catch (error) {
