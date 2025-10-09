@@ -106,6 +106,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const dragX = useSharedValue(0);
   const [isGesturing, setIsGesturing] = useState(false);
   const hasHapticsTriggeredAt50 = useRef(false);
+  const hasTriggeredDrawerOpen = useRef(false);
 
   // Initialize items and filters on first load
   useEffect(() => {
@@ -255,11 +256,18 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
           hasHapticsTriggeredAt50.current = true;
           runOnJS(triggerMediumHaptic)();
         }
+
+        // Open drawer immediately when threshold is crossed (once per gesture)
+        if (x >= DRAG_THRESHOLD && !hasTriggeredDrawerOpen.current) {
+          hasTriggeredDrawerOpen.current = true;
+          runOnJS(triggerHeavyHaptic)();
+          runOnJS(openDrawer)();
+        }
       } else {
         dragX.value = 0;
       }
     },
-    [dragX, triggerMediumHaptic]
+    [dragX, triggerMediumHaptic, triggerHeavyHaptic, openDrawer]
   );
 
   const onHandlerStateChange = useCallback(
@@ -272,23 +280,22 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         if (translationX >= 0) {
           runOnJS(setIsGesturing)(true);
           hasHapticsTriggeredAt50.current = false;
+          hasTriggeredDrawerOpen.current = false;
           runOnJS(triggerLightHaptic)();
         }
       } else if (state === State.END || state === State.CANCELLED) {
-        if (translationX >= DRAG_THRESHOLD) {
-          // Threshold reached - open drawer with heavy haptic
-          runOnJS(triggerHeavyHaptic)();
-          runOnJS(openDrawer)();
-        }
         // Reset gesture state
         runOnJS(setIsGesturing)(false);
         hasHapticsTriggeredAt50.current = false;
+        hasTriggeredDrawerOpen.current = false;
+
+        // Animate back to 0 smoothly
         dragX.value = withTiming(0, {
           duration: 250,
         });
       }
     },
-    [dragX, openDrawer, triggerLightHaptic, triggerHeavyHaptic]
+    [dragX, triggerLightHaptic]
   );
 
   // Animated style for grid translateX (runs on native thread for 60fps)
