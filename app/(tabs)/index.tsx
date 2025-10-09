@@ -18,6 +18,7 @@ import { useDrawer } from '../../src/contexts/DrawerContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
+const EDGE_SWIPE_WIDTH = 50; // Match drawer swipeEdgeWidth so drawer wins near the left edge
 
 interface HomeScreenProps {
   onExpandedItemOpen?: () => void;
@@ -94,6 +95,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const spaces = spacesComputed.spaces();
   const [selectedPage, setSelectedPage] = useState(0); // 0 = Everything, 1..n = spaces
   const pagerRef = useRef<ScrollView>(null);
+  const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
 
   const tabs = useMemo(() => [
     'Everything',
@@ -187,7 +189,24 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handlePageChange}
-        scrollEnabled={!shouldDisableScroll}
+        scrollEnabled={isPagerScrollEnabled && !shouldDisableScroll}
+        onTouchStart={(e) => {
+          // On the Everything tab, give drawer edge swipe precedence over pager
+          if (selectedPage === 0) {
+            const touchX = e.nativeEvent.pageX ?? 0;
+            if (touchX <= EDGE_SWIPE_WIDTH) {
+              setIsPagerScrollEnabled(false);
+            } else if (!isPagerScrollEnabled) {
+              setIsPagerScrollEnabled(true);
+            }
+          }
+        }}
+        onTouchEnd={() => {
+          if (!isPagerScrollEnabled) setIsPagerScrollEnabled(true);
+        }}
+        onTouchCancel={() => {
+          if (!isPagerScrollEnabled) setIsPagerScrollEnabled(true);
+        }}
       >
         {/* Page 0: Everything */}
         <View style={{ width: screenWidth }}>
