@@ -8,6 +8,7 @@ export { itemTypeMetadataStore, itemTypeMetadataActions, itemTypeMetadataCompute
 export { offlineQueueStore, offlineQueueActions, offlineQueueComputed } from './offlineQueue';
 export { themeStore, themeActions } from './theme';
 export { syncStatusStore, syncStatusActions, syncStatusComputed } from './syncStatus';
+export { filterStore, filterActions, filterComputed } from './filter';
 
 // Re-export types for convenience
 export type { User, Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, SearchFilters } from '../types';

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
+import { filterStore, filterActions } from '../../src/stores/filter';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
@@ -34,6 +35,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const insets = useSafeAreaInsets();
   const showMockData = themeStore.showMockData.get();
   const allItems = itemsStore.items.get();
+  const sortOrder = filterStore.sortOrder.get();
+  const selectedContentTypes = filterStore.selectedContentTypes.get();
+  const selectedTags = filterStore.selectedTags.get();
   const [refreshing, setRefreshing] = useState(false);
   // Expanded item is controlled at the TabLayout overlay via expandedItemUI store
   const listRef = useRef<FlashList<Item>>(null);
@@ -42,7 +46,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
 
-  // Initialize items on first load
+  // Initialize items and filters on first load
   useEffect(() => {
     const initializeItems = async () => {
       // Load items from storage first
@@ -55,7 +59,12 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       }
     };
 
+    const initializeFilters = async () => {
+      await filterActions.load();
+    };
+
     initializeItems();
+    initializeFilters();
   }, []);
 
   // Expanded item is orchestrated by TabLayout; no local subscription needed here
@@ -74,7 +83,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     previousItemCount.current = currentItemCount;
   }, [allItems.length, insets.top]);
 
-  // Filter items based on showMockData toggle and sort by created_at (newest first)
+  // Filter items based on showMockData toggle, filters, and sort order
   const displayItems = useMemo(() => {
     let filtered;
     if (showMockData) {
@@ -83,13 +92,31 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       filtered = allItems.filter(item => !item.isMockData); // Only show real items
     }
 
-    // Sort by created_at descending (newest first)
+    // Apply content type filter
+    if (selectedContentTypes.length > 0) {
+      filtered = filtered.filter(item => selectedContentTypes.includes(item.content_type));
+    }
+
+    // Apply tag filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(item => {
+        // Check if item has any of the selected tags
+        return item.tags?.some(tag => selectedTags.includes(tag)) ?? false;
+      });
+    }
+
+    // Sort by created_at based on sortOrder
     return filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA;
+
+      if (sortOrder === 'recent') {
+        return dateB - dateA; // Newest first
+      } else {
+        return dateA - dateB; // Oldest first
+      }
     });
-  }, [allItems, showMockData]);
+  }, [allItems, showMockData, selectedContentTypes, selectedTags, sortOrder]);
 
   // Spaces and pager state
   const spaces = spacesComputed.spaces();

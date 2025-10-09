@@ -8,6 +8,8 @@ export const CONTENT_TYPES: Record<ContentType, { label: string; icon: string }>
   x: { label: 'X/Twitter', icon: 'chat' },
   github: { label: 'GitHub', icon: 'code' },
   instagram: { label: 'Instagram', icon: 'photo-camera' },
+  facebook: { label: 'Facebook', icon: 'thumb-up' },
+  threads: { label: 'Threads', icon: 'alternate-email' },
   tiktok: { label: 'TikTok', icon: 'music-video' },
   reddit: { label: 'Reddit', icon: 'forum' },
   amazon: { label: 'Amazon', icon: 'shopping-cart' },
@@ -106,6 +108,7 @@ export const STORAGE_KEYS = {
   AI_MODELS: '@memex_ai_models',
   ITEM_CHATS: '@memex_item_chats',
   CHAT_MESSAGES: '@memex_chat_messages',
+  FILTERS: '@memex_filters',
 };
 
 // Share extension
