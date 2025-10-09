@@ -315,8 +315,13 @@ const TabLayout = observer(() => {
           onEdit={(item) => console.log('Edit item:', item.title)}
           onArchive={(item) => console.log('Archive item:', item.title)}
           onDelete={async (item) => {
-            console.log('Delete item:', item.title);
-            await itemsActions.removeItemWithSync(item.id);
+            console.log('🗑️ [TabLayout] Delete item:', item.title);
+            try {
+              await itemsActions.removeItemWithSync(item.id);
+              console.log('🗑️ [TabLayout] Successfully deleted item:', item.id);
+            } catch (error) {
+              console.error('🗑️ [TabLayout] Error deleting item:', error);
+            }
             expandedItemUIActions.closeExpandedItem();
           }}
           onShare={async (item) => {

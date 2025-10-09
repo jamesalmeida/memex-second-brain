@@ -136,10 +136,17 @@ export const db = {
   },
 
   deleteItem: async (id: string) => {
+    console.log(`🗑️ [supabase.db] Deleting item ${id} from items table`);
     const { error } = await supabase
       .from('items')
       .delete()
       .eq('id', id);
+
+    if (error) {
+      console.error(`🗑️ [supabase.db] Error deleting item ${id}:`, error);
+    } else {
+      console.log(`✅ [supabase.db] Successfully deleted item ${id} from items table`);
+    }
 
     return { error };
   },

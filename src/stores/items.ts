@@ -269,8 +269,11 @@ export const itemsActions = {
 
   // Remove item with Supabase sync
   removeItemWithSync: async (id: string) => {
+    console.log(`🗑️ [itemsActions] Starting removeItemWithSync for item ${id}`);
+
     // Get all spaces this item belongs to BEFORE deletion
     const affectedSpaceIds = itemSpacesComputed.getSpaceIdsForItem(id);
+    console.log(`🗑️ [itemsActions] Item ${id} belongs to ${affectedSpaceIds.length} space(s)`);
 
     // Remove item-space relationships
     await itemSpacesActions.removeAllItemRelations(id);
@@ -290,14 +293,18 @@ export const itemsActions = {
     // Remove locally
     itemsStore.items.set(filteredItems);
     itemsStore.filteredItems.set(filteredItems);
+    console.log(`🗑️ [itemsActions] Removed item ${id} from local store. ${filteredItems.length} items remaining.`);
 
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
+      console.log(`🗑️ [itemsActions] Updated AsyncStorage for item ${id}`);
 
       // Sync with Supabase
       await syncOperations.deleteItem(id);
+      console.log(`🗑️ [itemsActions] Completed sync deletion for item ${id}`);
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.error(`🗑️ [itemsActions] Error deleting item ${id}:`, error);
+      throw error;
     }
   },
 
