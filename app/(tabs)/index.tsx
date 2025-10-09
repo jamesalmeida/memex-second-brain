@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PanGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS, interpolate, Extrapolate } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
@@ -25,32 +26,35 @@ const EDGE_SWIPE_WIDTH = 50; // Match drawer swipeEdgeWidth so drawer wins near 
 const DRAG_THRESHOLD = 90; // Distance in px to trigger drawer open
 
 interface AnimatedChevronIndicatorProps {
-  dragX: Animated.Value;
+  dragX: Animated.SharedValue<number>;
   isDarkMode: boolean;
   isVisible: boolean;
   topOffset: number; // Account for HeaderBar height
 }
 
 const AnimatedChevronIndicator = ({ dragX, isDarkMode, isVisible, topOffset }: AnimatedChevronIndicatorProps) => {
-  // Calculate opacity: fade in from 0.3 to 1.0 based on drag progress
-  const opacity = dragX.interpolate({
-    inputRange: [0, DRAG_THRESHOLD],
-    outputRange: [0.3, 1.0],
-    extrapolate: 'clamp',
-  });
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    // Calculate opacity: fade in from 0.3 to 1.0 based on drag progress
+    const opacity = interpolate(
+      dragX.value,
+      [0, DRAG_THRESHOLD],
+      [0.3, 1.0],
+      Extrapolate.CLAMP
+    );
 
-  // Calculate translateX: chevron follows finger at half speed
-  const translateX = dragX.interpolate({
-    inputRange: [0, DRAG_THRESHOLD],
-    outputRange: [0, DRAG_THRESHOLD * 0.5],
-    extrapolate: 'clamp',
-  });
+    // Calculate scale: grow from 1.0 to 1.4 as threshold approaches
+    const scale = interpolate(
+      dragX.value,
+      [0, DRAG_THRESHOLD * 0.8, DRAG_THRESHOLD],
+      [1.0, 1.2, 1.4],
+      Extrapolate.CLAMP
+    );
 
-  // Calculate scale: grow from 1.0 to 1.4 as threshold approaches
-  const scale = dragX.interpolate({
-    inputRange: [0, DRAG_THRESHOLD * 0.8, DRAG_THRESHOLD],
-    outputRange: [1.0, 1.2, 1.4],
-    extrapolate: 'clamp',
+    return {
+      opacity,
+      transform: [{ scale }],
+    };
   });
 
   if (!isVisible) return null;
@@ -61,9 +65,8 @@ const AnimatedChevronIndicator = ({ dragX, isDarkMode, isVisible, topOffset }: A
         styles.chevronIndicator,
         {
           top: topOffset + 100, // Below header, centered vertically
-          opacity,
-          transform: [{ translateX }, { scale }],
         },
+        animatedStyle,
       ]}
       pointerEvents="none"
     >
@@ -99,8 +102,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
 
-  // Pull-to-open-drawer gesture state
-  const dragX = useRef(new Animated.Value(0)).current;
+  // Pull-to-open-drawer gesture state (using Reanimated for native performance)
+  const dragX = useSharedValue(0);
   const [isGesturing, setIsGesturing] = useState(false);
   const hasHapticsTriggeredAt50 = useRef(false);
 
@@ -224,58 +227,77 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }, 1500);
   }, []);
 
+  // Haptic feedback helpers (called from gesture handlers)
+  const triggerLightHaptic = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const triggerMediumHaptic = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
+
+  const triggerHeavyHaptic = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  }, []);
+
   // Pull-to-open-drawer gesture handlers
   const onGestureEvent = useCallback(
-    Animated.event(
-      [{ nativeEvent: { translationX: dragX } }],
-      {
-        useNativeDriver: false,
-        listener: (event: any) => {
-          const x = event.nativeEvent.translationX;
-          // Only respond to leftward pulls (negative X is right-to-left, we want left-to-right = positive X)
-          // Actually, translationX is positive when dragging right, which is what we want
-          if (x > 0) {
-            // Trigger medium haptic at 50% threshold (once per gesture)
-            if (x >= DRAG_THRESHOLD * 0.5 && !hasHapticsTriggeredAt50.current) {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              hasHapticsTriggeredAt50.current = true;
-            }
-          }
-        },
+    (event: any) => {
+      'worklet';
+      const x = event.nativeEvent.translationX;
+
+      // Only respond to rightward drags (positive X)
+      if (x > 0) {
+        dragX.value = x;
+
+        // Trigger medium haptic at 50% threshold (once per gesture)
+        if (x >= DRAG_THRESHOLD * 0.5 && !hasHapticsTriggeredAt50.current) {
+          hasHapticsTriggeredAt50.current = true;
+          runOnJS(triggerMediumHaptic)();
+        }
+      } else {
+        dragX.value = 0;
       }
-    ),
-    [dragX]
+    },
+    [dragX, triggerMediumHaptic]
   );
 
   const onHandlerStateChange = useCallback(
     (event: any) => {
+      'worklet';
       const { state, translationX } = event.nativeEvent;
 
       if (state === State.BEGAN) {
         // Only activate if dragging right (positive translationX)
         if (translationX >= 0) {
-          setIsGesturing(true);
+          runOnJS(setIsGesturing)(true);
           hasHapticsTriggeredAt50.current = false;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          runOnJS(triggerLightHaptic)();
         }
       } else if (state === State.END || state === State.CANCELLED) {
         if (translationX >= DRAG_THRESHOLD) {
           // Threshold reached - open drawer with heavy haptic
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          openDrawer();
+          runOnJS(triggerHeavyHaptic)();
+          runOnJS(openDrawer)();
         }
         // Reset gesture state
-        setIsGesturing(false);
+        runOnJS(setIsGesturing)(false);
         hasHapticsTriggeredAt50.current = false;
-        Animated.timing(dragX, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
+        dragX.value = withTiming(0, {
+          duration: 250,
+        });
       }
     },
-    [dragX, openDrawer]
+    [dragX, openDrawer, triggerLightHaptic, triggerHeavyHaptic]
   );
+
+  // Animated style for grid translateX (runs on native thread for 60fps)
+  const gridAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateX: dragX.value }],
+    };
+  });
 
   const handleItemPress = (item: Item) => {
     console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
@@ -355,7 +377,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             activeOffsetX={5} // Require 5px horizontal movement to activate
             failOffsetX={-5} // Fail if moving left
           >
-            <Animated.View style={{ flex: 1 }}>
+            <Animated.View style={[{ flex: 1 }, gridAnimatedStyle]}>
               <FlashList
                 ref={listRef}
                 data={displayItems}
