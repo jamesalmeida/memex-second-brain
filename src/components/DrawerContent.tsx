@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { themeStore } from '../stores/theme';
 import { useAuth } from '../hooks/useAuth';
 import { spacesComputed } from '../stores/spaces';
@@ -23,8 +24,30 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
 
   const handleSignOut = async () => {
     console.log('🚪 [DrawerContent] Sign out pressed');
-    onClose();
-    await signOut();
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              onClose();
+              await signOut();
+              router.replace('/auth');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const navigateToSpace = (spaceId: string) => {
