@@ -31,6 +31,11 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const drawerRef = useRef<any>(null);
 
+  // Log when isDrawerOpen changes
+  React.useEffect(() => {
+    console.log('🎯 [DrawerContext] isDrawerOpen state changed to:', isDrawerOpen);
+  }, [isDrawerOpen]);
+
   const openDrawer = useCallback(() => {
     console.log('🍔 [DrawerContext] openDrawer called');
     console.log('🍔 [DrawerContext] drawerRef.current:', drawerRef.current);

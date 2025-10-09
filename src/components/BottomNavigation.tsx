@@ -65,7 +65,10 @@ const BottomNavigation = observer(({
       >
         <NativeTabs.Trigger
           name="index"
-          onPress={() => onViewChange('everything')}
+          onPress={() => {
+            console.log('📱 [BottomNav] Everything tab pressed');
+            onViewChange('everything');
+          }}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
           <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
@@ -73,7 +76,10 @@ const BottomNavigation = observer(({
 
         <NativeTabs.Trigger
           name="spaces"
-          onPress={() => onViewChange('spaces')}
+          onPress={() => {
+            console.log('📱 [BottomNav] Spaces tab pressed');
+            onViewChange('spaces');
+          }}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />
           <Label selectedStyle={{ color: COLORS.warning }}>Spaces</Label>
