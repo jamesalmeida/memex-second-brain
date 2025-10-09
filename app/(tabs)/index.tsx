@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, Animated } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PanGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
@@ -20,6 +22,57 @@ import { useDrawer } from '../../src/contexts/DrawerContext';
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 const EDGE_SWIPE_WIDTH = 50; // Match drawer swipeEdgeWidth so drawer wins near the left edge
+const DRAG_THRESHOLD = 90; // Distance in px to trigger drawer open
+
+interface AnimatedChevronIndicatorProps {
+  dragX: Animated.Value;
+  isDarkMode: boolean;
+  isVisible: boolean;
+  topOffset: number; // Account for HeaderBar height
+}
+
+const AnimatedChevronIndicator = ({ dragX, isDarkMode, isVisible, topOffset }: AnimatedChevronIndicatorProps) => {
+  // Calculate opacity: fade in from 0.3 to 1.0 based on drag progress
+  const opacity = dragX.interpolate({
+    inputRange: [0, DRAG_THRESHOLD],
+    outputRange: [0.3, 1.0],
+    extrapolate: 'clamp',
+  });
+
+  // Calculate translateX: chevron follows finger at half speed
+  const translateX = dragX.interpolate({
+    inputRange: [0, DRAG_THRESHOLD],
+    outputRange: [0, DRAG_THRESHOLD * 0.5],
+    extrapolate: 'clamp',
+  });
+
+  // Calculate scale: grow from 1.0 to 1.4 as threshold approaches
+  const scale = dragX.interpolate({
+    inputRange: [0, DRAG_THRESHOLD * 0.8, DRAG_THRESHOLD],
+    outputRange: [1.0, 1.2, 1.4],
+    extrapolate: 'clamp',
+  });
+
+  if (!isVisible) return null;
+
+  return (
+    <Animated.View
+      style={[
+        styles.chevronIndicator,
+        {
+          top: topOffset + 100, // Below header, centered vertically
+          opacity,
+          transform: [{ translateX }, { scale }],
+        },
+      ]}
+      pointerEvents="none"
+    >
+      <Text style={[styles.chevronText, { color: isDarkMode ? '#FFFFFF' : '#000000' }]}>
+        ››
+      </Text>
+    </Animated.View>
+  );
+};
 
 interface HomeScreenProps {
   onExpandedItemOpen?: () => void;
@@ -45,6 +98,11 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
+
+  // Pull-to-open-drawer gesture state
+  const dragX = useRef(new Animated.Value(0)).current;
+  const [isGesturing, setIsGesturing] = useState(false);
+  const hasHapticsTriggeredAt50 = useRef(false);
 
   // Initialize items and filters on first load
   useEffect(() => {
@@ -166,6 +224,59 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }, 1500);
   }, []);
 
+  // Pull-to-open-drawer gesture handlers
+  const onGestureEvent = useCallback(
+    Animated.event(
+      [{ nativeEvent: { translationX: dragX } }],
+      {
+        useNativeDriver: false,
+        listener: (event: any) => {
+          const x = event.nativeEvent.translationX;
+          // Only respond to leftward pulls (negative X is right-to-left, we want left-to-right = positive X)
+          // Actually, translationX is positive when dragging right, which is what we want
+          if (x > 0) {
+            // Trigger medium haptic at 50% threshold (once per gesture)
+            if (x >= DRAG_THRESHOLD * 0.5 && !hasHapticsTriggeredAt50.current) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              hasHapticsTriggeredAt50.current = true;
+            }
+          }
+        },
+      }
+    ),
+    [dragX]
+  );
+
+  const onHandlerStateChange = useCallback(
+    (event: any) => {
+      const { state, translationX } = event.nativeEvent;
+
+      if (state === State.BEGAN) {
+        // Only activate if dragging right (positive translationX)
+        if (translationX >= 0) {
+          setIsGesturing(true);
+          hasHapticsTriggeredAt50.current = false;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      } else if (state === State.END || state === State.CANCELLED) {
+        if (translationX >= DRAG_THRESHOLD) {
+          // Threshold reached - open drawer with heavy haptic
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          openDrawer();
+        }
+        // Reset gesture state
+        setIsGesturing(false);
+        hasHapticsTriggeredAt50.current = false;
+        Animated.timing(dragX, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
+    },
+    [dragX, openDrawer]
+  );
+
   const handleItemPress = (item: Item) => {
     console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
     onExpandedItemOpen?.(); // Hint TabLayout to hide nav immediately
@@ -237,26 +348,44 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       >
         {/* Page 0: Everything */}
         <View style={{ width: screenWidth }}>
-          <FlashList
-            ref={listRef}
-            data={displayItems}
-            renderItem={renderItem}
-            keyExtractor={item => item.id}
-            masonry
-            numColumns={2}
-            estimatedItemSize={200}
-            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={!shouldDisableScroll}
-            ListEmptyComponent={EmptyState}
-            contentInsetAdjustmentBehavior="automatic"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+          <PanGestureHandler
+            enabled={selectedPage === 0 && !shouldDisableScroll}
+            onGestureEvent={onGestureEvent}
+            onHandlerStateChange={onHandlerStateChange}
+            activeOffsetX={5} // Require 5px horizontal movement to activate
+            failOffsetX={-5} // Fail if moving left
+          >
+            <Animated.View style={{ flex: 1 }}>
+              <FlashList
+                ref={listRef}
+                data={displayItems}
+                renderItem={renderItem}
+                keyExtractor={item => item.id}
+                masonry
+                numColumns={2}
+                estimatedItemSize={200}
+                contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={!shouldDisableScroll}
+                ListEmptyComponent={EmptyState}
+                contentInsetAdjustmentBehavior="automatic"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                  />
+                }
               />
-            }
+            </Animated.View>
+          </PanGestureHandler>
+
+          {/* Chevron indicator for pull-to-open gesture */}
+          <AnimatedChevronIndicator
+            dragX={dragX}
+            isDarkMode={isDarkMode}
+            isVisible={isGesturing && selectedPage === 0}
+            topOffset={insets.top}
           />
         </View>
 
@@ -355,5 +484,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
     fontWeight: '300',
+  },
+  chevronIndicator: {
+    position: 'absolute',
+    left: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
+  chevronText: {
+    fontSize: 36,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 });
