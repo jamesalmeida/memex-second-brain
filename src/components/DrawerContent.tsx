@@ -32,17 +32,17 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
       >
         {/* Header */}
-        <View style={styles.header}>
+        {/* <View style={styles.header}>
           <Text style={[styles.appTitle, isDarkMode && styles.appTitleDark]}>
             Memex
           </Text>
           <Text style={[styles.appSubtitle, isDarkMode && styles.appSubtitleDark]}>
             Second Brain
           </Text>
-        </View>
+        </View> */}
 
         {/* Navigation Items */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
@@ -78,7 +78,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
               Spaces
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Spaces List */}
         {spaces.length > 0 && (

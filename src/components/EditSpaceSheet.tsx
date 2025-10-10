@@ -55,7 +55,7 @@ const EditSpaceSheet = observer(
     }));
     
     // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['75%', '90%'], []);
+    const snapPoints = useMemo(() => ['94%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
