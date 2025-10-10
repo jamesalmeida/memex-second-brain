@@ -131,23 +131,24 @@ const CreateSpaceSheet = observer(
           }
         }}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleCancel}>
-            <Text style={[styles.headerButton, styles.cancelButton]}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-            Create New Space
-          </Text>
-          <TouchableOpacity onPress={handleCreate}>
-            <Text style={[styles.headerButton, styles.createButton]}>Create</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleCancel}>
+              <Text style={[styles.headerButton, styles.cancelButton]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.title, isDarkMode && styles.titleDark]}>
+              Create New Space
+            </Text>
+            <TouchableOpacity onPress={handleCreate}>
+              <Text style={[styles.headerButton, styles.createButton]}>Create</Text>
+            </TouchableOpacity>
+          </View>
 
-        <BottomSheetScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+          <BottomSheetScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Space Name */}
           <View style={styles.section}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>
@@ -165,6 +166,28 @@ const CreateSpaceSheet = observer(
           </View>
 
           {/* Emoji Selection removed */}
+
+          
+
+          {/* Description */}
+          <View style={styles.section}>
+            <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+              DESCRIPTION (OPTIONAL)
+            </Text>
+            <BottomSheetTextInput
+              style={[styles.textArea, isDarkMode && styles.inputDark]}
+              placeholder="What's this space for?"
+              placeholderTextColor={isDarkMode ? '#666' : '#999'}
+              value={spaceDescription}
+              onChangeText={setSpaceDescription}
+              multiline
+              numberOfLines={4}
+              maxLength={200}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              blurOnSubmit={false}
+            />
+          </View>
 
           {/* Color Selection */}
           <View style={styles.section}>
@@ -190,32 +213,12 @@ const CreateSpaceSheet = observer(
             </View>
           </View>
 
-          {/* Description */}
-          <View style={styles.section}>
-            <Text style={[styles.label, isDarkMode && styles.labelDark]}>
-              DESCRIPTION (OPTIONAL)
-            </Text>
-            <BottomSheetTextInput
-              style={[styles.textArea, isDarkMode && styles.inputDark]}
-              placeholder="What's this space for?"
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={spaceDescription}
-              onChangeText={setSpaceDescription}
-              multiline
-              numberOfLines={4}
-              maxLength={200}
-              textAlignVertical="top"
-              scrollEnabled={false}
-              blurOnSubmit={false}
-            />
-          </View>
-
           {/* Preview */}
           <View style={styles.section}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>
               PREVIEW
             </Text>
-            <View style={[styles.previewCard, isDarkMode && styles.previewCardDark]}>
+            <View style={[styles.previewCard, isDarkMode && styles.previewCardDark, { borderTopColor: selectedColor }]}>
               <View style={styles.previewContent}>
                 <Text style={[styles.previewName, isDarkMode && styles.previewNameDark]}>
                   {spaceName || 'Space Name'}
@@ -229,6 +232,7 @@ const CreateSpaceSheet = observer(
             </View>
           </View>
         </BottomSheetScrollView>
+        </View>
       </BottomSheet>
     );
   })
@@ -249,6 +253,9 @@ const styles = StyleSheet.create({
   },
   handleIndicatorDark: {
     backgroundColor: '#48484A',
+  },
+  container: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -354,6 +361,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    borderTopWidth: 6,
   },
   previewCardDark: {
     backgroundColor: '#2C2C2E',
