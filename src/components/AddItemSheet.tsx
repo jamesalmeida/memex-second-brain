@@ -65,7 +65,8 @@ const AddItemSheet = observer(
     const isDarkMode = themeStore.isDarkMode.get();
     const spaces = spacesComputed.spaces();
     const bottomSheetRef = useRef<BottomSheet>(null);
-    
+    const spaceScrollRef = useRef<ScrollView>(null);
+
     const [selectedType, setSelectedType] = useState('bookmark');
     const [url, setUrl] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -84,23 +85,50 @@ const AddItemSheet = observer(
       return points;
     }, []);
 
+    // Helper function to scroll to selected space
+    const scrollToSelectedSpace = useCallback((spaceId: string) => {
+      if (!spaceScrollRef.current) return;
+
+      const spaceIndex = spaces.findIndex(s => s.id === spaceId);
+      if (spaceIndex === -1) return;
+
+      // Calculate position: "No Space" button (100px) + (spaceIndex * 120px per space button)
+      const xOffset = 100 + (spaceIndex * 120);
+
+      setTimeout(() => {
+        spaceScrollRef.current?.scrollTo({ x: xOffset, animated: true });
+      }, 100);
+    }, [spaces]);
+
     // Effect to update selected space when prop changes
     useEffect(() => {
       if (preSelectedSpaceId) {
         setSelectedSpaceId(preSelectedSpaceId);
+        scrollToSelectedSpace(preSelectedSpaceId);
       }
-    }, [preSelectedSpaceId]);
+    }, [preSelectedSpaceId, scrollToSelectedSpace]);
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
-      snapToIndex: (index: number) => bottomSheetRef.current?.snapToIndex(index),
+      snapToIndex: (index: number) => {
+        bottomSheetRef.current?.snapToIndex(index);
+        if (selectedSpaceId) {
+          scrollToSelectedSpace(selectedSpaceId);
+        }
+      },
       openWithSpace: (spaceId: string) => {
         setSelectedSpaceId(spaceId);
         bottomSheetRef.current?.snapToIndex(0);
+        scrollToSelectedSpace(spaceId);
       },
-      expand: () => bottomSheetRef.current?.expand(),
+      expand: () => {
+        bottomSheetRef.current?.expand();
+        if (selectedSpaceId) {
+          scrollToSelectedSpace(selectedSpaceId);
+        }
+      },
       close: () => bottomSheetRef.current?.close(),
-    }), []);
+    }), [selectedSpaceId, scrollToSelectedSpace]);
 
     // Keyboard event listeners for height tracking
     useEffect(() => {
@@ -492,8 +520,9 @@ const AddItemSheet = observer(
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
               Space
             </Text>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              ref={spaceScrollRef}
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.spaceScroll}
             >
@@ -605,7 +634,7 @@ const AddItemSheet = observer(
 
 
           {/* Content Type Selection - Hidden below fold */}
-          <View style={[styles.section, styles.typeSection]}>
+          <View style={styles.section}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
               Type (Auto-detected)
             </Text>
@@ -884,9 +913,6 @@ const styles = StyleSheet.create({
   },
   quickActionTextDarkCompact: {
     color: '#AAAAAA',
-  },
-  typeSection: {
-    marginTop: 30,
   },
   inputAccessory: {
     backgroundColor: '#F2F2F7',
