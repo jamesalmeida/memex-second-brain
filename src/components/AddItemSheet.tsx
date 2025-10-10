@@ -540,21 +540,10 @@ const AddItemSheet = observer(
 
           {/* Tags */}
           <View style={styles.section}>
-            <View style={styles.tagsHeader}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-                Tags
-              </Text>
-              <TouchableOpacity
-                style={[styles.aiButton, isDarkMode && styles.aiButtonDark, isGeneratingTags && styles.aiButtonDisabled]}
-                onPress={handleGenerateTags}
-                disabled={isGeneratingTags || !url.trim()}
-              >
-                <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
-                  {isGeneratingTags ? 'Generating...' : '✨ AI Generate'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              Tags
+            </Text>
+
             {/* Tags Display - All in one container */}
             <View style={styles.tagsContainer}>
               {tags.map((tag, index) => (
@@ -570,7 +559,18 @@ const AddItemSheet = observer(
                   </TouchableOpacity>
                 </View>
               ))}
-              
+
+              {/* AI Generate Tags Button */}
+              <TouchableOpacity
+                style={[styles.aiButton, isDarkMode && styles.aiButtonDark, isGeneratingTags && styles.aiButtonDisabled]}
+                onPress={handleGenerateTags}
+                disabled={isGeneratingTags || !url.trim()}
+              >
+                <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
+                  {isGeneratingTags ? 'Generating...' : '✨ Generate Tags'}
+                </Text>
+              </TouchableOpacity>
+
               {/* Add Tag Button/Input */}
               {showTagInput ? (
                 <View style={[styles.tagInputContainer, isDarkMode && styles.tagInputContainerDark]}>
@@ -960,10 +960,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   aiButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
     backgroundColor: '#007AFF',
-    borderRadius: 12,
   },
   aiButtonDark: {
     backgroundColor: '#0A84FF',
