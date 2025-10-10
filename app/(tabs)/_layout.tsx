@@ -22,6 +22,7 @@ import { itemsActions } from '../../src/stores/items';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { useDrawer } from '../../src/contexts/DrawerContext';
+import { spacesComputed } from '../../src/stores/spaces';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -170,9 +171,13 @@ const TabLayout = observer(() => {
       if (currentView === 'spaces' && !currentSpaceId) {
         createSpaceSheetRef.current?.snapToIndex(0);
       } else {
-        // If we're in a space view, pass the space ID to pre-select it
-        if (currentSpaceId) {
-          addItemSheetRef.current?.openWithSpace(currentSpaceId);
+        // Determine which space to pre-select
+        // Priority: currentSpaceId (from SpacesScreen) > selectedSpace (from HeaderBar)
+        const selectedSpace = spacesComputed.selectedSpace();
+        const spaceIdToUse = currentSpaceId || selectedSpace?.id || null;
+
+        if (spaceIdToUse) {
+          addItemSheetRef.current?.openWithSpace(spaceIdToUse);
         } else {
           addItemSheetRef.current?.snapToIndex(0);
         }
