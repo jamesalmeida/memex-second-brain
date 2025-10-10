@@ -134,47 +134,6 @@ const SettingsSheet = observer(
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Account Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Account
-            </Text>
-            
-            <TouchableOpacity style={styles.row}>
-              <MaterialIcons
-                name="person"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Email
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {user?.email || 'Not signed in'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.row} onPress={handleSignOut}>
-              <MaterialIcons
-                name="logout"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Sign Out
-                </Text>
-              </View>
-              <MaterialIcons
-                name="chevron-right"
-                size={24}
-                color={isDarkMode ? '#666' : '#999'}
-              />
-            </TouchableOpacity>
-          </View>
-
           {/* Appearance Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
@@ -578,7 +537,7 @@ const SettingsSheet = observer(
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
               About
             </Text>
-            
+
             <TouchableOpacity style={styles.row}>
               <MaterialIcons
                 name="help"
@@ -612,6 +571,47 @@ const SettingsSheet = observer(
                 </Text>
               </View>
             </View>
+          </View>
+
+          {/* Account Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              Account
+            </Text>
+
+            <TouchableOpacity style={styles.row}>
+              <MaterialIcons
+                name="person"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Email
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {user?.email || 'Not signed in'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.row} onPress={handleSignOut}>
+              <MaterialIcons
+                name="logout"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Sign Out
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
