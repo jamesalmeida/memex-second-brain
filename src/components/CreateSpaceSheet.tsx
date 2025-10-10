@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { observer } from '@legendapp/state/react';
@@ -39,7 +40,7 @@ const CreateSpaceSheet = observer(
     const [selectedColor, setSelectedColor] = useState('#4ECDC4');
     
     // Snap points for the bottom sheet - single snap point to prevent sheet closing
-    const snapPoints = useMemo(() => ['90%'], []);
+    const snapPoints = useMemo(() => ['94%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -66,6 +67,9 @@ const CreateSpaceSheet = observer(
         return;
       }
 
+      // Dismiss keyboard
+      Keyboard.dismiss();
+
       const newSpace: Space = {
         id: uuid.v4() as string,
         name: spaceName.trim(),
@@ -79,18 +83,21 @@ const CreateSpaceSheet = observer(
 
       await spacesActions.addSpaceWithSync(newSpace);
       onSpaceCreated?.(newSpace);
-      
+
       // Reset form
       setSpaceName('');
       setSpaceDescription('');
       // emoji reset removed
       setSelectedColor('#4ECDC4');
-      
+
       // Close sheet
       (ref as any)?.current?.close();
     };
 
     const handleCancel = () => {
+      // Dismiss keyboard
+      Keyboard.dismiss();
+
       setSpaceName('');
       setSpaceDescription('');
       // emoji reset removed
