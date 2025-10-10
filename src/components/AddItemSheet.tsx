@@ -609,43 +609,84 @@ const AddItemSheet = observer(
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
               Type (Auto-detected)
             </Text>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.typeScroll}
             >
-              {contentTypes.map((type) => (
-                <TouchableOpacity
-                  key={type.id}
-                  style={[
-                    styles.typeButton,
-                    isDarkMode && styles.typeButtonDark,
-                    selectedType === type.id && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setSelectedType(type.id)}
-                >
-                  <MaterialIcons
-                    name={type.icon as any}
-                    size={24}
-                    color={
-                      selectedType === type.id
-                        ? '#FFFFFF'
-                        : isDarkMode
-                        ? '#AAAAAA'
-                        : '#666666'
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.typeLabel,
-                      isDarkMode && styles.typeLabelDark,
-                      selectedType === type.id && styles.typeLabelActive,
-                    ]}
-                  >
-                    {type.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <View style={styles.typeGrid}>
+                {/* First Row */}
+                <View style={styles.typeRow}>
+                  {contentTypes.slice(0, 8).map((type) => (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[
+                        styles.typeButton,
+                        isDarkMode && styles.typeButtonDark,
+                        selectedType === type.id && styles.typeButtonActive,
+                      ]}
+                      onPress={() => setSelectedType(type.id)}
+                    >
+                      <MaterialIcons
+                        name={type.icon as any}
+                        size={24}
+                        color={
+                          selectedType === type.id
+                            ? '#FFFFFF'
+                            : isDarkMode
+                            ? '#AAAAAA'
+                            : '#666666'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.typeLabel,
+                          isDarkMode && styles.typeLabelDark,
+                          selectedType === type.id && styles.typeLabelActive,
+                        ]}
+                      >
+                        {type.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Second Row */}
+                <View style={styles.typeRow}>
+                  {contentTypes.slice(8).map((type) => (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[
+                        styles.typeButton,
+                        isDarkMode && styles.typeButtonDark,
+                        selectedType === type.id && styles.typeButtonActive,
+                      ]}
+                      onPress={() => setSelectedType(type.id)}
+                    >
+                      <MaterialIcons
+                        name={type.icon as any}
+                        size={24}
+                        color={
+                          selectedType === type.id
+                            ? '#FFFFFF'
+                            : isDarkMode
+                            ? '#AAAAAA'
+                            : '#666666'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.typeLabel,
+                          isDarkMode && styles.typeLabelDark,
+                          selectedType === type.id && styles.typeLabelActive,
+                        ]}
+                      >
+                        {type.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </ScrollView>
           </View>
         </BottomSheetScrollView>
@@ -730,6 +771,13 @@ const styles = StyleSheet.create({
   },
   sectionTitleDark: {
     color: '#999999',
+  },
+  typeGrid: {
+    gap: 8,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
   },
   typeScroll: {
     marginHorizontal: -20,
