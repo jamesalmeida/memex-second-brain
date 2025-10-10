@@ -108,11 +108,11 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             ))}
           </View>
         )}
+      </ScrollView>
 
-        {/* Divider */}
+      {/* Sticky Settings at Bottom */}
+      <View style={[styles.stickyFooter, isDarkMode && styles.stickyFooterDark, { paddingBottom: insets.bottom }]}>
         <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
-
-        {/* Settings */}
         <TouchableOpacity
           style={styles.menuItem}
           onPress={onSettingsPress}
@@ -126,7 +126,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             Settings
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </View>
   );
 });
@@ -226,9 +226,19 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    marginVertical: 20,
+    // marginVertical: 20,
+    marginBottom: 20,
   },
   dividerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  stickyFooter: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    borderTopWidth: 0,
+  },
+  stickyFooterDark: {
+    backgroundColor: '#000000',
   },
 });
