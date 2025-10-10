@@ -1,11 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { themeStore } from '../stores/theme';
-import { useAuth } from '../hooks/useAuth';
 import { spacesComputed } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 
@@ -19,36 +17,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { signOut } = useAuth();
   const { onSettingsPress } = useDrawer();
-
-  const handleSignOut = async () => {
-    console.log('🚪 [DrawerContent] Sign out pressed');
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              onClose();
-              await signOut();
-              router.replace('/auth');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -157,16 +126,6 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             Settings
           </Text>
         </TouchableOpacity>
-
-        {/* Sign Out */}
-        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
-          <MaterialIcons
-            name="logout"
-            size={24}
-            color={isDarkMode ? '#FF6B6B' : '#FF4444'}
-          />
-          <Text style={[styles.menuText, styles.signOutText]}>Sign Out</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -271,8 +230,5 @@ const styles = StyleSheet.create({
   },
   dividerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  signOutText: {
-    color: '#FF4444',
   },
 });
