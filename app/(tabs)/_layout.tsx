@@ -13,6 +13,7 @@ import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
 import AddItemSheet from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
+import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import ChatSheet from '../../src/components/ChatSheet';
 import FilterSheet from '../../src/components/FilterSheet';
 import HomeScreen from './index';
@@ -41,7 +42,7 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, registerCreateSpaceHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, setCurrentView: setDrawerView } = useDrawer();
   useEffect(() => {
     console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
     registerSettingsHandler(handleSettingsPress);
@@ -59,6 +60,20 @@ const TabLayout = observer(() => {
     registerCreateSpaceHandler(handleCreateSpacePress);
   }, [registerCreateSpaceHandler, handleCreateSpacePress]);
 
+  // Register edit space handler
+  const handleEditSpacePress = useCallback((spaceId: string) => {
+    console.log('✏️ [TabLayout] handleEditSpacePress called for space:', spaceId);
+    const space = spacesComputed.spaces().find(s => s.id === spaceId);
+    if (space && editSpaceSheetRef.current) {
+      editSpaceSheetRef.current.openWithSpace(space);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('✏️ [TabLayout] Registering edit space handler with DrawerContext');
+    registerEditSpaceHandler(handleEditSpacePress);
+  }, [registerEditSpaceHandler, handleEditSpacePress]);
+
   // Sync currentView with drawer context for dynamic swipeEdgeWidth
   useEffect(() => {
     setDrawerView(currentView);
@@ -72,6 +87,7 @@ const TabLayout = observer(() => {
   const settingsSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
+  const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
   const expandedItemSheetRef = useRef<BottomSheet>(null);
   const filterSheetRef = useRef<BottomSheet>(null);
@@ -378,6 +394,9 @@ const TabLayout = observer(() => {
           ref={createSpaceSheetRef}
           onOpen={() => setIsAddSheetOpen(true)}
           onClose={() => setIsAddSheetOpen(false)}
+        />
+        <EditSpaceSheet
+          ref={editSpaceSheetRef}
         />
       </View>
 

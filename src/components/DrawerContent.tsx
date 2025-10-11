@@ -18,7 +18,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress, onCreateSpacePress } = useDrawer();
+  const { onSettingsPress, onCreateSpacePress, onEditSpacePress } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -28,7 +28,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
 
   const handleEditSpace = (spaceId: string) => {
     console.log('📝 Edit space:', spaceId);
-    // TODO: Implement edit functionality
+    onEditSpacePress(spaceId);
   };
 
   const handleReorderSpace = (spaceId: string) => {

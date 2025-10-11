@@ -9,6 +9,8 @@ interface DrawerContextType {
   registerSettingsHandler: (handler: () => void) => void;
   onCreateSpacePress: () => void;
   registerCreateSpaceHandler: (handler: () => void) => void;
+  onEditSpacePress: (spaceId: string) => void;
+  registerEditSpaceHandler: (handler: (spaceId: string) => void) => void;
   currentView: 'everything' | 'spaces' | null;
   setCurrentView: (view: 'everything' | 'spaces') => void;
 }
@@ -28,6 +30,8 @@ export const useDrawer = () => {
       registerSettingsHandler: () => console.log('⚠️ Drawer context not available'),
       onCreateSpacePress: () => console.log('⚠️ Drawer context not available'),
       registerCreateSpaceHandler: () => console.log('⚠️ Drawer context not available'),
+      onEditSpacePress: () => console.log('⚠️ Drawer context not available'),
+      registerEditSpaceHandler: () => console.log('⚠️ Drawer context not available'),
       currentView: null,
       setCurrentView: () => console.log('⚠️ Drawer context not available'),
     };
@@ -45,6 +49,7 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const drawerRef = useRef<any>(null);
   const settingsHandlerRef = useRef<(() => void) | null>(null);
   const createSpaceHandlerRef = useRef<(() => void) | null>(null);
+  const editSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
 
   // Log when isDrawerOpen changes
   React.useEffect(() => {
@@ -112,6 +117,27 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     }, 300); // Match drawer animation duration
   }, []);
 
+  const registerEditSpaceHandler = useCallback((handler: (spaceId: string) => void) => {
+    console.log('✏️ [DrawerContext] Registering edit space handler');
+    editSpaceHandlerRef.current = handler;
+  }, []);
+
+  const onEditSpacePress = useCallback((spaceId: string) => {
+    console.log('✏️ [DrawerContext] onEditSpacePress called for space:', spaceId);
+    console.log('✏️ [DrawerContext] Closing drawer');
+    setIsDrawerOpen(false);
+
+    // Wait for drawer to close before opening edit space sheet
+    setTimeout(() => {
+      if (editSpaceHandlerRef.current) {
+        console.log('✏️ [DrawerContext] Calling registered edit space handler');
+        editSpaceHandlerRef.current(spaceId);
+      } else {
+        console.warn('⚠️ [DrawerContext] No edit space handler registered');
+      }
+    }, 300); // Match drawer animation duration
+  }, []);
+
   const value = {
     openDrawer,
     closeDrawer,
@@ -121,6 +147,8 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     registerSettingsHandler,
     onCreateSpacePress,
     registerCreateSpaceHandler,
+    onEditSpacePress,
+    registerEditSpaceHandler,
     currentView,
     setCurrentView,
   };
