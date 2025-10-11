@@ -29,7 +29,7 @@ interface HomeScreenProps {
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
   // Get drawer from context directly instead of via props
-  const { openDrawer } = useDrawer();
+  const { openDrawer, registerNavigateToSpaceHandler } = useDrawer();
   console.log('🏠 [HomeScreen] Component rendered, openDrawer from context:', typeof openDrawer);
 
   const isDarkMode = themeStore.isDarkMode.get();
@@ -145,6 +145,20 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       if (space) spacesActions.setSelectedSpace(space);
     }
   }, [spaces]);
+
+  // Handler for navigating to a specific space by ID
+  const handleNavigateToSpace = useCallback((spaceId: string) => {
+    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
+    if (spaceIndex !== -1) {
+      // +1 because index 0 is "Everything"
+      scrollToPage(spaceIndex + 1);
+    }
+  }, [spaces, scrollToPage]);
+
+  // Register the navigate to space handler
+  useEffect(() => {
+    registerNavigateToSpaceHandler(handleNavigateToSpace);
+  }, [registerNavigateToSpaceHandler, handleNavigateToSpace]);
 
   const handlePageChange = useCallback((e: any) => {
     const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);

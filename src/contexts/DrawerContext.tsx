@@ -11,6 +11,8 @@ interface DrawerContextType {
   registerCreateSpaceHandler: (handler: () => void) => void;
   onEditSpacePress: (spaceId: string) => void;
   registerEditSpaceHandler: (handler: (spaceId: string) => void) => void;
+  onNavigateToSpace: (spaceId: string) => void;
+  registerNavigateToSpaceHandler: (handler: (spaceId: string) => void) => void;
   currentView: 'everything' | 'spaces' | null;
   setCurrentView: (view: 'everything' | 'spaces') => void;
 }
@@ -32,6 +34,8 @@ export const useDrawer = () => {
       registerCreateSpaceHandler: () => console.log('⚠️ Drawer context not available'),
       onEditSpacePress: () => console.log('⚠️ Drawer context not available'),
       registerEditSpaceHandler: () => console.log('⚠️ Drawer context not available'),
+      onNavigateToSpace: () => console.log('⚠️ Drawer context not available'),
+      registerNavigateToSpaceHandler: () => console.log('⚠️ Drawer context not available'),
       currentView: null,
       setCurrentView: () => console.log('⚠️ Drawer context not available'),
     };
@@ -50,6 +54,7 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const settingsHandlerRef = useRef<(() => void) | null>(null);
   const createSpaceHandlerRef = useRef<(() => void) | null>(null);
   const editSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
+  const navigateToSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
 
   // Log when isDrawerOpen changes
   React.useEffect(() => {
@@ -138,6 +143,27 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     }, 300); // Match drawer animation duration
   }, []);
 
+  const registerNavigateToSpaceHandler = useCallback((handler: (spaceId: string) => void) => {
+    console.log('🧭 [DrawerContext] Registering navigate to space handler');
+    navigateToSpaceHandlerRef.current = handler;
+  }, []);
+
+  const onNavigateToSpace = useCallback((spaceId: string) => {
+    console.log('🧭 [DrawerContext] onNavigateToSpace called for space:', spaceId);
+    console.log('🧭 [DrawerContext] Closing drawer');
+    setIsDrawerOpen(false);
+
+    // Wait for drawer to close before navigating to space
+    setTimeout(() => {
+      if (navigateToSpaceHandlerRef.current) {
+        console.log('🧭 [DrawerContext] Calling registered navigate to space handler');
+        navigateToSpaceHandlerRef.current(spaceId);
+      } else {
+        console.warn('⚠️ [DrawerContext] No navigate to space handler registered');
+      }
+    }, 300); // Match drawer animation duration
+  }, []);
+
   const value = {
     openDrawer,
     closeDrawer,
@@ -149,6 +175,8 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     registerCreateSpaceHandler,
     onEditSpacePress,
     registerEditSpaceHandler,
+    onNavigateToSpace,
+    registerNavigateToSpaceHandler,
     currentView,
     setCurrentView,
   };

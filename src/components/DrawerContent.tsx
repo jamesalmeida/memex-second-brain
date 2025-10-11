@@ -18,12 +18,11 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress, onCreateSpacePress, onEditSpacePress } = useDrawer();
+  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
-    onClose();
-    // TODO: Navigate to specific space
+    onNavigateToSpace(spaceId);
   };
 
   const handleEditSpace = (spaceId: string) => {
