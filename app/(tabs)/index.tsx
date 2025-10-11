@@ -29,7 +29,7 @@ interface HomeScreenProps {
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
   // Get drawer from context directly instead of via props
-  const { openDrawer, registerNavigateToSpaceHandler } = useDrawer();
+  const { openDrawer, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
   console.log('🏠 [HomeScreen] Component rendered, openDrawer from context:', typeof openDrawer);
 
   const isDarkMode = themeStore.isDarkMode.get();
@@ -159,6 +159,14 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   useEffect(() => {
     registerNavigateToSpaceHandler(handleNavigateToSpace);
   }, [registerNavigateToSpaceHandler, handleNavigateToSpace]);
+
+  // Register the navigate to EVERYTHING handler
+  useEffect(() => {
+    const handleNavigateToEverything = () => {
+      scrollToPage(0);
+    };
+    registerNavigateToEverythingHandler(handleNavigateToEverything);
+  }, [registerNavigateToEverythingHandler, scrollToPage]);
 
   const handlePageChange = useCallback((e: any) => {
     const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);

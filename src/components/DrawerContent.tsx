@@ -20,7 +20,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace, onReorderSpacesPress } = useDrawer();
+  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace, onNavigateToEverything, onReorderSpacesPress } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -92,26 +92,25 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
         </View> */}
 
         {/* Navigation Items */}
-        {/* <View style={styles.section}>
+        <View style={styles.section}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
-              console.log('🚪 [DrawerContent] Home pressed');
-              onClose();
-              // Navigate to home
+              console.log('🚪 [DrawerContent] Everything pressed');
+              onNavigateToEverything();
             }}
           >
             <MaterialIcons
-              name="home"
+              name="grid-view"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
             />
             <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
-              Home
+              Everything
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
               console.log('🚪 [DrawerContent] Spaces pressed');
@@ -127,8 +126,8 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
               Spaces
             </Text>
-          </TouchableOpacity>
-        </View> */}
+          </TouchableOpacity> */}
+        </View>
 
         {/* Spaces List */}
         {spaces.length > 0 && (

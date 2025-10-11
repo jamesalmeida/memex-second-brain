@@ -13,6 +13,8 @@ interface DrawerContextType {
   registerEditSpaceHandler: (handler: (spaceId: string) => void) => void;
   onNavigateToSpace: (spaceId: string) => void;
   registerNavigateToSpaceHandler: (handler: (spaceId: string) => void) => void;
+  onNavigateToEverything: () => void;
+  registerNavigateToEverythingHandler: (handler: () => void) => void;
   onReorderSpacesPress: () => void;
   registerReorderSpacesHandler: (handler: () => void) => void;
   currentView: 'everything' | 'spaces' | null;
@@ -38,6 +40,8 @@ export const useDrawer = () => {
       registerEditSpaceHandler: () => console.log('⚠️ Drawer context not available'),
       onNavigateToSpace: () => console.log('⚠️ Drawer context not available'),
       registerNavigateToSpaceHandler: () => console.log('⚠️ Drawer context not available'),
+      onNavigateToEverything: () => console.log('⚠️ Drawer context not available'),
+      registerNavigateToEverythingHandler: () => console.log('⚠️ Drawer context not available'),
       onReorderSpacesPress: () => console.log('⚠️ Drawer context not available'),
       registerReorderSpacesHandler: () => console.log('⚠️ Drawer context not available'),
       currentView: null,
@@ -59,6 +63,7 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const createSpaceHandlerRef = useRef<(() => void) | null>(null);
   const editSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
   const navigateToSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
+  const navigateToEverythingHandlerRef = useRef<(() => void) | null>(null);
   const reorderSpacesHandlerRef = useRef<(() => void) | null>(null);
 
   // Log when isDrawerOpen changes
@@ -169,6 +174,27 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     }, 300); // Match drawer animation duration
   }, []);
 
+  const registerNavigateToEverythingHandler = useCallback((handler: () => void) => {
+    console.log('🧭 [DrawerContext] Registering navigate to EVERYTHING handler');
+    navigateToEverythingHandlerRef.current = handler;
+  }, []);
+
+  const onNavigateToEverything = useCallback(() => {
+    console.log('🧭 [DrawerContext] onNavigateToEverything called');
+    console.log('🧭 [DrawerContext] Closing drawer');
+    setIsDrawerOpen(false);
+
+    // Wait for drawer to close before navigating to Everything
+    setTimeout(() => {
+      if (navigateToEverythingHandlerRef.current) {
+        console.log('🧭 [DrawerContext] Calling registered navigate to EVERYTHING handler');
+        navigateToEverythingHandlerRef.current();
+      } else {
+        console.warn('⚠️ [DrawerContext] No navigate to EVERYTHING handler registered');
+      }
+    }, 300); // Match drawer animation duration
+  }, []);
+
   const registerReorderSpacesHandler = useCallback((handler: () => void) => {
     console.log('🔄 [DrawerContext] Registering reorder spaces handler');
     reorderSpacesHandlerRef.current = handler;
@@ -203,6 +229,8 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     registerEditSpaceHandler,
     onNavigateToSpace,
     registerNavigateToSpaceHandler,
+    onNavigateToEverything,
+    registerNavigateToEverythingHandler,
     onReorderSpacesPress,
     registerReorderSpacesHandler,
     currentView,
