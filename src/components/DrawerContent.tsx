@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { themeStore } from '../stores/theme';
-import { spacesComputed } from '../stores/spaces';
+import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
+import { syncOperations } from '../services/syncOperations';
+import { authComputed } from '../stores/auth';
 
 interface DrawerContentProps {
   onClose: () => void;
@@ -36,8 +38,41 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   };
 
   const handleDeleteSpace = (spaceId: string) => {
-    console.log('🗑️ Delete space:', spaceId);
-    // TODO: Implement delete functionality
+    const space = spaces.find(s => s.id === spaceId);
+    if (!space) return;
+
+    Alert.alert(
+      'Delete Space',
+      `Are you sure you want to delete "${space.name}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ Deleting space:', spaceId);
+
+              // Remove from local store first
+              spacesActions.removeSpace(spaceId);
+
+              // Sync with Supabase
+              const user = authComputed.user();
+              if (user) {
+                await syncOperations.deleteSpace(spaceId);
+                console.log('✅ Space deleted successfully');
+              }
+            } catch (error) {
+              console.error('❌ Error deleting space:', error);
+              Alert.alert('Error', 'Failed to delete space. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
