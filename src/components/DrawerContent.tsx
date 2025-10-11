@@ -134,7 +134,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-                My Spaces
+                Spaces
               </Text>
               <TouchableOpacity
                 style={styles.addButton}
@@ -148,7 +148,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
               </TouchableOpacity>
             </View>
             {spaces.map((space) => (
-              <View key={space.id} style={styles.spaceItem}>
+              <View key={space.id} style={[styles.spaceItem, isDarkMode && styles.spaceItemDark]}>
                 <TouchableOpacity
                   style={styles.spaceItemContent}
                   onPress={() => navigateToSpace(space.id)}
@@ -266,6 +266,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     marginTop: 8,
+    marginRight: 5,
   },
   sectionTitle: {
     fontSize: 16,
@@ -284,15 +285,15 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     borderRadius: 8,
   },
   menuText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#000000',
-    marginLeft: 16,
+    marginLeft: 10,
   },
   menuTextDark: {
     color: '#FFFFFF',
@@ -304,6 +305,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 5,
+  },
+  spaceItemDark: {
+    backgroundColor: '#2C2C2E',
   },
   spaceItemContent: {
     flexDirection: 'row',
