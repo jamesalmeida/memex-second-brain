@@ -79,6 +79,7 @@ export interface Space {
   created_at?: string;
   updated_at?: string;
   item_count?: number;
+  order_index?: number;
 }
 
 export interface ItemSpace {

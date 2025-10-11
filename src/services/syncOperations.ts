@@ -208,6 +208,34 @@ export const syncOperations = {
     console.log(`✅ Deleted image description(s) for item ${itemId}${imageUrl ? ` (${imageUrl})` : ''}`);
   },
 
+  async updateSpaceOrder(spaces: Space[]) {
+    // Bulk update all spaces with their new order_index
+    const updates = spaces.map(space => ({
+      id: space.id,
+      order_index: space.order_index,
+      updated_at: new Date().toISOString(),
+    }));
+
+    // Perform individual updates for each space
+    // Note: Supabase doesn't support bulk upserts easily, so we do them sequentially
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('spaces')
+        .update({
+          order_index: update.order_index,
+          updated_at: update.updated_at,
+        })
+        .eq('id', update.id);
+
+      if (error) {
+        console.error(`Error updating order_index for space ${update.id}:`, error);
+        throw error;
+      }
+    }
+
+    console.log(`✅ Updated order_index for ${updates.length} spaces in Supabase`);
+  },
+
   async checkConnection(): Promise<boolean> {
     try {
       const { error } = await supabase.auth.getSession();

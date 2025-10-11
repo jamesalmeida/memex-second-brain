@@ -46,7 +46,16 @@ loadSpaces();
 
 // Computed values
 export const spacesComputed = {
-  spaces: () => spacesStore.spaces.get(),
+  spaces: () => {
+    const spaces = spacesStore.spaces.get();
+    // Sort by order_index (ascending), spaces without order_index go to the end
+    return [...spaces].sort((a, b) => {
+      if (a.order_index === undefined && b.order_index === undefined) return 0;
+      if (a.order_index === undefined) return 1;
+      if (b.order_index === undefined) return -1;
+      return a.order_index - b.order_index;
+    });
+  },
   isLoading: () => spacesStore.isLoading.get(),
   selectedSpace: () => spacesStore.selectedSpace.get(),
   totalCount: () => spacesStore.spaces.get().length,
@@ -120,5 +129,28 @@ export const spacesActions = {
     spacesStore.spaces.set([]);
     spacesStore.selectedSpace.set(null);
     console.log('📦 Cleared all spaces from store');
+  },
+
+  reorderSpaces: (spaces: Space[]) => {
+    spacesStore.spaces.set(spaces);
+  },
+
+  reorderSpacesWithSync: async (spaces: Space[]) => {
+    // Update local store first
+    spacesStore.spaces.set(spaces);
+
+    try {
+      // Save to AsyncStorage
+      await AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(spaces));
+
+      // Sync with Supabase
+      const user = authStore.user.get();
+      if (user) {
+        await syncOperations.updateSpaceOrder(spaces);
+      }
+    } catch (error) {
+      console.error('Error reordering spaces:', error);
+      throw error;
+    }
   },
 };

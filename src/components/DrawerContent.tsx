@@ -20,7 +20,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace } = useDrawer();
+  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace, onReorderSpacesPress } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -32,9 +32,9 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
     onEditSpacePress(spaceId);
   };
 
-  const handleReorderSpace = (spaceId: string) => {
-    console.log('🔄 Reorder space:', spaceId);
-    // TODO: Implement reorder functionality
+  const handleReorderSpace = () => {
+    console.log('🔄 Reorder spaces');
+    onReorderSpacesPress();
   };
 
   const handleDeleteSpace = (spaceId: string) => {
@@ -182,7 +182,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
                       <Button onPress={() => handleEditSpace(space.id)}>
                         {`Edit ${space.name}`}
                       </Button>
-                      <Button onPress={() => handleReorderSpace(space.id)}>
+                      <Button onPress={handleReorderSpace}>
                         Reorder Spaces
                       </Button>
                       <Button onPress={() => handleDeleteSpace(space.id)} role="destructive">

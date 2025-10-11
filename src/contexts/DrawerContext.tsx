@@ -13,6 +13,8 @@ interface DrawerContextType {
   registerEditSpaceHandler: (handler: (spaceId: string) => void) => void;
   onNavigateToSpace: (spaceId: string) => void;
   registerNavigateToSpaceHandler: (handler: (spaceId: string) => void) => void;
+  onReorderSpacesPress: () => void;
+  registerReorderSpacesHandler: (handler: () => void) => void;
   currentView: 'everything' | 'spaces' | null;
   setCurrentView: (view: 'everything' | 'spaces') => void;
 }
@@ -36,6 +38,8 @@ export const useDrawer = () => {
       registerEditSpaceHandler: () => console.log('⚠️ Drawer context not available'),
       onNavigateToSpace: () => console.log('⚠️ Drawer context not available'),
       registerNavigateToSpaceHandler: () => console.log('⚠️ Drawer context not available'),
+      onReorderSpacesPress: () => console.log('⚠️ Drawer context not available'),
+      registerReorderSpacesHandler: () => console.log('⚠️ Drawer context not available'),
       currentView: null,
       setCurrentView: () => console.log('⚠️ Drawer context not available'),
     };
@@ -55,6 +59,7 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const createSpaceHandlerRef = useRef<(() => void) | null>(null);
   const editSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
   const navigateToSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
+  const reorderSpacesHandlerRef = useRef<(() => void) | null>(null);
 
   // Log when isDrawerOpen changes
   React.useEffect(() => {
@@ -164,6 +169,27 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     }, 300); // Match drawer animation duration
   }, []);
 
+  const registerReorderSpacesHandler = useCallback((handler: () => void) => {
+    console.log('🔄 [DrawerContext] Registering reorder spaces handler');
+    reorderSpacesHandlerRef.current = handler;
+  }, []);
+
+  const onReorderSpacesPress = useCallback(() => {
+    console.log('🔄 [DrawerContext] onReorderSpacesPress called');
+    console.log('🔄 [DrawerContext] Closing drawer');
+    setIsDrawerOpen(false);
+
+    // Wait for drawer to close before opening reorder sheet
+    setTimeout(() => {
+      if (reorderSpacesHandlerRef.current) {
+        console.log('🔄 [DrawerContext] Calling registered reorder spaces handler');
+        reorderSpacesHandlerRef.current();
+      } else {
+        console.warn('⚠️ [DrawerContext] No reorder spaces handler registered');
+      }
+    }, 300); // Match drawer animation duration
+  }, []);
+
   const value = {
     openDrawer,
     closeDrawer,
@@ -177,6 +203,8 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     registerEditSpaceHandler,
     onNavigateToSpace,
     registerNavigateToSpaceHandler,
+    onReorderSpacesPress,
+    registerReorderSpacesHandler,
     currentView,
     setCurrentView,
   };

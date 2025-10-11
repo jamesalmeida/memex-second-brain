@@ -14,6 +14,7 @@ import SettingsSheet from '../../src/components/SettingsSheet';
 import AddItemSheet from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
+import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
 import ChatSheet from '../../src/components/ChatSheet';
 import FilterSheet from '../../src/components/FilterSheet';
 import HomeScreen from './index';
@@ -42,7 +43,7 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
   useEffect(() => {
     console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
     registerSettingsHandler(handleSettingsPress);
@@ -74,6 +75,18 @@ const TabLayout = observer(() => {
     registerEditSpaceHandler(handleEditSpacePress);
   }, [registerEditSpaceHandler, handleEditSpacePress]);
 
+  // Register reorder spaces handler
+  const handleReorderSpacesPress = useCallback(() => {
+    console.log('🔄 [TabLayout] handleReorderSpacesPress called');
+    // Open using the sheet's open() to ensure proper initialization
+    reorderSpacesSheetRef.current?.open?.();
+  }, []);
+
+  useEffect(() => {
+    console.log('🔄 [TabLayout] Registering reorder spaces handler with DrawerContext');
+    registerReorderSpacesHandler(handleReorderSpacesPress);
+  }, [registerReorderSpacesHandler, handleReorderSpacesPress]);
+
   // Sync currentView with drawer context for dynamic swipeEdgeWidth
   useEffect(() => {
     setDrawerView(currentView);
@@ -88,6 +101,7 @@ const TabLayout = observer(() => {
   const addItemSheetRef = useRef<any>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
+  const reorderSpacesSheetRef = useRef<ReorderSpacesSheetRef>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
   const expandedItemSheetRef = useRef<BottomSheet>(null);
   const filterSheetRef = useRef<BottomSheet>(null);
@@ -397,6 +411,9 @@ const TabLayout = observer(() => {
         />
         <EditSpaceSheet
           ref={editSpaceSheetRef}
+        />
+        <ReorderSpacesSheet
+          ref={reorderSpacesSheetRef}
         />
       </View>
 
