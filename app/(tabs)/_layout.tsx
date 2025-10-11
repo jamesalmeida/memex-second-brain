@@ -41,11 +41,23 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { registerSettingsHandler, registerCreateSpaceHandler, setCurrentView: setDrawerView } = useDrawer();
   useEffect(() => {
     console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
     registerSettingsHandler(handleSettingsPress);
   }, [registerSettingsHandler, handleSettingsPress]);
+
+  // Register create space handler
+  const handleCreateSpacePress = useCallback(() => {
+    console.log('➕ [TabLayout] handleCreateSpacePress called');
+    createSpaceSheetRef.current?.snapToIndex(0);
+    setIsAddSheetOpen(true);
+  }, []);
+
+  useEffect(() => {
+    console.log('➕ [TabLayout] Registering create space handler with DrawerContext');
+    registerCreateSpaceHandler(handleCreateSpacePress);
+  }, [registerCreateSpaceHandler, handleCreateSpacePress]);
 
   // Sync currentView with drawer context for dynamic swipeEdgeWidth
   useEffect(() => {

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { themeStore } from '../stores/theme';
 import { spacesComputed } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
@@ -17,12 +18,27 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress } = useDrawer();
+  const { onSettingsPress, onCreateSpacePress } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
     onClose();
     // TODO: Navigate to specific space
+  };
+
+  const handleEditSpace = (spaceId: string) => {
+    console.log('📝 Edit space:', spaceId);
+    // TODO: Implement edit functionality
+  };
+
+  const handleReorderSpace = (spaceId: string) => {
+    console.log('🔄 Reorder space:', spaceId);
+    // TODO: Implement reorder functionality
+  };
+
+  const handleDeleteSpace = (spaceId: string) => {
+    console.log('🗑️ Delete space:', spaceId);
+    // TODO: Implement delete functionality
   };
 
   return (
@@ -83,28 +99,65 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
         {/* Spaces List */}
         {spaces.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              My Spaces
-            </Text>
-            {spaces.map((space) => (
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+                My Spaces
+              </Text>
               <TouchableOpacity
-                key={space.id}
-                style={styles.spaceItem}
-                onPress={() => navigateToSpace(space.id)}
+                style={styles.addButton}
+                onPress={onCreateSpacePress}
               >
-                <View
-                  style={[
-                    styles.spaceColor,
-                    { backgroundColor: space.color || '#007AFF' },
-                  ]}
+                <MaterialIcons
+                  name="add"
+                  size={20}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
                 />
-                <Text
-                  style={[styles.spaceText, isDarkMode && styles.spaceTextDark]}
-                  numberOfLines={1}
-                >
-                  {space.name}
-                </Text>
               </TouchableOpacity>
+            </View>
+            {spaces.map((space) => (
+              <View key={space.id} style={styles.spaceItem}>
+                <TouchableOpacity
+                  style={styles.spaceItemContent}
+                  onPress={() => navigateToSpace(space.id)}
+                >
+                  <View
+                    style={[
+                      styles.spaceColor,
+                      { backgroundColor: space.color || '#007AFF' },
+                    ]}
+                  />
+                  <Text
+                    style={[styles.spaceText, isDarkMode && styles.spaceTextDark]}
+                    numberOfLines={1}
+                  >
+                    {space.name}
+                  </Text>
+                </TouchableOpacity>
+                <Host style={{ width: 24, height: 24 }}>
+                  <ContextMenu>
+                    <ContextMenu.Trigger>
+                      <TouchableOpacity style={styles.menuDots}>
+                        <MaterialIcons
+                          name="more-vert"
+                          size={20}
+                          color={isDarkMode ? '#999' : '#666'}
+                        />
+                      </TouchableOpacity>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Items>
+                      <Button onPress={() => handleEditSpace(space.id)}>
+                        {`Edit ${space.name}`}
+                      </Button>
+                      <Button onPress={() => handleReorderSpace(space.id)}>
+                        Reorder Spaces
+                      </Button>
+                      <Button onPress={() => handleDeleteSpace(space.id)} role="destructive">
+                        Delete Space
+                      </Button>
+                    </ContextMenu.Items>
+                  </ContextMenu>
+                </Host>
+              </View>
             ))}
           </View>
         )}
@@ -174,17 +227,26 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666666',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
     marginTop: 8,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   sectionTitleDark: {
-    color: '#999999',
+    color: '#FFFFFF',
+  },
+  addButton: {
+    padding: 4,
+    borderRadius: 6,
   },
   menuItem: {
     flexDirection: 'row',
@@ -205,9 +267,18 @@ const styles = StyleSheet.create({
   spaceItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 8,
+  },
+  spaceItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuDots: {
+    padding: 3,
   },
   spaceColor: {
     width: 16,
