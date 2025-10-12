@@ -79,7 +79,7 @@ const TabLayout = observer(() => {
   const handleReorderSpacesPress = useCallback(() => {
     console.log('🔄 [TabLayout] handleReorderSpacesPress called');
     // Open using the sheet's open() to ensure proper initialization
-    reorderSpacesSheetRef.current?.open?.();
+    reorderSpacesSheetRef.current?.snapToIndex(0);
   }, []);
 
   useEffect(() => {

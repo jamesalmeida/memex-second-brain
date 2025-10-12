@@ -9,6 +9,7 @@ import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 import { syncOperations } from '../services/syncOperations';
 import { authComputed } from '../stores/auth';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 
 interface DrawerContentProps {
   onClose: () => void;
@@ -147,51 +148,68 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
                 />
               </TouchableOpacity>
             </View>
-            {spaces.map((space) => (
-              <View key={space.id} style={[styles.spaceItem, isDarkMode && styles.spaceItemDark]}>
-                <TouchableOpacity
-                  style={styles.spaceItemContent}
-                  onPress={() => navigateToSpace(space.id)}
-                >
-                  <View
-                    style={[
-                      styles.spaceColor,
-                      { backgroundColor: space.color || '#007AFF' },
-                    ]}
-                  />
-                  <Text
-                    style={[styles.spaceText, isDarkMode && styles.spaceTextDark]}
-                    numberOfLines={1}
-                  >
-                    {space.name}
-                  </Text>
-                </TouchableOpacity>
-                <Host style={{ width: 24, height: 24 }}>
-                  <ContextMenu>
-                    <ContextMenu.Trigger>
-                      <TouchableOpacity style={styles.menuDots}>
-                        <MaterialIcons
-                          name="more-vert"
-                          size={20}
-                          color={isDarkMode ? '#999' : '#666'}
-                        />
-                      </TouchableOpacity>
-                    </ContextMenu.Trigger>
-                    <ContextMenu.Items>
-                      <Button onPress={() => handleEditSpace(space.id)}>
-                        {`Edit ${space.name}`}
-                      </Button>
-                      <Button onPress={handleReorderSpace}>
-                        Reorder Spaces
-                      </Button>
-                      <Button onPress={() => handleDeleteSpace(space.id)} role="destructive">
-                        Delete Space
-                      </Button>
-                    </ContextMenu.Items>
-                  </ContextMenu>
-                </Host>
-              </View>
-            ))}
+            <DraggableFlatList
+              data={spaces}
+              keyExtractor={(item) => item.id}
+              onDragEnd={({ data }) => {
+                const spacesWithOrder = data.map((space, index) => ({
+                  ...space,
+                  order_index: index,
+                }));
+                spacesActions.reorderSpacesWithSync(spacesWithOrder);
+              }}
+              renderItem={({ item, drag, isActive }) => (
+                <ScaleDecorator>
+                  <View style={[styles.spaceItem, isDarkMode && styles.spaceItemDark]}>
+                    <TouchableOpacity
+                      style={styles.spaceItemContent}
+                      onPress={() => navigateToSpace(item.id)}
+                      onLongPress={drag}
+                    >
+                      <MaterialIcons
+                        name="drag-handle"
+                        size={20}
+                        color={isDarkMode ? '#999' : '#666'}
+                        style={{ marginRight: 8 }}
+                      />
+                      <View
+                        style={[
+                          styles.spaceColor,
+                          { backgroundColor: item.color || '#007AFF' },
+                        ]}
+                      />
+                      <Text
+                        style={[styles.spaceText, isDarkMode && styles.spaceTextDark]}
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                    <Host style={{ width: 24, height: 24 }}>
+                      <ContextMenu>
+                        <ContextMenu.Trigger>
+                          <TouchableOpacity style={styles.menuDots}>
+                            <MaterialIcons
+                              name="more-vert"
+                              size={20}
+                              color={isDarkMode ? '#999' : '#666'}
+                            />
+                          </TouchableOpacity>
+                        </ContextMenu.Trigger>
+                        <ContextMenu.Items>
+                          <Button onPress={() => handleEditSpace(item.id)}>
+                            {`Edit ${item.name}`}
+                          </Button>
+                          <Button onPress={() => handleDeleteSpace(item.id)} role="destructive">
+                            Delete Space
+                          </Button>
+                        </ContextMenu.Items>
+                      </ContextMenu>
+                    </Host>
+                  </View>
+                </ScaleDecorator>
+              )}
+            />
           </View>
         )}
       </ScrollView>
