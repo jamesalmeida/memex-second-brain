@@ -19,7 +19,7 @@ import { useDrawer } from '../../src/contexts/DrawerContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
-const EDGE_SWIPE_WIDTH_EVERYTHING = 150; // Wide drawer swipe area on Everything tab
+const EDGE_SWIPE_WIDTH_EVERYTHING = 30; // Narrower drawer swipe area on Everything tab to avoid intercepting taps
 const EDGE_SWIPE_WIDTH_DEFAULT = 50; // Normal drawer swipe area on other tabs
 
 interface HomeScreenProps {

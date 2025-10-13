@@ -24,8 +24,8 @@ const RootLayoutContent = observer(() => {
   // Get drawer context
   const { drawerRef, isDrawerOpen, closeDrawer, openDrawer, currentView } = useDrawer();
 
-  // Dynamic swipe edge width: wider on Everything tab for easier drawer access
-  const swipeEdgeWidth = currentView === 'everything' ? 150 : 50;
+  // Dynamic swipe edge width: keep small so left column taps aren't intercepted
+  const swipeEdgeWidth = currentView === 'everything' ? 30 : 50;
 
   // Debug flag to show swipe area
   const showDebugSwipeArea = false;
