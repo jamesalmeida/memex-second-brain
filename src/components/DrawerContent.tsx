@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
@@ -102,7 +102,12 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             {/* Spaces Header */}
             {spaces.length > 0 && (
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+                <Feather
+                  name="box"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.sectionTitleDark]}>
                   Spaces
                 </Text>
                 <TouchableOpacity
@@ -256,7 +261,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     marginBottom: 12,
     marginTop: 8,
@@ -275,6 +280,7 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 4,
     borderRadius: 6,
+    marginLeft: 'auto',
   },
   menuItem: {
     flexDirection: 'row',
