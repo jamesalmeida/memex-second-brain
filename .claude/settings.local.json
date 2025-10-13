@@ -18,7 +18,8 @@
       "WebFetch(domain:docs.expo.dev)",
       "WebSearch",
       "Bash(npx tsc:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(curl -s \"https://www.amazon.com/ADZERD-Rechargeable-Automatic-Shuffler-Electric/dp/B0FJFB2NSH\" -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36\")"
     ],
     "deny": [],
     "ask": []

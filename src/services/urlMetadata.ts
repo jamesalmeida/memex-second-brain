@@ -150,6 +150,168 @@ const extractYouTubeMetadata = async (url: string): Promise<URLMetadata> => {
   }
 };
 
+// Extract Amazon product metadata - Amazon has OG tags but Jina struggles with them
+const extractAmazonMetadata = async (url: string): Promise<URLMetadata> => {
+  try {
+    console.log('Extracting Amazon product metadata via direct fetch');
+
+    // Fetch HTML directly - use desktop user agent for better image access
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Amazon page: ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // Extract OG tags using regex (lightweight, no HTML parser needed)
+    const extractMetaTag = (property: string): string | undefined => {
+      const patterns = [
+        new RegExp(`<meta\\s+property=["']${property}["']\\s+content=["']([^"']+)["']`, 'i'),
+        new RegExp(`<meta\\s+content=["']([^"']+)["']\\s+property=["']${property}["']`, 'i'),
+        new RegExp(`<meta\\s+name=["']${property}["']\\s+content=["']([^"']+)["']`, 'i'),
+      ];
+
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+          // Decode HTML entities
+          return match[1]
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&#39;/g, "'");
+        }
+      }
+      return undefined;
+    };
+
+    // Extract metadata from OG tags
+    let title = extractMetaTag('og:title') || extractMetaTag('twitter:title');
+    let description = extractMetaTag('og:description') || extractMetaTag('twitter:description') || extractMetaTag('description');
+    let image = extractMetaTag('og:image') || extractMetaTag('twitter:image');
+
+    // Amazon-specific: Try to find product images if OG tag fails
+    if (!image) {
+      // Look for landingImage or hiRes image in the page (Amazon stores images in JSON)
+      const imagePatterns = [
+        // JSON image data
+        /"hiRes":"(https:\/\/[^"]+\.jpg[^"]*)"/i,
+        /"large":"(https:\/\/[^"]+\.jpg[^"]*)"/i,
+        // Image attributes
+        /data-old-hires="(https:\/\/[^"]+\.jpg[^"]*)"/i,
+        /id="landingImage"[^>]+src="(https:\/\/[^"]+\.jpg[^"]*)"/i,
+        // Generic Amazon image URLs
+        /(https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9_+.-]+\.jpg)/i,
+        /(https:\/\/images-na\.ssl-images-amazon\.com\/images\/I\/[A-Za-z0-9_+.-]+\.jpg)/i,
+      ];
+
+      for (const pattern of imagePatterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+          image = match[1];
+          break;
+        }
+      }
+
+      // If still no image, look for ANY amazon image URL as last resort
+      if (!image) {
+        const anyImageMatch = html.match(/https:\/\/[^"'\s]+\.media-amazon\.com\/images\/I\/[^"'\s]+\.jpg/i);
+        if (anyImageMatch) {
+          image = anyImageMatch[0];
+        }
+      }
+    }
+
+    // Clean up title
+    if (title) {
+      title = title.replace(' : Amazon.com', '')
+                   .replace(' - Amazon.com', '')
+                   .replace(' | Amazon.com', '')
+                   .replace(' : Amazon', '')
+                   .replace(' - Amazon', '')
+                   .trim();
+    }
+
+    // If still no title, extract from URL
+    if (!title || title === 'Amazon.com' || title === 'Amazon') {
+      const urlParts = url.split('/dp/')[0].split('/');
+      const productSlug = urlParts[urlParts.length - 1];
+      if (productSlug && productSlug.length > 3) {
+        title = productSlug.replace(/-/g, ' ')
+                          .replace(/\b\w/g, l => l.toUpperCase());
+      } else {
+        title = 'Amazon Product';
+      }
+    }
+
+    return {
+      url,
+      title: title || 'Amazon Product',
+      description: description || 'Amazon product',
+      image,
+      contentType: 'product',
+      siteName: 'Amazon',
+    };
+  } catch (error) {
+    console.error('Amazon direct fetch failed:', error);
+
+    // Fallback to Jina
+    console.log('Falling back to Jina for Amazon');
+    try {
+      const jinaMetadata = await extractWithJina(url);
+
+      let title = jinaMetadata.title || 'Amazon Product';
+      title = title.replace(' : Amazon.com', '')
+                   .replace(' - Amazon.com', '')
+                   .replace(' | Amazon.com', '')
+                   .trim();
+
+      if (title === 'Amazon.com' || title === 'Amazon' || title.length < 5) {
+        const urlParts = url.split('/dp/')[0].split('/');
+        const productSlug = urlParts[urlParts.length - 1];
+        if (productSlug && productSlug.length > 3) {
+          title = productSlug.replace(/-/g, ' ')
+                            .replace(/\b\w/g, l => l.toUpperCase());
+        }
+      }
+
+      return {
+        ...jinaMetadata,
+        title,
+        contentType: 'product',
+        siteName: 'Amazon',
+      };
+    } catch (jinaError) {
+      // Final fallback: extract from URL
+      const urlParts = url.split('/dp/')[0].split('/');
+      const productSlug = urlParts[urlParts.length - 1];
+      const title = productSlug ?
+        productSlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
+        'Amazon Product';
+
+      return {
+        url,
+        title,
+        description: 'Amazon product',
+        contentType: 'product',
+        siteName: 'Amazon',
+        error: 'Failed to extract full Amazon metadata',
+      };
+    }
+  }
+};
+
 // Extract bookmark/generic URL metadata with emphasis on OG tags
 const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
   try {
@@ -1039,7 +1201,12 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     console.log('Using Threads extractor');
     return extractThreadsMetadata(url);
   }
-  
+
+  if (url.includes('amazon.com') || url.includes('amazon.') || url.includes('a.co/')) {
+    console.log('Using Amazon extractor');
+    return extractAmazonMetadata(url);
+  }
+
   // Use enhanced bookmark extractor for all other URLs
   console.log('Using bookmark extractor for general URL');
   return extractBookmarkMetadata(url);
