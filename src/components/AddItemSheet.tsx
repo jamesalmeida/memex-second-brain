@@ -184,8 +184,8 @@ const AddItemSheet = observer(
       }
     };
 
-    const detectContentType = (urlString: string) => {
-      const detectedType = detectURLType(urlString);
+    const detectContentType = async (urlString: string) => {
+      const detectedType = await detectURLType(urlString);
       setSelectedType(detectedType);
     };
 

@@ -4,6 +4,8 @@ import { extractYouTubeData } from './youtube';
 import { extractTweetId, fetchTweetData, formatTweetDate } from './twitter';
 import { extractInstagramPostId, fetchInstagramData } from './instagram';
 import { extractProductTitle } from './metadataCleaner';
+import { classifyUrlWithAI } from './aiUrlClassifier';
+import { ContentType } from '../types';
 
 export interface URLMetadata {
   url: string;
@@ -40,14 +42,14 @@ export interface URLMetadata {
 }
 
 // Detect URL type
-export const detectURLType = (url: string): string => {
+export const detectURLType = async (url: string, context?: { pageTitle?: string; pageDescription?: string; siteName?: string }): Promise<string> => {
   const lowerUrl = url.toLowerCase();
-  
+
   // YouTube detection
   if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
     return 'youtube';
   }
-  // Twitter/X detection  
+  // Twitter/X detection
   if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
     return 'x';
   }
@@ -72,8 +74,8 @@ export const detectURLType = (url: string): string => {
     return 'reddit';
   }
   // Podcast detection
-  if (lowerUrl.includes('podcasts.apple.com') || 
-      lowerUrl.includes('spotify.com/episode') || 
+  if (lowerUrl.includes('podcasts.apple.com') ||
+      lowerUrl.includes('spotify.com/episode') ||
       lowerUrl.includes('podcasts.google.com') ||
       lowerUrl.includes('overcast.fm') ||
       lowerUrl.includes('pocketcasts.com')) {
@@ -108,7 +110,15 @@ export const detectURLType = (url: string): string => {
   if (lowerUrl.includes('vimeo.com') || lowerUrl.includes('dailymotion.com')) {
     return 'video';
   }
-  
+
+  // Before defaulting to 'bookmark', try AI classification as fallback
+  console.log('URL did not match hardcoded patterns, trying AI classification...');
+  const aiClassification = await classifyUrlWithAI(url, context);
+  if (aiClassification && aiClassification !== 'bookmark') {
+    console.log(`AI classified URL as: ${aiClassification}`);
+    return aiClassification;
+  }
+
   return 'bookmark';
 };
 
@@ -374,7 +384,7 @@ const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
   try {
     console.log('Extracting bookmark metadata with enhanced OG tag support');
     const metadata = await extractWithJina(url);
-    
+
     // Ensure we have all critical fields for bookmarks
     if (!metadata.title || metadata.title === 'No title' || metadata.title.startsWith('https://')) {
       console.log('Title missing or invalid, attempting to extract from URL');
@@ -397,28 +407,35 @@ const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
         metadata.title = urlObj.hostname.replace('www.', '');
       }
     }
-    
+
     // Ensure we have a description
     if (!metadata.description) {
       metadata.description = `Bookmark from ${new URL(url).hostname}`;
     }
-    
+
     // Log if we're missing an image
     if (!metadata.image) {
       console.log('No image found for bookmark:', url);
       // Could potentially use a screenshot service here in the future
     }
-    
+
+    // Try AI classification with metadata context to potentially upgrade from 'bookmark'
+    const contentType = await detectURLType(url, {
+      pageTitle: metadata.title,
+      pageDescription: metadata.description,
+      siteName: metadata.siteName,
+    });
+
     const bookmarkMetadata = {
       ...metadata,
-      contentType: detectURLType(url) as ContentType,
+      contentType: contentType as ContentType,
     };
-    
+
     // Always try to fill missing fields
     return fillMissingMetadata(bookmarkMetadata);
   } catch (error) {
     console.error('Bookmark extraction failed:', error);
-    
+
     // Even on error, provide usable metadata
     const urlObj = new URL(url);
     return {
@@ -1012,7 +1029,7 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
     console.error('Jina API not configured - check EXPO_PUBLIC_JINA_AI_API_KEY in .env.local');
     return {
       url,
-      contentType: detectURLType(url),
+      contentType: await detectURLType(url),
       error: 'Jina API not configured',
     };
   }
@@ -1123,13 +1140,13 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
       favicon: jinaContent.favicon || jinaContent.icon || metadata.favicon,
       author,
       publishedDate: jinaContent.publishedTime || jinaContent.datePublished || jinaContent.publishedDate || metadata.publishedDate,
-      contentType: detectURLType(url),
+      contentType: await detectURLType(url),
     };
   } catch (error) {
     console.error('Jina extraction error:', error);
     return {
       url,
-      contentType: detectURLType(url),
+      contentType: await detectURLType(url),
       error: 'Failed to extract metadata',
     };
   }
@@ -1215,7 +1232,7 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     };
   }
 
-  const urlType = detectURLType(url);
+  const urlType = await detectURLType(url);
   console.log('Detected URL type:', urlType);
   
   // Route to appropriate extractor
