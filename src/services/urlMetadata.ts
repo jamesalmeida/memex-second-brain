@@ -41,6 +41,69 @@ export interface URLMetadata {
   };
 }
 
+// Universal OG tag extractor - tries direct HTML fetch first for best metadata
+const extractOGTags = async (url: string): Promise<Partial<URLMetadata>> => {
+  try {
+    console.log('Attempting direct OG tag extraction via HTML fetch');
+
+    // Fetch HTML directly with desktop user agent
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+      },
+    });
+
+    const html = await response.text();
+
+    // Extract meta tags using regex
+    const extractMetaTag = (property: string): string | undefined => {
+      const patterns = [
+        new RegExp(`<meta\\s+property=["']${property}["']\\s+content=["']([^"']+)["']`, 'i'),
+        new RegExp(`<meta\\s+content=["']([^"']+)["']\\s+property=["']${property}["']`, 'i'),
+        new RegExp(`<meta\\s+name=["']${property}["']\\s+content=["']([^"']+)["']`, 'i'),
+      ];
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+          return match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                        .replace(/&#39;/g, "'");
+        }
+      }
+      return undefined;
+    };
+
+    const title = extractMetaTag('og:title') || extractMetaTag('twitter:title');
+    const description = extractMetaTag('og:description') || extractMetaTag('twitter:description') || extractMetaTag('description');
+    const image = extractMetaTag('og:image') || extractMetaTag('twitter:image');
+    const siteName = extractMetaTag('og:site_name');
+    const favicon = extractMetaTag('icon') || extractMetaTag('shortcut icon');
+
+    const ogData: Partial<URLMetadata> = {};
+    if (title) ogData.title = title;
+    if (description) ogData.description = description;
+    if (image) ogData.image = image;
+    if (siteName) ogData.siteName = siteName;
+    if (favicon) ogData.favicon = favicon;
+
+    if (Object.keys(ogData).length > 0) {
+      console.log('Successfully extracted OG tags:', Object.keys(ogData));
+      return ogData;
+    }
+
+    console.log('No OG tags found via direct fetch');
+    return {};
+  } catch (error) {
+    console.log('Direct OG tag extraction failed:', error);
+    return {};
+  }
+};
+
 // Detect URL type
 export const detectURLType = async (url: string, context?: { pageTitle?: string; pageDescription?: string; siteName?: string }): Promise<string> => {
   const lowerUrl = url.toLowerCase();
@@ -379,11 +442,52 @@ const extractAmazonMetadata = async (url: string): Promise<URLMetadata> => {
   }
 };
 
+// Extract generic product metadata (for non-Amazon e-commerce sites)
+// Note: OG tags are now extracted universally in extractWithJina, so this is simplified
+const extractProductMetadata = async (url: string): Promise<URLMetadata> => {
+  console.log('Extracting product metadata (OG tags will be tried first automatically)');
+
+  try {
+    const metadata = await extractWithJina(url, 'product');
+
+    // Ensure we have at least basic product info
+    if (!metadata.title || metadata.title === 'No title') {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/').filter(p => p);
+      if (pathParts.length > 0) {
+        const lastPart = pathParts[pathParts.length - 1]
+          .replace(/-/g, ' ')
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase());
+        metadata.title = lastPart || 'Product';
+      } else {
+        metadata.title = 'Product';
+      }
+    }
+
+    return {
+      ...metadata,
+      contentType: 'product',
+    };
+  } catch (error) {
+    console.error('Product extraction failed:', error);
+    const urlObj = new URL(url);
+    return {
+      url,
+      title: 'Product',
+      description: `Product from ${urlObj.hostname}`,
+      contentType: 'product',
+      siteName: urlObj.hostname.replace('www.', ''),
+      error: 'Failed to extract product metadata',
+    };
+  }
+};
+
 // Extract bookmark/generic URL metadata with emphasis on OG tags
-const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
+const extractBookmarkMetadata = async (url: string, preDetectedType?: string): Promise<URLMetadata> => {
   try {
     console.log('Extracting bookmark metadata with enhanced OG tag support');
-    const metadata = await extractWithJina(url);
+    const metadata = await extractWithJina(url, preDetectedType);
 
     // Ensure we have all critical fields for bookmarks
     if (!metadata.title || metadata.title === 'No title' || metadata.title.startsWith('https://')) {
@@ -419,12 +523,18 @@ const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
       // Could potentially use a screenshot service here in the future
     }
 
-    // Try AI classification with metadata context to potentially upgrade from 'bookmark'
-    const contentType = await detectURLType(url, {
-      pageTitle: metadata.title,
-      pageDescription: metadata.description,
-      siteName: metadata.siteName,
-    });
+    // Use pre-detected type if available, otherwise detect with AI
+    let contentType: string;
+    if (preDetectedType) {
+      contentType = preDetectedType;
+    } else {
+      // Try AI classification with metadata context to potentially upgrade from 'bookmark'
+      contentType = await detectURLType(url, {
+        pageTitle: metadata.title,
+        pageDescription: metadata.description,
+        siteName: metadata.siteName,
+      });
+    }
 
     const bookmarkMetadata = {
       ...metadata,
@@ -442,7 +552,7 @@ const extractBookmarkMetadata = async (url: string): Promise<URLMetadata> => {
       url,
       title: urlObj.hostname.replace('www.', ''),
       description: `Bookmark from ${urlObj.hostname}`,
-      contentType: 'bookmark',
+      contentType: preDetectedType ? (preDetectedType as ContentType) : 'bookmark',
       siteName: urlObj.hostname,
       error: 'Failed to extract full metadata',
     };
@@ -1024,12 +1134,26 @@ const extractTwitterMetadata = async (url: string): Promise<URLMetadata> => {
 };
 
 // Extract metadata using Jina.ai with comprehensive fallbacks
-const extractWithJina = async (url: string): Promise<URLMetadata> => {
+const extractWithJina = async (url: string, preDetectedType?: string): Promise<URLMetadata> => {
+  // ALWAYS try OG tags first before Jina
+  const ogData = await extractOGTags(url);
+
   if (!isAPIConfigured.jina()) {
     console.error('Jina API not configured - check EXPO_PUBLIC_JINA_AI_API_KEY in .env.local');
+
+    // If we got OG tags, return them even without Jina
+    if (Object.keys(ogData).length > 0) {
+      console.log('Jina not configured, but returning OG tag data');
+      return {
+        url,
+        ...ogData,
+        contentType: preDetectedType || (await detectURLType(url)),
+      };
+    }
+
     return {
       url,
-      contentType: await detectURLType(url),
+      contentType: preDetectedType || (await detectURLType(url)),
       error: 'Jina API not configured',
     };
   }
@@ -1131,22 +1255,34 @@ const extractWithJina = async (url: string): Promise<URLMetadata> => {
                    jinaContent.twitterCreator ||
                    jinaContent.byline;
     
+    // Merge OG data with Jina data, preferring OG tags (they're more reliable)
     return {
       url,
-      title,
-      description,
-      image,
-      siteName,
-      favicon: jinaContent.favicon || jinaContent.icon || metadata.favicon,
+      title: ogData.title || title,
+      description: ogData.description || description,
+      image: ogData.image || image,
+      siteName: ogData.siteName || siteName,
+      favicon: ogData.favicon || jinaContent.favicon || jinaContent.icon || metadata.favicon,
       author,
       publishedDate: jinaContent.publishedTime || jinaContent.datePublished || jinaContent.publishedDate || metadata.publishedDate,
-      contentType: await detectURLType(url),
+      contentType: preDetectedType || (await detectURLType(url)),
     };
   } catch (error) {
     console.error('Jina extraction error:', error);
+
+    // If Jina failed but we have OG data, use it
+    if (Object.keys(ogData).length > 0) {
+      console.log('Jina failed, but returning OG tag data');
+      return {
+        url,
+        ...ogData,
+        contentType: preDetectedType || (await detectURLType(url)),
+      };
+    }
+
     return {
       url,
-      contentType: await detectURLType(url),
+      contentType: preDetectedType || (await detectURLType(url)),
       error: 'Failed to extract metadata',
     };
   }
@@ -1281,9 +1417,15 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     return extractAmazonMetadata(url);
   }
 
+  // Route products to product extractor (for better OG tag extraction)
+  if (urlType === 'product') {
+    console.log('Using product extractor for e-commerce URL');
+    return extractProductMetadata(url);
+  }
+
   // Use enhanced bookmark extractor for all other URLs
   console.log('Using bookmark extractor for general URL');
-  return extractBookmarkMetadata(url);
+  return extractBookmarkMetadata(url, urlType);
 };
 
 // Generate tags using OpenAI
