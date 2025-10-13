@@ -3,6 +3,7 @@ import { API_CONFIG, isAPIConfigured } from '../config/api';
 import { extractYouTubeData } from './youtube';
 import { extractTweetId, fetchTweetData, formatTweetDate } from './twitter';
 import { extractInstagramPostId, fetchInstagramData } from './instagram';
+import { extractProductTitle } from './metadataCleaner';
 
 export interface URLMetadata {
   url: string;
@@ -243,15 +244,46 @@ const extractAmazonMetadata = async (url: string): Promise<URLMetadata> => {
                    .trim();
     }
 
-    // If still no title, extract from URL
+    // If still no title, try to extract from description using LLM
     if (!title || title === 'Amazon.com' || title === 'Amazon') {
-      const urlParts = url.split('/dp/')[0].split('/');
-      const productSlug = urlParts[urlParts.length - 1];
-      if (productSlug && productSlug.length > 3) {
-        title = productSlug.replace(/-/g, ' ')
-                          .replace(/\b\w/g, l => l.toUpperCase());
-      } else {
-        title = 'Amazon Product';
+      if (description) {
+        console.log('Using LLM to extract product title from description');
+        try {
+          const cleanedTitle = await extractProductTitle(description, {
+            excludeAuthors: true,
+          });
+          if (cleanedTitle) {
+            title = cleanedTitle;
+          }
+        } catch (error) {
+          console.error('LLM title extraction failed:', error);
+        }
+      }
+
+      // Final fallback: try URL parsing
+      if (!title || title === 'Amazon.com' || title === 'Amazon') {
+        console.log('Using URL fallback for title');
+        // Handle both /dp/ASIN and /gp/product/ASIN formats
+        const dpMatch = url.match(/\/dp\/([^/?]+)/);
+        const gpMatch = url.match(/\/gp\/product\/([^/?]+)/);
+        const productPath = (dpMatch || gpMatch)?.[1];
+
+        if (!productPath) {
+          // Try to get a meaningful slug from the path before /dp/ or /gp/
+          const pathBeforeProduct = url.split(/\/(?:dp|gp\/product)\//)[0];
+          const urlParts = pathBeforeProduct.split('/');
+          const productSlug = urlParts[urlParts.length - 1];
+
+          if (productSlug && productSlug.length > 3 && !productSlug.includes('?')) {
+            title = productSlug.replace(/-/g, ' ')
+                              .replace(/\b\w/g, l => l.toUpperCase());
+          } else {
+            title = 'Amazon Product';
+          }
+        } else {
+          // Just have ASIN, use generic title
+          title = 'Amazon Product';
+        }
       }
     }
 
@@ -278,11 +310,36 @@ const extractAmazonMetadata = async (url: string): Promise<URLMetadata> => {
                    .trim();
 
       if (title === 'Amazon.com' || title === 'Amazon' || title.length < 5) {
-        const urlParts = url.split('/dp/')[0].split('/');
-        const productSlug = urlParts[urlParts.length - 1];
-        if (productSlug && productSlug.length > 3) {
-          title = productSlug.replace(/-/g, ' ')
-                            .replace(/\b\w/g, l => l.toUpperCase());
+        // Try to extract from description using LLM
+        if (jinaMetadata.description) {
+          try {
+            const cleanedTitle = await extractProductTitle(jinaMetadata.description, {
+              excludeAuthors: true,
+            });
+            if (cleanedTitle) {
+              title = cleanedTitle;
+            }
+          } catch (error) {
+            console.error('LLM title extraction failed in Jina fallback:', error);
+          }
+        }
+
+        // If still no good title, try URL parsing
+        if (title === 'Amazon.com' || title === 'Amazon' || title.length < 5) {
+          const dpMatch = url.match(/\/dp\/([^/?]+)/);
+          const gpMatch = url.match(/\/gp\/product\/([^/?]+)/);
+          const productPath = (dpMatch || gpMatch)?.[1];
+
+          if (!productPath) {
+            const pathBeforeProduct = url.split(/\/(?:dp|gp\/product)\//)[0];
+            const urlParts = pathBeforeProduct.split('/');
+            const productSlug = urlParts[urlParts.length - 1];
+
+            if (productSlug && productSlug.length > 3 && !productSlug.includes('?')) {
+              title = productSlug.replace(/-/g, ' ')
+                                .replace(/\b\w/g, l => l.toUpperCase());
+            }
+          }
         }
       }
 

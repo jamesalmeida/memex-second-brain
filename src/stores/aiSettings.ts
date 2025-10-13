@@ -10,7 +10,8 @@ export interface OpenAIModel {
 }
 
 interface AISettingsState {
-  selectedModel: string;
+  selectedModel: string; // For chat
+  metadataModel: string; // For metadata extraction/cleaning
   availableModels: OpenAIModel[];
   lastModelsFetch: string | null;
   isLoadingModels: boolean;
@@ -20,7 +21,8 @@ interface AISettingsState {
 }
 
 const initialState: AISettingsState = {
-  selectedModel: 'gpt-4o-mini', // Default to most cost-effective model
+  selectedModel: 'gpt-4o-mini', // Default chat model
+  metadataModel: 'gpt-4o-mini', // Default metadata model (most cost-effective)
   availableModels: [],
   lastModelsFetch: null,
   isLoadingModels: false,
@@ -34,6 +36,7 @@ export const aiSettingsStore = observable(initialState);
 // Computed values
 export const aiSettingsComputed = {
   selectedModel: () => aiSettingsStore.selectedModel.get(),
+  metadataModel: () => aiSettingsStore.metadataModel.get(),
   availableModels: () => aiSettingsStore.availableModels.get(),
   isLoadingModels: () => aiSettingsStore.isLoadingModels.get(),
   hasApiKey: () => aiSettingsStore.hasApiKey.get(),
@@ -78,13 +81,30 @@ export const aiSettingsActions = {
     try {
       const settings = {
         selectedModel: modelId,
+        metadataModel: aiSettingsStore.metadataModel.get(),
         autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
         autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
       };
       await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
-      console.log('🤖 Selected model:', modelId);
+      console.log('🤖 Selected chat model:', modelId);
     } catch (error) {
       console.error('Error saving selected model:', error);
+    }
+  },
+
+  setMetadataModel: async (modelId: string) => {
+    aiSettingsStore.metadataModel.set(modelId);
+    try {
+      const settings = {
+        selectedModel: aiSettingsStore.selectedModel.get(),
+        metadataModel: modelId,
+        autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
+        autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
+      console.log('🤖 Selected metadata model:', modelId);
+    } catch (error) {
+      console.error('Error saving metadata model:', error);
     }
   },
 
@@ -93,6 +113,7 @@ export const aiSettingsActions = {
     try {
       const settings = {
         selectedModel: aiSettingsStore.selectedModel.get(),
+        metadataModel: aiSettingsStore.metadataModel.get(),
         autoGenerateTranscripts: enabled,
         autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
       };
@@ -108,6 +129,7 @@ export const aiSettingsActions = {
     try {
       const settings = {
         selectedModel: aiSettingsStore.selectedModel.get(),
+        metadataModel: aiSettingsStore.metadataModel.get(),
         autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
         autoGenerateImageDescriptions: enabled,
       };
@@ -205,6 +227,9 @@ export const aiSettingsActions = {
         const settings = JSON.parse(saved);
         if (settings.selectedModel) {
           aiSettingsStore.selectedModel.set(settings.selectedModel);
+        }
+        if (settings.metadataModel) {
+          aiSettingsStore.metadataModel.set(settings.metadataModel);
         }
         if (typeof settings.autoGenerateTranscripts === 'boolean') {
           aiSettingsStore.autoGenerateTranscripts.set(settings.autoGenerateTranscripts);

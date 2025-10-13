@@ -14,13 +14,18 @@ import { COLORS } from '../constants';
 
 interface ModelPickerSheetProps {
   onModelSelected?: (modelId: string) => void;
+  modelType?: 'chat' | 'metadata'; // Which model to update
 }
 
 const ModelPickerSheet = observer(
-  forwardRef<BottomSheet, ModelPickerSheetProps>(({ onModelSelected }, ref) => {
+  forwardRef<BottomSheet, ModelPickerSheetProps>(({ onModelSelected, modelType = 'chat' }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
-    const selectedModel = aiSettingsStore.selectedModel.get();
+    const selectedChatModel = aiSettingsStore.selectedModel.get();
+    const selectedMetadataModel = aiSettingsStore.metadataModel.get();
     const availableModels = aiSettingsStore.availableModels.get();
+
+    // Use appropriate selected model based on type
+    const selectedModel = modelType === 'metadata' ? selectedMetadataModel : selectedChatModel;
 
     const snapPoints = useMemo(() => ['70%'], []);
 
@@ -37,7 +42,12 @@ const ModelPickerSheet = observer(
     );
 
     const handleModelSelect = async (modelId: string) => {
-      await aiSettingsActions.setSelectedModel(modelId);
+      // Update appropriate model based on type
+      if (modelType === 'metadata') {
+        await aiSettingsActions.setMetadataModel(modelId);
+      } else {
+        await aiSettingsActions.setSelectedModel(modelId);
+      }
       onModelSelected?.(modelId);
       (ref as any)?.current?.close();
     };
@@ -131,10 +141,12 @@ const ModelPickerSheet = observer(
       >
         <View style={styles.header}>
           <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-            Select AI Model
+            {modelType === 'metadata' ? 'Select Metadata Model' : 'Select Chat Model'}
           </Text>
           <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-            {availableModels.length} models available
+            {modelType === 'metadata'
+              ? 'Used for title/description extraction'
+              : `${availableModels.length} models available`}
           </Text>
         </View>
 

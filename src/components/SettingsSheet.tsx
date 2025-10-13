@@ -51,12 +51,14 @@ const SettingsSheet = observer(
 
     // AI settings observables
     const selectedModel = aiSettingsStore.selectedModel.get();
+    const metadataModel = aiSettingsStore.metadataModel.get();
     const availableModels = aiSettingsStore.availableModels.get();
     const hasApiKey = aiSettingsStore.hasApiKey.get();
     const isLoadingModels = aiSettingsStore.isLoadingModels.get();
     const timeSinceLastFetch = aiSettingsComputed.timeSinceLastFetch();
     const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
     const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
+    const [modelPickerType, setModelPickerType] = useState<'chat' | 'metadata'>('chat');
 
     // Expanded item UI settings
     const autoplayXVideos = expandedItemUIStore.autoplayXVideos.get();
@@ -202,21 +204,60 @@ const SettingsSheet = observer(
                   return;
                 }
 
-                // Open model picker sheet
+                // Open chat model picker
+                setModelPickerType('chat');
                 modelPickerSheetRef.current?.snapToIndex(0);
               }}
             >
               <MaterialIcons
-                name="smart-toy"
+                name="chat"
                 size={24}
                 color={isDarkMode ? '#FFFFFF' : '#333333'}
               />
               <View style={styles.rowContent}>
                 <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Model Selection
+                  Chat Model Selection
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
                   {selectedModel}
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                if (availableModels.length === 0 || !hasApiKey) {
+                  Alert.alert(
+                    'No Models Available',
+                    hasApiKey
+                      ? 'Please refresh the models list first.'
+                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
+                  );
+                  return;
+                }
+
+                // Open metadata model picker
+                setModelPickerType('metadata');
+                modelPickerSheetRef.current?.snapToIndex(0);
+              }}
+            >
+              <MaterialIcons
+                name="label"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Metadata Model Selection
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {metadataModel} · Used for title/description extraction
                 </Text>
               </View>
               <MaterialIcons
@@ -619,8 +660,9 @@ const SettingsSheet = observer(
       {/* Model Picker Sheet */}
       <ModelPickerSheet
         ref={modelPickerSheetRef}
+        modelType={modelPickerType}
         onModelSelected={(modelId) => {
-          console.log('Selected model:', modelId);
+          console.log(`Selected ${modelPickerType} model:`, modelId);
         }}
       />
     </>
