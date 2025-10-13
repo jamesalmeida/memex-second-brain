@@ -169,11 +169,15 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
           {item.title}
         </Text>
 
-        {item.desc && (
+        {item.desc ? (
           <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
             {item.desc}
           </Text>
-        )}
+        ) : getDomain(item) ? (
+          <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={1}>
+            {getDomain(item)}
+          </Text>
+        ) : null}
 
         <View style={styles.footer}>
           {getDomain(item) && (
