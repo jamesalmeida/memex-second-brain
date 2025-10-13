@@ -15,6 +15,7 @@ import { itemsActions } from '../../stores/items';
 import { Item, ImageDescription } from '../../types';
 import { formatDate } from '../../utils/itemCardHelpers';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
+import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -408,31 +409,24 @@ const MovieTVItemView = observer(({
       <View style={styles.section}>
         <View style={styles.tagsHeader}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Tags</Text>
-          <TouchableOpacity
-            style={[styles.generateButton, isDarkMode && styles.generateButtonDark]}
-            onPress={handleGenerateTags}
-            disabled={generatingTags}
-          >
-            {generatingTags ? (
-              <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
-            ) : (
-              <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
-                ✨ Generate
-              </Text>
-            )}
-          </TouchableOpacity>
         </View>
-        <View style={styles.tagsContainer}>
-          {itemToDisplay.tags && itemToDisplay.tags.length > 0 ? (
-            itemToDisplay.tags.map((tag, index) => (
-              <View key={index} style={[styles.tag, isDarkMode && styles.tagDark]}>
-                <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>{tag}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.noTags, isDarkMode && styles.noTagsDark]}>No tags yet</Text>
-          )}
-        </View>
+        <TagsEditor
+          tags={itemToDisplay.tags || []}
+          onChangeTags={async (newTags) => {
+            await itemsActions.updateItem(itemToDisplay.id, { tags: newTags });
+          }}
+          generateTags={async () => {
+            const content = itemToDisplay.content || itemToDisplay.title || itemToDisplay.desc || '';
+            const metadata: URLMetadata = {
+              title: itemToDisplay.title,
+              description: itemToDisplay.desc,
+              contentType: itemToDisplay.content_type,
+            };
+            const generated = await generateTags(content, metadata);
+            return generated || [];
+          }}
+          buttonLabel="✨ Generate Tags"
+        />
       </View>
 
       {/* Spaces Section */}
@@ -730,53 +724,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  generateButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 6,
-  },
-  generateButtonDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  generateButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  generateButtonTextDark: {
-    color: '#FFFFFF',
-  },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  tag: {
-    backgroundColor: '#C0C0C0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagDark: {
-    backgroundColor: '#3C3C3E',
-  },
-  tagText: {
-    fontSize: 13,
-    color: '#000000',
-    fontWeight: '500',
-  },
-  tagTextDark: {
-    color: '#FFFFFF',
-  },
-  noTags: {
-    fontSize: 14,
-    color: '#999999',
-    fontStyle: 'italic',
-  },
-  noTagsDark: {
-    color: '#666666',
-  },
+  // Removed local tag UI styles in favor of shared TagsEditor styles
   spaceText: {
     fontSize: 15,
     color: '#333333',

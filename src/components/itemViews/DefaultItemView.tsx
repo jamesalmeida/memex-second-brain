@@ -33,6 +33,7 @@ import { expandedItemUIStore, expandedItemUIActions } from '../../stores/expande
 import { Item, ContentType } from '../../types';
 import { supabase } from '../../services/supabase';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
+import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { getXVideoTranscript } from '../../services/twitter';
@@ -1025,110 +1026,28 @@ const DefaultItemView = observer(({
             <Text style={[styles.tagsSectionLabel, isDarkMode && styles.tagsSectionLabelDark]}>
               TAGS
             </Text>
-            <TouchableOpacity
-              style={[styles.aiButton, isDarkMode && styles.aiButtonDark]}
-              onPress={generateAITags}
-              disabled={isGeneratingTags}
-            >
-              <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
-                {isGeneratingTags ? 'Generating...' : '✨ AI Generate'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
-          {/* Tags Display */}
-          <View style={styles.tagsContainer}>
-            {/* Show tags based on count and expanded state */}
-            {(() => {
-              if (tags.length <= 5) {
-                // Show all tags if 5 or fewer
-                return tags.map((tag, index) => (
-                  <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-                    <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
-                      {tag}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => removeTag(tag)}
-                      style={styles.tagRemoveButton}
-                    >
-                      <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                ));
-              } else if (showAllTags) {
-                // Show all tags when expanded
-                return tags.map((tag, index) => (
-                  <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-                    <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
-                      {tag}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => removeTag(tag)}
-                      style={styles.tagRemoveButton}
-                    >
-                      <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                ));
-              } else {
-                // Show only first 4 tags when collapsed and more than 5 total
-                return tags.slice(0, 4).map((tag, index) => (
-                  <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-                    <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
-                      {tag}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => removeTag(tag)}
-                      style={styles.tagRemoveButton}
-                    >
-                      <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                ));
-              }
-            })()}
-
-            {/* Show more/less button if there are more than 5 tags */}
-            {tags.length > 5 && (
-              <TouchableOpacity
-                style={[styles.showMoreButton, isDarkMode && styles.showMoreButtonDark]}
-                onPress={() => setShowAllTags(!showAllTags)}
-              >
-                <Text style={[styles.showMoreText, isDarkMode && styles.showMoreTextDark]}>
-                  {showAllTags ? '− Show Less' : `+${tags.length - 4} More`}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Add Tag Input */}
-            {showTagInput ? (
-              <View style={[styles.tagInputContainer, isDarkMode && styles.tagInputContainerDark]}>
-                <TextInput
-                  style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
-                  value={tagInput}
-                  onChangeText={setTagInput}
-                  onSubmitEditing={addTag}
-                  placeholder="Add tag..."
-                  placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                  autoFocus
-                  onBlur={() => {
-                    if (!tagInput.trim()) {
-                      setShowTagInput(false);
-                    }
-                  }}
-                />
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.addTagButton, isDarkMode && styles.addTagButtonDark]}
-                onPress={() => setShowTagInput(true)}
-              >
-                <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>
-                  + Add Tag
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <TagsEditor
+            tags={tags}
+            onChangeTags={async (newTags) => {
+              setTags(newTags);
+              await saveTagsToDatabase(newTags);
+            }}
+            generateTags={async () => {
+              if (!itemToDisplay) return [] as string[];
+              const content = itemToDisplay.content || itemToDisplay.desc || itemToDisplay.title || '';
+              const metadata: URLMetadata = {
+                url: itemToDisplay.url || '',
+                title: itemToDisplay.title,
+                description: itemToDisplay.desc || '',
+                contentType: itemToDisplay.content_type,
+              };
+              const generated = await generateTags(content, metadata);
+              return generated || [];
+            }}
+            buttonLabel="✨ Generate Tags"
+          />
         </View>
 
         {/* Full Content */}
@@ -2452,111 +2371,5 @@ const styles = StyleSheet.create({
   tagsSectionLabelDark: {
     color: '#999',
   },
-  aiButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-  },
-  aiButtonDark: {
-    backgroundColor: '#0A84FF',
-  },
-  aiButtonText: {
-    fontSize: 12,
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  aiButtonTextDark: {
-    color: '#FFF',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagChipDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  tagText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  tagTextDark: {
-    color: '#FFF',
-  },
-  tagRemoveButton: {
-    marginLeft: 6,
-  },
-  tagRemoveText: {
-    fontSize: 18,
-    color: '#999',
-    fontWeight: 'bold',
-  },
-  tagRemoveTextDark: {
-    color: '#666',
-  },
-  addTagButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderStyle: 'dashed',
-  },
-  addTagButtonDark: {
-    borderColor: '#3C3C3E',
-  },
-  addTagButtonText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  addTagButtonTextDark: {
-    color: '#999',
-  },
-  tagInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    minWidth: 100,
-  },
-  tagInputContainerDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  tagInput: {
-    fontSize: 14,
-    color: '#333',
-    padding: 0,
-    minWidth: 80,
-  },
-  tagInputDark: {
-    color: '#FFF',
-  },
-  showMoreButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#007AFF',
-  },
-  showMoreButtonDark: {
-    backgroundColor: '#0A84FF',
-  },
-  showMoreText: {
-    fontSize: 14,
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  showMoreTextDark: {
-    color: '#FFF',
-  },
+  // Removed local tag styles in favor of shared TagsEditor styles
 });

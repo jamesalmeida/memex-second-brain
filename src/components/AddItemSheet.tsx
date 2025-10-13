@@ -29,6 +29,7 @@ import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
 import { itemMetadataActions } from '../stores/itemMetadata';
 import { authComputed } from '../stores/auth';
 import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
+import TagsEditor from './TagsEditor';
 import { COLORS, UI } from '../constants';
 import { Space, Item, ContentType } from '../types';
 import { CONTENT_TYPES } from '../constants';
@@ -573,64 +574,16 @@ const AddItemSheet = observer(
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
               Tags
             </Text>
-
-            {/* Tags Display - All in one container */}
-            <View style={styles.tagsContainer}>
-              {tags.map((tag, index) => (
-                <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-                  <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
-                    {tag}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveTag(tag)}
-                    style={styles.tagRemoveButton}
-                  >
-                    <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-
-              {/* AI Generate Tags Button */}
-              <TouchableOpacity
-                style={[styles.aiButton, isDarkMode && styles.aiButtonDark, isGeneratingTags && styles.aiButtonDisabled]}
-                onPress={handleGenerateTags}
-                disabled={isGeneratingTags || !url.trim()}
-              >
-                <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
-                  {isGeneratingTags ? 'Generating...' : '✨ Generate Tags'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Add Tag Button/Input */}
-              {showTagInput ? (
-                <View style={[styles.tagInputContainer, isDarkMode && styles.tagInputContainerDark]}>
-                  <TextInput
-                    style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
-                    value={tagInput}
-                    onChangeText={setTagInput}
-                    onSubmitEditing={handleAddTag}
-                    placeholder="Add tag..."
-                    placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                    autoFocus
-                    onBlur={() => {
-                      if (!tagInput.trim()) {
-                        setShowTagInput(false);
-                      }
-                    }}
-                    returnKeyType="done"
-                  />
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.addTagButton, isDarkMode && styles.addTagButtonDark]}
-                  onPress={() => setShowTagInput(true)}
-                >
-                  <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>
-                    + Add Tag
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <TagsEditor
+              tags={tags}
+              onChangeTags={(newTags) => setTags(newTags)}
+              generateTags={async () => {
+                if (!url.trim()) return [] as string[];
+                const generatedTags = await generateTags(url, metadata || undefined);
+                return generatedTags || [];
+              }}
+              buttonLabel="✨ Generate Tags"
+            />
           </View>
 
 
