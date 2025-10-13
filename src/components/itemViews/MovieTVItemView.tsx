@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Share, Dimensions, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -66,6 +66,11 @@ const MovieTVItemView = observer(({
 
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const itemToDisplay = item;
+  const [tags, setTags] = useState<string[]>(itemToDisplay.tags || []);
+
+  useEffect(() => {
+    setTags(item.tags || []);
+  }, [item.id, item.tags]);
 
   // Copy URL to clipboard
   const handleCopyUrl = async () => {
@@ -411,8 +416,9 @@ const MovieTVItemView = observer(({
           <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Tags</Text>
         </View>
         <TagsEditor
-          tags={itemToDisplay.tags || []}
+          tags={tags}
           onChangeTags={async (newTags) => {
+            setTags(newTags);
             await itemsActions.updateItem(itemToDisplay.id, { tags: newTags });
           }}
           generateTags={async () => {
