@@ -951,10 +951,16 @@ const DefaultItemView = observer(({
             }}
           />
         ) : itemToDisplay?.content_type !== 'x' ? (
-          // Placeholder when no media (but not for X posts)
-          <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
-            <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
-          </View>
+          // Placeholder when no media (but not for X posts). Hide if a site icon exists (icon-only card)
+          (() => {
+            const hasSiteIcon = itemTypeMetadataComputed.getSiteIconUrl(itemToDisplay?.id || '');
+            if (hasSiteIcon) return null;
+            return (
+              <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
+                <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
+              </View>
+            );
+          })()
         ) : null)}
       </View>
         );

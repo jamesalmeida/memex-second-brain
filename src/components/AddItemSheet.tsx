@@ -282,7 +282,7 @@ const AddItemSheet = observer(
       await itemsActions.addItemWithSync(newItem);
       
       // Create item_type_metadata if we have video_url, image_urls, or reddit metadata
-      if (metadata?.videoUrl || metadata?.images || metadata?.redditMetadata) {
+      if (metadata?.videoUrl || metadata?.images || metadata?.redditMetadata || metadata?.favicon) {
         await itemTypeMetadataActions.upsertTypeMetadata({
           item_id: newItem.id,
           content_type: newItem.content_type,
@@ -290,6 +290,7 @@ const AddItemSheet = observer(
             video_url: metadata?.videoUrl,
             image_urls: metadata?.images,
             reddit_metadata: metadata?.redditMetadata,
+            site_icon_url: metadata?.favicon,
           },
         });
       }

@@ -27,6 +27,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
   // Get video URL and image URLs from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
   const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+  const siteIconUrl = itemTypeMetadataComputed.getSiteIconUrl(item.id);
 
   // Set up video player if item has video
   const player = useVideoPlayer(videoUrl || null, player => {
@@ -128,6 +129,8 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             }}
           />
         </View>
+      ) : (!item.thumbnail_url && siteIconUrl) ? (
+        null
       ) : item.content ? (
         <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
           <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
@@ -142,14 +145,22 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
 
       {/* Content Type Badge */}
       <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor(item.content_type) }]}>
-        <Text style={[
-          styles.typeBadgeText,
-          (item.content_type === 'x' || item.content_type === 'youtube' || item.content_type === 'youtube_short' ||
-           item.content_type === 'instagram' || item.content_type === 'tiktok' || item.content_type === 'reddit' ||
-           item.content_type === 'tv_show') && styles.typeBadgeTextWhite
-        ]}>
-          {getContentTypeIcon(item.content_type)}
-        </Text>
+        {(!item.thumbnail_url && siteIconUrl) ? (
+          <Image
+            source={{ uri: siteIconUrl }}
+            style={styles.typeBadgeIconImage}
+            contentFit="cover"
+          />
+        ) : (
+          <Text style={[
+            styles.typeBadgeText,
+            (item.content_type === 'x' || item.content_type === 'youtube' || item.content_type === 'youtube_short' ||
+             item.content_type === 'instagram' || item.content_type === 'tiktok' || item.content_type === 'reddit' ||
+             item.content_type === 'tv_show') && styles.typeBadgeTextWhite
+          ]}>
+            {getContentTypeIcon(item.content_type)}
+          </Text>
+        )}
       </View>
 
       {/* Card Content */}
@@ -239,6 +250,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#007AFF',
+  },
+  typeBadgeIconImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
   },
   typeBadgeText: {
     fontSize: 14,

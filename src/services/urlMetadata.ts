@@ -41,6 +41,17 @@ export interface URLMetadata {
   };
 }
 
+// Resolve a possibly relative icon URL to an absolute URL based on the page URL
+const resolveToAbsoluteUrl = (baseUrl: string, href: string | undefined): string | undefined => {
+  try {
+    if (!href) return undefined;
+    if (href.startsWith('data:')) return href; // keep data URIs as-is
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return href;
+  }
+};
+
 // Universal OG tag extractor - tries direct HTML fetch first for best metadata
 const extractOGTags = async (url: string): Promise<Partial<URLMetadata>> => {
   try {
@@ -82,14 +93,104 @@ const extractOGTags = async (url: string): Promise<Partial<URLMetadata>> => {
     const description = extractMetaTag('og:description') || extractMetaTag('twitter:description') || extractMetaTag('description');
     const image = extractMetaTag('og:image') || extractMetaTag('twitter:image');
     const siteName = extractMetaTag('og:site_name');
-    const favicon = extractMetaTag('icon') || extractMetaTag('shortcut icon');
+    // Legacy meta-based favicon (rare) - real favicons usually come from <link> tags below
+    let favicon = extractMetaTag('icon') || extractMetaTag('shortcut icon');
 
     const ogData: Partial<URLMetadata> = {};
     if (title) ogData.title = title;
     if (description) ogData.description = description;
     if (image) ogData.image = image;
     if (siteName) ogData.siteName = siteName;
-    if (favicon) ogData.favicon = favicon;
+    if (favicon) ogData.favicon = resolveToAbsoluteUrl(url, favicon);
+
+    // Parse <link rel="...icon..." href="..."> candidates and choose the best icon
+    try {
+      const linkTags = html.match(/<link\b[^>]*>/gi) || [];
+      type IconCandidate = { href: string; rel: string; sizesValue: number; typeAttr?: string; rawRelTokens: string[] };
+      const candidates: IconCandidate[] = [];
+
+      for (const tag of linkTags) {
+        const relMatch = tag.match(/\brel=["']([^"']+)["']/i);
+        const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
+        if (!relMatch || !hrefMatch) continue;
+        const relTokens = relMatch[1].toLowerCase().split(/\s+/);
+        const isIcon = relTokens.some(t => (
+          t === 'icon' ||
+          t === 'shortcut' ||
+          t === 'shortcut icon' ||
+          t === 'apple-touch-icon' ||
+          t === 'apple-touch-icon-precomposed' ||
+          t === 'mask-icon' ||
+          t === 'fluid-icon'
+        ));
+        // Also support cases like rel="shortcut icon" where tokens are split
+        const relJoined = relMatch[1].toLowerCase();
+        const looksLikeIcon = isIcon || /(^|\s)(shortcut\s+icon|apple-touch-icon|apple-touch-icon-precomposed|mask-icon|icon|fluid-icon)(\s|$)/.test(relJoined);
+        if (!looksLikeIcon) continue;
+
+        const sizesMatch = tag.match(/\bsizes=["']([^"']+)["']/i);
+        let sizesValue = 0;
+        if (sizesMatch) {
+          const sizesStr = sizesMatch[1].toLowerCase();
+          if (sizesStr !== 'any') {
+            // Parse one or multiple sizes like "180x180 192x192"
+            const parts = sizesStr.split(/\s+/);
+            for (const p of parts) {
+              const m = p.match(/(\d+)x(\d+)/);
+              if (m) {
+                const area = parseInt(m[1], 10) * parseInt(m[2], 10);
+                if (area > sizesValue) sizesValue = area;
+              }
+            }
+          } else {
+            sizesValue = 256 * 256; // heuristic for "any"
+          }
+        }
+
+        const typeAttr = (tag.match(/\btype=["']([^"']+)["']/i) || [])[1];
+        const hrefAbs = resolveToAbsoluteUrl(url, hrefMatch[1]);
+        if (!hrefAbs) continue;
+
+        candidates.push({ href: hrefAbs, rel: relJoined, sizesValue, typeAttr, rawRelTokens: relTokens });
+      }
+
+      // Rank candidates: prefer apple-touch-icon, then largest size, then PNG/ICO over SVG, then others
+      const scoreCandidate = (c: IconCandidate): number => {
+        let score = 0;
+        if (c.rel.includes('apple-touch-icon')) score += 2000;
+        if (c.rel.includes('shortcut icon')) score += 1200;
+        if (c.rawRelTokens.includes('icon') || c.rel.includes(' icon')) score += 1000;
+        score += Math.min(c.sizesValue, 1024 * 1024); // cap unreasonable sizes
+        const type = (c.typeAttr || '').toLowerCase();
+        if (type.includes('png')) score += 80;
+        if (type.includes('x-icon') || type.includes('ico')) score += 60;
+        if (type.includes('svg')) score += 20; // SVG is fine but sometimes not ideal for previews
+        // Prefer non-SVG endpoints by extension if type is missing
+        const hrefLower = c.href.toLowerCase();
+        if (type === '' || (!type.includes('png') && !type.includes('ico') && !type.includes('svg'))) {
+          if (/(\.png)(\?|#|$)/.test(hrefLower)) score += 70;
+          if (/(\.ico)(\?|#|$)/.test(hrefLower)) score += 50;
+          if (/(\.svg)(\?|#|$)/.test(hrefLower)) score += 15;
+        }
+        return score;
+      };
+
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => scoreCandidate(b) - scoreCandidate(a));
+        const bestIcon = candidates[0]?.href;
+        if (bestIcon && !ogData.favicon) {
+          ogData.favicon = bestIcon;
+        }
+      } else if (!ogData.favicon) {
+        // Last resort: try /favicon.ico
+        try {
+          const origin = new URL(url).origin;
+          ogData.favicon = `${origin}/favicon.ico`;
+        } catch {}
+      }
+    } catch (iconParseError) {
+      console.log('Icon link parsing failed:', iconParseError);
+    }
 
     if (Object.keys(ogData).length > 0) {
       console.log('Successfully extracted OG tags:', Object.keys(ogData));

@@ -36,6 +36,12 @@ export const itemTypeMetadataComputed = {
     const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
     return metadata?.data?.image_urls;
   },
+
+  // Get site icon URL for an item (stored when favicon was available)
+  getSiteIconUrl: (itemId: string): string | undefined => {
+    const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
+    return metadata?.data?.site_icon_url;
+  },
 };
 
 // Actions
