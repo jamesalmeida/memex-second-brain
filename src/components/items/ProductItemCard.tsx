@@ -58,25 +58,25 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled }: Prod
           )}
 
           {/* Content Type Badge */}
-          <View style={[styles.typeBadge, { backgroundColor: isAmazon ? '#FF9900' : '#007AFF' }]}>
+          {/* <View style={[styles.typeBadge, { backgroundColor: isAmazon ? '#FF9900' : '#007AFF' }]}>
             <Text style={styles.typeBadgeText}>
               {isAmazon ? '📦' : '🛍️'}
             </Text>
-          </View>
+          </View> */}
 
           {/* Card Content */}
-          <View style={styles.cardContent}>
+          {/* <View style={styles.cardContent}>
             <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
               {item.title}
-            </Text>
+            </Text> */}
 
-            {item.desc && (
+            {/* {item.desc && (
               <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
                 {item.desc}
               </Text>
-            )}
+            )} */}
 
-            <View style={styles.footer}>
+            {/* <View style={styles.footer}>
               {getDomain(item) && (
                 <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
                   {getDomain(item)}
@@ -85,9 +85,12 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled }: Prod
               <Text style={[styles.date, isDarkMode && styles.dateDark]}>
                 {formatDate(item.created_at)}
               </Text>
-            </View>
-          </View>
+            </View> */}
+          {/* </View> */}
         </View>
+        <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={1}>
+          {item.title}
+        </Text>
       </View>
     </RadialActionMenu>
   );
@@ -152,10 +155,12 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   title: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#000000',
     marginBottom: 4,
+    textAlign: 'center',
+    paddingTop: 2,
   },
   titleDark: {
     color: '#FFFFFF',
