@@ -76,7 +76,7 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
       <DraggableFlatList
         data={spaces}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: 100 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 88 }]}
         ListHeaderComponent={(
           <View>
             {/* Navigation Items */}
@@ -341,6 +341,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 0,
     borderTopWidth: 0,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
   },
   stickyFooterDark: {
     backgroundColor: '#000000',
