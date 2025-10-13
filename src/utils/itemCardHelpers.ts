@@ -90,6 +90,10 @@ export const getContentTypeIcon = (contentType: string): string => {
     case 'article':
     case 'bookmark':
       return '🔖';
+    case 'amazon':
+      return '📦';
+    case 'product':
+      return '🛍️';
     default:
       return '📎';
   }
@@ -120,6 +124,10 @@ export const getContentTypeColor = (contentType: string): string => {
       return '#FFC107';
     case 'image':
       return '#4CAF50';
+    case 'amazon':
+      return '#FF9900';  // Amazon Smile Orange
+    case 'product':
+      return '#007AFF';
     default:
       return '#007AFF';
   }

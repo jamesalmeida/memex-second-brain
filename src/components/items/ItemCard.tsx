@@ -5,6 +5,7 @@ import XItemCard from './XItemCard';
 import YoutubeItemCard from './YoutubeItemCard';
 import MovieTVItemCard from './MovieTVItemCard';
 import RedditItemCard from './RedditItemCard';
+import ProductItemCard from './ProductItemCard';
 import DefaultItemCard from './DefaultItemCard';
 
 interface ItemCardProps {
@@ -28,6 +29,9 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
 
     case 'reddit':
       return <RedditItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
+
+    case 'product':
+      return <ProductItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
 
     default:
       return <DefaultItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
