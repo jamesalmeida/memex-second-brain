@@ -251,24 +251,29 @@ const RadialMenuOverlay = observer(({
     //     console.log('📁 MOVE button pressed for item:', item.title);
     //   },
     // },
-    {
-      id: 'archive',
-      label: 'Archive',
-      icon: 'archive-outline',
-      color: '#FF9500',
-      action: (item: Item) => {
-        console.log('📦 ARCHIVE button pressed for item:', item.title);
-      },
-    },
     // {
-    //   id: 'delete',
-    //   label: 'Delete',
-    //   icon: 'trash-outline',
-    //   color: '#FF3B30',
+    //   id: 'archive',
+    //   label: 'Archive',
+    //   icon: 'archive-outline',
+    //   color: '#FF9500',
     //   action: (item: Item) => {
-    //     console.log('🗑️ DELETE button pressed for item:', item.title);
+    //     console.log('📦 ARCHIVE button pressed for item:', item.title);
     //   },
     // },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: 'trash-outline',
+      color: '#FF3B30',
+      action: async (item: Item) => {
+        console.log('🗑️ DELETE button pressed for item:', item.title);
+        try {
+          await itemsActions.removeItemWithSync(item.id);
+        } catch (error) {
+          console.error('🗑️ Error deleting item from radial menu:', error);
+        }
+      },
+    },
   ];
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
@@ -449,24 +454,29 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     //     console.log('📁 MOVE button pressed for item:', item.title);
     //   },
     // },
-    {
-      id: 'archive',
-      label: 'Archive',
-      icon: 'archive-outline',
-      color: '#FF9500',
-      action: (item: Item) => {
-        console.log('📦 ARCHIVE button pressed for item:', item.title);
-      },
-    },
     // {
-    //   id: 'delete',
-    //   label: 'Delete',
-    //   icon: 'trash-outline',
-    //   color: '#FF3B30',
+    //   id: 'archive',
+    //   label: 'Archive',
+    //   icon: 'archive-outline',
+    //   color: '#FF9500',
     //   action: (item: Item) => {
-    //     console.log('🗑️ DELETE button pressed for item:', item.title);
+    //     console.log('📦 ARCHIVE button pressed for item:', item.title);
     //   },
     // },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: 'trash-outline',
+      color: '#FF3B30',
+      action: async (item: Item) => {
+        console.log('🗑️ DELETE button pressed for item:', item.title);
+        try {
+          await itemsActions.removeItemWithSync(item.id);
+        } catch (error) {
+          console.error('🗑️ Error deleting item from radial menu:', error);
+        }
+      },
+    },
   ];
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
