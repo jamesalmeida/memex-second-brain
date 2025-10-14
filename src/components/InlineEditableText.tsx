@@ -11,6 +11,9 @@ interface InlineEditableTextProps {
   maxLines?: number;
   testID?: string;
   isDarkMode?: boolean;
+  collapsible?: boolean;
+  collapsedLines?: number;
+  showMoreThreshold?: number; // min chars to show Show more/less
 }
 
 const InlineEditableText: React.FC<InlineEditableTextProps> = ({
@@ -22,11 +25,15 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   maxLines,
   testID,
   isDarkMode,
+  collapsible,
+  collapsedLines,
+  showMoreThreshold = 300,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<string>(value ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -77,18 +84,31 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
 
   if (!isEditing) {
     const showPlaceholder = !value || value.trim().length === 0;
+    const canCollapse = !!multiline && !!collapsible && !!value && value.trim().length > showMoreThreshold;
     return (
-      <TouchableOpacity onPress={beginEdit} activeOpacity={0.7} testID={testID}>
-        <View style={styles.readonlyRow}>
-          <Text style={[style, showPlaceholder && styles.placeholderText, isDarkMode && (showPlaceholder ? styles.placeholderTextDark : null)]}>
-            {showPlaceholder ? placeholder : value}
-          </Text>
-          <Feather name="edit" size={16} color={isDarkMode ? '#AAA' : '#555'} style={styles.pencilIcon} />
-          {justSaved && (
-            <Text style={[styles.savedBadge, isDarkMode && styles.savedBadgeDark]}>✓ Saved</Text>
-          )}
-        </View>
-      </TouchableOpacity>
+      <View>
+        <TouchableOpacity onPress={beginEdit} activeOpacity={0.7} testID={testID}>
+          <View style={styles.readonlyRow}>
+            <Text
+              style={[style, showPlaceholder && styles.placeholderText, isDarkMode && (showPlaceholder ? styles.placeholderTextDark : null)]}
+              numberOfLines={canCollapse && collapsed ? (collapsedLines || 6) : undefined}
+            >
+              {showPlaceholder ? placeholder : value}
+            </Text>
+            <Feather name="edit" size={16} color={isDarkMode ? '#AAA' : '#555'} style={styles.pencilIcon} />
+            {justSaved && (
+              <Text style={[styles.savedBadge, isDarkMode && styles.savedBadgeDark]}>✓ Saved</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+        {canCollapse && (
+          <TouchableOpacity onPress={() => setCollapsed(!collapsed)} activeOpacity={0.7}>
+            <Text style={[styles.toggleText, isDarkMode && styles.toggleTextDark]}>
+              {collapsed ? 'Show more ▼' : 'Show less ▲'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
     );
   }
 
@@ -199,6 +219,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '600',
+  },
+  toggleText: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  toggleTextDark: {
+    color: '#5AC8FA',
   },
 });
 

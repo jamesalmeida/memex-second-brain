@@ -36,6 +36,7 @@ import { getYouTubeTranscript } from '../../services/youtube';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
+import InlineEditableText from '../InlineEditableText';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -469,10 +470,17 @@ const YouTubeItemView = observer(({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata */}
-        <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-          {itemToDisplay?.title}
-        </Text>
+        {/* Title and Metadata (inline editable) */}
+        <InlineEditableText
+          value={itemToDisplay?.title || ''}
+          placeholder="Tap to add title"
+          onSave={async (newTitle) => {
+            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+          }}
+          style={[styles.title, isDarkMode && styles.titleDark]}
+          isDarkMode={isDarkMode}
+        />
 
         <View style={styles.metadata}>
           {getDomain() && (
@@ -489,36 +497,27 @@ const YouTubeItemView = observer(({
           </View>
         </View>
 
-        {/* Description */}
-        {itemToDisplay?.desc && (
-          <View style={styles.descriptionSection}>
-            <Text style={[styles.descriptionSectionLabel, isDarkMode && styles.descriptionSectionLabelDark]}>
-              DESCRIPTION
-            </Text>
-            <TouchableOpacity
-              style={[styles.descriptionContainer, isDarkMode && styles.descriptionContainerDark]}
-              onPress={() => setExpandedDescription(!expandedDescription)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
-                numberOfLines={expandedDescription ? undefined : 6}
-              >
-                {itemToDisplay.desc}
-              </Text>
-              {(!expandedDescription && itemToDisplay.desc.length > 300) && (
-                <Text style={[styles.expandToggle, isDarkMode && styles.expandToggleDark]}>
-                  Show more ▼
-                </Text>
-              )}
-              {expandedDescription && (
-                <Text style={[styles.expandToggle, isDarkMode && styles.expandToggleDark]}>
-                  Show less ▲
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Description (inline editable) */}
+        <View style={styles.descriptionSection}>
+          <Text style={[styles.descriptionSectionLabel, isDarkMode && styles.descriptionSectionLabelDark]}>
+            DESCRIPTION
+          </Text>
+          <InlineEditableText
+            value={itemToDisplay?.desc || ''}
+            placeholder="Tap to add description"
+            onSave={async (newDesc) => {
+              await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+              setDisplayItem({ ...(itemToDisplay as Item), desc: newDesc });
+            }}
+            style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
+            multiline
+            maxLines={8}
+            collapsible
+            collapsedLines={6}
+            showMoreThreshold={300}
+            isDarkMode={isDarkMode}
+          />
+        </View>
 
         {/* Tags Section */}
         <View style={styles.tagsSection}>

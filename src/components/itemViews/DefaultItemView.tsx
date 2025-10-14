@@ -970,6 +970,7 @@ const DefaultItemView = observer(({
           onSave={async (newTitle) => {
             if (!itemToDisplay) return;
             await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
           }}
           style={[styles.title, isDarkMode && styles.titleDark]}
           isDarkMode={isDarkMode}
@@ -1001,10 +1002,14 @@ const DefaultItemView = observer(({
             onSave={async (newDesc) => {
               if (!itemToDisplay) return;
               await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+              setDisplayItem({ ...(itemToDisplay as Item), desc: newDesc });
             }}
             style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
             multiline
             maxLines={8}
+            collapsible
+            collapsedLines={6}
+            showMoreThreshold={300}
             isDarkMode={isDarkMode}
           />
         </View>

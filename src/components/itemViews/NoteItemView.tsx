@@ -122,6 +122,9 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
             style={[styles.noteText, isDarkMode && styles.noteTextDark]}
             multiline
             maxLines={8}
+            collapsible
+            collapsedLines={6}
+            showMoreThreshold={300}
             isDarkMode={isDarkMode}
           />
         </View>

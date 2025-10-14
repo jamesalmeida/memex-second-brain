@@ -647,6 +647,9 @@ const RedditItemView = observer(({
             style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
             multiline
             maxLines={8}
+            collapsible
+            collapsedLines={6}
+            showMoreThreshold={300}
             isDarkMode={isDarkMode}
           />
         </View>
