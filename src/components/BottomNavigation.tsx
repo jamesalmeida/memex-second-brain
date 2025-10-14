@@ -60,7 +60,7 @@ const BottomNavigation = observer(({
                 <Image
                   systemName="line.3.horizontal.decrease"
                   size={24}
-                  color={isDarkMode ? 'white' : 'black'}
+                  color={'gray'}
                 />
               </ZStack>
             </ContextMenu.Trigger>
@@ -179,7 +179,7 @@ const BottomNavigation = observer(({
         style={[
           styles.glassButtonHost,
           styles.rightButton,
-          { bottom: insets.bottom - 20 }
+          { bottom: insets.bottom - 20 },
         ]}
       >
         <Host style={{ width: 60, height: 60 }}>
@@ -193,7 +193,8 @@ const BottomNavigation = observer(({
             <Image
               systemName="plus"
               size={24}
-              color={isDarkMode ? 'white' : 'black'}
+              color={'gray'}
+              // color={isDarkMode ? 'white' : 'black'}
             />
           </ZStack>
         </Host>
