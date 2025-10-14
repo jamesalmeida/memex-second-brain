@@ -338,6 +338,8 @@ const RadialMenuOverlay = observer(({
                 return require('../components/items/MovieTVItemCard').default;
               case 'reddit':
                 return require('../components/items/RedditItemCard').default;
+              case 'note':
+                return require('../components/items/NoteItemCard').default;
               case 'amazon':
               case 'product':
                 return require('../components/items/ProductItemCard').default;

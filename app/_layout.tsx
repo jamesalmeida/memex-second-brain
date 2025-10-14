@@ -37,23 +37,7 @@ const RootLayoutContent = observer(() => {
 
   console.log('📱 Root layout rendering:', { isLoading, isAuthenticated, isDarkMode, isThemeLoading, timestamp: Date.now() });
 
-  // Handle navigation based on auth state
-  useEffect(() => {
-    if (!isLoading && !isThemeLoading) {
-      console.log('🔄 Root layout navigation check:', { isAuthenticated, isLoading });
-      
-      // Use setTimeout to ensure navigation happens after the Stack is rendered
-      setTimeout(() => {
-        if (isAuthenticated) {
-          console.log('✅ Navigating to tabs from root layout');
-          router.replace('/(tabs)');
-        } else {
-          console.log('✅ Navigating to auth from root layout');
-          router.replace('/auth');
-        }
-      }, 0);
-    }
-  }, [isAuthenticated, isLoading, isThemeLoading]);
+  // Navigation is handled centrally in useAuth; avoid duplicate redirects here
 
   // Show loading spinner while checking auth or theme
   if (isLoading || isThemeLoading) {

@@ -11,6 +11,10 @@ import { itemSpacesActions } from '../stores/itemSpaces';
 import { itemMetadataActions } from '../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
 import { offlineQueueActions } from '../stores/offlineQueue';
+import { itemChatsActions } from '../stores/itemChats';
+import { chatMessagesActions } from '../stores/chatMessages';
+import { aiSettingsActions } from '../stores/aiSettings';
+import { filterActions } from '../stores/filter';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -119,6 +123,11 @@ export function useAuth() {
               STORAGE_KEYS.OFFLINE_QUEUE,
               STORAGE_KEYS.VIDEO_TRANSCRIPTS,
               STORAGE_KEYS.SYNC_STATUS,
+              STORAGE_KEYS.ITEM_CHATS,
+              STORAGE_KEYS.CHAT_MESSAGES,
+              STORAGE_KEYS.AI_SETTINGS,
+              STORAGE_KEYS.AI_MODELS,
+              STORAGE_KEYS.FILTERS,
             ]);
             console.log('✅ Cleared all user data from storage');
           } catch (error) {
@@ -132,6 +141,10 @@ export function useAuth() {
           itemMetadataActions.reset();
           itemTypeMetadataActions.reset();
           offlineQueueActions.reset();
+          await itemChatsActions.clearAll();
+          await chatMessagesActions.clearAll();
+          await aiSettingsActions.clearAll();
+          await filterActions.clearAll();
 
           // Reset auth store
           authActions.reset();
@@ -198,6 +211,41 @@ export function useAuth() {
       console.log('🚪 Starting sign out process...');
       await auth.signOut();
       console.log('🚪 Sign out completed');
+
+      // Fallback: proactively clear local state and storage in case event is delayed
+      try {
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.ITEMS,
+          STORAGE_KEYS.SPACES,
+          STORAGE_KEYS.ITEM_SPACES,
+          STORAGE_KEYS.ITEM_METADATA,
+          STORAGE_KEYS.ITEM_TYPE_METADATA,
+          STORAGE_KEYS.OFFLINE_QUEUE,
+          STORAGE_KEYS.VIDEO_TRANSCRIPTS,
+          STORAGE_KEYS.SYNC_STATUS,
+          STORAGE_KEYS.ITEM_CHATS,
+          STORAGE_KEYS.CHAT_MESSAGES,
+          STORAGE_KEYS.AI_SETTINGS,
+          STORAGE_KEYS.AI_MODELS,
+          STORAGE_KEYS.FILTERS,
+        ]);
+      } catch (err) {
+        // swallow
+      }
+
+      itemsActions.clearAll();
+      spacesActions.clearAll();
+      itemSpacesActions.reset();
+      itemMetadataActions.reset();
+      itemTypeMetadataActions.reset();
+      offlineQueueActions.reset();
+      await itemChatsActions.clearAll();
+      await chatMessagesActions.clearAll();
+      await aiSettingsActions.clearAll();
+      await filterActions.clearAll();
+
+      authActions.reset();
+      authActions.setLoading(false);
     } catch (error) {
       console.error('❌ Error signing out:', error);
     }
