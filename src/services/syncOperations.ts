@@ -24,6 +24,7 @@ export const syncOperations = {
       content_type: contentType,
       is_archived: item.is_archived || false,
       raw_text: item.raw_text || null,
+      tags: item.tags || null,
     });
 
     if (error) throw error;

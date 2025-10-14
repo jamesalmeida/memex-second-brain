@@ -813,6 +813,7 @@ class SyncService {
       content: remoteItem.content,
       url: remoteItem.url,
       thumbnail_url: remoteItem.thumbnail_url,
+      tags: remoteItem.tags || null,
       content_type: remoteItem.content_type as ContentType,
       is_archived: remoteItem.is_archived || false,
       raw_text: remoteItem.raw_text,
