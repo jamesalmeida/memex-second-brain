@@ -7,6 +7,7 @@ import { itemSpacesComputed, itemSpacesActions } from '../../stores/itemSpaces';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
+import InlineEditableText from '../InlineEditableText';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import * as Clipboard from 'expo-clipboard';
 
@@ -69,18 +70,24 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
   return (
     <View style={styles.container}>
       {/* Note Header */}
-      <View style={[styles.noteHeader, isDarkMode && styles.noteHeaderDark]}>
+      {/* <View style={[styles.noteHeader, isDarkMode && styles.noteHeaderDark]}>
         <Text style={styles.noteEmoji}>📝</Text>
         <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]} numberOfLines={1}>
           Note
         </Text>
-      </View>
+      </View> */}
 
       <View style={styles.content}>
-        {/* Title */}
-        <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-          {itemToDisplay.title}
-        </Text>
+        {/* Title (inline editable) */}
+        <InlineEditableText
+          value={itemToDisplay.title}
+          placeholder="Tap to add title"
+          onSave={async (newTitle) => {
+            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          }}
+          style={[styles.title, isDarkMode && styles.titleDark]}
+          isDarkMode={isDarkMode}
+        />
 
         {/* Body content */}
         {itemToDisplay.content && (
@@ -102,6 +109,22 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Description (inline editable) */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>DESCRIPTION</Text>
+          <InlineEditableText
+            value={itemToDisplay.desc || ''}
+            placeholder="Tap to add description"
+            onSave={async (newDesc) => {
+              await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+            }}
+            style={[styles.noteText, isDarkMode && styles.noteTextDark]}
+            multiline
+            maxLines={8}
+            isDarkMode={isDarkMode}
+          />
+        </View>
 
         {/* Tags */}
         <View style={styles.section}>

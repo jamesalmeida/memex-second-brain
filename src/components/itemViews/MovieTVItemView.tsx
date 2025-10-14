@@ -16,6 +16,7 @@ import { Item, ImageDescription } from '../../types';
 import { formatDate } from '../../utils/itemCardHelpers';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
+import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -216,10 +217,16 @@ const MovieTVItemView = observer(({
 
   return (
     <View style={styles.container}>
-      {/* Title */}
-      <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-        {itemToDisplay.title}
-      </Text>
+      {/* Title (inline editable) */}
+      <InlineEditableText
+        value={itemToDisplay.title || ''}
+        placeholder="Tap to add title"
+        onSave={async (newTitle) => {
+          await itemsActions.updateItem(itemToDisplay.id, { title: newTitle });
+        }}
+        style={[styles.title, isDarkMode && styles.titleDark]}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Media Section */}
       {videoUrl && player ? (
@@ -391,14 +398,20 @@ const MovieTVItemView = observer(({
       )}
 
       {/* Description */}
-      {itemToDisplay.desc && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Description</Text>
-          <Text style={[styles.description, isDarkMode && styles.descriptionDark]}>
-            {itemToDisplay.desc}
-          </Text>
-        </View>
-      )}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Description</Text>
+        <InlineEditableText
+          value={itemToDisplay.desc || ''}
+          placeholder="Tap to add description"
+          onSave={async (newDesc) => {
+            await itemsActions.updateItem(itemToDisplay.id, { desc: newDesc });
+          }}
+          style={[styles.description, isDarkMode && styles.descriptionDark]}
+          multiline
+          maxLines={8}
+          isDarkMode={isDarkMode}
+        />
+      </View>
 
       {/* Content */}
       {itemToDisplay.content && (

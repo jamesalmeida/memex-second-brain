@@ -34,6 +34,7 @@ import { Item, ContentType } from '../../types';
 import { supabase } from '../../services/supabase';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
+import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getXVideoTranscript } from '../../services/twitter';
 import { extractUsername } from '../../utils/itemCardHelpers';
@@ -603,11 +604,20 @@ const XItemView = observer(({
         )}
       </View>
 
-      {/* Tweet Text */}
+      {/* Tweet Text (inline editable description/title) */}
       <View style={styles.tweetSection}>
-        <Text style={[styles.tweetText, isDarkMode && styles.tweetTextDark]}>
-          {tweetText}
-        </Text>
+        <InlineEditableText
+          value={tweetText || ''}
+          placeholder="Tap to add text"
+          onSave={async (newText) => {
+            // Prefer updating desc; fallback to title if no desc existed
+            await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newText, title: itemToDisplay.title || newText });
+          }}
+          style={[styles.tweetText, isDarkMode && styles.tweetTextDark]}
+          multiline
+          maxLines={8}
+          isDarkMode={isDarkMode}
+        />
       </View>
 
       {/* Hero Media - Video or Images */}
@@ -712,10 +722,16 @@ const XItemView = observer(({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata */}
-        <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-          {itemToDisplay?.title}
-        </Text>
+        {/* Title and Metadata (inline editable title) */}
+        <InlineEditableText
+          value={itemToDisplay?.title || ''}
+          placeholder="Tap to add title"
+          onSave={async (newTitle) => {
+            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          }}
+          style={[styles.title, isDarkMode && styles.titleDark]}
+          isDarkMode={isDarkMode}
+        />
 
         <View style={styles.metadata}>
           {getDomain() && (
