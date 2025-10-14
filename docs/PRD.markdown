@@ -199,7 +199,11 @@
 - **Themes**: Light/dark toggle (stored in Legend-State, respects system preference).  
 - **Responsive Design**:  
   - Mobile: Two-column FlatList grid; touch-friendly interactions.  
-  - Tablet: Adjust grid columns based on screen width.  
+  - Tablet/iPad:  
+    - Dynamic grid columns: 3 columns in portrait, 4 columns in landscape.  
+    - Persistent split-view drawer in landscape mode (280px sidebar + content area).  
+    - Portrait mode uses standard mobile drawer with swipe-to-open behavior.  
+    - Hamburger menu button toggles drawer visibility (instead of open/close) in landscape split-view mode.  
 - **Performance**:  
   - Infinite scroll with FlatList (20 items/page).  
   - Cache items/metadata in Legend-State for offline access and optimized refetching (using `supabase-cache-helpers` for delta updates).  

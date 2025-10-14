@@ -15,6 +15,7 @@ import { Space } from '../../src/types';
 import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
 import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
 import { useDrawer } from '../../src/contexts/DrawerContext';
+import { useDeviceType, getGridColumns } from '../../src/utils/device';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
@@ -25,8 +26,14 @@ interface SpacesScreenProps {
 
 const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps = {}) => {
   // Get drawer from context directly instead of via props
-  const { openDrawer } = useDrawer();
+  const { openDrawer, toggleDrawer, isDrawerVisible } = useDrawer();
   console.log('📦 [SpacesScreen] Component rendered, openDrawer from context:', typeof openDrawer);
+
+  // Get device type info
+  const { isPersistentDrawer, isIPad, isLandscape } = useDeviceType();
+  
+  // Calculate dynamic grid columns based on device type
+  const numColumns = getGridColumns(isIPad, isLandscape);
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -136,8 +143,9 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
         data={filteredSpaces}
         renderItem={renderItem}
         keyExtractor={item => item.id}
+        key={`spaces-${numColumns}`}
         masonry
-        numColumns={2}
+        numColumns={numColumns}
         estimatedItemSize={150}
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 53 }]}
         showsVerticalScrollIndicator={false}
@@ -164,14 +172,24 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
       }]}>
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Open menu"
+          accessibilityLabel={isPersistentDrawer ? (isDrawerVisible ? "Hide sidebar" : "Show sidebar") : "Open menu"}
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-          onPress={openDrawer}
+          onPress={isPersistentDrawer ? toggleDrawer : openDrawer}
           style={styles.menuButton}
           activeOpacity={0.7}
         >
-          <View style={[styles.menuLine, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
-          <View style={[styles.menuLineShort, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+          {/* For iPad persistent drawer, show different icon when drawer is hidden */}
+          {isPersistentDrawer && !isDrawerVisible ? (
+            <>
+              <View style={[styles.menuLine, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+              <View style={[styles.menuLine, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF', marginTop: 6 }]} />
+            </>
+          ) : (
+            <>
+              <View style={[styles.menuLine, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+              <View style={[styles.menuLineShort, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+            </>
+          )}
         </TouchableOpacity>
         <AnimatedTextInput
           style={[styles.searchInput, animatedTextStyle]}

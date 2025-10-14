@@ -16,9 +16,8 @@ import { spacesComputed, spacesActions } from '../../src/stores/spaces';
 import { itemSpacesComputed } from '../../src/stores/itemSpaces';
 import HeaderBar from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
+import { useDeviceType, getGridColumns } from '../../src/utils/device';
 
-const { width: screenWidth } = Dimensions.get('window');
-const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 const EDGE_SWIPE_WIDTH_EVERYTHING = 30; // Narrower drawer swipe area on Everything tab to avoid intercepting taps
 const EDGE_SWIPE_WIDTH_DEFAULT = 50; // Normal drawer swipe area on other tabs
 
@@ -29,8 +28,14 @@ interface HomeScreenProps {
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
   // Get drawer from context directly instead of via props
-  const { openDrawer, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
+  const { openDrawer, toggleDrawer, isDrawerVisible, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
   console.log('🏠 [HomeScreen] Component rendered, openDrawer from context:', typeof openDrawer);
+
+  // Get device type info
+  const { isPersistentDrawer, isIPad, isLandscape, screenWidth } = useDeviceType();
+  
+  // Calculate dynamic grid columns based on device type
+  const numColumns = getGridColumns(isIPad, isLandscape);
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -230,7 +235,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         tabs={tabs}
         selectedIndex={selectedPage}
         onTabPress={scrollToPage}
-        onMenuPress={openDrawer}
+        onMenuPress={isPersistentDrawer ? toggleDrawer : openDrawer}
+        isPersistentDrawer={isPersistentDrawer}
+        isDrawerVisible={isDrawerVisible}
       />
 
       <ScrollView
@@ -266,8 +273,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             data={displayItems}
             renderItem={renderItem}
             keyExtractor={item => item.id}
+            key={`everything-${numColumns}`}
             masonry
-            numColumns={2}
+            numColumns={numColumns}
             estimatedItemSize={200}
             contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
             showsVerticalScrollIndicator={false}
@@ -291,8 +299,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
               data={getItemsForSpace(space.id)}
               renderItem={renderItem}
               keyExtractor={item => item.id}
+              key={`space-${space.id}-${numColumns}`}
               masonry
-              numColumns={2}
+              numColumns={numColumns}
               estimatedItemSize={200}
               contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
               showsVerticalScrollIndicator={false}
