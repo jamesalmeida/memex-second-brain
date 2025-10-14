@@ -643,6 +643,7 @@ const RedditItemView = observer(({
             placeholder="Tap to add description"
             onSave={async (newDesc) => {
               await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+              setDisplayItem({ ...(itemToDisplay as Item), desc: newDesc });
             }}
             style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
             multiline

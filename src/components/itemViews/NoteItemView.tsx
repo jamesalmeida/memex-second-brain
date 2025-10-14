@@ -84,6 +84,7 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
           placeholder="Tap to add title"
           onSave={async (newTitle) => {
             await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
           }}
           style={[styles.title, isDarkMode && styles.titleDark]}
           isDarkMode={isDarkMode}

@@ -223,6 +223,7 @@ const MovieTVItemView = observer(({
         placeholder="Tap to add title"
         onSave={async (newTitle) => {
           await itemsActions.updateItem(itemToDisplay.id, { title: newTitle });
+          // local immediate UI update is handled by global store subscription
         }}
         style={[styles.title, isDarkMode && styles.titleDark]}
         isDarkMode={isDarkMode}

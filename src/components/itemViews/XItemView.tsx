@@ -612,6 +612,7 @@ const XItemView = observer(({
           onSave={async (newText) => {
             // Prefer updating desc; fallback to title if no desc existed
             await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newText, title: itemToDisplay.title || newText });
+            setDisplayItem({ ...(itemToDisplay as Item), desc: newText, title: (itemToDisplay.title || newText) });
           }}
           style={[styles.tweetText, isDarkMode && styles.tweetTextDark]}
           multiline
@@ -728,6 +729,7 @@ const XItemView = observer(({
           placeholder="Tap to add title"
           onSave={async (newTitle) => {
             await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
           }}
           style={[styles.title, isDarkMode && styles.titleDark]}
           isDarkMode={isDarkMode}
