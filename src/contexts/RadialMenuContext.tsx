@@ -333,12 +333,22 @@ const RadialMenuOverlay = observer(({
                 return require('../components/items/MovieTVItemCard').default;
               case 'reddit':
                 return require('../components/items/RedditItemCard').default;
+              case 'amazon':
+              case 'product':
+                return require('../components/items/ProductItemCard').default;
               default:
                 return require('../components/items/DefaultItemCard').default;
             }
           };
 
           const CardComponent = getCardComponent(item.content_type);
+
+          const forceTitleWhite = (
+            item.content_type === 'amazon' ||
+            item.content_type === 'product' ||
+            item.content_type === 'youtube' ||
+            item.content_type === 'youtube_short'
+          );
 
           return (
             <View
@@ -356,7 +366,7 @@ const RadialMenuOverlay = observer(({
               }}
               pointerEvents="none"
             >
-              <CardComponent item={item} onPress={() => {}} disabled={true} />
+              <CardComponent item={item} onPress={() => {}} disabled={true} forceTitleWhite={forceTitleWhite} />
             </View>
           );
         })()}

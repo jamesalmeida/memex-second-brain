@@ -14,9 +14,10 @@ interface ProductItemCardProps {
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
   disabled?: boolean;
+  forceTitleWhite?: boolean;
 }
 
-const ProductItemCard = observer(({ item, onPress, onLongPress, disabled }: ProductItemCardProps) => {
+const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceTitleWhite }: ProductItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
 
@@ -88,7 +89,11 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled }: Prod
             </View> */}
           {/* </View> */}
         </View>
-        <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={1}>
+        <Text style={[
+          styles.title,
+          (isDarkMode && styles.titleDark),
+          (forceTitleWhite ? styles.titleForceWhite : null)
+        ]} numberOfLines={1}>
           {item.title}
         </Text>
       </View>
@@ -163,6 +168,9 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   titleDark: {
+    color: '#FFFFFF',
+  },
+  titleForceWhite: {
     color: '#FFFFFF',
   },
   description: {

@@ -13,9 +13,10 @@ interface YoutubeItemCardProps {
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
   disabled?: boolean;
+  forceTitleWhite?: boolean;
 }
 
-const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: YoutubeItemCardProps) => {
+const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled, forceTitleWhite }: YoutubeItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
 
@@ -100,7 +101,11 @@ const YoutubeItemCard = observer(({ item, onPress, onLongPress, disabled }: Yout
       </View>
       {/* Title Below Video */}
       <View style={styles.titleContainer}>
-          <Text style={[styles.titleText, isDarkMode && styles.titleTextDark]} numberOfLines={1}>
+          <Text style={[
+            styles.titleText,
+            (isDarkMode && styles.titleTextDark),
+            (forceTitleWhite ? styles.titleForceWhite : null)
+          ]} numberOfLines={1}>
             {item.title}
           </Text>
         </View>
@@ -197,6 +202,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   titleTextDark: {
+    color: '#FFFFFF',
+  },
+  titleForceWhite: {
     color: '#FFFFFF',
   },
   footer: {
