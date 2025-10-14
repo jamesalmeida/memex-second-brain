@@ -267,9 +267,9 @@ const AddItemSheet = observer(
       const newItem: Item = {
         id: uuid.v4() as string,
         user_id: userId,
-        title: metadata?.title && metadata.title !== 'No title' ? metadata.title : url.slice(0, 50),
-        desc: metadata?.description || undefined,
-        content: selectedType === 'note' ? url : undefined,
+        title: metadata?.title && metadata.title !== 'No title' ? metadata.title : (selectedType === 'note' ? '' : url.slice(0, 50)),
+        desc: selectedType === 'note' ? url : (metadata?.description || undefined),
+        content: selectedType === 'note' ? undefined : undefined,
         url: selectedType !== 'note' ? url : undefined,
         thumbnail_url: metadata?.image || undefined,
         content_type: metadata?.contentType || selectedType as ContentType,
