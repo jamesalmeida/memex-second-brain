@@ -7,6 +7,7 @@ import MovieTVItemCard from './MovieTVItemCard';
 import RedditItemCard from './RedditItemCard';
 import ProductItemCard from './ProductItemCard';
 import DefaultItemCard from './DefaultItemCard';
+import NoteItemCard from './NoteItemCard';
 
 interface ItemCardProps {
   item: Item;
@@ -16,6 +17,8 @@ interface ItemCardProps {
 
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
   switch (item.content_type) {
+    case 'note':
+      return <NoteItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
     case 'x':
       return <XItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
 

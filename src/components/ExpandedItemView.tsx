@@ -9,6 +9,7 @@ import YouTubeItemView from './itemViews/YouTubeItemView';
 import XItemView from './itemViews/XItemView';
 import MovieTVItemView from './itemViews/MovieTVItemView';
 import DefaultItemView from './itemViews/DefaultItemView';
+import NoteItemView from './itemViews/NoteItemView';
 
 interface ExpandedItemViewProps {
   item: Item | null;
@@ -68,6 +69,18 @@ const ExpandedItemView = observer(
     if (!item) return null;
 
     switch (item.content_type) {
+      case 'note':
+        return (
+          <NoteItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
       case 'reddit':
         return (
           <RedditItemView
