@@ -144,7 +144,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
       )}
 
       {/* Content Type Badge */}
-      <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor(item.content_type) }]}>
+      {/* <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor(item.content_type) }]}>
         {(!item.thumbnail_url && siteIconUrl) ? (
           <Image
             source={{ uri: siteIconUrl }}
@@ -161,7 +161,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             {getContentTypeIcon(item.content_type)}
           </Text>
         )}
-      </View>
+      </View> */}
 
       {/* Card Content */}
       <View style={styles.cardContent}>
