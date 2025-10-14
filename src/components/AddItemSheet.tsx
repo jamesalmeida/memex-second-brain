@@ -186,16 +186,34 @@ const AddItemSheet = observer(
     };
 
     const detectContentType = async (urlString: string) => {
-      const detectedType = await detectURLType(urlString);
+      const trimmed = urlString.trim();
+      if (!trimmed) {
+        setSelectedType('bookmark');
+        return;
+      }
+      // If it's not a valid http(s) URL, treat as a note
+      try {
+        const parsed = new URL(trimmed);
+        if (!/^https?:$/i.test(parsed.protocol)) {
+          setSelectedType('note');
+          return;
+        }
+      } catch {
+        setSelectedType('note');
+        return;
+      }
+
+      const detectedType = await detectURLType(trimmed);
       setSelectedType(detectedType);
     };
 
     // Extract metadata when URL is detected
     useEffect(() => {
       const timeoutId = setTimeout(() => {
-        if (url.trim() && url.startsWith('http')) {
+        const trimmed = url.trim();
+        if (trimmed && /^https?:\/\//i.test(trimmed)) {
           setIsLoadingMetadata(true);
-          extractURLMetadata(url.trim())
+          extractURLMetadata(trimmed)
             .then(data => {
               setMetadata(data);
               setIsLoadingMetadata(false);
@@ -425,6 +443,7 @@ const AddItemSheet = observer(
                   onPress={() => {
                     setUrl('');
                     setSelectedType('bookmark');
+                    setMetadata(null);
                   }}
                   activeOpacity={0.7}
                 >
