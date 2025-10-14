@@ -34,8 +34,17 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   // Get device type info
   const { isPersistentDrawer, isIPad, isLandscape, screenWidth } = useDeviceType();
   
-  // Calculate dynamic grid columns based on device type
-  const numColumns = getGridColumns(isIPad, isLandscape);
+  // Calculate initial container width accounting for drawer
+  const DRAWER_WIDTH = 280;
+  const initialWidth = isPersistentDrawer && isDrawerVisible 
+    ? screenWidth - DRAWER_WIDTH 
+    : screenWidth;
+  
+  // Measure actual container width to account for drawer
+  const [containerWidth, setContainerWidth] = useState(initialWidth);
+  
+  // Calculate dynamic grid columns based on actual available width
+  const numColumns = getGridColumns(containerWidth, isDrawerVisible, isPersistentDrawer);
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -51,6 +60,16 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
+
+  // Update container width when drawer visibility changes
+  useEffect(() => {
+    const newWidth = isPersistentDrawer && isDrawerVisible 
+      ? screenWidth - DRAWER_WIDTH 
+      : screenWidth;
+    if (newWidth !== containerWidth) {
+      setContainerWidth(newWidth);
+    }
+  }, [isPersistentDrawer, isDrawerVisible, screenWidth]);
 
   // Initialize items and filters on first load
   useEffect(() => {
@@ -142,14 +161,14 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const scrollToPage = useCallback((index: number) => {
     setSelectedPage(index);
-    pagerRef.current?.scrollTo({ x: index * screenWidth, animated: true });
+    pagerRef.current?.scrollTo({ x: index * containerWidth, animated: true });
     if (index === 0) {
       spacesActions.setSelectedSpace(null);
     } else {
       const space = spaces[index - 1];
       if (space) spacesActions.setSelectedSpace(space);
     }
-  }, [spaces]);
+  }, [spaces, containerWidth]);
 
   // Handler for navigating to a specific space by ID
   const handleNavigateToSpace = useCallback((spaceId: string) => {
@@ -174,7 +193,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, [registerNavigateToEverythingHandler, scrollToPage]);
 
   const handlePageChange = useCallback((e: any) => {
-    const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+    const page = Math.round(e.nativeEvent.contentOffset.x / containerWidth);
     if (page !== selectedPage) {
       setSelectedPage(page);
       if (page === 0) {
@@ -184,7 +203,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         if (space) spacesActions.setSelectedSpace(space);
       }
     }
-  }, [selectedPage, spaces]);
+  }, [selectedPage, spaces, containerWidth]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -230,7 +249,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   };
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+    <View 
+      style={[styles.container, isDarkMode && styles.containerDark]}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        if (width > 0 && width !== containerWidth) {
+          setContainerWidth(width);
+        }
+      }}
+    >
       <HeaderBar
         tabs={tabs}
         selectedIndex={selectedPage}
@@ -267,7 +294,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         }}
       >
         {/* Page 0: Everything */}
-        <View style={{ width: screenWidth }}>
+        <View style={{ width: containerWidth }}>
           <FlashList
             ref={listRef}
             data={displayItems}
@@ -294,7 +321,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
         {/* Pages 1..n: one per space */}
         {spaces.map(space => (
-          <View key={space.id} style={{ width: screenWidth }}>
+          <View key={space.id} style={{ width: containerWidth }}>
             <FlashList
               data={getItemsForSpace(space.id)}
               renderItem={renderItem}

@@ -200,7 +200,16 @@
 - **Responsive Design**:  
   - Mobile: Two-column FlatList grid; touch-friendly interactions.  
   - Tablet/iPad:  
-    - Dynamic grid columns: 3 columns in portrait, 4 columns in landscape.  
+    - Dynamic grid columns based on measured container width (minimum 240px per column):
+      - Uses `onLayout` to measure actual available content width
+      - Automatically accounts for 280px drawer width in split-view mode via flex layout
+      - Target column counts:
+        - iPad Landscape with drawer: 3 columns
+        - iPad Landscape without drawer: 4 columns
+        - iPad Portrait: 3 columns
+        - Mobile: 2 columns
+      - Supports iPadOS multitasking/windowing with adaptive column counts
+      - Recalculates when drawer is toggled or window is resized
     - Persistent split-view drawer in landscape mode (280px sidebar + content area).  
     - Portrait mode uses standard mobile drawer with swipe-to-open behavior.  
     - Hamburger menu button toggles drawer visibility (instead of open/close) in landscape split-view mode.  

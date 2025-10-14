@@ -30,10 +30,19 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   console.log('📦 [SpacesScreen] Component rendered, openDrawer from context:', typeof openDrawer);
 
   // Get device type info
-  const { isPersistentDrawer, isIPad, isLandscape } = useDeviceType();
+  const { isPersistentDrawer, isIPad, isLandscape, screenWidth } = useDeviceType();
   
-  // Calculate dynamic grid columns based on device type
-  const numColumns = getGridColumns(isIPad, isLandscape);
+  // Calculate initial container width accounting for drawer
+  const DRAWER_WIDTH = 280;
+  const initialWidth = isPersistentDrawer && isDrawerVisible 
+    ? screenWidth - DRAWER_WIDTH 
+    : screenWidth;
+  
+  // Measure actual container width to account for drawer
+  const [containerWidth, setContainerWidth] = useState(initialWidth);
+  
+  // Calculate dynamic grid columns based on actual available width
+  const numColumns = getGridColumns(containerWidth, isDrawerVisible, isPersistentDrawer);
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -46,6 +55,16 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   const cardRefs = useRef<{ [key: string]: any }>({});
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
   
+  // Update container width when drawer visibility changes
+  useEffect(() => {
+    const newWidth = isPersistentDrawer && isDrawerVisible 
+      ? screenWidth - DRAWER_WIDTH 
+      : screenWidth;
+    if (newWidth !== containerWidth) {
+      setContainerWidth(newWidth);
+    }
+  }, [isPersistentDrawer, isDrawerVisible, screenWidth]);
+
   // Dynamic contrast for search bar
   const {
     handleScroll,
@@ -137,7 +156,15 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   };
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+    <View 
+      style={[styles.container, isDarkMode && styles.containerDark]}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        if (width > 0 && width !== containerWidth) {
+          setContainerWidth(width);
+        }
+      }}
+    >
       {/* Spaces Grid - extends full height */}
       <FlashList
         data={filteredSpaces}
