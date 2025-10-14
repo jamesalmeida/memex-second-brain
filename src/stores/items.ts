@@ -247,8 +247,9 @@ export const itemsActions = {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
       
-      // Sync with Supabase
-      await syncOperations.updateItem(id, updates);
+      // Sync with Supabase using offline-aware service (dynamic import to avoid require cycle)
+      const { syncService } = await import('../services/syncService');
+      await syncService.updateItem(id, updates);
     } catch (error) {
       console.error('Error updating item:', error);
     }

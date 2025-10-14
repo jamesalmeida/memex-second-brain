@@ -452,53 +452,72 @@ class SyncService {
     const localMap = new Map(localMetadata.map(m => [m.item_id, m]));
     const remoteMap = new Map((remoteMetadata || []).map(m => [m.item_id, m]));
 
-    // Upload local metadata not in remote
-    console.log('🔍 [SYNC] Checking for item_metadata to upload...');
-    let skippedOrphanedMetadata = 0;
-    let uploadedMetadata = 0;
+    // Reconcile: newest-wins using updated_at; upsert to other side as needed
+    const byIdLocal = new Map(localMetadata.map(m => [m.item_id, m]));
+    const byIdRemote = new Map((remoteMetadata || []).map(m => [m.item_id, m as any]));
 
-    for (const localM of localMetadata) {
-      if (!remoteMap.has(localM.item_id)) {
-        const itemExists = userItemIds.includes(localM.item_id);
-        
-        // Skip orphaned item metadata (item doesn't exist in remote)
-        if (!itemExists) {
-          console.log(`⚠️ Skipping orphaned item_metadata: ${localM.item_id} (item not in remote)`);
-          skippedOrphanedMetadata++;
-          continue;
-        }
+    const allIds = new Set<string>([
+      ...Array.from(byIdLocal.keys()),
+      ...Array.from(byIdRemote.keys()),
+    ]);
 
-        const { error } = await supabase
+    const merged: ItemMetadata[] = [];
+
+    for (const id of allIds) {
+      const l = byIdLocal.get(id) as any;
+      const r = byIdRemote.get(id) as any;
+
+      if (l && !r) {
+        // Only local → upsert remote
+        await supabase
           .from('item_metadata')
-          .insert(localM);
-
-        if (error) {
-          console.error(`Error uploading item_metadata for ${localM.item_id}:`, error);
-        } else {
-          uploadedMetadata++;
-        }
+          .upsert({ ...l }, { onConflict: 'item_id' });
+        merged.push({ ...l });
+        continue;
       }
-    }
 
-    if (skippedOrphanedMetadata > 0) {
-      console.log(`⚠️ Skipped ${skippedOrphanedMetadata} orphaned item_metadata records`);
-    }
-    if (uploadedMetadata > 0) {
-      console.log(`✅ Uploaded ${uploadedMetadata} item_metadata records`);
-    }
-
-    // Download remote metadata not in local
-    const newMetadata: ItemMetadata[] = [];
-    for (const remoteM of (remoteMetadata || [])) {
-      if (!localMap.has(remoteM.item_id)) {
-        newMetadata.push(remoteM as ItemMetadata);
+      if (!l && r) {
+        // Only remote → keep remote locally
+        merged.push({
+          item_id: r.item_id,
+          domain: r.domain ?? undefined,
+          author: r.author ?? undefined,
+          username: r.username ?? undefined,
+          profile_image: r.profile_image ?? undefined,
+          published_date: r.published_date ?? undefined,
+        });
+        continue;
       }
+
+      // Both exist → newest wins
+      const lUpdated = l.updated_at ? new Date(l.updated_at).getTime() : undefined;
+      const rUpdated = r.updated_at ? new Date(r.updated_at).getTime() : undefined;
+
+      let winner: any = r; // default remote
+      if (lUpdated && rUpdated) {
+        winner = lUpdated >= rUpdated ? l : r;
+      } else if (lUpdated && !rUpdated) {
+        winner = l;
+      } else if (!lUpdated && rUpdated) {
+        winner = r;
+      }
+
+      // Upsert winner to remote to ensure consistency
+      await supabase
+        .from('item_metadata')
+        .upsert({ ...winner }, { onConflict: 'item_id' });
+
+      merged.push({
+        item_id: winner.item_id,
+        domain: winner.domain ?? undefined,
+        author: winner.author ?? undefined,
+        username: winner.username ?? undefined,
+        profile_image: winner.profile_image ?? undefined,
+        published_date: winner.published_date ?? undefined,
+      });
     }
 
-    if (newMetadata.length > 0) {
-      const updatedMetadata = [...localMetadata, ...newMetadata];
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEM_METADATA, JSON.stringify(updatedMetadata));
-    }
+    await AsyncStorage.setItem(STORAGE_KEYS.ITEM_METADATA, JSON.stringify(merged));
   }
 
   // Sync item type metadata
@@ -539,63 +558,65 @@ class SyncService {
     const localMap = new Map(localTypeMetadata.map(m => [m.item_id, m]));
     const remoteMap = new Map((remoteTypeMetadata || []).map(m => [m.item_id, m]));
 
-    // Upload local type metadata not in remote
-    console.log('🔍 [SYNC] Checking for item_type_metadata to upload...');
-    let skippedOrphanedTypeMetadata = 0;
-    let uploadedTypeMetadata = 0;
+    // Reconcile: newest-wins using updated_at; upsert to other side as needed
+    const byIdLocal = new Map(localTypeMetadata.map(m => [m.item_id, m]));
+    const byIdRemote = new Map((remoteTypeMetadata || []).map(m => [m.item_id, m as any]));
 
-    for (const localTM of localTypeMetadata) {
-      if (!remoteMap.has(localTM.item_id)) {
-        const itemExists = userItemIds.includes(localTM.item_id);
-        
-        // Skip orphaned item type metadata (item doesn't exist in remote)
-        if (!itemExists) {
-          console.log(`⚠️ Skipping orphaned item_type_metadata: ${localTM.item_id} (item not in remote)`);
-          skippedOrphanedTypeMetadata++;
-          continue;
-        }
+    const allIds = new Set<string>([
+      ...Array.from(byIdLocal.keys()),
+      ...Array.from(byIdRemote.keys()),
+    ]);
 
-        // Ensure content_type is included - default to 'bookmark' if missing
-        const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
-        const contentType = localTM.content_type && validContentTypes.includes(localTM.content_type)
-          ? localTM.content_type
-          : 'bookmark';
+    const merged: ItemTypeMetadata[] = [];
+    const validContentTypes = ['bookmark', 'youtube', 'youtube_short', 'x', 'github', 'instagram', 'tiktok', 'reddit', 'amazon', 'linkedin', 'image', 'pdf', 'video', 'audio', 'note', 'article', 'product', 'book', 'course'];
 
-        const { error } = await supabase
+    for (const id of allIds) {
+      const l = byIdLocal.get(id) as any;
+      const r = byIdRemote.get(id) as any;
+
+      if (l && !r) {
+        const contentType = l.content_type && validContentTypes.includes(l.content_type) ? l.content_type : 'bookmark';
+        await supabase
           .from('item_type_metadata')
-          .insert({
-            item_id: localTM.item_id,
+          .upsert({
+            item_id: l.item_id,
             content_type: contentType,
-            data: localTM.data || {},
-          });
-
-        if (error) {
-          console.error(`Error uploading item_type_metadata for ${localTM.item_id}:`, error);
-        } else {
-          uploadedTypeMetadata++;
-        }
+            data: l.data || {},
+          }, { onConflict: 'item_id' });
+        merged.push({ item_id: l.item_id, content_type: contentType, data: l.data || {} });
+        continue;
       }
-    }
 
-    if (skippedOrphanedTypeMetadata > 0) {
-      console.log(`⚠️ Skipped ${skippedOrphanedTypeMetadata} orphaned item_type_metadata records`);
-    }
-    if (uploadedTypeMetadata > 0) {
-      console.log(`✅ Uploaded ${uploadedTypeMetadata} item_type_metadata records`);
-    }
-
-    // Download remote type metadata not in local
-    const newTypeMetadata: ItemTypeMetadata[] = [];
-    for (const remoteTM of (remoteTypeMetadata || [])) {
-      if (!localMap.has(remoteTM.item_id)) {
-        newTypeMetadata.push(remoteTM as ItemTypeMetadata);
+      if (!l && r) {
+        merged.push({ item_id: r.item_id, content_type: r.content_type, data: r.data || {} });
+        continue;
       }
+
+      const lUpdated = l.updated_at ? new Date(l.updated_at).getTime() : undefined;
+      const rUpdated = r.updated_at ? new Date(r.updated_at).getTime() : undefined;
+
+      let winner: any = r; // default remote
+      if (lUpdated && rUpdated) {
+        winner = lUpdated >= rUpdated ? l : r;
+      } else if (lUpdated && !rUpdated) {
+        winner = l;
+      } else if (!lUpdated && rUpdated) {
+        winner = r;
+      }
+
+      const contentType = winner.content_type && validContentTypes.includes(winner.content_type) ? winner.content_type : 'bookmark';
+      await supabase
+        .from('item_type_metadata')
+        .upsert({
+          item_id: winner.item_id,
+          content_type: contentType,
+          data: winner.data || {},
+        }, { onConflict: 'item_id' });
+
+      merged.push({ item_id: winner.item_id, content_type: contentType, data: winner.data || {} });
     }
 
-    if (newTypeMetadata.length > 0) {
-      const updatedTypeMetadata = [...localTypeMetadata, ...newTypeMetadata];
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(updatedTypeMetadata));
-    }
+    await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(merged));
   }
 
   // Sync video transcripts

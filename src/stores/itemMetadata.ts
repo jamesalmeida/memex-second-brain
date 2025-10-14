@@ -55,6 +55,13 @@ export const itemMetadataActions = {
     
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_METADATA, JSON.stringify(updatedMetadata));
+
+      // Sync to Supabase with upsert and updated_at
+      const { syncOperations } = await import('../services/syncOperations');
+      await syncOperations.upsertItemMetadata({
+        ...metadata,
+        // ensure updated_at is set server-side (passed in upsert as well)
+      } as any);
     } catch (error) {
       console.error('Error saving item metadata:', error);
     }

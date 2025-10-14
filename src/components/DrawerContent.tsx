@@ -257,14 +257,14 @@ const styles = StyleSheet.create({
     color: '#999999',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 5,
     marginRight: 5,
   },
   sectionTitle: {

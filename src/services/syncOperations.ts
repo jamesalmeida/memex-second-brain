@@ -35,6 +35,25 @@ export const syncOperations = {
     console.log(`✅ Updated item ${itemId} in Supabase`);
   },
 
+  async upsertItemMetadata(metadata: ItemMetadata) {
+    const { error } = await supabase
+      .from('item_metadata')
+      .upsert(
+        {
+          item_id: metadata.item_id,
+          author: metadata.author ?? null,
+          domain: metadata.domain ?? null,
+          username: (metadata as any).username ?? null,
+          profile_image: (metadata as any).profile_image ?? null,
+          published_date: (metadata as any).published_date ?? null,
+        },
+        { onConflict: 'item_id' }
+      );
+
+    if (error) throw error;
+    console.log(`✅ Upserted item_metadata for item ${metadata.item_id}`);
+  },
+
   async upsertItemTypeMetadata(metadata: ItemTypeMetadata) {
     const { error } = await supabase
       .from('item_type_metadata')

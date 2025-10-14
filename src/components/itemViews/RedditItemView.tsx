@@ -371,15 +371,7 @@ const RedditItemView = observer(({
     if (!itemToDisplay) return;
 
     try {
-      const { error } = await supabase
-        .from('items')
-        .update({ tags: tagsToSave })
-        .eq('id', itemToDisplay.id);
-
-      if (error) throw error;
-
-      // Update the item in the store
-      await itemsActions.updateItem(itemToDisplay.id, { tags: tagsToSave });
+      await itemsActions.updateItemWithSync(itemToDisplay.id, { tags: tagsToSave });
 
       console.log('Tags auto-saved successfully');
     } catch (error) {
