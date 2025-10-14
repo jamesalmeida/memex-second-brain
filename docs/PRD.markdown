@@ -4,10 +4,10 @@
 **Name**: Memex: Second Brain  
 **Description**: A personal knowledge management tool for capturing, organizing, and searching digital content (links, text, images, files) in an intelligent inbox with spaces (projects/folders), tags, and metadata extraction. Supports cross-platform capture via Chrome extension (web) and iOS Sharesheet/Android Intent (mobile). Users can chat with an LLM about individual items or spaces, using content as context.  
 **Target Users**: Researchers, creators, and individuals managing digital content.  
-**Key Goals**: Secure authentication; intuitive content capture and triage; cross-platform consistency (web to mobile); offline-first support; seamless integration with Chrome extension and mobile Sharesheet.  
+**Key Goals**: Secure authentication; intuitive and fast content capture and triage; AI chats with saved items to absorb content faster. Cross-platform consistency (web to mobile); offline-first support; seamless integration with Chrome extension and mobile Sharesheet.  
 **Platforms**:  
-- Current: Web (Next.js, Vercel-hosted).  
-- Rebuild: Mobile (iOS/Android via React Native + Expo).  
+- Mobile: This app is for iOS/Android via React Native + Expo.  
+- Web: Next.js, Vercel-hosted. (Not this repo yet but will later work on Web to connect to same DB).  
 - Integration: Chrome extension (via API); iOS Sharesheet (via `expo-share-extension`); Android Intent.  
 **Tech Constraints for Rebuild**:  
 - React Native with Expo for cross-platform mobile development.  
@@ -20,33 +20,36 @@
 ## 2. Core Features
 
 ### 2.1 Authentication
-- Passwordless login via Supabase magic links (email OTP).  
-- Google OAuth sign-in (using Expo AuthSession for native OAuth flow).  
+- Initially juswt email and password login.
+- Eventaully add more login options:
+  - Passwordless login via Supabase magic links (email OTP).  
+  - Google OAuth sign-in (using Expo AuthSession for native OAuth flow).  
+  - Apple sign-in 
 - Auto-redirect to home screen on auth success; to login screen on failure or session expiry.  
 - User ID display and copy functionality for Chrome extension integration.  
 - Sign-out clears local session (Legend-State and AsyncStorage).  
 - Offline: Display cached user profile (via Legend-State); prompt login on connectivity for API actions.
 
 ### 2.2 Dashboard & Views
-- **Home/Everything View**: Displays all items in a scrollable two-column grid (FlatList). Features:  
+- **Home/Everything Grid View**: Displays all items in a scrollable two-column grid (FlatList). Features:  
   - Search bar for fuzzy search (title, desc, tags, metadata).  
   - Filter by content type (e.g., bookmark, YouTube).  
   - Floating action button (FAB) for quick capture.  
   - Offline: Show cached items via Legend-State; queue new items for sync.  
-- **Spaces View**: Grid of space cards (name, description, color, item count). Tap to navigate to space-detail view.  
-- **Space-Detail View**: Filtered item grid for a specific space. Includes:  
-  - Back navigation to home/spaces.  
-  - Option to initiate AI chat with space content as context (via bottom sheet).  
+- **Chat View**: Swiping over from space to chat will initiate or continue a previous chat with all items from that space as context.
+- **Space Grid View**: Filtered item grid for a specific space. Includes:  
+  - Swiping from Everything Grid scrolls into Space grid while also updating the HeaderBar to show selected Space. Scrolling the HeaderBar and tapping a Space auto scrolls to that Space.
+  - To initiate AI chat with space content as context the user can use NativeTab in the BottomNavigation to slide over to Chat-mode with that space.  
   - Offline: Cached space items; queue edits.  
 - **Item Detail Expanded Card**: Full-screen expanding card animation for item details (title, content, metadata, media). Features:  
   - Expands from grid position to full screen with hero animation (like iOS App Store)  
   - Smooth reverse animation back to original grid position on close  
-  - Swipe-down or tap X to dismiss  
+  - Swipe-down to dismiss  
   - Actions: Edit title/desc/metadata, archive, delete, move to another space  
   - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)  
   - Download media (if applicable) or open external URL  
   - Offline: View cached details; queue edits/deletes  
-- **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out.  
+- **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
@@ -122,7 +125,8 @@
   - Managed by Supabase auth.  
   - Fields: `id` (UUID, PK), `email` (text).  
 - **Items**:  
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `title` (text), `url` (text, nullable), `content_type` (enum: bookmark, youtube, x, github, instagram, tiktok, reddit, amazon, linkedin, image, pdf, video, audio, note, article, product, book, course), `content` (text, nullable), `desc` (text, nullable), `thumbnail_url` (text, nullable), `raw_text` (text, nullable), `created_at` (timestamp), `updated_at` (timestamp), `is_archived` (boolean).  
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `title` (text), `url` (text, nullable), `content_type` (enum: bookmark, youtube, youtube_short, x, github, instagram, facebook, threads, tiktok, reddit, amazon, linkedin, image, pdf, video, audio, podcast, note, article, product, book, course, movie, tv_show), `content` (text, nullable), `desc` (text, nullable), `thumbnail_url` (text, nullable), `raw_text` (text, nullable), `tags` (text[], nullable), `created_at` (timestamp), `updated_at` (timestamp), `is_archived` (boolean).  
+  - Note: `tags` field is a TEXT array for categorization and search with GIN index for efficient array operations.  
 - **Item_Metadata**:  
   - Fields: `item_id` (UUID, PK/FK to Items), `domain` (text, nullable), `author` (text, nullable), `username` (text, nullable), `profile_image` (text, nullable), `published_date` (date, nullable).  
   - Purpose: Stores universal metadata applicable to most content types.  
@@ -133,42 +137,57 @@
     - X/Twitter: `{ "likes": 456, "retweets": 78, "replies": 12, "video_url": "..." }`  
     - GitHub: `{ "stars": 789, "forks": 123, "language": "JavaScript" }`  
   - Purpose: Stores type-specific metadata in JSONB, keeping `Item_Metadata` clean.  
+- **Image_Descriptions**:  
+  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `image_url` (text), `description` (text), `model` (text), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Purpose: Stores AI-generated descriptions of images to provide context for AI chat.  
+  - Unique constraint on (`item_id`, `image_url`) - one description per image URL per item.  
+- **Video_Transcripts**:  
+  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `transcript` (text), `platform` (text: youtube, x, tiktok, instagram, reddit, etc.), `language` (text, default 'en'), `duration` (integer, seconds), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Purpose: Stores transcripts for videos from various platforms.  
+  - Unique constraint on `item_id` - one transcript per video item.  
 - **Spaces**:  
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `color` (text).  
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `description` (text, nullable), `color` (text, default '#007AFF'), `item_count` (integer, default 0), `order_index` (integer, nullable), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Note: `description` is an alternative field for `desc`; `item_count` is denormalized for performance; `order_index` enables custom space ordering.  
 - **Item_Spaces**:  
   - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).  
   - Purpose: Enables items to belong to multiple spaces (future-proof).  
 - **Item_Chats**:  
-  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `user_id` (UUID, FK to Users), `created_at` (timestamp).  
-  - Purpose: Dedicated table for item-based chat sessions.  
+  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `user_id` (UUID, FK to Users), `title` (text, nullable), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Purpose: Dedicated table for item-based chat sessions. `title` allows naming conversations; `updated_at` is auto-updated via trigger when messages are added.  
 - **Space_Chats**:  
-  - Fields: `id` (UUID, PK), `space_id` (UUID, FK to Spaces), `user_id` (UUID, FK to Users), `created_at` (timestamp).  
-  - Purpose: Dedicated table for space-based chat sessions.  
+  - Fields: `id` (UUID, PK), `space_id` (UUID, FK to Spaces), `user_id` (UUID, FK to Users), `title` (text, nullable), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Purpose: Dedicated table for space-based chat sessions. `title` allows naming conversations; `updated_at` is auto-updated via trigger when messages are added.  
 - **Chat_Messages**:  
-  - Fields: `id` (UUID, PK), `chat_id` (UUID, FK to Item_Chats or Space_Chats), `chat_type` (enum: item, space), `role` (enum: user, system, assistant), `content` (text), `created_at` (timestamp).  
-  - Purpose: Links to either `Item_Chats` or `Space_Chats` for clear relationships.  
+  - Fields: `id` (UUID, PK), `chat_id` (UUID, FK to Item_Chats or Space_Chats), `chat_type` (enum: item, space), `role` (enum: user, system, assistant), `content` (text), `metadata` (JSONB, default '{}'), `created_at` (timestamp).  
+  - Purpose: Links to either `Item_Chats` or `Space_Chats` for clear relationships. `metadata` stores AI model info, token usage, and timestamps.  
 - **Offline_Queue** (client-side, Legend-State, mirrored in Supabase):  
   - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `action_type` (enum: create_item, update_item, delete_item, create_capture), `payload` (JSONB), `created_at` (timestamp), `status` (enum: pending, synced, failed).  
   - JSONB `payload` examples:  
     - Create item: `{ "title": "...", "url": "...", "content_type": "bookmark" }`  
     - Update item: `{ "item_id": "...", "title": "...", "desc": "..." }`  
-  - Purpose: Tracks offline actions for reliable sync with Supabase.
+  - Purpose: Tracks offline actions for reliable sync with Supabase.  
+- **Performance Indexes**:  
+  - Items: `idx_items_user_id`, `idx_items_content_type`, `idx_items_created_at`, `idx_items_is_archived`, `idx_items_tags` (GIN on tags array).  
+  - Spaces: `idx_spaces_user_id`, `idx_spaces_user_order` (user_id, order_index).  
+  - Item_Spaces: `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.  
+  - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).  
+  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.  
+  - Image_Descriptions: `idx_image_descriptions_item_id`, `idx_image_descriptions_created_at`.  
+  - Offline_Queue: `idx_offline_queue_user_id`, `idx_offline_queue_status`.
 
 ## 4. UI/UX Requirements
 - **Navigation**:  
   - Expo Router for file-based navigation.  
-  - Bottom tab navigator: Home (Everything), Spaces, Settings.  
-  - Stack navigator for Space Detail, Capture (modal), and Chat (bottom sheet).  
-  - Item Detail uses expanding card animation (not modal) with hero transitions.  
+  - HeaderBar horizontally scrolls Space names to let user tap or swipe to change Everything Grid to specific Space grids
+  - Bottom tab navigator: Home (Everything), Chats.  
+  - Stack navigator for Capture (modal), and Chat (bottom sheet).  
+  - Item Detail uses expanding card animation (not modal) with hero transitions.
 - **Layouts**:  
-  - Mobile: Bottom tab bar; FAB for capture; expanding cards for item detail; modals for capture; bottom sheet for chat.  
-  - Tablet: Optional split-screen layout (e.g., spaces list + item grid).  
+  - Mobile: Filter Button; Bottom tab bar; FAB for capture; bottom sheet for item details, new item captures, item chats, settings; ContextMenu for Filter; Drawer for organizing Spaces and opening settings.   
+  - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
 - **Components**:  
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).  
-  - **SpaceCard**: Displays name, desc, color, item count.  
-  - **Modals**: Capture, New Space, Settings (dismiss via swipe or button).  
-  - **ExpandedItemView**: Full-screen card expansion with hero animation, gesture dismissal, and action buttons.  
-  - **Chat Bottom Sheet**: `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.  
+  - **Bottom Sheets**: Edxpanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.   
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.  
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
@@ -191,32 +210,132 @@
   - iOS Sharesheet: Limited accessibility due to `expo-share-extension` dynamic type scaling conflict (version as of Sep 2025); prioritize `accessibilityLabel` and `accessibilityHint` for buttons but defer full dynamic type support until resolved upstream.  
   - Test with VoiceOver/TalkBack for core flows (navigation, capture, item viewing).
 
-## 5. APIs & Endpoints
-- **Auth**:  
-  - `/auth/callback`: Handle magic link/OAuth redirect (Expo AuthSession for mobile).  
-- **Items**:  
-  - `GET/POST /api/items`: List, create, or search items (cached in Legend-State).  
-  - `POST /api/refresh-metadata`: Update item metadata (online only).  
-- **Capture**:  
-  - `POST /api/capture`: Create item from URL/text/image.  
-  - `POST /api/chrome-extension/save`: Extension-specific capture.  
-- **Chat**:  
-  - `POST /api/chat/initiate`: Start chat session (OpenAI, abstracted for future models).  
-  - `POST /api/chat/save`: Save chat message.  
-- **Metadata**:  
-  - `POST /api/extract-metadata`: General metadata extraction.  
-  - `POST /api/youtube-metadata`: YouTube-specific metadata.  
-  - `POST /api/refresh-metadata`: Refresh item metadata.  
-- **Tools**:  
-  - `POST /api/transcript`: Fetch YouTube transcript.  
-  - `POST /api/download-video`: Download video (store via Expo FileSystem).  
-  - `POST /api/get-download-url`: Get temporary download URL.  
-  - `POST /api/summarize-transcript`: Generate summary (OpenAI).  
-  - `POST /api/generate-tags`: Generate tags (OpenAI).  
-  - `GET /api/x-api-status`: Check X API rate limits.  
-- **Offline Handling**:  
-  - Queue API requests in Legend-State.  
-  - Retry on reconnect with exponential backoff (handled by Legend-State sync).
+## 5. APIs & Architecture
+The app uses an **offline-first architecture** with Supabase for backend data, direct client-side API calls for external services, and Legend-State for local state management.
+
+### 5.1 Authentication (`src/services/supabase.ts`)
+- **Supabase Auth SDK** - Direct SDK calls, no REST endpoints:
+  - `auth.signUp(email, password)` - Create new account
+  - `auth.signIn(email, password)` - Sign in with credentials
+  - `auth.signOut()` - Sign out user
+  - `auth.getSession()` - Get current session
+  - `auth.getCurrentUser()` - Get current user
+  - `auth.onAuthStateChange(callback)` - Listen for auth state changes
+- **OAuth Callbacks**: Handled via Expo AuthSession for mobile OAuth flows (`app/auth/callback.tsx`)
+
+### 5.2 Database Operations (`src/services/supabase.ts`)
+All data operations use **Supabase Client SDK** via the `db` helper object:
+
+- **Items**:
+  - `db.getItems(userId, limit, offset)` - Fetch user's items with metadata
+  - `db.searchItems(userId, query, limit, offset)` - Search items by title/content/tags
+  - `db.createItem(item)` - Create new item
+  - `db.updateItem(id, updates)` - Update item fields
+  - `db.deleteItem(id)` - Delete item
+  
+- **Spaces**:
+  - `db.getSpaces(userId)` - Fetch user's spaces with item counts
+  - `db.createSpace(space)` - Create new space
+  
+- **Video Transcripts**:
+  - `db.getVideoTranscript(itemId)` - Get transcript for item
+  - `db.getVideoTranscriptsByPlatform(platform)` - Get transcripts by platform (YouTube, X, etc.)
+  - `db.saveVideoTranscript(transcript)` - Save/upsert transcript
+  - `db.deleteVideoTranscript(itemId)` - Delete transcript
+  
+- **Image Descriptions**:
+  - `db.saveImageDescription(description)` - Save AI-generated image description
+  - `db.deleteImageDescription(itemId, imageUrl?)` - Delete image description(s)
+  
+- **Chat**:
+  - `db.getChatMessages(chatId, chatType)` - Get chat messages for item or space
+  - `db.createChatMessage(message)` - Save chat message
+
+### 5.3 Supabase Edge Functions
+- **`POST /functions/v1/extract-metadata`** (`supabase/functions/extract-metadata/index.ts`):
+  - General metadata extraction for URLs
+  - Request: `{ url: string, contentType?: string }`
+  - Response: `{ title, description, thumbnail_url, domain, author, published_date, content_type }`
+  - Supports: YouTube, Twitter/X, GitHub, generic web pages
+
+### 5.4 External APIs (Client-Side)
+All external API calls are made directly from the client (`src/services/` and `src/config/api.ts`):
+
+- **OpenAI API** (`src/services/openai.ts`):
+  - `openai.createChatCompletion(messages, options)` - Chat completions
+  - `openai.generateTags(content, contentType)` - Auto-generate tags
+  - `openai.summarizeContent(content, contentType)` - Generate summaries
+  - `openai.chatWithContext(context, userMessage, previousMessages)` - Context-aware chat
+  - `openai.chatWithContextEnhanced(...)` - Enhanced chat with metadata
+  - `openai.describeImage(imageUrl, options)` - Vision API for image descriptions
+  - `openai.fetchAvailableModels()` - Get available models
+
+- **Twitter/X API v2** (`src/services/twitter.ts`):
+  - `fetchTweetData(tweetId)` - Get tweet with author, metrics, media, quoted tweets
+  - `extractTweetId(url)` - Extract tweet ID from URL
+  - `getVideoUrlFromMetadata(metadata)` - Extract video URL from tweet
+  - `getXVideoTranscript(videoUrl, onProgress?)` - Transcribe X videos via AssemblyAI
+
+- **YouTube** (`src/services/youtube.ts`):
+  - Uses `youtubei.js` library (no API key required)
+  - `extractYouTubeData(url)` - Get video metadata (title, description, thumbnail, author, duration, view count)
+  - `getYouTubeTranscript(videoId)` - Get video transcript with language detection
+  - Supports regular videos and YouTube Shorts
+
+- **AssemblyAI API** (`src/services/assemblyai.ts`):
+  - `transcribeVideo(videoUrl, onProgress?)` - Transcribe video audio to text
+  - `submitTranscription(videoUrl)` - Submit video for transcription
+  - `getTranscriptionStatus(transcriptId)` - Poll transcription status
+  - Used for X/Twitter videos and other video content
+
+- **Instagram oEmbed API** (`src/services/instagram.ts`):
+  - `fetchInstagramData(url)` - Get post metadata via Meta's oEmbed endpoint
+  - `extractInstagramPostId(url)` - Extract post ID from URL
+  - Returns: caption, author, media info, embed HTML
+
+- **Reddit JSON API** (`src/services/reddit.ts`):
+  - `fetchRedditPostData(url)` - Get post data (no auth required)
+  - Returns: title, selftext, author, subreddit, images, videos, metrics, flair
+  - Supports: regular posts, gallery posts, video posts, share links
+
+- **Jina.ai URL Scraping** (`src/config/api.ts`):
+  - Configured for general URL content extraction
+  - Fallback for unsupported content types
+
+### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
+The app uses an **offline-first architecture** with automatic sync:
+
+- **Local Storage**: Legend-State stores backed by AsyncStorage
+  - Items, Spaces, ItemSpaces, ItemMetadata, ItemTypeMetadata, VideoTranscripts
+  - All data cached locally for offline access
+
+- **Sync Operations** (`syncService.ts`):
+  - `syncService.syncToCloud()` - Full bidirectional sync (spaces → items → metadata → transcripts)
+  - `syncService.uploadItem(item, userId)` - Upload single item
+  - `syncService.updateItem(itemId, updates)` - Update item online/offline
+  - `syncService.deleteItem(itemId)` - Delete item online/offline
+  - `syncService.uploadSpace(space, userId)` - Upload space
+  - `syncService.updateSpace(space)` - Update space
+  - `syncService.deleteSpace(spaceId)` - Delete space
+  - `syncService.addItemToSpace(itemId, spaceId)` - Create relationship
+  - `syncService.removeItemFromSpace(itemId, spaceId)` - Remove relationship
+  - `syncService.uploadVideoTranscript(transcript)` - Upload transcript
+  - `syncService.deleteVideoTranscript(itemId)` - Delete transcript
+
+- **Offline Queue** (`src/stores/offlineQueue.ts`):
+  - Queues all write operations when offline
+  - Automatically processes queue on reconnect
+  - Supports: create_item, update_item, delete_item, add_item_to_space, remove_item_from_space, save_video_transcript, delete_video_transcript
+
+- **Network Detection**:
+  - Periodic connection checks (every 30 seconds)
+  - Online/offline status tracking
+  - Automatic sync trigger when coming online
+
+- **Conflict Resolution**:
+  - Newest-wins strategy based on `updated_at` timestamps
+  - Bi-directional sync with merge logic
+  - Orphaned data cleanup utilities
 
 ## 6. Non-Functional Requirements
 - **Security**:  

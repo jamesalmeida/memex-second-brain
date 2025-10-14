@@ -3,7 +3,19 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-This is a React Native Expo application called "Memex: Second Brain" - a knowledge management app that allows users to save and organize various types of content (bookmarks, notes, images, etc.) into spaces/projects.
+This is a React Native Expo application called "Memex: Second Brain" - a knowledge management app that allows users to save and organize various types of content (bookmarks, notes, images, etc.) into spaces/projects so they can utilize AI to organize and absorb their saved items more efficiently and better filter out the noise from the content thats actually worth reading, watching, or listening to. 
+
+## PRD Document
+Refer to the PRD document found in `./docs/PRD.markdown` and update it as needed when we add, change, or remove something mentioned inside of the PRD.
+
+**Key PRD Sections:**
+- **Section 3**: Complete data models and Supabase schema
+- **Section 5**: APIs & Architecture - detailed documentation of:
+  - Authentication (Supabase Auth SDK)
+  - Database operations (Supabase Client SDK)
+  - Supabase Edge Functions
+  - External APIs (OpenAI, Twitter, YouTube, AssemblyAI, Instagram, Reddit)
+  - Sync service and offline handling 
 
 ## Key Commands
 ```bash
@@ -50,11 +62,27 @@ The app supports light/dark mode with:
 - All screens must implement both light and dark styles
 
 ### Database Schema
-The app uses Supabase PostgreSQL with:
-- `items` table: Stores all content items with fields like title, content, url, content_type, space_id
-- `spaces` table: Organizes items into projects/collections
-- Row Level Security (RLS) policies ensure users only access their own data
-- Offline queue system for syncing changes when reconnected
+The app uses Supabase PostgreSQL with an offline-first architecture. For complete schema details, see **PRD Section 3**.
+
+Key tables: `items`, `spaces`, `item_spaces`, `item_metadata`, `item_type_metadata`, `video_transcripts`, `image_descriptions`, `chat_messages`, `item_chats`, `space_chats`.
+
+All operations use the Supabase Client SDK via `src/services/supabase.ts` - see **PRD Section 5.2** for complete API documentation.
+
+### API Architecture
+The app uses an **offline-first architecture**. For complete details, see **PRD Section 5**.
+
+**Key services** (`src/services/`):
+- `supabase.ts` - Database operations via Supabase Client SDK
+- `syncService.ts` - Offline sync, queue management, conflict resolution
+- `openai.ts` - Chat completions, tag generation, image descriptions
+- `youtube.ts` - Video metadata and transcripts via youtubei.js
+- `twitter.ts` - Tweet data via Twitter API v2
+- `assemblyai.ts` - Video transcription for X/Twitter videos
+- `instagram.ts` - Post metadata via Meta oEmbed API
+- `reddit.ts` - Post data via Reddit JSON API
+- `metadata.ts` - General URL metadata extraction
+
+**Supabase Edge Functions**: `extract-metadata` for general URL scraping
 
 ### Navigation Structure
 Using Expo Router with file-based routing:
@@ -103,6 +131,7 @@ Required in `.env` or `.env.local`:
 - `EXPO_PUBLIC_X_ACCESS_TOKEN`
 - `EXPO_PUBLIC_X_ACCESS_TOKEN_SECRET`
 - `EXPO_PUBLIC_ASSEMBLYAI_API_KEY`
+- `EXPO_PUBLIC_META_ACCESS_TOKEN` (for Instagram oEmbed API)
 
 ## Testing Considerations
 - Test both light and dark modes
