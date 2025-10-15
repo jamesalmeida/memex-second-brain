@@ -25,12 +25,12 @@ const SpaceChatSheet = observer(
     useImperativeHandle(ref, () => ({
       openWithSpace: (name: string) => {
         setSpaceName(name);
-        bottomSheetRef.current?.snapToIndex(0);
+        bottomSheetRef.current?.snapToIndex(1);
       },
       close: () => bottomSheetRef.current?.close(),
     }));
 
-    const snapPoints = useMemo(() => ['90%'], []);
+    const snapPoints = useMemo(() => ['100%'], []);
 
     const renderBackdrop = useCallback(
       (props: any) => (
