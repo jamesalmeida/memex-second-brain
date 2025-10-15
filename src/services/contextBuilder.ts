@@ -1,4 +1,6 @@
-import { Item, ContentType } from '../types';
+import { Item, ContentType, Space } from '../types';
+import { itemsStore } from '../stores/items';
+import { itemSpacesComputed } from '../stores/itemSpaces';
 import { videoTranscriptsComputed } from '../stores/videoTranscripts';
 import { imageDescriptionsComputed } from '../stores/imageDescriptions';
 import { itemMetadataComputed } from '../stores/itemMetadata';
@@ -209,6 +211,76 @@ export const buildItemContext = (item: Item): ContextResult => {
       hasTranscript,
       hasImageDescriptions,
       contentType: item.content_type,
+    },
+  };
+};
+
+/**
+ * Builds an aggregated context string for a space by concatenating context from its items
+ * Limits the number of items and total characters to keep prompts reasonable
+ */
+export const buildSpaceContext = (
+  space: Space,
+  options?: { maxItems?: number; maxChars?: number }
+): ContextResult => {
+  const maxItems = options?.maxItems ?? 10;
+  const maxChars = options?.maxChars ?? 15000;
+
+  const includedFields: string[] = ['space'];
+  const contextParts: string[] = [];
+
+  // Header
+  const now = new Date();
+  contextParts.push(`Current Date/Time: ${now.toISOString()}`);
+  contextParts.push(`Space: ${space.name}`);
+  if (space.description || space.desc) {
+    contextParts.push(`Space Description: ${space.description || space.desc}`);
+    includedFields.push('space_description');
+  }
+  contextParts.push('');
+
+  // Resolve items in space
+  const itemIds = itemSpacesComputed.getItemIdsInSpace(space.id);
+  const allItems = itemsStore.items.get();
+  const itemsInSpace: Item[] = allItems.filter(i => itemIds.includes(i.id));
+
+  contextParts.push(`Items in Space: ${itemsInSpace.length}`);
+  contextParts.push('');
+
+  let totalChars = contextParts.join('\n').length;
+  let used = 0;
+
+  for (const item of itemsInSpace) {
+    if (used >= maxItems || totalChars >= maxChars) break;
+
+    const { contextString, metadata } = buildItemContext(item);
+    const sectionHeader = `\n=== Item ${used + 1}: ${item.title} (${item.content_type}) ===\n`;
+    const section = sectionHeader + contextString + '\n=== End Item ===\n';
+
+    if (totalChars + section.length > maxChars) break;
+
+    contextParts.push(section);
+    totalChars += section.length;
+    used += 1;
+    includedFields.push(...metadata.includedFields);
+  }
+
+  if (itemsInSpace.length > used) {
+    contextParts.push(`\n[Context truncated: included ${used}/${itemsInSpace.length} items due to size limits]`);
+  }
+
+  const contextString = contextParts.join('\n');
+  const wordCount = contextString.split(/\s+/).length;
+
+  return {
+    contextString,
+    metadata: {
+      includedFields,
+      wordCount,
+      hasTranscript: false,
+      hasImageDescriptions: false,
+      // Not item-specific; set to 'note' as a neutral value is not ideal. Consumers should ignore contentType for space context
+      contentType: 'note' as ContentType,
     },
   };
 };

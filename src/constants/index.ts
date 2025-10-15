@@ -107,6 +107,7 @@ export const STORAGE_KEYS = {
   AI_SETTINGS: '@memex_ai_settings',
   AI_MODELS: '@memex_ai_models',
   ITEM_CHATS: '@memex_item_chats',
+  SPACE_CHATS: '@memex_space_chats',
   CHAT_MESSAGES: '@memex_chat_messages',
   FILTERS: '@memex_filters',
 };

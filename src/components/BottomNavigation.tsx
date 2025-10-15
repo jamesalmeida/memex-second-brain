@@ -9,11 +9,12 @@ import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
 import { filterStore, filterActions } from '../stores/filter';
 import { COLORS, CONTENT_TYPES } from '../constants';
+import { spacesComputed } from '../stores/spaces';
 import { ContentType } from '../types';
 
 interface BottomNavigationProps {
-  currentView: 'everything' | 'spaces';
-  onViewChange: (view: 'everything' | 'spaces') => void;
+  currentView: 'everything' | 'spaceChat';
+  onViewChange: (view: 'everything' | 'spaceChat') => void;
   onSettingsPress: () => void;
   onAddPress: () => void;
   visible?: boolean;
@@ -31,6 +32,7 @@ const BottomNavigation = observer(({
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
+  const selectedSpace = spacesComputed.selectedSpace();
 
   // Placeholder tags
   const placeholderTags = ['Important', 'Work', 'Personal', 'Learning', 'To Review'];
@@ -152,29 +154,33 @@ const BottomNavigation = observer(({
               console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
             }}
           >
-            <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
-            <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
+            <Icon src={<VectorIcon family={MaterialIcons} name={selectedSpace ? 'folder' : 'grid-view'} />} selectedColor={COLORS.warning} />
+            <Label selectedStyle={{ color: COLORS.warning }}>{
+              selectedSpace
+                ? (selectedSpace.name.length > 16 ? `${selectedSpace.name.slice(0, 14)}…` : selectedSpace.name)
+                : 'Everything'
+            }</Label>
           </NativeTabs.Trigger>
 
           <NativeTabs.Trigger
-            name="spaces"
+            name="spaceChat"
             onPress={() => {
               const timestamp = new Date().toISOString();
-              console.log('📱 [BottomNav] Spaces tab pressed at:', timestamp);
-              onViewChange('spaces');
+              console.log('📱 [BottomNav] SpaceChat tab pressed at:', timestamp);
+              onViewChange('spaceChat');
             }}
             onTouchStart={(e) => {
               const timestamp = new Date().toISOString();
-              console.log('👆 [BottomNav] Spaces tab TOUCH START at:', timestamp);
+              console.log('👆 [BottomNav] SpaceChat tab TOUCH START at:', timestamp);
               console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
             }}
             onTouchEnd={(e) => {
               const timestamp = new Date().toISOString();
-              console.log('👆 [BottomNav] Spaces tab TOUCH END at:', timestamp);
+              console.log('👆 [BottomNav] SpaceChat tab TOUCH END at:', timestamp);
             }}
           >
-            <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />
-            <Label selectedStyle={{ color: COLORS.warning }}>Spaces</Label>
+            <Icon src={<VectorIcon family={MaterialIcons} name="forum" />} selectedColor={COLORS.warning} />
+            <Label selectedStyle={{ color: COLORS.warning }}>Space Chat</Label>
           </NativeTabs.Trigger>
         </NativeTabs>
       )}

@@ -18,7 +18,7 @@ import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/
 import ChatSheet from '../../src/components/ChatSheet';
 import FilterSheet from '../../src/components/FilterSheet';
 import HomeScreen from './index';
-import SpacesScreen from './spaces';
+import SpaceChatScreen from './spaceChat';
 import { Item } from '../../src/types';
 import { itemsActions } from '../../src/stores/items';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
@@ -32,7 +32,7 @@ const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
+  const [currentView, setCurrentView] = useState<'everything' | 'spaceChat'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
@@ -210,7 +210,7 @@ const TabLayout = observer(() => {
         setIsSettingsOpen(false);
       }
       // Show different sheet based on current view
-      if (currentView === 'spaces' && !currentSpaceId) {
+      if (currentView === 'spaceChat' && !currentSpaceId) {
         createSpaceSheetRef.current?.snapToIndex(0);
       } else {
         // Determine which space to pre-select
@@ -228,7 +228,7 @@ const TabLayout = observer(() => {
     }
   };
 
-  const handleViewChange = (view: 'everything' | 'spaces') => {
+  const handleViewChange = (view: 'everything' | 'spaceChat') => {
     console.log('🏠🏠🏠 handleViewChange called - setting currentView to:');
     // Close any open sheets when switching views
     if (isAddSheetOpen) {
@@ -328,9 +328,9 @@ const TabLayout = observer(() => {
                   />
                 </View>
 
-                {/* Spaces View */}
-                <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
-                  <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+                {/* Space Chat View */}
+                <View style={styles.viewContainer} pointerEvents={currentView === 'spaceChat' ? 'auto' : 'none'}>
+                  <SpaceChatScreen />
                 </View>
               </Animated.View>
             </GestureDetector>

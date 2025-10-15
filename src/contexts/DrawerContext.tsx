@@ -20,8 +20,8 @@ interface DrawerContextType {
   registerNavigateToEverythingHandler: (handler: () => void) => void;
   onReorderSpacesPress: () => void;
   registerReorderSpacesHandler: (handler: () => void) => void;
-  currentView: 'everything' | 'spaces' | null;
-  setCurrentView: (view: 'everything' | 'spaces') => void;
+  currentView: 'everything' | 'spaces' | 'spaceChat' | null;
+  setCurrentView: (view: 'everything' | 'spaces' | 'spaceChat') => void;
 }
 
 const DrawerContext = createContext<DrawerContextType | null>(null);
@@ -64,7 +64,7 @@ interface DrawerProviderProps {
 export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDrawerVisible, setIsDrawerVisible] = useState(true); // For iPad persistent drawer
-  const [currentView, setCurrentView] = useState<'everything' | 'spaces' | null>(null);
+  const [currentView, setCurrentView] = useState<'everything' | 'spaces' | 'spaceChat' | null>(null);
   const drawerRef = useRef<any>(null);
   const settingsHandlerRef = useRef<(() => void) | null>(null);
   const createSpaceHandlerRef = useRef<(() => void) | null>(null);

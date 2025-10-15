@@ -8,7 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,6 +36,8 @@ import { getXVideoTranscript } from '../services/twitter';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
 import uuid from 'react-native-uuid';
+import ChatMessagesList from './chat/ChatMessagesList';
+import ChatInputBar from './chat/ChatInputBar';
 
 interface ChatSheetProps {
   onOpen?: () => void;
@@ -485,7 +487,6 @@ const ChatSheet = observer(
           {/* Messages */}
           <BottomSheetScrollView
             ref={scrollViewRef as any}
-            contentContainerStyle={styles.messagesContainer}
             showsVerticalScrollIndicator={false}
           >
             {renderSystemMessage()}
@@ -537,49 +538,23 @@ const ChatSheet = observer(
               </View>
             )}
 
-            {messages.map((msg, idx) => renderMessage(msg, idx))}
-
-            {isTyping && renderTypingIndicator()}
-
-            <View style={{ height: 20 }} />
+            <ChatMessagesList
+              isDarkMode={isDarkMode}
+              messages={messages}
+              isTyping={isTyping}
+              scrollRef={scrollViewRef as any}
+            />
           </BottomSheetScrollView>
 
           {/* Input Bar */}
-          <View
-            style={[
-              styles.inputContainer,
-              isDarkMode && styles.inputContainerDark,
-              { paddingBottom: insets.bottom || 10 },
-            ]}
-          >
-            <BottomSheetTextInput
-              style={[
-                styles.input,
-                isDarkMode && styles.inputDark,
-              ]}
-              placeholder="Ask a question..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={1000}
-              editable={!isTyping}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                ((!inputText.trim() || isTyping || !chat) && styles.sendButtonDisabled),
-              ]}
-              onPress={handleSend}
-              disabled={!inputText.trim() || isTyping || !chat}
-            >
-              {isTyping ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <MaterialIcons name="send" size={20} color="#fff" />
-              )}
-            </TouchableOpacity>
-          </View>
+          <ChatInputBar
+            isDarkMode={isDarkMode}
+            inputText={inputText}
+            setInputText={setInputText}
+            isTyping={isTyping}
+            onSend={handleSend}
+            useBottomSheetInput
+          />
         </View>
       </BottomSheet>
     );
