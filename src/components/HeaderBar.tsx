@@ -20,6 +20,9 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
   const isDarkMode = themeStore.isDarkMode.get();
   const scrollRef = useRef<ScrollView>(null);
   const [tabLayouts, setTabLayouts] = useState<{ x: number; width: number }[]>([]);
+  const [scrollViewWidth, setScrollViewWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const [filterAreaWidth, setFilterAreaWidth] = useState(0);
 
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
@@ -36,10 +39,15 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
     if (!scrollRef.current || tabLayouts.length === 0 || selectedIndex < 0) return;
     const layout = tabLayouts[selectedIndex];
     if (!layout) return;
-    // Center the selected tab if possible
-    const targetX = Math.max(layout.x - 40, 0);
-    scrollRef.current.scrollTo({ x: targetX, animated: true });
-  }, [selectedIndex, tabLayouts]);
+    if (scrollViewWidth <= 0) return;
+
+    // Visual center of the entire header bar projected into the ScrollView's coordinate space
+    const centerWithinScroll = Math.max(scrollViewWidth / 2 - filterAreaWidth / 2, 0);
+    const desiredX = layout.x + layout.width / 2 - centerWithinScroll;
+    const maxScrollX = Math.max(contentWidth - scrollViewWidth, 0);
+    const clampedX = Math.max(0, Math.min(desiredX, maxScrollX));
+    scrollRef.current.scrollTo({ x: clampedX, animated: true });
+  }, [selectedIndex, tabLayouts, scrollViewWidth, contentWidth, filterAreaWidth]);
 
   const handleLayout = (index: number, x: number, width: number) => {
     setTabLayouts(prev => {
@@ -51,7 +59,7 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }, isDarkMode && styles.containerDark]}>
-      <View style={styles.filterButtonContainer}>
+      <View style={styles.filterButtonContainer} onLayout={e => setFilterAreaWidth(e.nativeEvent.layout.width)}>
         <Host style={{ width: 40, height: 40 }}>
           <ContextMenu>
             <ContextMenu.Trigger>
@@ -134,6 +142,8 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabsContainer}
         style={styles.tabsScroll}
+        onLayout={e => setScrollViewWidth(e.nativeEvent.layout.width)}
+        onContentSizeChange={(w) => setContentWidth(w)}
       >
         {tabs.map((label, index) => {
           const isSelected = index === selectedIndex;
