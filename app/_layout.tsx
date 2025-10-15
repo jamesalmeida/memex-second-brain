@@ -94,6 +94,7 @@ const RootLayoutContent = observer(() => {
       }}
       swipeEnabled={true}
       swipeEdgeWidth={swipeEdgeWidth}
+      drawerAnimationDuration={150}
       renderDrawerContent={() => {
         console.log('🎨 [RootLayout] renderDrawerContent called');
         return <DrawerContentView onClose={closeDrawer} />;
