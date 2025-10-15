@@ -8,6 +8,7 @@ import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { expandedItemUIStore } from '../../stores/expandedItemUI';
 import { Item } from '../../types';
 import { formatDate, extractUsername } from '../../utils/itemCardHelpers';
+import { itemMetadataComputed } from '../../stores/itemMetadata';
 import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -59,10 +60,12 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
   const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
-  const username = extractUsername(item);
+  const metadataForItem = itemMetadataComputed.getMetadataForItem(item.id);
+  const username = metadataForItem?.username || extractUsername(item);
 
-  // Tweet text content (prefer desc over title for X posts)
-  const tweetText = item.desc || item.title;
+  // Tweet text content (prefer post_content over desc/title for X posts)
+  // @ts-ignore post_content may not exist in Item type locally yet
+  const tweetText = (item as any).post_content || item.desc || item.title;
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
