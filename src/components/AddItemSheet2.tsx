@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import uuid from 'react-native-uuid';
@@ -25,7 +25,7 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
   const [isSaving, setIsSaving] = useState(false);
   const [savedUI, setSavedUI] = useState<{ visible: boolean; title?: string } | null>(null);
 
-  const snapPoints = useMemo(() => ['50%'], []);
+  const snapPoints = useMemo(() => ['30%', '70%'], []);
 
   useImperativeHandle(ref, () => ({
     snapToIndex: (index: number) => bottomSheetRef.current?.snapToIndex(index),
@@ -102,6 +102,7 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
       backgroundStyle={[styles.sheetBackground, isDarkMode && styles.sheetBackgroundDark]}
       handleIndicatorStyle={[styles.handleIndicator, isDarkMode && styles.handleIndicatorDark]}
       keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
+      keyboardBlurBehavior="restore"
       onChange={(index) => {
         if (index === -1) {
           onClose?.();
@@ -140,12 +141,13 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
         ) : (
           <View style={styles.section}>
             <View style={styles.inputContainer}>
-              <TextInput
+              <BottomSheetTextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
                 placeholder="Paste a link or type a note"
                 placeholderTextColor={isDarkMode ? '#666' : '#999'}
                 value={input}
                 onChangeText={setInput}
+                onFocus={() => bottomSheetRef.current?.expand()}
                 autoCapitalize="none"
                 autoCorrect={false}
                 multiline
