@@ -1,21 +1,20 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
-import { Host, ZStack, Image, ContextMenu, Button, Submenu, Switch } from '@expo/ui/swift-ui';
+import { Host, ZStack, Image } from '@expo/ui/swift-ui';
 import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
-import { filterStore, filterActions } from '../stores/filter';
-import { COLORS, CONTENT_TYPES } from '../constants';
-import { ContentType } from '../types';
+import { COLORS } from '../constants';
 
 interface BottomNavigationProps {
   currentView: 'everything' | 'spaces';
   onViewChange: (view: 'everything' | 'spaces') => void;
   onSettingsPress: () => void;
   onAddPress: () => void;
+  onMenuPress?: () => void;
   visible?: boolean;
 }
 
@@ -24,23 +23,20 @@ const BottomNavigation = observer(({
   onViewChange,
   onSettingsPress,
   onAddPress,
+  onMenuPress,
   visible = true,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
-  const sortOrder = filterStore.sortOrder.get();
-  const selectedContentType = filterStore.selectedContentType.get();
-  const selectedTags = filterStore.selectedTags.get();
-
-  // Placeholder tags
-  const placeholderTags = ['Important', 'Work', 'Personal', 'Learning', 'To Review'];
 
   // if (!visible) return null;
+
+  const textColor = isDarkMode ? '#FFFFFF' : '#000000';
 
   return (
     <>
       {/* Liquid Glass Action Buttons */}
-      {/* Filter Menu Button - Bottom Left */}
+      {/* Hamburger Menu Button - Bottom Left */}
       <View
         style={[
           styles.glassButtonHost,
@@ -49,79 +45,28 @@ const BottomNavigation = observer(({
         ]}
       >
         <Host style={{ width: 60, height: 60 }}>
-          <ContextMenu>
-            <ContextMenu.Trigger>
-              <ZStack
-                modifiers={[
-                  frame({ width: 60, height: 60 }),
-                  glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' })
-                ]}
-              >
-                <Image
-                  systemName="line.3.horizontal.decrease"
-                  size={24}
-                  color={'gray'}
-                />
-              </ZStack>
-            </ContextMenu.Trigger>
-
-            <ContextMenu.Items>
-              {/* Reset All Filters */}
-              <Button onPress={() => filterActions.clearAll()}>
-                Reset
-              </Button>
-
-              {/* Sort Section */}
-              <Button onPress={() => filterActions.setSortOrder('recent')}>
-                {sortOrder === 'recent' ? '✓ Recently Added' : 'Recently Added'}
-              </Button>
-              <Button onPress={() => filterActions.setSortOrder('oldest')}>
-                {sortOrder === 'oldest' ? '✓ Oldest First' : 'Oldest First'}
-              </Button>
-
-              {/* Type Submenu - Single selection with Buttons */}
-              <Submenu button={<Button>Type</Button>}>
-                {(Object.keys(CONTENT_TYPES) as ContentType[]).map((contentType) => {
-                  const isSelected = selectedContentType === contentType;
-                  const config = CONTENT_TYPES[contentType];
-                  return (
-                    <Button
-                      key={contentType}
-                      onPress={() => filterActions.selectContentType(contentType)}
-                    >
-                      {isSelected ? `✓ ${config.label}` : config.label}
-                    </Button>
-                  );
-                })}
-                {selectedContentType !== null && (
-                  <Button onPress={() => filterActions.clearContentType()}>
-                    Clear
-                  </Button>
-                )}
-              </Submenu>
-
-              {/* Tags Submenu - Multi-selection with Switches to keep menu open */}
-              <Submenu button={<Button>Tags</Button>}>
-                {placeholderTags.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
-                    <Switch
-                      key={tag}
-                      variant="checkbox"
-                      label={tag}
-                      value={isSelected}
-                      onValueChange={() => filterActions.toggleTag(tag)}
-                    />
-                  );
-                })}
-                {selectedTags.length > 0 && (
-                  <Button onPress={() => filterActions.clearTags()}>
-                    Clear All
-                  </Button>
-                )}
-              </Submenu>
-            </ContextMenu.Items>
-          </ContextMenu>
+          <ZStack
+            modifiers={[
+              frame({ width: 60, height: 60 }),
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
+              onTapGesture(() => {
+                console.log('📌 [BottomNav] Hamburger button pressed');
+                console.log('📌 [BottomNav] onMenuPress exists?', !!onMenuPress);
+                if (onMenuPress) {
+                  console.log('📌 [BottomNav] Calling onMenuPress()');
+                  onMenuPress();
+                } else {
+                  console.log('❌ [BottomNav] onMenuPress is undefined!');
+                }
+              })
+            ]}
+          >
+            {/* Hamburger icon using two lines */}
+            <View style={styles.hamburgerContainer}>
+              <View style={[styles.menuLine, { backgroundColor: textColor }]} />
+              <View style={[styles.menuLineShort, { backgroundColor: textColor }]} />
+            </View>
+          </ZStack>
         </Host>
       </View>
 
@@ -215,6 +160,21 @@ const styles = StyleSheet.create({
   },
   rightButton: {
     right: 30,
+  },
+  hamburgerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuLine: {
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+  },
+  menuLineShort: {
+    width: 12,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 6,
   },
 });
 

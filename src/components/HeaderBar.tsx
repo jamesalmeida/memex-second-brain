@@ -2,22 +2,31 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Host, ZStack, Image, ContextMenu, Button, Submenu, Switch } from '@expo/ui/swift-ui';
+import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
+import { filterStore, filterActions } from '../stores/filter';
+import { COLORS, CONTENT_TYPES } from '../constants';
+import { ContentType } from '../types';
 
 interface HeaderBarProps {
   tabs: string[];
   selectedIndex: number;
   onTabPress: (index: number) => void;
-  onMenuPress?: () => void;
 }
 
-const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, onMenuPress }: HeaderBarProps) => {
-  console.log('📌 [HeaderBar] Component rendered, onMenuPress:', typeof onMenuPress, 'value:', onMenuPress);
-
+const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps) => {
   const insets = useSafeAreaInsets();
   const isDarkMode = themeStore.isDarkMode.get();
   const scrollRef = useRef<ScrollView>(null);
   const [tabLayouts, setTabLayouts] = useState<{ x: number; width: number }[]>([]);
+
+  const sortOrder = filterStore.sortOrder.get();
+  const selectedContentType = filterStore.selectedContentType.get();
+  const selectedTags = filterStore.selectedTags.get();
+
+  // Placeholder tags
+  const placeholderTags = ['Important', 'Work', 'Personal', 'Learning', 'To Review'];
 
   const underlineColor = isDarkMode ? '#FFFFFF' : '#000000';
   const textColor = isDarkMode ? '#FFFFFF' : '#000000';
@@ -42,26 +51,83 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, onMenuPress }: He
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }, isDarkMode && styles.containerDark]}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="Open menu"
-        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        onPress={() => {
-          console.log('📌 [HeaderBar] Hamburger button pressed');
-          console.log('📌 [HeaderBar] onMenuPress exists?', !!onMenuPress);
-          if (onMenuPress) {
-            console.log('📌 [HeaderBar] Calling onMenuPress()');
-            onMenuPress();
-          } else {
-            console.log('❌ [HeaderBar] onMenuPress is undefined!');
-          }
-        }}
-        style={styles.menuButton}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.menuLine, { backgroundColor: textColor }]} />
-        <View style={[styles.menuLineShort, { backgroundColor: textColor }]} />
-      </TouchableOpacity>
+      <View style={styles.filterButtonContainer}>
+        <Host style={{ width: 40, height: 40 }}>
+          <ContextMenu>
+            <ContextMenu.Trigger>
+              <ZStack
+                modifiers={[
+                  frame({ width: 40, height: 40 }),
+                  glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' })
+                ]}
+              >
+                <Image
+                  systemName="line.3.horizontal.decrease"
+                  size={20}
+                  color={'gray'}
+                />
+              </ZStack>
+            </ContextMenu.Trigger>
+
+            <ContextMenu.Items>
+              {/* Reset All Filters */}
+              <Button onPress={() => filterActions.clearAll()}>
+                Reset
+              </Button>
+
+              {/* Sort Section */}
+              <Button onPress={() => filterActions.setSortOrder('recent')}>
+                {sortOrder === 'recent' ? '✓ Recently Added' : 'Recently Added'}
+              </Button>
+              <Button onPress={() => filterActions.setSortOrder('oldest')}>
+                {sortOrder === 'oldest' ? '✓ Oldest First' : 'Oldest First'}
+              </Button>
+
+              {/* Type Submenu - Single selection with Buttons */}
+              <Submenu button={<Button>Type</Button>}>
+                {(Object.keys(CONTENT_TYPES) as ContentType[]).map((contentType) => {
+                  const isSelected = selectedContentType === contentType;
+                  const config = CONTENT_TYPES[contentType];
+                  return (
+                    <Button
+                      key={contentType}
+                      onPress={() => filterActions.selectContentType(contentType)}
+                    >
+                      {isSelected ? `✓ ${config.label}` : config.label}
+                    </Button>
+                  );
+                })}
+                {selectedContentType !== null && (
+                  <Button onPress={() => filterActions.clearContentType()}>
+                    Clear
+                  </Button>
+                )}
+              </Submenu>
+
+              {/* Tags Submenu - Multi-selection with Switches to keep menu open */}
+              <Submenu button={<Button>Tags</Button>}>
+                {placeholderTags.map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <Switch
+                      key={tag}
+                      variant="checkbox"
+                      label={tag}
+                      value={isSelected}
+                      onValueChange={() => filterActions.toggleTag(tag)}
+                    />
+                  );
+                })}
+                {selectedTags.length > 0 && (
+                  <Button onPress={() => filterActions.clearTags()}>
+                    Clear All
+                  </Button>
+                )}
+              </Submenu>
+            </ContextMenu.Items>
+          </ContextMenu>
+        </Host>
+      </View>
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -110,24 +176,13 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     paddingRight: 12,
   },
-  menuButton: {
+  filterButtonContainer: {
     paddingLeft: 12,
     paddingRight: 10,
     paddingVertical: 20,
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginBottom: 2,
-  },
-  menuLine: {
-    width: 20,
-    height: 2,
-    borderRadius: 1,
-  },
-  menuLineShort: {
-    width: 12,
-    height: 2,
-    borderRadius: 1,
-    marginTop: 6,
   },
   tabButton: {
     paddingHorizontal: 10,
