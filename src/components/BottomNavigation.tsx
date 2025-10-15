@@ -61,10 +61,11 @@ const BottomNavigation = observer(({
               })
             ]}
           >
-            {/* Hamburger icon using two lines */}
+            {/* Hamburger icon using three lines */}
             <View style={styles.hamburgerContainer}>
               <View style={[styles.menuLine, { backgroundColor: textColor }]} />
-              <View style={[styles.menuLineShort, { backgroundColor: textColor }]} />
+              <View style={[styles.menuLine, { backgroundColor: textColor, marginTop: 5 }]} />
+              <View style={[styles.menuLine, { backgroundColor: textColor, marginTop: 5 }]} />
             </View>
           </ZStack>
         </Host>
@@ -164,17 +165,13 @@ const styles = StyleSheet.create({
   hamburgerContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    width: 60,
+    height: 60,
   },
   menuLine: {
     width: 20,
     height: 2,
     borderRadius: 1,
-  },
-  menuLineShort: {
-    width: 12,
-    height: 2,
-    borderRadius: 1,
-    marginTop: 6,
   },
 });
 
