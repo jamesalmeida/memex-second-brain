@@ -10,7 +10,7 @@ import { itemsActions } from '../stores/items';
 import { authComputed } from '../stores/auth';
 import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
-import { parseUrlWithLinkedom } from '../services/linkedomParser';
+import { runPipeline } from '../services/pipeline/runPipeline';
 
 interface AddItemSheet2Props {
   onOpen?: () => void;
@@ -80,16 +80,8 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
       setSavedUI({ visible: true, title: provisionalTitle });
       Keyboard.dismiss();
 
-      // Parse in background and update item when done
-      parseUrlWithLinkedom(url)
-        .then(async (parsed) => {
-          await itemsActions.updateItemWithSync(id, {
-            title: parsed.title || newItem.title,
-            desc: parsed.description || undefined,
-            thumbnail_url: parsed.image || undefined,
-            content: parsed.html,
-          });
-        })
+      // Run the numbered pipeline (detect type, parse, enrich)
+      runPipeline({ itemId: id, url })
         .catch(() => {})
         .finally(() => {
           processingItemsActions.remove(id);
