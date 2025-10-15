@@ -7,6 +7,8 @@ import MovieTVItemCard from './MovieTVItemCard';
 import RedditItemCard from './RedditItemCard';
 import ProductItemCard from './ProductItemCard';
 import DefaultItemCard from './DefaultItemCard';
+import ProcessingItemCard from './ProcessingItemCard';
+import { processingItemsComputed } from '../../stores/processingItems';
 import NoteItemCard from './NoteItemCard';
 
 interface ItemCardProps {
@@ -16,6 +18,9 @@ interface ItemCardProps {
 }
 
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
+  if (processingItemsComputed.isProcessing(item.id)) {
+    return <ProcessingItemCard title={item.title} />;
+  }
   switch (item.content_type) {
     case 'note':
       return <NoteItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;

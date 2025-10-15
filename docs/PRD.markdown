@@ -302,6 +302,16 @@ All external API calls are made directly from the client (`src/services/` and `s
   - Configured for general URL content extraction
   - Fallback for unsupported content types
 
+### 5.6 Client-side URL Parsing (Linkedom)
+- For basic saves on mobile, the app fetches the target URL directly on-device and parses HTML using `linkedom` (`src/services/linkedomParser.ts`).
+- Extracted fields:
+  - title → stored in `items.title`
+  - description → stored in `items.desc`
+  - lead image → stored in `items.thumbnail_url`
+  - full HTML → stored in `items.content` (for offline viewing)
+- This reduces reliance on AI for simple metadata and speeds up saves.
+- If a site blocks fetch or lacks metadata, we save a minimal item and skip enrichment. Premium AI enrichments remain available but are not invoked for basic saves.
+
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
 The app uses an **offline-first architecture** with automatic sync:
 
