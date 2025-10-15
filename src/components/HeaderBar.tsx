@@ -178,11 +178,11 @@ const styles = StyleSheet.create({
   },
   filterButtonContainer: {
     paddingLeft: 12,
-    paddingRight: 10,
-    paddingVertical: 20,
+    paddingRight: 5,
+    paddingVertical: 5,
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   tabButton: {
     paddingHorizontal: 10,
