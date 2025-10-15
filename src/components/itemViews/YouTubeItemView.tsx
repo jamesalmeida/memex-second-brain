@@ -26,6 +26,7 @@ import { spacesStore, spacesActions } from '../../stores/spaces';
 import { itemsStore, itemsActions } from '../../stores/items';
 import { itemSpacesComputed, itemSpacesActions } from '../../stores/itemSpaces';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemMetadataComputed } from '../../stores/itemMetadata';
 import { aiSettingsComputed } from '../../stores/aiSettings';
 import { Item, ContentType } from '../../types';
 import { supabase } from '../../services/supabase';
@@ -492,9 +493,25 @@ const YouTubeItemView = observer(({
           )}
           <View style={styles.metaItem}>
             <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-              {formatDate(itemToDisplay?.created_at || '')}
+              {formatDate((itemMetadataComputed.getMetadataForItem(itemToDisplay.id)?.published_date as string) || itemToDisplay?.created_at || '')}
             </Text>
           </View>
+          {/* Channel link */}
+          {(() => {
+            const typeMeta = itemTypeMetadataComputed.getTypeMetadataForItem(itemToDisplay.id);
+            const channelName = (typeMeta?.data as any)?.channel_name;
+            const channelUrl = (typeMeta?.data as any)?.channel_url;
+            if (!channelName || !channelUrl) return null;
+            return (
+              <TouchableOpacity
+                style={styles.metaItem}
+                onPress={() => Linking.openURL(channelUrl)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.metaLabel, { color: '#007AFF' }]}>{channelName}</Text>
+              </TouchableOpacity>
+            );
+          })()}
         </View>
 
         {/* Description (inline editable) */}

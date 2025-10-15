@@ -1,6 +1,8 @@
 import type { Step } from '../types';
 import { itemsStore, itemsActions } from '../../../stores/items';
 import { extractYouTubeData } from '../../../services/youtube';
+import { itemMetadataActions } from '../../../stores/itemMetadata';
+import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
 
 export const Step03EnrichYouTube: Step = async ({ itemId, url }) => {
   const item = itemsStore.items.get().find(i => i.id === itemId);
@@ -12,6 +14,34 @@ export const Step03EnrichYouTube: Step = async ({ itemId, url }) => {
     desc: data.description || item.desc,
     thumbnail_url: data.thumbnail || item.thumbnail_url,
     content_type: data.isShort ? 'youtube_short' : 'youtube',
+    // optional: mirror original posted date into items if column exists
+    // @ts-ignore
+    posted_at: (data as any).publishedAt || undefined,
+  });
+
+  // Persist cross-type metadata (author, published date)
+  await itemMetadataActions.upsertMetadata({
+    item_id: itemId,
+    author: data.author || undefined,
+    published_date: (data as any).publishedAt || undefined,
+  });
+
+  // Persist type-specific metadata (video id, duration, view count)
+  await itemTypeMetadataActions.upsertTypeMetadata({
+    item_id: itemId,
+    content_type: data.isShort ? 'youtube_short' : 'youtube',
+    data: {
+      video_id: data.videoId,
+      duration: data.duration,
+      view_count: data.viewCount,
+      channel_id: (data as any).channelId,
+      channel_name: (data as any).channelName,
+      channel_url: (data as any).channelUrl,
+      category: (data as any).category,
+      tags: (data as any).tags,
+      is_live: (data as any).isLive,
+      is_live_content: (data as any).isLiveContent,
+    },
   });
 };
 
