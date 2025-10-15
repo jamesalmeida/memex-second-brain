@@ -140,7 +140,7 @@ const BottomNavigation = observer(({
             <Image
               systemName="plus"
               size={24}
-              color={'gray'}
+              color={textColor}
               // color={isDarkMode ? 'white' : 'black'}
             />
           </ZStack>
