@@ -3,10 +3,7 @@ import React, { createContext, useContext, useRef, useState, useCallback, ReactN
 interface DrawerContextType {
   openDrawer: () => void;
   closeDrawer: () => void;
-  toggleDrawer: () => void;
   isDrawerOpen: boolean;
-  isDrawerVisible: boolean;
-  setIsDrawerVisible: (visible: boolean) => void;
   drawerRef: React.MutableRefObject<any>;
   onSettingsPress: () => void;
   registerSettingsHandler: (handler: () => void) => void;
@@ -33,10 +30,7 @@ export const useDrawer = () => {
     return {
       openDrawer: () => console.log('⚠️ Drawer context not available'),
       closeDrawer: () => console.log('⚠️ Drawer context not available'),
-      toggleDrawer: () => console.log('⚠️ Drawer context not available'),
       isDrawerOpen: false,
-      isDrawerVisible: true,
-      setIsDrawerVisible: () => console.log('⚠️ Drawer context not available'),
       drawerRef: { current: null },
       onSettingsPress: () => console.log('⚠️ Drawer context not available'),
       registerSettingsHandler: () => console.log('⚠️ Drawer context not available'),
@@ -63,7 +57,6 @@ interface DrawerProviderProps {
 
 export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isDrawerVisible, setIsDrawerVisible] = useState(true); // For iPad persistent drawer
   const [currentView, setCurrentView] = useState<'everything' | 'spaces' | null>(null);
   const drawerRef = useRef<any>(null);
   const settingsHandlerRef = useRef<(() => void) | null>(null);
@@ -96,12 +89,6 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     console.log('🚪 [DrawerContext] Setting isDrawerOpen to false');
     setIsDrawerOpen(false);
   }, []);
-
-  const toggleDrawer = useCallback(() => {
-    console.log('🔄 [DrawerContext] toggleDrawer called');
-    console.log('🔄 [DrawerContext] Current isDrawerVisible:', isDrawerVisible);
-    setIsDrawerVisible(!isDrawerVisible);
-  }, [isDrawerVisible]);
 
   const registerSettingsHandler = useCallback((handler: () => void) => {
     console.log('⚙️ [DrawerContext] Registering settings handler');
@@ -232,10 +219,7 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const value = {
     openDrawer,
     closeDrawer,
-    toggleDrawer,
     isDrawerOpen,
-    isDrawerVisible,
-    setIsDrawerVisible,
     drawerRef,
     onSettingsPress,
     registerSettingsHandler,
