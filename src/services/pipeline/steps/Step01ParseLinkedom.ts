@@ -2,8 +2,8 @@ import type { Step } from '../types';
 import { parseUrlWithLinkedom } from '../../linkedomParser';
 import { itemsActions } from '../../../stores/items';
 
-export const Step02ParseLinkedom: Step = async ({ itemId, url }) => {
-  console.log('🧰 [Step02ParseLinkedom] Parsing with linkedom');
+export const Step01ParseLinkedom: Step = async ({ itemId, url }) => {
+  console.log('🧰 [Step01ParseLinkedom] Parsing with linkedom');
   const parsed = await parseUrlWithLinkedom(url);
   await itemsActions.updateItemWithSync(itemId, {
     title: parsed.title,
