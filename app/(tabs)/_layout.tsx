@@ -43,7 +43,7 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { openDrawer, registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView, drawerRef } = useDrawer();
   useEffect(() => {
     console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
     registerSettingsHandler(handleSettingsPress);
@@ -342,6 +342,15 @@ const TabLayout = observer(() => {
         onViewChange={handleViewChange}
         onSettingsPress={handleFilterPress}
         onAddPress={handleAddPress}
+        onMenuPress={() => {
+          console.log('🍔 [TabLayout] Hamburger pressed - opening drawer directly');
+          // Try opening via ref first for immediate response
+          if (drawerRef?.current?.openDrawer) {
+            drawerRef.current.openDrawer();
+          }
+          // Also call context openDrawer to sync state
+          openDrawer();
+        }}
         visible={!isExpandedItemOpen}
       />
 

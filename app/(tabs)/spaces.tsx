@@ -9,7 +9,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spaces';
 import SpaceCard from '../../src/components/SpaceCard';
-import ExpandedSpaceView from '../../src/components/ExpandedSpaceView';
+import SpaceChatSheet, { SpaceChatSheetRef } from '../../src/components/SpaceChatSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import { Space } from '../../src/types';
 import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
@@ -36,6 +36,7 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
+  const spaceChatSheetRef = useRef<SpaceChatSheetRef>(null);
   const cardRefs = useRef<{ [key: string]: any }>({});
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
   
@@ -81,19 +82,9 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   }, []);
 
   const handleSpacePress = (space: Space) => {
-    // Get the position of the card for animation
-    const cardRef = cardRefs.current[space.id];
-    if (cardRef) {
-      cardRef.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-        setCardPosition({ x: pageX, y: pageY, width, height });
-        setSelectedSpace(space);
-        onSpaceOpen?.(space.id);
-      });
-    } else {
-      // Fallback if ref not available
-      setSelectedSpace(space);
-      onSpaceOpen?.(space.id);
-    }
+    setSelectedSpace(space);
+    spaceChatSheetRef.current?.openWithSpace(space.name);
+    onSpaceOpen?.(space.id);
   };
 
   const handleSpaceEdit = (space: Space) => {
@@ -196,24 +187,12 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
         )}
       </View>
 
-      {/* Expanded Space View */}
-      <ExpandedSpaceView
-        space={selectedSpace}
-        isVisible={!!selectedSpace}
-        cardPosition={cardPosition}
+      {/* Space Chat Sheet */}
+      <SpaceChatSheet
+        ref={spaceChatSheetRef}
         onClose={() => {
           setSelectedSpace(null);
           onSpaceClose?.();
-          // Keep cardPosition for closing animation
-          setTimeout(() => {
-            setCardPosition(undefined);
-          }, 300);
-        }}
-        onEdit={() => {
-          if (selectedSpace) {
-            handleSpaceEdit(selectedSpace);
-            setSelectedSpace(null);
-          }
         }}
       />
       
