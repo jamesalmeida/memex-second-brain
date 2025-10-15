@@ -9,19 +9,10 @@ interface HeaderBarProps {
   selectedIndex: number;
   onTabPress: (index: number) => void;
   onMenuPress?: () => void;
-  isPersistentDrawer?: boolean;
-  isDrawerVisible?: boolean;
 }
 
-const HeaderBar = observer(({ 
-  tabs, 
-  selectedIndex, 
-  onTabPress, 
-  onMenuPress,
-  isPersistentDrawer = false,
-  isDrawerVisible = true,
-}: HeaderBarProps) => {
-  console.log('📌 [HeaderBar] Component rendered, onMenuPress:', typeof onMenuPress, 'isPersistentDrawer:', isPersistentDrawer);
+const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, onMenuPress }: HeaderBarProps) => {
+  console.log('📌 [HeaderBar] Component rendered, onMenuPress:', typeof onMenuPress, 'value:', onMenuPress);
 
   const insets = useSafeAreaInsets();
   const isDarkMode = themeStore.isDarkMode.get();
@@ -53,11 +44,11 @@ const HeaderBar = observer(({
     <View style={[styles.container, { paddingTop: insets.top }, isDarkMode && styles.containerDark]}>
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={isPersistentDrawer ? (isDrawerVisible ? "Hide sidebar" : "Show sidebar") : "Open menu"}
+        accessibilityLabel="Open menu"
         hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
         onPress={() => {
-          console.log('📌 [HeaderBar] Menu button pressed');
-          console.log('📌 [HeaderBar] isPersistentDrawer:', isPersistentDrawer, 'onMenuPress exists?', !!onMenuPress);
+          console.log('📌 [HeaderBar] Hamburger button pressed');
+          console.log('📌 [HeaderBar] onMenuPress exists?', !!onMenuPress);
           if (onMenuPress) {
             console.log('📌 [HeaderBar] Calling onMenuPress()');
             onMenuPress();
@@ -68,18 +59,8 @@ const HeaderBar = observer(({
         style={styles.menuButton}
         activeOpacity={0.7}
       >
-        {/* For iPad persistent drawer, show different icon when drawer is hidden */}
-        {isPersistentDrawer && !isDrawerVisible ? (
-          <>
-            <View style={[styles.menuLine, { backgroundColor: textColor }]} />
-            <View style={[styles.menuLine, { backgroundColor: textColor, marginTop: 6 }]} />
-          </>
-        ) : (
-          <>
-            <View style={[styles.menuLine, { backgroundColor: textColor }]} />
-            <View style={[styles.menuLineShort, { backgroundColor: textColor }]} />
-          </>
-        )}
+        <View style={[styles.menuLine, { backgroundColor: textColor }]} />
+        <View style={[styles.menuLineShort, { backgroundColor: textColor }]} />
       </TouchableOpacity>
       <ScrollView
         ref={scrollRef}

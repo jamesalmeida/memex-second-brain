@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,9 +34,6 @@ const BottomNavigation = observer(({
 
   // Placeholder tags
   const placeholderTags = ['Important', 'Work', 'Personal', 'Learning', 'To Review'];
-  
-  // Hide NativeTabs on iPad due to positioning issues
-  const isIPad = Platform.OS === 'ios' && Platform.isPad;
 
   // if (!visible) return null;
 
@@ -128,56 +125,54 @@ const BottomNavigation = observer(({
         </Host>
       </View>
 
-      {/* Native Tabs with Liquid Glass Effect - Hidden on iPad due to positioning issues */}
-      {!isIPad && (
-        <NativeTabs
-          tintColor={COLORS.warning}
-          blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
-          backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
+      {/* Native Tabs with Liquid Glass Effect */}
+      <NativeTabs
+        tintColor={COLORS.warning}
+        blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
+        backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
+      >
+        <NativeTabs.Trigger
+          name="index"
+          onPress={() => {
+            const timestamp = new Date().toISOString();
+            console.log('📱 [BottomNav] Everything tab pressed at:', timestamp);
+            onViewChange('everything');
+          }}
+          onTouchStart={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Everything tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
+          }}
+          onTouchEnd={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
+          }}
         >
-          <NativeTabs.Trigger
-            name="index"
-            onPress={() => {
-              const timestamp = new Date().toISOString();
-              console.log('📱 [BottomNav] Everything tab pressed at:', timestamp);
-              onViewChange('everything');
-            }}
-            onTouchStart={(e) => {
-              const timestamp = new Date().toISOString();
-              console.log('👆 [BottomNav] Everything tab TOUCH START at:', timestamp);
-              console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
-            }}
-            onTouchEnd={(e) => {
-              const timestamp = new Date().toISOString();
-              console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
-            }}
-          >
-            <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
-            <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
-          </NativeTabs.Trigger>
+          <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
+        </NativeTabs.Trigger>
 
-          <NativeTabs.Trigger
-            name="spaces"
-            onPress={() => {
-              const timestamp = new Date().toISOString();
-              console.log('📱 [BottomNav] Spaces tab pressed at:', timestamp);
-              onViewChange('spaces');
-            }}
-            onTouchStart={(e) => {
-              const timestamp = new Date().toISOString();
-              console.log('👆 [BottomNav] Spaces tab TOUCH START at:', timestamp);
-              console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
-            }}
-            onTouchEnd={(e) => {
-              const timestamp = new Date().toISOString();
-              console.log('👆 [BottomNav] Spaces tab TOUCH END at:', timestamp);
-            }}
-          >
-            <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />
-            <Label selectedStyle={{ color: COLORS.warning }}>Spaces</Label>
-          </NativeTabs.Trigger>
-        </NativeTabs>
-      )}
+        <NativeTabs.Trigger
+          name="spaces"
+          onPress={() => {
+            const timestamp = new Date().toISOString();
+            console.log('📱 [BottomNav] Spaces tab pressed at:', timestamp);
+            onViewChange('spaces');
+          }}
+          onTouchStart={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Spaces tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
+          }}
+          onTouchEnd={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Spaces tab TOUCH END at:', timestamp);
+          }}
+        >
+          <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Spaces</Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
 
       {/* Add Item Button - Bottom Right */}
       <View
