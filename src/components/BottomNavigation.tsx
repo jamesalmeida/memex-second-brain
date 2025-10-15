@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
@@ -10,8 +10,8 @@ import { themeStore } from '../stores/theme';
 import { COLORS } from '../constants';
 
 interface BottomNavigationProps {
-  currentView: 'everything' | 'spaces';
-  onViewChange: (view: 'everything' | 'spaces') => void;
+  currentView: 'grid' | 'spaces';
+  onViewChange: (view: 'grid' | 'spaces') => void;
   onSettingsPress: () => void;
   onAddPress: () => void;
   onMenuPress?: () => void;
@@ -81,42 +81,43 @@ const BottomNavigation = observer(({
           name="index"
           onPress={() => {
             const timestamp = new Date().toISOString();
-            console.log('📱 [BottomNav] Everything tab pressed at:', timestamp);
-            onViewChange('everything');
+            console.log('📱 [BottomNav] Grid tab pressed at:', timestamp);
+            onViewChange('grid');
           }}
           onTouchStart={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Everything tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Grid tab TOUCH START at:', timestamp);
             console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
           }}
           onTouchEnd={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
+            console.log('👆 [BottomNav] Grid tab TOUCH END at:', timestamp);
           }}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
-          <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
+          <Label selectedStyle={{ color: COLORS.warning }}>Grid</Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger
           name="spaces"
           onPress={() => {
             const timestamp = new Date().toISOString();
-            console.log('📱 [BottomNav] Spaces tab pressed at:', timestamp);
+            console.log('📱 [BottomNav] Chats tab pressed at:', timestamp);
             onViewChange('spaces');
           }}
           onTouchStart={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Spaces tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Chats tab TOUCH START at:', timestamp);
             console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
           }}
           onTouchEnd={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Spaces tab TOUCH END at:', timestamp);
+            console.log('👆 [BottomNav] Chats tab TOUCH END at:', timestamp);
           }}
         >
-          <Icon src={<VectorIcon family={MaterialIcons} name="folder" />} selectedColor={COLORS.warning} />
-          <Label selectedStyle={{ color: COLORS.warning }}>Spaces</Label>
+          {/* <Icon src={<VectorIcon family={MaterialIcons} name="cube-outline" />} selectedColor={COLORS.warning} /> */}
+          <Icon src={<VectorIcon family={Ionicons} name="cube-outline" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Chats</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
 
