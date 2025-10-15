@@ -16,9 +16,8 @@ import { spacesComputed, spacesActions } from '../../src/stores/spaces';
 import { itemSpacesComputed } from '../../src/stores/itemSpaces';
 import HeaderBar from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
+import { useDeviceType, getGridColumns } from '../../src/utils/device';
 
-const { width: screenWidth } = Dimensions.get('window');
-const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 const EDGE_SWIPE_WIDTH_EVERYTHING = 30; // Narrower drawer swipe area on Everything tab to avoid intercepting taps
 const EDGE_SWIPE_WIDTH_DEFAULT = 50; // Normal drawer swipe area on other tabs
 
@@ -29,8 +28,23 @@ interface HomeScreenProps {
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
   // Get drawer from context directly instead of via props
-  const { openDrawer, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
+  const { openDrawer, toggleDrawer, isDrawerVisible, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
   console.log('🏠 [HomeScreen] Component rendered, openDrawer from context:', typeof openDrawer);
+
+  // Get device type info
+  const { isPersistentDrawer, isIPad, isLandscape, screenWidth } = useDeviceType();
+  
+  // Calculate initial container width accounting for drawer
+  const DRAWER_WIDTH = 280;
+  const initialWidth = isPersistentDrawer && isDrawerVisible 
+    ? screenWidth - DRAWER_WIDTH 
+    : screenWidth;
+  
+  // Measure actual container width to account for drawer
+  const [containerWidth, setContainerWidth] = useState(initialWidth);
+  
+  // Calculate dynamic grid columns based on actual available width
+  const numColumns = getGridColumns(containerWidth, isDrawerVisible, isPersistentDrawer);
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -46,6 +60,16 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
+
+  // Update container width when drawer visibility changes
+  useEffect(() => {
+    const newWidth = isPersistentDrawer && isDrawerVisible 
+      ? screenWidth - DRAWER_WIDTH 
+      : screenWidth;
+    if (newWidth !== containerWidth) {
+      setContainerWidth(newWidth);
+    }
+  }, [isPersistentDrawer, isDrawerVisible, screenWidth]);
 
   // Initialize items and filters on first load
   useEffect(() => {
@@ -137,14 +161,14 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const scrollToPage = useCallback((index: number) => {
     setSelectedPage(index);
-    pagerRef.current?.scrollTo({ x: index * screenWidth, animated: true });
+    pagerRef.current?.scrollTo({ x: index * containerWidth, animated: true });
     if (index === 0) {
       spacesActions.setSelectedSpace(null);
     } else {
       const space = spaces[index - 1];
       if (space) spacesActions.setSelectedSpace(space);
     }
-  }, [spaces]);
+  }, [spaces, containerWidth]);
 
   // Handler for navigating to a specific space by ID
   const handleNavigateToSpace = useCallback((spaceId: string) => {
@@ -169,7 +193,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, [registerNavigateToEverythingHandler, scrollToPage]);
 
   const handlePageChange = useCallback((e: any) => {
-    const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+    const page = Math.round(e.nativeEvent.contentOffset.x / containerWidth);
     if (page !== selectedPage) {
       setSelectedPage(page);
       if (page === 0) {
@@ -179,7 +203,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         if (space) spacesActions.setSelectedSpace(space);
       }
     }
-  }, [selectedPage, spaces]);
+  }, [selectedPage, spaces, containerWidth]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -225,12 +249,22 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   };
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+    <View 
+      style={[styles.container, isDarkMode && styles.containerDark]}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        if (width > 0 && width !== containerWidth) {
+          setContainerWidth(width);
+        }
+      }}
+    >
       <HeaderBar
         tabs={tabs}
         selectedIndex={selectedPage}
         onTabPress={scrollToPage}
-        onMenuPress={openDrawer}
+        onMenuPress={isPersistentDrawer ? toggleDrawer : openDrawer}
+        isPersistentDrawer={isPersistentDrawer}
+        isDrawerVisible={isDrawerVisible}
       />
 
       <ScrollView
@@ -260,14 +294,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         }}
       >
         {/* Page 0: Everything */}
-        <View style={{ width: screenWidth }}>
+        <View style={{ width: containerWidth }}>
           <FlashList
             ref={listRef}
             data={displayItems}
             renderItem={renderItem}
             keyExtractor={item => item.id}
+            key={`everything-${numColumns}`}
             masonry
-            numColumns={2}
+            numColumns={numColumns}
             estimatedItemSize={200}
             contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
             showsVerticalScrollIndicator={false}
@@ -286,13 +321,14 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
         {/* Pages 1..n: one per space */}
         {spaces.map(space => (
-          <View key={space.id} style={{ width: screenWidth }}>
+          <View key={space.id} style={{ width: containerWidth }}>
             <FlashList
               data={getItemsForSpace(space.id)}
               renderItem={renderItem}
               keyExtractor={item => item.id}
+              key={`space-${space.id}-${numColumns}`}
               masonry
-              numColumns={2}
+              numColumns={numColumns}
               estimatedItemSize={200}
               contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
               showsVerticalScrollIndicator={false}

@@ -118,6 +118,27 @@ const isDarkMode = useObservable(themeStore.isDarkMode);
 // Apply conditional styles: style={[styles.base, isDarkMode && styles.dark]}
 ```
 
+### iPad/Tablet Support
+The app includes responsive design for iPad with device-specific features:
+- **Device Detection**: Use `useDeviceType()` hook from `src/utils/device.ts` to get device info
+- **Persistent Drawer**: iPad landscape mode shows a 280px split-view drawer by default
+- **Dynamic Grid**: Grid columns adjust automatically based on measured container width:
+  - Measure container width using `onLayout` to get actual available space
+  - Container width is automatically reduced by drawer in split-view mode (flex layout)
+  - Uses `getGridColumns(containerWidth)` to calculate columns
+  - Target column counts:
+    - iPad Landscape with drawer: 3 columns
+    - iPad Landscape without drawer: 4 columns
+    - iPad Portrait: 3 columns
+    - Mobile: 2 columns
+  - Minimum 240px per column for good UX
+  - Supports iPadOS multitasking/windowing with adaptive column counts
+- **Toggle Behavior**: Hamburger menu button toggles drawer visibility in iPad landscape mode
+- When implementing new grid views:
+  - Use `onLayout` to measure actual container width
+  - Pass measured width to `getGridColumns()` for column calculation
+  - Use `key` prop on FlashList to force re-render when columns change
+
 ## Environment Variables
 Required in `.env` or `.env.local`:
 - `EXPO_PUBLIC_SUPABASE_URL`
