@@ -1045,13 +1045,13 @@ const DefaultItemView = observer(({
         </View>
 
         {/* Full Content */}
-        {itemToDisplay?.content && (
+        {/* {itemToDisplay?.content && (
           <View style={styles.fullContent}>
             <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
               {itemToDisplay.content}
             </Text>
           </View>
-        )}
+        )} */}
 
         {/* Raw Text (for articles) */}
         {itemToDisplay?.raw_text && (
