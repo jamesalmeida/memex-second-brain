@@ -685,13 +685,13 @@ const RedditItemView = observer(({
         </View>
 
         {/* Full Content */}
-        {itemToDisplay?.content && (
+        {/* {itemToDisplay?.content && (
           <View style={styles.fullContent}>
             <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
               {itemToDisplay.content}
             </Text>
           </View>
-        )}
+        )} */}
 
         {/* Space Selector */}
         <View style={styles.spaceSection}>
