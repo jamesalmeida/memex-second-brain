@@ -49,7 +49,7 @@ const ExpandedItemView = observer(
   }, [item, ref]);
 
   // Bottom sheet configuration
-  const snapPoints = useMemo(() => ['94%'], []);
+  const snapPoints = useMemo(() => ['100%'], []);
 
   // Render backdrop
   const renderBackdrop = useCallback(
@@ -157,6 +157,7 @@ const ExpandedItemView = observer(
       snapPoints={snapPoints}
       enablePanDownToClose
       backdropComponent={renderBackdrop}
+      topInset={51}
       backgroundStyle={[
         styles.sheetBackground,
         isDarkMode && styles.sheetBackgroundDark,
