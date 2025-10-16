@@ -12,12 +12,12 @@ import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
 import { runPipeline } from '../services/pipeline/runPipeline';
 
-interface AddItemSheet2Props {
+interface AddItemSheetProps {
   onOpen?: () => void;
   onClose?: () => void;
 }
 
-const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, onClose }, ref) => {
+const AddItemSheet = observer(forwardRef<any, AddItemSheetProps>(({ onOpen, onClose }, ref) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const bottomSheetRef = useRef<BottomSheet>(null);
 
@@ -189,7 +189,7 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
   );
 }));
 
-export default AddItemSheet2;
+export default AddItemSheet;
 
 const styles = StyleSheet.create({
   sheetBackground: { backgroundColor: '#FFFFFF' },

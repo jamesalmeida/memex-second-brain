@@ -11,7 +11,7 @@ import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
-import AddItemSheet from '../../src/components/AddItemSheet2';
+import AddItemSheet from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
