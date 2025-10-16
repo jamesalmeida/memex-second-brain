@@ -2,8 +2,8 @@ import type { Step } from '../types';
 import type { ContentType } from '../../../types';
 import { itemsActions } from '../../../stores/items';
 
-export const Step02DetectType: Step = async ({ itemId, url }) => {
-  console.log('🧭 [Step02DetectType] Detecting content type');
+export const Step02_DetectType: Step = async ({ itemId, url }) => {
+  console.log('🧭 [Step02_DetectType] Detecting content type');
   const lower = url.toLowerCase();
   let content_type: ContentType = 'bookmark';
   if (/youtube\.com|youtu\.be/i.test(lower)) content_type = 'youtube';
@@ -17,9 +17,9 @@ export const Step02DetectType: Step = async ({ itemId, url }) => {
 
   if (content_type !== 'bookmark') {
     await itemsActions.updateItemWithSync(itemId, { content_type });
-    console.log('🧭 [Step02DetectType] Set content_type =', content_type);
+    console.log('🧭 [Step02_DetectType] Set content_type =', content_type);
   } else {
-    console.log('🧭 [Step02DetectType] Defaulting content_type to bookmark');
+    console.log('🧭 [Step02_DetectType] Defaulting content_type to bookmark');
   }
 };
 

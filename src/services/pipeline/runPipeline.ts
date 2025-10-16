@@ -1,17 +1,18 @@
 import type { StepContext, Step } from './types';
-import { Step01ParseLinkedom } from './steps/Step01ParseLinkedom';
-import { Step02DetectType } from './steps/Step02DetectType';
-import { Step04EnrichYouTube } from './steps/Step04EnrichYouTube';
-import { Step04bEnrichX } from './steps/Step04bEnrichX';
-import { Step03DetectTypeAI } from './steps/Step03DetectTypeAI';
+import { Step01_ParseLinkedom } from './steps/Step01_ParseLinkedom';
+import { Step02_DetectType } from './steps/Step02_DetectType';
+import { Step03_DetectTypeAI } from './steps/Step03_DetectTypeAI';
+import { Step04_1_EnrichYouTube } from './steps/Step04_1_EnrichYouTube';
+import { Step04_2_EnrichX } from './steps/Step04_2_EnrichX';
+// import { Step99_Finalize } from './steps/Step99_Finalize';
 
 // Order: Always parse with Linkedom first (fallbacks), then heuristics, then optional AI, then enrichers
 const STEPS: Step[] = [
-  Step01ParseLinkedom,
-  Step02DetectType,
-  Step03DetectTypeAI,
-  Step04EnrichYouTube,
-  Step04bEnrichX,
+  Step01_ParseLinkedom,
+  Step02_DetectType,
+  Step03_DetectTypeAI,
+  Step04_1_EnrichYouTube,
+  Step04_2_EnrichX,
 ];
 
 export async function runPipeline(ctx: StepContext) {

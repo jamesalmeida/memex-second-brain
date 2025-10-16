@@ -4,10 +4,10 @@ import { extractTweetId, fetchTweetData } from '../../../services/twitter';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
 import { itemMetadataActions } from '../../../stores/itemMetadata';
 
-export const Step03bEnrichX: Step = async ({ itemId, url }) => {
+export const Step04_2_EnrichX: Step = async ({ itemId, url }) => {
   const item = itemsStore.items.get().find(i => i.id === itemId);
   if (item?.content_type !== 'x') return;
-  console.log('🧵 [Step03bEnrichX] Enriching from X API');
+  console.log('🧵 [Step04_2_EnrichX] Enriching from X API');
   const id = extractTweetId(url);
   if (!id) return;
   const tweet = await fetchTweetData(id);
@@ -55,7 +55,7 @@ export const Step03bEnrichX: Step = async ({ itemId, url }) => {
       post_content: tweet.text as any,
     });
   } catch (e) {
-    console.log('ℹ️ [Step03bEnrichX] posted_at not updated (column may be missing locally)');
+    console.log('ℹ️ [Step04_2_EnrichX] posted_at not updated (column may be missing locally)');
   }
 };
 

@@ -2,12 +2,12 @@ import type { Step } from '../types';
 import { itemsStore, itemsActions } from '../../../stores/items';
 import { classifyUrlWithAI } from '../../../services/aiUrlClassifier';
 
-export const Step03DetectTypeAI: Step = async ({ itemId, url }) => {
-  console.log('🧠 [Step03DetectTypeAI] Considering AI classification');
+export const Step03_DetectTypeAI: Step = async ({ itemId, url }) => {
+  console.log('🧠 [Step03_DetectTypeAI] Considering AI classification');
   const item = itemsStore.items.get().find(i => i.id === itemId);
   if (!item) return;
   if (item.content_type !== 'bookmark') {
-    console.log('🧠 [Step03DetectTypeAI] Skipping AI - content_type already set:', item.content_type);
+    console.log('🧠 [Step03_DetectTypeAI] Skipping AI - content_type already set:', item.content_type);
     return;
   }
 
@@ -24,10 +24,10 @@ export const Step03DetectTypeAI: Step = async ({ itemId, url }) => {
   });
 
   if (classified && classified !== 'bookmark') {
-    console.log('🧠 [Step03DetectTypeAI] AI classified as:', classified);
+    console.log('🧠 [Step03_DetectTypeAI] AI classified as:', classified);
     await itemsActions.updateItemWithSync(itemId, { content_type: classified });
   } else {
-    console.log('🧠 [Step03DetectTypeAI] AI returned no better classification');
+    console.log('🧠 [Step03_DetectTypeAI] AI returned no better classification');
   }
 };
 

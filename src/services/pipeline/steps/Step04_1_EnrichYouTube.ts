@@ -4,10 +4,10 @@ import { extractYouTubeData } from '../../../services/youtube';
 import { itemMetadataActions } from '../../../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
 
-export const Step03EnrichYouTube: Step = async ({ itemId, url }) => {
+export const Step04_1_EnrichYouTube: Step = async ({ itemId, url }) => {
   const item = itemsStore.items.get().find(i => i.id === itemId);
   if (item?.content_type !== 'youtube' && item?.content_type !== 'youtube_short') return;
-  console.log('🎬 [Step03EnrichYouTube] Enriching from YouTube API');
+  console.log('🎬 [Step04_1_EnrichYouTube] Enriching from YouTube API');
   const data = await extractYouTubeData(url);
   await itemsActions.updateItemWithSync(itemId, {
     title: data.title || item.title,
