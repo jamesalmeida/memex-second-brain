@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -24,6 +24,7 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
   const [input, setInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedUI, setSavedUI] = useState<{ visible: boolean; title?: string } | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const snapPoints = useMemo(() => ['30%', '70%'], []);
 
@@ -80,6 +81,12 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
       setSavedUI({ visible: true, title: provisionalTitle });
       Keyboard.dismiss();
 
+      // Auto-close the sheet after 0.8 second on success
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => {
+        bottomSheetRef.current?.close();
+      }, 800);
+
       // Run the numbered pipeline (detect type, parse, enrich)
       runPipeline({ itemId: id, url })
         .catch(() => {})
@@ -90,6 +97,13 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
       setIsSaving(false);
     }
   };
+
+  // Cleanup any pending close timer on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   return (
     <BottomSheet
@@ -105,6 +119,7 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
       keyboardBlurBehavior="restore"
       onChange={(index) => {
         if (index === -1) {
+          if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
           onClose?.();
           setSavedUI(null);
           setInput('');
@@ -115,13 +130,19 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
     >
       <View style={styles.header}>
         <Text style={[styles.title, isDarkMode && styles.titleDark]}>Save</Text>
-        <TouchableOpacity
-          style={[styles.saveButton, (!input.trim() || isSaving) && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={!input.trim() || isSaving}
-        >
-          <Text style={styles.saveButtonText}>{isSaving ? 'Saving…' : 'Save'}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={[styles.quickAction, isDarkMode && styles.quickActionDark]} onPress={handlePaste}>
+            <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
+            <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>Paste</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.saveButton, (!input.trim() || isSaving) && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={!input.trim() || isSaving}
+          >
+            <Text style={styles.saveButtonText}>{isSaving ? 'Saving…' : 'Save'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <BottomSheetScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -130,12 +151,6 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
             <View style={styles.successPill}>
               <MaterialIcons name="check" size={16} color="#fff" />
               <Text style={styles.successText}>Saved to Memex</Text>
-            </View>
-            <View style={styles.successActions}>
-              <TouchableOpacity style={styles.tagButton}>
-                <Text style={styles.tagButtonText}>Add tags</Text>
-              </TouchableOpacity>
-              <Text style={[styles.dismissHint, isDarkMode && styles.dismissHintDark]}>Tap to dismiss or swipe down</Text>
             </View>
           </View>
         ) : (
@@ -160,12 +175,7 @@ const AddItemSheet2 = observer(forwardRef<any, AddItemSheet2Props>(({ onOpen, on
                 </TouchableOpacity>
               )}
             </View>
-            <View style={styles.quickActionsRow}>
-              <TouchableOpacity style={[styles.quickAction, isDarkMode && styles.quickActionDark]} onPress={handlePaste}>
-                <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
-                <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>Paste</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Quick actions row removed; Paste moved to header */}
           </View>
         )}
       </BottomSheetScrollView>
@@ -187,6 +197,7 @@ const styles = StyleSheet.create({
   handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
   handleIndicatorDark: { backgroundColor: '#666666' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5E7' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontSize: 20, fontWeight: 'bold', color: '#000000' },
   titleDark: { color: '#FFFFFF' },
   saveButton: { backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
@@ -206,13 +217,8 @@ const styles = StyleSheet.create({
   quickActionTextDark: { color: '#AAAAAA' },
   inputAccessory: { backgroundColor: '#F2F2F7', flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5E7' },
   successPillContainer: { paddingTop: 20, paddingHorizontal: 20 },
-  successPill: { alignSelf: 'flex-start', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  successText: { color: '#fff', fontWeight: '600', marginLeft: 6 },
-  successActions: { marginTop: 12 },
-  tagButton: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#E0E0E0' },
-  tagButtonText: { fontSize: 12, color: '#666' },
-  dismissHint: { marginTop: 8, fontSize: 12, color: '#666' },
-  dismissHintDark: { color: '#999' },
+  successPill: { alignSelf: 'center', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  successText: { color: '#fff', fontWeight: '600', marginLeft: 6, fontSize: 16 },
 });
 
 
