@@ -312,6 +312,14 @@ All external API calls are made directly from the client (`src/services/` and `s
 - This reduces reliance on AI for simple metadata and speeds up saves.
 - If a site blocks fetch or lacks metadata, we save a minimal item and skip enrichment. Premium AI enrichments remain available but are not invoked for basic saves.
 
+#### Invalid URL Handling
+- When the pasted input is not a valid URL, `parseUrlWithLinkedom` signals an invalid state. In that case, `Step01_ParseLinkedom` converts the item into a note:
+  - Set `content_type` to `note`
+  - Set `title` to an empty string
+  - Set `desc` to the original pasted text
+  - Clear `url`, `thumbnail_url`, and parsed HTML `content`
+  - Subsequent detection/enrichment steps naturally skip because the item is no longer a `bookmark`
+
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
 The app uses an **offline-first architecture** with automatic sync:
 
