@@ -259,7 +259,8 @@ class SyncService {
     const { data: remoteItemIds, error: idsError } = await supabase
       .from('items')
       .select('id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_deleted', false);
 
     if (idsError) throw idsError;
 
@@ -292,7 +293,8 @@ class SyncService {
       const { data: remoteItems, error } = await supabase
         .from('items')
         .select('*')
-        .in('id', missingItemIds);
+        .in('id', missingItemIds)
+        .eq('is_deleted', false);
 
       if (error) throw error;
 
@@ -316,7 +318,8 @@ class SyncService {
     const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_deleted', false);
 
     if (itemsError) {
       console.error('🔍 [DIAGNOSTIC] Error fetching user items:', itemsError);
@@ -425,7 +428,8 @@ class SyncService {
     const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_deleted', false);
 
     if (itemsError) {
       console.error('🔍 [DIAGNOSTIC] Error fetching user items for metadata:', itemsError);
@@ -531,7 +535,8 @@ class SyncService {
     const { data: userItems, error: itemsError } = await supabase
       .from('items')
       .select('id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_deleted', false);
 
     if (itemsError) {
       console.error('🔍 [DIAGNOSTIC] Error fetching user items for type metadata:', itemsError);
@@ -629,7 +634,8 @@ class SyncService {
     const { data: userItems } = await supabase
       .from('items')
       .select('id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_deleted', false);
     
     if (!userItems || userItems.length === 0) return;
     const userItemIds = userItems.map(item => item.id);
@@ -816,6 +822,8 @@ class SyncService {
       tags: remoteItem.tags || null,
       content_type: remoteItem.content_type as ContentType,
       is_archived: remoteItem.is_archived || false,
+      is_deleted: remoteItem.is_deleted || false,
+      deleted_at: remoteItem.deleted_at || null,
       raw_text: remoteItem.raw_text,
       created_at: remoteItem.created_at,
       updated_at: remoteItem.updated_at,
@@ -858,7 +866,8 @@ class SyncService {
             await db.updateItem(queueItem.data.id, queueItem.data);
             break;
           case 'delete_item':
-            await db.deleteItem(queueItem.data.id);
+            // Soft delete when processing offline queue
+            await db.softDeleteItem(queueItem.data.id);
             break;
         }
 
@@ -1150,9 +1159,9 @@ class SyncService {
     }
     
     try {
-      const { error } = await db.deleteItem(itemId);
+      const { error } = await db.softDeleteItem(itemId);
       if (error) throw error;
-      console.log(`✅ Deleted item ${itemId} from Supabase`);
+      console.log(`✅ Soft-deleted item ${itemId} in Supabase`);
     } catch (error: any) {
       console.error('Error deleting item from Supabase:', error);
       // Add to offline queue if delete fails

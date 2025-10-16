@@ -55,8 +55,10 @@ export const itemsComputed = {
 // Actions
 export const itemsActions = {
   setItems: async (items: Item[]) => {
+    // Keep tombstones in storage but hide from filtered view
     itemsStore.items.set(items);
-    itemsStore.filteredItems.set(items);
+    const visible = items.filter(i => !i.is_deleted);
+    itemsStore.filteredItems.set(visible);
     // Save to AsyncStorage
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
@@ -72,7 +74,7 @@ export const itemsActions = {
 
     // Save locally first
     itemsStore.items.set(updatedItems);
-    itemsStore.filteredItems.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
 
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
@@ -209,7 +211,7 @@ export const itemsActions = {
     const currentItems = itemsStore.items.get();
     const updatedItems = [...currentItems, ...newItems];
     itemsStore.items.set(updatedItems);
-    itemsStore.filteredItems.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
     // Save to AsyncStorage
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
@@ -224,7 +226,7 @@ export const itemsActions = {
       item.id === id ? { ...item, ...updates } : item
     );
     itemsStore.items.set(updatedItems);
-    itemsStore.filteredItems.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
     // Save to AsyncStorage
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
@@ -242,7 +244,7 @@ export const itemsActions = {
     
     // Update locally first
     itemsStore.items.set(updatedItems);
-    itemsStore.filteredItems.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
     
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
@@ -268,43 +270,34 @@ export const itemsActions = {
     }
   },
 
-  // Remove item with Supabase sync
+  // Remove item with Supabase sync (Soft delete / Trash)
   removeItemWithSync: async (id: string) => {
-    console.log(`🗑️ [itemsActions] Starting removeItemWithSync for item ${id}`);
+    console.log(`🗑️ [itemsActions] Starting removeItemWithSync (soft delete) for item ${id}`);
 
-    // Get all spaces this item belongs to BEFORE deletion
-    const affectedSpaceIds = itemSpacesComputed.getSpaceIdsForItem(id);
-    console.log(`🗑️ [itemsActions] Item ${id} belongs to ${affectedSpaceIds.length} space(s)`);
+    const nowIso = new Date().toISOString();
 
-    // Remove item-space relationships
-    await itemSpacesActions.removeAllItemRelations(id);
-
-    // Remove video transcript if exists
-    await videoTranscriptsActions.removeTranscript(id);
-
-    // Update item count for all affected spaces
-    for (const spaceId of affectedSpaceIds) {
-      const itemsInSpace = itemSpacesComputed.getItemIdsInSpace(spaceId).length;
-      spacesActions.updateSpace(spaceId, { item_count: itemsInSpace });
-    }
-
+    // Mark item as deleted locally (retain relations/metadata for restore later)
     const currentItems = itemsStore.items.get();
-    const filteredItems = currentItems.filter(item => item.id !== id);
+    const updatedItems = currentItems.map(item =>
+      item.id === id ? { ...item, is_deleted: true, deleted_at: nowIso, updated_at: nowIso } : item
+    );
 
-    // Remove locally
-    itemsStore.items.set(filteredItems);
-    itemsStore.filteredItems.set(filteredItems);
-    console.log(`🗑️ [itemsActions] Removed item ${id} from local store. ${filteredItems.length} items remaining.`);
+    // Remove from visible lists immediately
+    const visibleItems = updatedItems.filter(item => !(item.id === id));
+
+    itemsStore.items.set(visibleItems);
+    itemsStore.filteredItems.set(visibleItems);
+    console.log(`🗑️ [itemsActions] Soft-deleted item ${id} locally. ${visibleItems.length} items remain.`);
 
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filteredItems));
-      console.log(`🗑️ [itemsActions] Updated AsyncStorage for item ${id}`);
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(visibleItems));
+      console.log(`🗑️ [itemsActions] Updated AsyncStorage after soft delete for item ${id}`);
 
-      // Sync with Supabase
+      // Sync soft delete to Supabase
       await syncOperations.deleteItem(id);
-      console.log(`🗑️ [itemsActions] Completed sync deletion for item ${id}`);
+      console.log(`🗑️ [itemsActions] Completed soft delete sync for item ${id}`);
     } catch (error) {
-      console.error(`🗑️ [itemsActions] Error deleting item ${id}:`, error);
+      console.error(`🗑️ [itemsActions] Error soft-deleting item ${id}:`, error);
       throw error;
     }
   },

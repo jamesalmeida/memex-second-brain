@@ -87,6 +87,7 @@ export const db = {
         )
       `)
       .eq('user_id', userId)
+      .eq('is_deleted', false)
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -106,6 +107,7 @@ export const db = {
         )
       `)
       .eq('user_id', userId)
+      .eq('is_deleted', false)
       .eq('is_archived', false)
       .or(`title.ilike.%${query}%,desc.ilike.%${query}%,content.ilike.%${query}%,tags.cs.{${query}}`)
       .order('created_at', { ascending: false })
@@ -131,6 +133,29 @@ export const db = {
       .eq('id', id)
       .select()
       .single();
+
+    return { data, error };
+  },
+
+  // Soft delete item (Trash): mark as deleted and set deleted_at
+  softDeleteItem: async (id: string) => {
+    console.log(`🗑️ [supabase.db] Soft-deleting item ${id} (mark is_deleted=true)`);
+    const { data, error } = await supabase
+      .from('items')
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error(`🗑️ [supabase.db] Error soft-deleting item ${id}:`, error);
+    } else {
+      console.log(`✅ [supabase.db] Successfully soft-deleted item ${id}`);
+    }
 
     return { data, error };
   },

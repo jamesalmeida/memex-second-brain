@@ -82,12 +82,12 @@ export const syncOperations = {
 
   async deleteItem(itemId: string) {
     console.log(`🗑️ [syncOperations] Attempting to delete item ${itemId} from Supabase`);
-    const { error } = await db.deleteItem(itemId);
+    const { error } = await db.softDeleteItem(itemId);
     if (error) {
       console.error(`🗑️ [syncOperations] Error deleting item ${itemId}:`, error);
       throw error;
     }
-    console.log(`✅ [syncOperations] Successfully deleted item ${itemId} from Supabase`);
+    console.log(`✅ [syncOperations] Successfully soft-deleted item ${itemId} in Supabase`);
   },
 
   async uploadSpace(space: Space, userId: string) {
