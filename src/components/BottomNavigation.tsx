@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,22 +8,19 @@ import { Host, ZStack, Image } from '@expo/ui/swift-ui';
 import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
 import { COLORS } from '../constants';
+import { FilterContextMenuTrigger } from './FilterContextMenuTrigger';
 
 interface BottomNavigationProps {
-  currentView: 'grid' | 'spaces';
-  onViewChange: (view: 'grid' | 'spaces') => void;
-  onSettingsPress: () => void;
+  currentView: 'everything' | 'spaces';
+  onViewChange: (view: 'everything' | 'spaces') => void;
   onAddPress: () => void;
-  onMenuPress?: () => void;
   visible?: boolean;
 }
 
 const BottomNavigation = observer(({
   currentView,
   onViewChange,
-  onSettingsPress,
   onAddPress,
-  onMenuPress,
   visible = true,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
@@ -41,34 +38,23 @@ const BottomNavigation = observer(({
         style={[
           styles.glassButtonHost,
           styles.leftButton,
-          { bottom: insets.bottom - 20 }
+          { bottom: insets.bottom - 20 },
         ]}
       >
-        <Host style={{ width: 60, height: 60 }}>
+        <FilterContextMenuTrigger hostStyle={{ width: 60, height: 60 }}>
           <ZStack
             modifiers={[
               frame({ width: 60, height: 60 }),
-              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
-              onTapGesture(() => {
-                console.log('📌 [BottomNav] Hamburger button pressed');
-                console.log('📌 [BottomNav] onMenuPress exists?', !!onMenuPress);
-                if (onMenuPress) {
-                  console.log('📌 [BottomNav] Calling onMenuPress()');
-                  onMenuPress();
-                } else {
-                  console.log('❌ [BottomNav] onMenuPress is undefined!');
-                }
-              })
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' })
             ]}
           >
-            {/* Hamburger icon using three lines */}
-            <View style={styles.hamburgerContainer}>
-              <View style={[styles.menuLine, { backgroundColor: textColor }]} />
-              <View style={[styles.menuLine, { backgroundColor: textColor, marginTop: 5 }]} />
-              <View style={[styles.menuLine, { backgroundColor: textColor, marginTop: 5 }]} />
-            </View>
+            <Image
+              systemName="line.3.horizontal.decrease"
+              size={24}
+              color={textColor}
+            />
           </ZStack>
-        </Host>
+        </FilterContextMenuTrigger>
       </View>
 
       {/* Native Tabs with Liquid Glass Effect */}
@@ -81,21 +67,21 @@ const BottomNavigation = observer(({
           name="index"
           onPress={() => {
             const timestamp = new Date().toISOString();
-            console.log('📱 [BottomNav] Grid tab pressed at:', timestamp);
-            onViewChange('grid');
+            console.log('📱 [BottomNav] Everything tab pressed at:', timestamp);
+            onViewChange('everything');
           }}
           onTouchStart={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Grid tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Everything tab TOUCH START at:', timestamp);
             console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
           }}
           onTouchEnd={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Grid tab TOUCH END at:', timestamp);
+            console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
           }}
         >
           <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
-          <Label selectedStyle={{ color: COLORS.warning }}>Grid</Label>
+          <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger
@@ -141,7 +127,6 @@ const BottomNavigation = observer(({
               systemName="plus"
               size={24}
               color={textColor}
-              // color={isDarkMode ? 'white' : 'black'}
             />
           </ZStack>
         </Host>
@@ -162,17 +147,6 @@ const styles = StyleSheet.create({
   },
   rightButton: {
     right: 30,
-  },
-  hamburgerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 60,
-    height: 60,
-  },
-  menuLine: {
-    width: 20,
-    height: 2,
-    borderRadius: 1,
   },
 });
 

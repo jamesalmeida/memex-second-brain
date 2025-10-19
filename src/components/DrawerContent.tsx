@@ -4,24 +4,26 @@ import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 import { syncOperations } from '../services/syncOperations';
 import { authComputed } from '../stores/auth';
-import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 
-interface DrawerContentProps {
-  onClose: () => void;
-}
-
-const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
-  console.log('🎨 [DrawerContent] Component rendered');
+const DrawerContentInner = observer(() => {
+  console.log('🎨 [DrawerContent] Body rendered');
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace, onNavigateToEverything } = useDrawer();
+  const {
+    onSettingsPress,
+    onCreateSpacePress,
+    onEditSpacePress,
+    onNavigateToSpace,
+    onNavigateToEverything,
+  } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -52,10 +54,8 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             try {
               console.log('🗑️ Deleting space:', spaceId);
 
-              // Remove from local store first
               spacesActions.removeSpace(spaceId);
 
-              // Sync with Supabase
               const user = authComputed.user();
               if (user) {
                 await syncOperations.deleteSpace(spaceId);
@@ -76,10 +76,12 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
       <DraggableFlatList
         data={spaces}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 88 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 88 },
+        ]}
         ListHeaderComponent={(
           <View>
-            {/* Navigation Items */}
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.menuItem}
@@ -99,7 +101,6 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
               </TouchableOpacity>
             </View>
 
-            {/* Spaces Header */}
             {spaces.length > 0 && (
               <View style={styles.sectionHeader}>
                 <Feather
@@ -131,10 +132,9 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
           }));
           spacesActions.reorderSpacesWithSync(spacesWithOrder);
         }}
-        renderItem={({ item, drag, isActive }) => (
+        renderItem={({ item, drag }) => (
           <ScaleDecorator>
             <View style={[styles.spaceItem, isDarkMode && styles.spaceItemDark]}>
-              {/* Drag handle: press-and-hold should start drag immediately */}
               <TouchableOpacity
                 onPressIn={drag}
                 activeOpacity={0.6}
@@ -149,7 +149,6 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
                 />
               </TouchableOpacity>
 
-              {/* Main tap area: navigate to space */}
               <TouchableOpacity
                 style={[styles.spaceItemContent, { paddingVertical: 6 }]}
                 onPress={() => navigateToSpace(item.id)}
@@ -195,8 +194,8 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
         )}
       />
 
-      {/* Sticky Settings at Bottom */}
       <View style={[styles.stickyFooter, isDarkMode && styles.stickyFooterDark, { paddingBottom: insets.bottom }]}>
+        <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
         <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
         <TouchableOpacity
           style={styles.menuItem}
@@ -215,6 +214,16 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
     </View>
   );
 });
+
+export const DrawerContentBody = DrawerContentInner;
+
+interface DrawerContentProps {
+  onClose: () => void;
+}
+
+const DrawerContent = ({ onClose: _onClose }: DrawerContentProps) => {
+  return <DrawerContentInner />;
+};
 
 export default DrawerContent;
 
