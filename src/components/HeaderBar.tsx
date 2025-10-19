@@ -57,6 +57,12 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
     const isSelected = index === selectedIndex;
     const displayColor = isSelected ? textColor : inactiveColor;
 
+    const underlineStyle = isSelected
+      ? [styles.underline, { backgroundColor: underlineColor }]
+      : tab.icon === 'hamburger'
+        ? styles.iconUnderlinePlaceholder
+        : styles.underlinePlaceholder;
+
     return (
       <TouchableOpacity
         key={tab.key ?? `${index}`}
@@ -76,7 +82,7 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
             <Text style={[styles.tabText, { color: displayColor }]}>{tab.label ?? ''}</Text>
           )}
         </View>
-        {isSelected ? <View style={[styles.underline, { backgroundColor: underlineColor }]} /> : <View style={styles.underlinePlaceholder} />}
+        <View style={underlineStyle} />
       </TouchableOpacity>
     );
   };
@@ -159,9 +165,16 @@ const styles = StyleSheet.create({
     height: 2,
     opacity: 0,
   },
+  iconUnderlinePlaceholder: {
+    marginTop: 2,
+    height: 2,
+    opacity: 0,
+  },
   hamburgerIcon: {
     width: 20,
+    height: 20,
     alignItems: 'center',
+    marginTop: 10,
   },
   hamburgerLine: {
     width: 20,
