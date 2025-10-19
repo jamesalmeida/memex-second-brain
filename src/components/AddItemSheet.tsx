@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,13 +11,24 @@ import { authComputed } from '../stores/auth';
 import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
 import { runPipeline } from '../services/pipeline/runPipeline';
+import { itemSpacesActions } from '../stores/itemSpaces';
+import { spacesComputed } from '../stores/spaces';
 
 interface AddItemSheetProps {
+  preSelectedSpaceId?: string | null;
   onOpen?: () => void;
   onClose?: () => void;
 }
 
-const AddItemSheet = observer(forwardRef<any, AddItemSheetProps>(({ onOpen, onClose }, ref) => {
+export interface AddItemSheetHandle {
+  snapToIndex: (index: number) => void;
+  expand: () => void;
+  close: () => void;
+  open: () => void;
+  openWithSpace: (spaceId: string) => void;
+}
+
+const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(({ preSelectedSpaceId = null, onOpen, onClose }, ref) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const bottomSheetRef = useRef<BottomSheet>(null);
 
@@ -25,14 +36,30 @@ const AddItemSheet = observer(forwardRef<any, AddItemSheetProps>(({ onOpen, onCl
   const [isSaving, setIsSaving] = useState(false);
   const [savedUI, setSavedUI] = useState<{ visible: boolean; title?: string } | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
+  const selectedSpaceName = selectedSpaceId ? spacesComputed.getSpaceById(selectedSpaceId)?.name ?? 'selected space' : null;
 
   const snapPoints = useMemo(() => ['30%', '70%'], []);
+
+  useEffect(() => {
+    setSelectedSpaceId(preSelectedSpaceId);
+  }, [preSelectedSpaceId]);
+
+  const openSheet = useCallback((spaceId?: string | null) => {
+    setSelectedSpaceId(spaceId ?? null);
+    bottomSheetRef.current?.snapToIndex(0);
+  }, []);
 
   useImperativeHandle(ref, () => ({
     snapToIndex: (index: number) => bottomSheetRef.current?.snapToIndex(index),
     expand: () => bottomSheetRef.current?.expand(),
-    close: () => bottomSheetRef.current?.close(),
-  }));
+    close: () => {
+      bottomSheetRef.current?.close();
+      setSelectedSpaceId(null);
+    },
+    open: () => openSheet(null),
+    openWithSpace: (spaceId: string) => openSheet(spaceId),
+  }), [openSheet]);
 
   const renderBackdrop = (props: any) => (
     <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
@@ -76,6 +103,14 @@ const AddItemSheet = observer(forwardRef<any, AddItemSheetProps>(({ onOpen, onCl
 
       await itemsActions.addItemWithSync(newItem);
       processingItemsActions.add(id);
+
+      if (selectedSpaceId) {
+        try {
+          await itemSpacesActions.addItemToSpace(id, selectedSpaceId);
+        } catch (error) {
+          console.error('Error adding item to space:', error);
+        }
+      }
 
       // Optimistic success UI in the sheet
       setSavedUI({ visible: true, title: provisionalTitle });
@@ -123,6 +158,7 @@ const AddItemSheet = observer(forwardRef<any, AddItemSheetProps>(({ onOpen, onCl
           onClose?.();
           setSavedUI(null);
           setInput('');
+          setSelectedSpaceId(null);
         } else if (index >= 0) {
           onOpen?.();
         }
@@ -146,6 +182,14 @@ const AddItemSheet = observer(forwardRef<any, AddItemSheetProps>(({ onOpen, onCl
       </View>
 
       <BottomSheetScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {selectedSpaceId && (
+          <View style={[styles.spaceContext, isDarkMode && styles.spaceContextDark]}>
+            <MaterialIcons name="folder" size={16} color={isDarkMode ? '#FFD699' : '#FF6B35'} />
+            <Text style={[styles.spaceContextText, isDarkMode && styles.spaceContextTextDark]}>
+              Saving to {selectedSpaceName}
+            </Text>
+          </View>
+        )}
         {savedUI?.visible ? (
           <View style={styles.successPillContainer}>
             <View style={styles.successPill}>
@@ -204,6 +248,10 @@ const styles = StyleSheet.create({
   saveButtonDisabled: { opacity: 0.5 },
   saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
   scrollContent: { paddingBottom: 24 },
+  spaceContext: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12, marginHorizontal: 20, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255, 107, 53, 0.08)' },
+  spaceContextDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+  spaceContextText: { fontSize: 13, color: '#4A4A4A', fontWeight: '600' },
+  spaceContextTextDark: { color: '#F2F2F7' },
   section: { paddingTop: 16, paddingHorizontal: 20 },
   inputContainer: { position: 'relative' },
   input: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 12, paddingRight: 40, fontSize: 16, color: '#000000', minHeight: 80, textAlignVertical: 'top' },
@@ -220,5 +268,3 @@ const styles = StyleSheet.create({
   successPill: { alignSelf: 'center', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
   successText: { color: '#fff', fontWeight: '600', marginLeft: 6, fontSize: 16 },
 });
-
-
