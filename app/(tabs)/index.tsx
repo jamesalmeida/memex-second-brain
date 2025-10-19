@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResponder } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -149,6 +149,23 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }
   }, [spaces]);
 
+  const drawerPanResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_evt, gestureState) => {
+      const { dx, dy } = gestureState;
+      return Math.abs(dx) > Math.abs(dy) && dx < -10;
+    },
+    onPanResponderRelease: (_evt, gestureState) => {
+      if (gestureState.dx < -40 || gestureState.vx < -0.2) {
+        scrollToPage(1);
+      }
+    },
+    onPanResponderTerminate: (_evt, gestureState) => {
+      if (gestureState.dx < -40 || gestureState.vx < -0.2) {
+        scrollToPage(1);
+      }
+    },
+  }), [scrollToPage]);
+
   useEffect(() => {
     const id = setTimeout(() => {
       pagerRef.current?.scrollTo({ x: screenWidth, animated: false });
@@ -269,7 +286,10 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         }}
       >
         {/* Page 0: Drawer */}
-        <View style={{ width: screenWidth, height: '100%' }}>
+        <View
+          style={{ width: screenWidth, height: '100%' }}
+          {...drawerPanResponder.panHandlers}
+        >
           <DrawerContentBody />
         </View>
 

@@ -29,6 +29,10 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
   const inactiveColor = isDarkMode ? '#AAAAAA' : '#666666';
 
   useEffect(() => {
+    if (selectedIndex === 0) {
+      scrollRef.current?.scrollTo({ x: 0, animated: true });
+      return;
+    }
     if (!scrollRef.current || tabLayouts.length === 0 || selectedIndex < 0) return;
     const layout = tabLayouts[selectedIndex];
     if (!layout) return;
@@ -49,8 +53,44 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
     });
   };
 
+  const renderTab = (tab: HeaderTabConfig, index: number, isSticky = false) => {
+    const isSelected = index === selectedIndex;
+    const displayColor = isSelected ? textColor : inactiveColor;
+
+    return (
+      <TouchableOpacity
+        key={tab.key ?? `${index}`}
+        activeOpacity={0.7}
+        onPress={() => onTabPress(index)}
+        onLayout={e => handleLayout(index, isSticky ? 0 : e.nativeEvent.layout.x, e.nativeEvent.layout.width)}
+        style={[styles.tabButton, isSticky && styles.stickyTabButton]}
+      >
+        <View style={styles.tabContent}>
+          {tab.icon === 'hamburger' ? (
+            <View style={styles.hamburgerIcon}>
+              <View style={[styles.hamburgerLine, { backgroundColor: displayColor }]} />
+              <View style={[styles.hamburgerLine, { backgroundColor: displayColor, marginTop: 4 }]} />
+              <View style={[styles.hamburgerLine, { backgroundColor: displayColor, marginTop: 4 }]} />
+            </View>
+          ) : (
+            <Text style={[styles.tabText, { color: displayColor }]}>{tab.label ?? ''}</Text>
+          )}
+        </View>
+        {isSelected ? <View style={[styles.underline, { backgroundColor: underlineColor }]} /> : <View style={styles.underlinePlaceholder} />}
+      </TouchableOpacity>
+    );
+  };
+
+  const stickyTab = tabs[0];
+  const scrollableTabs = tabs.slice(1);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }, isDarkMode && styles.containerDark]}>
+      {stickyTab && (
+        <View style={styles.stickyContainer}>
+          {renderTab(stickyTab, 0, true)}
+        </View>
+      )}
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -60,32 +100,7 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress }: HeaderBarProps)
         onLayout={e => setScrollViewWidth(e.nativeEvent.layout.width)}
         onContentSizeChange={(w) => setContentWidth(w)}
       >
-        {tabs.map((tab, index) => {
-          const isSelected = index === selectedIndex;
-          const displayColor = isSelected ? textColor : inactiveColor;
-          return (
-            <TouchableOpacity
-              key={tab.key ?? `${index}`}
-              activeOpacity={0.7}
-              onPress={() => onTabPress(index)}
-              onLayout={e => handleLayout(index, e.nativeEvent.layout.x, e.nativeEvent.layout.width)}
-              style={styles.tabButton}
-            >
-              <View style={styles.tabContent}>
-                {tab.icon === 'hamburger' ? (
-                  <View style={styles.hamburgerIcon}>
-                    <View style={[styles.hamburgerLine, { backgroundColor: displayColor }]} />
-                    <View style={[styles.hamburgerLine, { backgroundColor: displayColor, marginTop: 4 }]} />
-                    <View style={[styles.hamburgerLine, { backgroundColor: displayColor, marginTop: 4 }]} />
-                  </View>
-                ) : (
-                  <Text style={[styles.tabText, { color: displayColor }]}>{tab.label ?? ''}</Text>
-                )}
-              </View>
-              {isSelected ? <View style={[styles.underline, { backgroundColor: underlineColor }]} /> : <View style={styles.underlinePlaceholder} />}
-            </TouchableOpacity>
-          );
-        })}
+        {scrollableTabs.map((tab, idx) => renderTab(tab, idx + 1))}
       </ScrollView>
     </View>
   );
@@ -112,10 +127,17 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     paddingRight: 12,
   },
+  stickyContainer: {
+    paddingLeft: 12,
+    paddingRight: 4,
+  },
   tabButton: {
     paddingHorizontal: 10,
     paddingVertical: 10,
     alignItems: 'center',
+  },
+  stickyTabButton: {
+    paddingRight: 6,
   },
   tabContent: {
     flexDirection: 'row',
