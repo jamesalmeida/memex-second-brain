@@ -58,6 +58,10 @@ const ChatSheet = observer(
     const [showDescriptionButton, setShowDescriptionButton] = useState(false);
     const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
     const [isGeneratingDescriptions, setIsGeneratingDescriptions] = useState(false);
+    const [showModelSwitchBanner, setShowModelSwitchBanner] = useState(false);
+    const [modelSwitchMessage, setModelSwitchMessage] = useState('');
+    const [actualModelUsed, setActualModelUsed] = useState<string | null>(null);
+    const [hasShownModelSwitchBanner, setHasShownModelSwitchBanner] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -68,6 +72,9 @@ const ChatSheet = observer(
     useEffect(() => {
       setInputText('');
       setIsTyping(false);
+      setHasShownModelSwitchBanner(false); // Reset banner flag for new chat
+      setShowModelSwitchBanner(false);
+      setActualModelUsed(null);
     }, [item?.id]);
 
     // Load or create chat when item changes
@@ -320,6 +327,22 @@ const ChatSheet = observer(
         );
 
         if (completion && completion.choices[0]) {
+          // Check if model was auto-switched (only show banner the first time)
+          if (completion.wasAutoSwitched && completion.autoSwitchReason && !hasShownModelSwitchBanner) {
+            setShowModelSwitchBanner(true);
+            setModelSwitchMessage(completion.autoSwitchReason);
+            setHasShownModelSwitchBanner(true);
+            // Auto-hide banner after 10 seconds
+            setTimeout(() => {
+              setShowModelSwitchBanner(false);
+            }, 10000);
+          }
+
+          // Always update the actual model used (for header display)
+          if (completion.model) {
+            setActualModelUsed(completion.model);
+          }
+
           const assistantMessage = completion.choices[0].message.content;
           const messageMetadata = {
             model: completion.model,
@@ -478,9 +501,22 @@ const ChatSheet = observer(
           <View style={[styles.header, isDarkMode && styles.headerDark]}>
             <Text style={[styles.title, isDarkMode && styles.titleDark]}>AI Chat</Text>
             <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-              Powered by {selectedModel}
+              Powered by {actualModelUsed || selectedModel}
             </Text>
           </View>
+
+          {/* Model Switch Banner */}
+          {showModelSwitchBanner && (
+            <View style={[styles.modelSwitchBanner, isDarkMode && styles.modelSwitchBannerDark]}>
+              <MaterialIcons name="info-outline" size={16} color={COLORS.primary} />
+              <Text style={[styles.modelSwitchText, isDarkMode && styles.modelSwitchTextDark]}>
+                {modelSwitchMessage}
+              </Text>
+              <TouchableOpacity onPress={() => setShowModelSwitchBanner(false)}>
+                <MaterialIcons name="close" size={16} color={isDarkMode ? '#999' : '#666'} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Messages */}
           <BottomSheetScrollView
@@ -678,6 +714,29 @@ const styles = StyleSheet.create({
   },
   subtitleDark: {
     color: '#999999',
+  },
+  modelSwitchBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E5E7',
+  },
+  modelSwitchBannerDark: {
+    backgroundColor: '#1A237E',
+    borderBottomColor: '#38383A',
+  },
+  modelSwitchText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1565C0',
+    lineHeight: 18,
+  },
+  modelSwitchTextDark: {
+    color: '#90CAF9',
   },
   messagesContainer: {
     paddingHorizontal: 16,

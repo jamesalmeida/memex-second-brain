@@ -3,10 +3,12 @@ import { videoTranscriptsComputed } from '../stores/videoTranscripts';
 import { imageDescriptionsComputed } from '../stores/imageDescriptions';
 import { itemMetadataComputed } from '../stores/itemMetadata';
 import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
+import { estimateTokens } from '../utils/tokenEstimator';
 
 export interface ContextMetadata {
   includedFields: string[];
   wordCount: number;
+  estimatedTokens: number;
   hasTranscript: boolean;
   hasImageDescriptions: boolean;
   contentType: ContentType;
@@ -201,11 +203,15 @@ export const buildItemContext = (item: Item): ContextResult => {
   const contextString = contextParts.join('\n');
   const wordCount = contextString.split(/\s+/).length;
 
+  // Estimate token count for the entire context
+  const tokenEstimate = estimateTokens(contextString);
+
   return {
     contextString,
     metadata: {
       includedFields,
       wordCount,
+      estimatedTokens: tokenEstimate.estimatedTokens,
       hasTranscript,
       hasImageDescriptions,
       contentType: item.content_type,
