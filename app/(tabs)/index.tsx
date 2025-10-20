@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResp
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSharedValue } from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
@@ -124,6 +125,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const pagerRef = useRef<ScrollView>(null);
   const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
 
+  // Shared value for scroll position to animate header underline
+  const scrollOffsetX = useSharedValue(screenWidth); // Start at page 1 (Everything)
+
   const tabs: HeaderTabConfig[] = useMemo(() => [
     { key: 'drawer', icon: 'hamburger' },
     { key: 'everything', label: 'Everything' },
@@ -208,6 +212,14 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }
   }, [selectedPage, spaces]);
 
+  const handleScroll = useCallback((e: any) => {
+    scrollOffsetX.value = e.nativeEvent.contentOffset.x;
+  }, [scrollOffsetX]);
+
+  const handleHamburgerPress = useCallback((previousIndex: number) => {
+    scrollToPage(previousIndex);
+  }, [scrollToPage]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     // TODO: Refresh from backend
@@ -257,6 +269,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         tabs={tabs}
         selectedIndex={selectedPage}
         onTabPress={scrollToPage}
+        scrollOffset={scrollOffsetX}
+        onHamburgerPress={handleHamburgerPress}
       />
 
       <ScrollView
@@ -264,6 +278,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={handlePageChange}
         scrollEnabled={isPagerScrollEnabled && !shouldDisableScroll}
         onTouchStart={(e) => {
