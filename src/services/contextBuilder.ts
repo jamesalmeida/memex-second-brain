@@ -100,51 +100,41 @@ export const buildItemContext = (item: Item): ContextResult => {
     if (item.content_type === 'reddit' && typeMetadata.data.reddit_metadata) {
       const reddit = typeMetadata.data.reddit_metadata;
 
-      // Include the full raw JSON response from Reddit API
-      if (reddit.raw_json) {
-        contextParts.push('');
-        contextParts.push('--- Reddit API JSON Response ---');
-        contextParts.push(reddit.raw_json);
-        contextParts.push('--- End Reddit API JSON Response ---');
-        contextParts.push('');
-        includedFields.push('reddit_raw_json');
-      } else {
-        // Fallback to formatted metadata if raw JSON not available
-        contextParts.push('');
-        contextParts.push('--- Reddit Post Metadata ---');
-        contextParts.push(`Upvotes: ${reddit.ups}`);
-        contextParts.push(`Comments: ${reddit.num_comments}`);
-        contextParts.push(`Upvote Ratio: ${Math.round(reddit.upvote_ratio * 100)}%`);
+      // Use formatted metadata (raw JSON is too large and tokenizes poorly)
+      contextParts.push('');
+      contextParts.push('--- Reddit Post Metadata ---');
+      contextParts.push(`Upvotes: ${reddit.ups}`);
+      contextParts.push(`Comments: ${reddit.num_comments}`);
+      contextParts.push(`Upvote Ratio: ${Math.round(reddit.upvote_ratio * 100)}%`);
 
-        if (reddit.link_flair_text) {
-          contextParts.push(`Flair: ${reddit.link_flair_text}`);
-        }
-        if (reddit.video_duration) {
-          const mins = Math.floor(reddit.video_duration / 60);
-          const secs = reddit.video_duration % 60;
-          contextParts.push(`Video Duration: ${mins}:${secs.toString().padStart(2, '0')}`);
-        }
-        if (reddit.total_awards_received > 0) {
-          contextParts.push(`Awards: ${reddit.total_awards_received}`);
-        }
-        if (reddit.num_crossposts > 0) {
-          contextParts.push(`Crossposts: ${reddit.num_crossposts}`);
-        }
-
-        // Content flags
-        const flags: string[] = [];
-        if (reddit.spoiler) flags.push('Spoiler');
-        if (reddit.over_18) flags.push('NSFW');
-        if (reddit.locked) flags.push('Locked');
-        if (reddit.stickied) flags.push('Stickied/Pinned');
-        if (flags.length > 0) {
-          contextParts.push(`Flags: ${flags.join(', ')}`);
-        }
-
-        contextParts.push('--- End Reddit Metadata ---');
-        contextParts.push('');
-        includedFields.push('reddit_metadata');
+      if (reddit.link_flair_text) {
+        contextParts.push(`Flair: ${reddit.link_flair_text}`);
       }
+      if (reddit.video_duration) {
+        const mins = Math.floor(reddit.video_duration / 60);
+        const secs = reddit.video_duration % 60;
+        contextParts.push(`Video Duration: ${mins}:${secs.toString().padStart(2, '0')}`);
+      }
+      if (reddit.total_awards_received > 0) {
+        contextParts.push(`Awards: ${reddit.total_awards_received}`);
+      }
+      if (reddit.num_crossposts > 0) {
+        contextParts.push(`Crossposts: ${reddit.num_crossposts}`);
+      }
+
+      // Content flags
+      const flags: string[] = [];
+      if (reddit.spoiler) flags.push('Spoiler');
+      if (reddit.over_18) flags.push('NSFW');
+      if (reddit.locked) flags.push('Locked');
+      if (reddit.stickied) flags.push('Stickied/Pinned');
+      if (flags.length > 0) {
+        contextParts.push(`Flags: ${flags.join(', ')}`);
+      }
+
+      contextParts.push('--- End Reddit Metadata ---');
+      contextParts.push('');
+      includedFields.push('reddit_metadata');
     }
   }
 

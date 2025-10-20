@@ -60,7 +60,17 @@ export const openai = {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        // Parse error response body for more details
+        let errorDetails = '';
+        try {
+          const errorData = await response.json();
+          errorDetails = JSON.stringify(errorData, null, 2);
+          console.error('OpenAI API error response:', errorData);
+        } catch (parseError) {
+          errorDetails = await response.text();
+          console.error('OpenAI API error (raw):', errorDetails);
+        }
+        throw new Error(`OpenAI API error: ${response.status} - ${errorDetails}`);
       }
 
       const data = await response.json();

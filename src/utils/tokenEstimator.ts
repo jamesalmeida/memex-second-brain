@@ -17,14 +17,32 @@ export interface TokenEstimate {
 
 /**
  * Estimate token count from text content
- * Uses conservative estimate of 1.33 tokens per word
+ * Uses conservative estimate based on content characteristics
  */
 export function estimateTokens(text: string): TokenEstimate {
   const characterCount = text.length;
   const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
 
-  // Conservative estimate: 1.33 tokens per word
-  const estimatedTokens = Math.ceil(wordCount * 1.33);
+  // Detect if this is likely a transcript or structured data
+  // Transcripts and JSON/code tokenize much worse than natural language
+  const hasTimestamps = /\[\d{1,2}:\d{2}:\d{2}\]|\d{1,2}:\d{2}/.test(text.substring(0, 1000));
+  const hasRepeatedBrackets = (text.match(/\[/g) || []).length > wordCount * 0.01;
+  const avgWordLength = characterCount / Math.max(wordCount, 1);
+  const hasLongWords = avgWordLength > 8; // URLs, code, etc.
+  const isPoorlyFormatted = text.includes('>>') || text.includes('[Music]') || text.includes('[Applause]');
+
+  let tokensPerWord = 1.33; // Default for natural language
+
+  // Adjust multiplier based on content type
+  if (hasTimestamps || isPoorlyFormatted) {
+    tokensPerWord = 6.0; // YouTube transcripts with timestamps/markers
+  } else if (hasRepeatedBrackets || hasLongWords) {
+    tokensPerWord = 3.0; // Structured data or code
+  } else if (wordCount > 10000) {
+    tokensPerWord = 2.0; // Very long content tends to tokenize worse
+  }
+
+  const estimatedTokens = Math.ceil(wordCount * tokensPerWord);
 
   return {
     estimatedTokens,
