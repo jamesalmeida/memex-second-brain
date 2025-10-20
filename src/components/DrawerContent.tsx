@@ -78,7 +78,7 @@ const DrawerContentInner = observer(() => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 88 },
+          { paddingBottom: insets.bottom + 88 },
         ]}
         ListHeaderComponent={(
           <View>

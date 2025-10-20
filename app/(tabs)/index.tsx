@@ -303,7 +303,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       >
         {/* Page 0: Drawer */}
         <View
-          style={{ width: screenWidth, height: '100%' }}
+          style={{ width: screenWidth, height: '100%', paddingTop: 10 }}
           {...drawerPanResponder.panHandlers}
         >
           <DrawerContentBody />
