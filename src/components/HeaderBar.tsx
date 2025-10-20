@@ -263,8 +263,9 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   tabButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 0,
+    marginHorizontal: 10,
+    paddingVertical: 0,
     alignItems: 'center',
   },
   stickyTabButton: {
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
   },
   iconUnderlinePlaceholder: {
     marginTop: 2,
-    height: 2,
+    height: 0,
     opacity: 0,
   },
   animatedUnderline: {
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 4,
   },
   hamburgerLine: {
     width: 20,
