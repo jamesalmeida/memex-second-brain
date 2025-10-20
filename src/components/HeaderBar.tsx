@@ -244,8 +244,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: 'rgba(255,255,255,0.9)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    // borderBottomWidth: StyleSheet.hairlineWidth,
+    // borderBottomColor: 'rgba(0,0,0,0.1)',
+    paddingBottom: 10,
   },
   containerDark: {
     backgroundColor: 'rgba(0,0,0,0.9)',
