@@ -4,24 +4,27 @@ import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 import { syncOperations } from '../services/syncOperations';
 import { authComputed } from '../stores/auth';
-import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
+import { COLORS } from '../constants';
 
-interface DrawerContentProps {
-  onClose: () => void;
-}
-
-const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
-  console.log('🎨 [DrawerContent] Component rendered');
+const DrawerContentInner = observer(() => {
+  console.log('🎨 [DrawerContent] Body rendered');
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
-  const { onSettingsPress, onCreateSpacePress, onEditSpacePress, onNavigateToSpace, onNavigateToEverything } = useDrawer();
+  const {
+    onSettingsPress,
+    onCreateSpacePress,
+    onEditSpacePress,
+    onNavigateToSpace,
+    onNavigateToEverything,
+  } = useDrawer();
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -52,10 +55,8 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
             try {
               console.log('🗑️ Deleting space:', spaceId);
 
-              // Remove from local store first
               spacesActions.removeSpace(spaceId);
 
-              // Sync with Supabase
               const user = authComputed.user();
               if (user) {
                 await syncOperations.deleteSpace(spaceId);
@@ -76,10 +77,30 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
       <DraggableFlatList
         data={spaces}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 88 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 70 },
+        ]}
         ListHeaderComponent={(
           <View>
-            {/* Navigation Items */}
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={onSettingsPress}
+              >
+                <MaterialIcons
+                  name="settings"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Settings
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* <View style={[styles.divider, isDarkMode && styles.dividerDark]} /> */}
+
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.menuItem}
@@ -99,7 +120,6 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
               </TouchableOpacity>
             </View>
 
-            {/* Spaces Header */}
             {spaces.length > 0 && (
               <View style={styles.sectionHeader}>
                 <Feather
@@ -111,14 +131,17 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
                   Spaces
                 </Text>
                 <TouchableOpacity
-                  style={styles.addButton}
+                  style={[styles.addButton, isDarkMode && styles.addButtonDark]}
                   onPress={onCreateSpacePress}
                 >
                   <MaterialIcons
                     name="add"
-                    size={20}
-                    color={isDarkMode ? '#FFFFFF' : '#000000'}
+                    size={16}
+                    color="#FFFFFF"
                   />
+                  <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
+                    New Space
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -131,10 +154,9 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
           }));
           spacesActions.reorderSpacesWithSync(spacesWithOrder);
         }}
-        renderItem={({ item, drag, isActive }) => (
+        renderItem={({ item, drag }) => (
           <ScaleDecorator>
             <View style={[styles.spaceItem, isDarkMode && styles.spaceItemDark]}>
-              {/* Drag handle: press-and-hold should start drag immediately */}
               <TouchableOpacity
                 onPressIn={drag}
                 activeOpacity={0.6}
@@ -149,7 +171,6 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
                 />
               </TouchableOpacity>
 
-              {/* Main tap area: navigate to space */}
               <TouchableOpacity
                 style={[styles.spaceItemContent, { paddingVertical: 6 }]}
                 onPress={() => navigateToSpace(item.id)}
@@ -194,27 +215,19 @@ const DrawerContent = observer(({ onClose }: DrawerContentProps) => {
           </ScaleDecorator>
         )}
       />
-
-      {/* Sticky Settings at Bottom */}
-      <View style={[styles.stickyFooter, isDarkMode && styles.stickyFooterDark, { paddingBottom: insets.bottom }]}>
-        <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={onSettingsPress}
-        >
-          <MaterialIcons
-            name="settings"
-            size={24}
-            color={isDarkMode ? '#FFFFFF' : '#000000'}
-          />
-          <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 });
+
+export const DrawerContentBody = DrawerContentInner;
+
+interface DrawerContentProps {
+  onClose: () => void;
+}
+
+const DrawerContent = ({ onClose: _onClose }: DrawerContentProps) => {
+  return <DrawerContentInner />;
+};
 
 export default DrawerContent;
 
@@ -257,14 +270,14 @@ const styles = StyleSheet.create({
     color: '#999999',
   },
   section: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
     marginBottom: 12,
-    marginTop: 5,
+    // marginTop: 5,
     marginRight: 5,
   },
   sectionTitle: {
@@ -278,9 +291,25 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   addButton: {
-    padding: 4,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     marginLeft: 'auto',
+    backgroundColor: COLORS.primary,
+    gap: 4,
+  },
+  addButtonDark: {
+    backgroundColor: COLORS.primary,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  addButtonTextDark: {
+    color: '#FFFFFF',
   },
   menuItem: {
     flexDirection: 'row',
@@ -294,6 +323,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#000000',
     marginLeft: 10,
+    textTransform: 'uppercase',
   },
   menuTextDark: {
     color: '#FFFFFF',
@@ -304,6 +334,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 8,
+    marginLeft: 14,
     borderRadius: 8,
     backgroundColor: '#F5F5F5',
     marginBottom: 5,
@@ -341,19 +372,5 @@ const styles = StyleSheet.create({
   },
   dividerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  stickyFooter: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: 0,
-    borderTopWidth: 0,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-  },
-  stickyFooterDark: {
-    backgroundColor: '#000000',
   },
 });

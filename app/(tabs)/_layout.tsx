@@ -16,7 +16,6 @@ import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
 import ChatSheet from '../../src/components/ChatSheet';
-import FilterSheet from '../../src/components/FilterSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
 import { Item } from '../../src/types';
@@ -37,18 +36,12 @@ const TabLayout = observer(() => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
-  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   // Get radial menu state to disable swipe gesture
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { openDrawer, registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView, drawerRef } = useDrawer();
-  useEffect(() => {
-    console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
-    registerSettingsHandler(handleSettingsPress);
-  }, [registerSettingsHandler, handleSettingsPress]);
-
+  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
   // Register create space handler
   const handleCreateSpacePress = useCallback(() => {
     console.log('➕ [TabLayout] handleCreateSpacePress called');
@@ -104,7 +97,6 @@ const TabLayout = observer(() => {
   const reorderSpacesSheetRef = useRef<ReorderSpacesSheetRef>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
   const expandedItemSheetRef = useRef<BottomSheet>(null);
-  const filterSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
@@ -180,21 +172,10 @@ const TabLayout = observer(() => {
     }
   }, [isSettingsOpen, isAddSheetOpen]);
 
-  const handleFilterPress = () => {
-    console.log('🔍 [TabLayout] handleFilterPress called');
-    if (isFilterSheetOpen) {
-      filterSheetRef.current?.close();
-      setIsFilterSheetOpen(false);
-    } else {
-      // Close settings if open before opening filter
-      if (isSettingsOpen) {
-        settingsSheetRef.current?.close();
-        setIsSettingsOpen(false);
-      }
-      filterSheetRef.current?.expand();
-      setIsFilterSheetOpen(true);
-    }
-  };
+  useEffect(() => {
+    console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
+    registerSettingsHandler(handleSettingsPress);
+  }, [registerSettingsHandler, handleSettingsPress]);
 
   const handleAddPress = () => {
     console.log('🏠🏠🏠 handleAddPress called');
@@ -340,17 +321,7 @@ const TabLayout = observer(() => {
       <BottomNavigation
         currentView={currentView}
         onViewChange={handleViewChange}
-        onSettingsPress={handleFilterPress}
         onAddPress={handleAddPress}
-        onMenuPress={() => {
-          console.log('🍔 [TabLayout] Hamburger pressed - opening drawer directly');
-          // Try opening via ref first for immediate response
-          if (drawerRef?.current?.openDrawer) {
-            drawerRef.current.openDrawer();
-          }
-          // Also call context openDrawer to sync state
-          openDrawer();
-        }}
         visible={!isExpandedItemOpen}
       />
 
@@ -401,11 +372,6 @@ const TabLayout = observer(() => {
           ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
           onClose={() => setIsSettingsOpen(false)}
-        />
-        <FilterSheet
-          ref={filterSheetRef}
-          onOpen={() => setIsFilterSheetOpen(true)}
-          onClose={() => setIsFilterSheetOpen(false)}
         />
         <AddItemSheet
           ref={addItemSheetRef}

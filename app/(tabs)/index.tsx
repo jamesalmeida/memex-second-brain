@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResponder } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSharedValue } from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
@@ -14,13 +15,13 @@ import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockDat
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import { spacesComputed, spacesActions } from '../../src/stores/spaces';
 import { itemSpacesComputed } from '../../src/stores/itemSpaces';
-import HeaderBar from '../../src/components/HeaderBar';
+import HeaderBar, { HeaderTabConfig } from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
+import { DrawerContentBody } from '../../src/components/DrawerContent';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
 const EDGE_SWIPE_WIDTH_EVERYTHING = 30; // Narrower drawer swipe area on Everything tab to avoid intercepting taps
-const EDGE_SWIPE_WIDTH_DEFAULT = 50; // Normal drawer swipe area on other tabs
 
 interface HomeScreenProps {
   onExpandedItemOpen?: () => void;
@@ -29,8 +30,7 @@ interface HomeScreenProps {
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
   // Get drawer from context directly instead of via props
-  const { openDrawer, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
-  console.log('🏠 [HomeScreen] Component rendered, openDrawer from context:', typeof openDrawer);
+  const { registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
@@ -121,13 +121,20 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Spaces and pager state
   const spaces = spacesComputed.spaces();
-  const [selectedPage, setSelectedPage] = useState(0); // 0 = Everything, 1..n = spaces
+  const [selectedPage, setSelectedPage] = useState(1); // 0 = Drawer, 1 = Everything, 2..n = spaces
   const pagerRef = useRef<ScrollView>(null);
   const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
 
-  const tabs = useMemo(() => [
-    'Everything',
-    ...spaces.map(s => s.name)
+  // Shared value for scroll position to animate header underline
+  const scrollOffsetX = useSharedValue(screenWidth); // Start at page 1 (Everything)
+
+  const tabs: HeaderTabConfig[] = useMemo(() => [
+    { key: 'drawer', icon: 'hamburger' },
+    { key: 'everything', label: 'Everything' },
+    ...spaces.map(space => ({
+      key: `space-${space.id}`,
+      label: space.name,
+    })),
   ], [spaces]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
@@ -135,23 +142,47 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     return displayItems.filter(item => ids.includes(item.id));
   }, [displayItems]);
 
-  const scrollToPage = useCallback((index: number) => {
+  const scrollToPage = useCallback((index: number, animated = true) => {
     setSelectedPage(index);
-    pagerRef.current?.scrollTo({ x: index * screenWidth, animated: true });
-    if (index === 0) {
+    pagerRef.current?.scrollTo({ x: index * screenWidth, animated });
+    if (index <= 1) {
       spacesActions.setSelectedSpace(null);
     } else {
-      const space = spaces[index - 1];
+      const space = spaces[index - 2];
       if (space) spacesActions.setSelectedSpace(space);
     }
   }, [spaces]);
+
+  const drawerPanResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_evt, gestureState) => {
+      const { dx, dy } = gestureState;
+      return Math.abs(dx) > Math.abs(dy) && dx < -10;
+    },
+    onPanResponderRelease: (_evt, gestureState) => {
+      if (gestureState.dx < -40 || gestureState.vx < -0.2) {
+        scrollToPage(1);
+      }
+    },
+    onPanResponderTerminate: (_evt, gestureState) => {
+      if (gestureState.dx < -40 || gestureState.vx < -0.2) {
+        scrollToPage(1);
+      }
+    },
+  }), [scrollToPage]);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      pagerRef.current?.scrollTo({ x: screenWidth, animated: false });
+    }, 0);
+    return () => clearTimeout(id);
+  }, []);
 
   // Handler for navigating to a specific space by ID
   const handleNavigateToSpace = useCallback((spaceId: string) => {
     const spaceIndex = spaces.findIndex(s => s.id === spaceId);
     if (spaceIndex !== -1) {
-      // +1 because index 0 is "Everything"
-      scrollToPage(spaceIndex + 1);
+      // +2 because index 0 is Drawer, 1 is Everything
+      scrollToPage(spaceIndex + 2);
     }
   }, [spaces, scrollToPage]);
 
@@ -163,7 +194,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   // Register the navigate to EVERYTHING handler
   useEffect(() => {
     const handleNavigateToEverything = () => {
-      scrollToPage(0);
+      scrollToPage(1);
     };
     registerNavigateToEverythingHandler(handleNavigateToEverything);
   }, [registerNavigateToEverythingHandler, scrollToPage]);
@@ -172,14 +203,22 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
     if (page !== selectedPage) {
       setSelectedPage(page);
-      if (page === 0) {
+      if (page <= 1) {
         spacesActions.setSelectedSpace(null);
       } else {
-        const space = spaces[page - 1];
+        const space = spaces[page - 2];
         if (space) spacesActions.setSelectedSpace(space);
       }
     }
   }, [selectedPage, spaces]);
+
+  const handleScroll = useCallback((e: any) => {
+    scrollOffsetX.value = e.nativeEvent.contentOffset.x;
+  }, [scrollOffsetX]);
+
+  const handleHamburgerPress = useCallback((previousIndex: number) => {
+    scrollToPage(previousIndex);
+  }, [scrollToPage]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -230,7 +269,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         tabs={tabs}
         selectedIndex={selectedPage}
         onTabPress={scrollToPage}
-        onMenuPress={openDrawer}
+        scrollOffset={scrollOffsetX}
+        onHamburgerPress={handleHamburgerPress}
       />
 
       <ScrollView
@@ -238,11 +278,13 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={handlePageChange}
         scrollEnabled={isPagerScrollEnabled && !shouldDisableScroll}
         onTouchStart={(e) => {
           // On the Everything tab, give drawer edge swipe precedence over pager
-          if (selectedPage === 0) {
+          if (selectedPage === 1) {
             const touchX = e.nativeEvent.pageX ?? 0;
             // Use wider swipe area for Everything tab (150px)
             if (touchX <= EDGE_SWIPE_WIDTH_EVERYTHING) {
@@ -259,7 +301,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
           if (!isPagerScrollEnabled) setIsPagerScrollEnabled(true);
         }}
       >
-        {/* Page 0: Everything */}
+        {/* Page 0: Drawer */}
+        <View
+          style={{ width: screenWidth, height: '100%' }}
+          {...drawerPanResponder.panHandlers}
+        >
+          <DrawerContentBody />
+        </View>
+
+        {/* Page 1: Everything */}
         <View style={{ width: screenWidth }}>
           <FlashList
             ref={listRef}
@@ -284,7 +334,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
           />
         </View>
 
-        {/* Pages 1..n: one per space */}
+        {/* Pages 2..n: one per space */}
         {spaces.map(space => (
           <View key={space.id} style={{ width: screenWidth }}>
             <FlashList

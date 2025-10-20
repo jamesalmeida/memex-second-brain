@@ -87,7 +87,7 @@ const RootLayoutContent = observer(() => {
       drawerType="slide"
       drawerStyle={{
         backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-        width: 280,
+        width: SCREEN_WIDTH,
       }}
       overlayStyle={{
         backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
@@ -97,7 +97,7 @@ const RootLayoutContent = observer(() => {
       drawerAnimationDuration={150}
       renderDrawerContent={() => {
         console.log('🎨 [RootLayout] renderDrawerContent called');
-        return <DrawerContentView onClose={closeDrawer} />;
+        return <View style={{ flex: 1, paddingTop: 60 }}><DrawerContentView onClose={closeDrawer} /></View>;
       }}
     >
       <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#ffffff' }}>

@@ -4,7 +4,6 @@ import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated from 'react-native-reanimated';
 import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../../src/stores/theme';
 import { spacesStore, spacesActions, spacesComputed } from '../../src/stores/spaces';
@@ -13,10 +12,7 @@ import SpaceChatSheet, { SpaceChatSheetRef } from '../../src/components/SpaceCha
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import { Space } from '../../src/types';
 import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
-import { useDynamicTextContrast } from '../../src/hooks/useDynamicTextContrast';
 import { useDrawer } from '../../src/contexts/DrawerContext';
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 interface SpacesScreenProps {
   onSpaceOpen?: (spaceId: string) => void;
@@ -39,19 +35,6 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   const spaceChatSheetRef = useRef<SpaceChatSheetRef>(null);
   const cardRefs = useRef<{ [key: string]: any }>({});
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
-  
-  // Dynamic contrast for search bar
-  const {
-    handleScroll,
-    animatedTextStyle,
-    placeholderColor,
-    shouldUseDarkText,
-  } = useDynamicTextContrast(isDarkMode, {
-    lightThreshold: 0.55,
-    darkThreshold: 0.45,
-    transitionDuration: 250,
-    scrollSampleRate: 50,
-  });
 
   // Clear search query
   const handleClearSearch = useCallback(() => {
@@ -130,11 +113,9 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
         masonry
         numColumns={2}
         estimatedItemSize={150}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 53 }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 60 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -144,47 +125,49 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
         }
       />
 
-      {/* Floating Search Bar with Dynamic Contrast */}
-      <View style={[styles.searchContainer, {
-        position: 'absolute',
-        top: insets.top - 12,
-        left: 4,
-        right: 4,
-        zIndex: 10,
-        borderBottomColor: shouldUseDarkText ? '#FF6B35' : '#FF8A65',
-      }]}>
+      {/* Header Bar matching HeaderBar.tsx */}
+      <View style={[
+        styles.headerBar,
+        isDarkMode && styles.headerBarDark,
+        { paddingTop: insets.top, paddingBottom: 10 }
+      ]}>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Open menu"
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           onPress={openDrawer}
-          style={styles.menuButton}
+          style={styles.hamburgerButton}
           activeOpacity={0.7}
         >
-          <View style={[styles.menuLine, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
-          <View style={[styles.menuLineShort, { backgroundColor: shouldUseDarkText ? '#000000' : '#FFFFFF' }]} />
+          <View style={styles.hamburgerIcon}>
+            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ? '#FFFFFF' : '#000000' }]} />
+            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ? '#FFFFFF' : '#000000', marginTop: 4 }]} />
+            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ? '#FFFFFF' : '#000000', marginTop: 4 }]} />
+          </View>
         </TouchableOpacity>
-        <AnimatedTextInput
-          style={[styles.searchInput, animatedTextStyle]}
-          placeholder="Search Spaces..."
-          placeholderTextColor={placeholderColor}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={handleClearSearch}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialIcons
-              name="close"
-              size={20}
-              color={shouldUseDarkText ? '#000000' : '#FFFFFF'}
-            />
-          </TouchableOpacity>
-        )}
+        <View style={styles.searchInputContainer}>
+          <TextInput
+            style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
+            placeholder="Search Spaces..."
+            placeholderTextColor={isDarkMode ? '#999999' : '#666666'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={handleClearSearch}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons
+                name="close"
+                size={18}
+                color={isDarkMode ? '#999999' : '#666666'}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Space Chat Sheet */}
@@ -254,13 +237,12 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 4,
-    paddingBottom: 80, // Account for nav bar height
+    paddingBottom: 85, // Account for nav bar height
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 100,
     paddingHorizontal: 40,
   },
   emptyIcon: {
@@ -285,52 +267,61 @@ const styles = StyleSheet.create({
   emptySubtitleDark: {
     color: '#999',
   },
-  searchContainer: {
+  headerBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    marginHorizontal: 4,
-    marginTop: 0,
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    borderBottomWidth: 0,
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    zIndex: 10,
   },
-  menuButton: {
-    paddingLeft: 8,
-    paddingRight: 10,
-    paddingVertical: 12,
+  headerBarDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  },
+  hamburgerButton: {
+    paddingRight: 12,
+    paddingLeft: 12,
+    paddingVertical: 0,
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginRight: 4,
   },
-  menuLine: {
+  hamburgerIcon: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  hamburgerLine: {
     width: 20,
     height: 2,
     borderRadius: 1,
   },
-  menuLineShort: {
-    width: 12,
-    height: 2,
-    borderRadius: 1,
-    marginTop: 6,
+  searchInputContainer: {
+    flex: 1,
+    position: 'relative',
+    paddingBottom: 4,
+    marginLeft: 10,
   },
   searchInput: {
-    flex: 1,
-    paddingLeft: 0,
-    paddingRight: 36, // Make room for clear button
-    paddingTop: 8,
-    paddingBottom: 0,
-    marginBottom: -12,
-    fontSize: 26,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    paddingVertical: 0,
+    paddingRight: 36,
+  },
+  searchInputDark: {
+    color: '#FFFFFF',
   },
   clearButton: {
     position: 'absolute',
-    right: 4,
-    top: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(150, 150, 150, 0.2)',
+    right: 0,
+    top: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(150, 150, 150, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
