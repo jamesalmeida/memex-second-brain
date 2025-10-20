@@ -40,28 +40,28 @@ export const itemMetadataActions = {
   upsertMetadata: async (metadata: ItemMetadata) => {
     const currentMetadata = itemMetadataStore.metadata.get();
     const existingIndex = currentMetadata.findIndex(m => m.item_id === metadata.item_id);
-    
+
     let updatedMetadata: ItemMetadata[];
     if (existingIndex >= 0) {
-      // Update existing
+      // Merge with existing to avoid wiping previously set fields
       updatedMetadata = [...currentMetadata];
-      updatedMetadata[existingIndex] = metadata;
+      updatedMetadata[existingIndex] = {
+        ...currentMetadata[existingIndex],
+        ...metadata,
+      } as ItemMetadata;
     } else {
       // Add new
       updatedMetadata = [...currentMetadata, metadata];
     }
-    
+
     itemMetadataStore.metadata.set(updatedMetadata);
-    
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_METADATA, JSON.stringify(updatedMetadata));
 
-      // Sync to Supabase with upsert and updated_at
+      // Sync to Supabase with upsert (partial fields only)
       const { syncOperations } = await import('../services/syncOperations');
-      await syncOperations.upsertItemMetadata({
-        ...metadata,
-        // ensure updated_at is set server-side (passed in upsert as well)
-      } as any);
+      await syncOperations.upsertItemMetadata(metadata as any);
     } catch (error) {
       console.error('Error saving item metadata:', error);
     }

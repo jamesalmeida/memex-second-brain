@@ -37,6 +37,7 @@ import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getXVideoTranscript } from '../../services/twitter';
+import { itemMetadataComputed } from '../../stores/itemMetadata';
 import { extractUsername } from '../../utils/itemCardHelpers';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -264,8 +265,11 @@ const XItemView = observer(({
     return null;
   }
 
-  const username = extractUsername(itemToDisplay);
-  const tweetText = itemToDisplay.desc || itemToDisplay.title;
+  const metadataForItem = itemMetadataComputed.getMetadataForItem(itemToDisplay.id);
+  const username = metadataForItem?.username || extractUsername(itemToDisplay);
+  // Prefer post_content (tweet text); fallback to desc or title for legacy items
+  // @ts-ignore post_content may not exist in Item type locally yet
+  const tweetText = (itemToDisplay as any).post_content || itemToDisplay.desc || itemToDisplay.title;
 
   const calculateTranscriptStats = (text: string) => {
     const chars = text.length;
@@ -594,14 +598,26 @@ const XItemView = observer(({
 
   return (
     <View style={styles.container}>
-      {/* X/Twitter Header with Blue Border */}
+      {/* X/Twitter Header */}
       <View style={[styles.xHeader, isDarkMode && styles.xHeaderDark]}>
-        <Text style={styles.xIcon}>𝕏</Text>
-        {username && (
-          <Text style={[styles.username, isDarkMode && styles.usernameDark]}>
-            @{username}
-          </Text>
-        )}
+        {metadataForItem?.profile_image ? (
+          <Image
+            source={{ uri: metadataForItem.profile_image }}
+            style={styles.avatar}
+            contentFit="cover"
+          />
+        ) : null}
+        <View style={styles.nameBlock}>
+          {metadataForItem?.author ? (
+            <Text style={[styles.authorName, isDarkMode && styles.authorNameDark]}>
+              {metadataForItem.author}
+            </Text>
+          ) : null}
+          {username ? (
+            <Text style={[styles.username, isDarkMode && styles.usernameDark]}>@{username}</Text>
+          ) : null}
+        </View>
+        <Text style={styles.xIconRight}>𝕏</Text>
       </View>
 
       {/* Tweet Text (inline editable description/title) */}
@@ -745,7 +761,7 @@ const XItemView = observer(({
           )}
           <View style={styles.metaItem}>
             <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-              {formatDate(itemToDisplay?.created_at || '')}
+              {formatDate((metadataForItem?.published_date as string) || itemToDisplay?.created_at || '')}
             </Text>
           </View>
         </View>
@@ -1220,7 +1236,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: CONTENT_PADDING,
-    paddingVertical: 12,
+    // paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     gap: 8,
   },
@@ -1231,13 +1247,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#1DA1F2',
   },
-  username: {
-    fontSize: 16,
+  xIconRight: {
+    fontSize: 32,
+    color: '#1DA1F2',
+    marginLeft: 'auto',
+    marginRight: 6,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  nameBlock: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  authorName: {
+    fontSize: 20,
     fontWeight: '600',
     color: '#000000',
   },
-  usernameDark: {
+  authorNameDark: {
     color: '#FFFFFF',
+  },
+  username: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'gray',
+  },
+  usernameDark: {
+    color: 'gray',
   },
   tweetSection: {
     paddingHorizontal: CONTENT_PADDING,

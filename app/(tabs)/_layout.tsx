@@ -11,7 +11,7 @@ import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
-import AddItemSheet from '../../src/components/AddItemSheet';
+import AddItemSheet, { AddItemSheetHandle } from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
@@ -98,7 +98,7 @@ const TabLayout = observer(() => {
 
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
-  const addItemSheetRef = useRef<any>(null);
+  const addItemSheetRef = useRef<AddItemSheetHandle>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
   const reorderSpacesSheetRef = useRef<ReorderSpacesSheetRef>(null);
@@ -221,7 +221,7 @@ const TabLayout = observer(() => {
         if (spaceIdToUse) {
           addItemSheetRef.current?.openWithSpace(spaceIdToUse);
         } else {
-          addItemSheetRef.current?.snapToIndex(0);
+          addItemSheetRef.current?.open();
         }
       }
       setIsAddSheetOpen(true);

@@ -327,11 +327,8 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#000000',
   },
-  gridContainer: {
-    flex: 1,
-    paddingHorizontal: 12,
-  },
   listContent: {
+    marginTop: 10,
     paddingBottom: 80, // Account for nav bar height
   },
   emptyContainer: {

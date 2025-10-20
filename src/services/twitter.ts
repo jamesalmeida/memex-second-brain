@@ -82,6 +82,12 @@ export const fetchTweetData = async (tweetId: string): Promise<TwitterMetadata> 
     }
 
     const data = await response.json();
+    try {
+      // Log the raw Twitter/X API payload for debugging saves
+      console.log('🐦 [TwitterAPI] Raw response:', JSON.stringify(data, null, 2));
+    } catch (e) {
+      console.log('🐦 [TwitterAPI] Raw response (non-serializable)');
+    }
     
     // Extract main tweet data
     const tweet = data.data;

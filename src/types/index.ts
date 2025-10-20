@@ -45,6 +45,8 @@ export interface Item {
   created_at: string;
   updated_at: string;
   is_archived: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
   // Removed: video_url, image_urls, space_ids
   // These are now in separate tables
 }

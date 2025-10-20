@@ -415,14 +415,14 @@ const MovieTVItemView = observer(({
       </View>
 
       {/* Content */}
-      {itemToDisplay.content && (
+      {/* {itemToDisplay.content && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Content</Text>
           <Text style={[styles.content, isDarkMode && styles.contentDark]}>
             {itemToDisplay.content}
           </Text>
         </View>
-      )}
+      )} */}
 
       {/* Tags Section */}
       <View style={styles.section}>
