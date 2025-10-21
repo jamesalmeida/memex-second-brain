@@ -15,6 +15,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { VideoTranscript, ImageDescription } from '../../types';
@@ -96,6 +97,7 @@ const XItemView = observer(({
   const [selectedType, setSelectedType] = useState(item?.content_type || 'x');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [transcript, setTranscript] = useState<string>('');
   const [showTranscript, setShowTranscript] = useState(false);
@@ -265,6 +267,31 @@ const XItemView = observer(({
   if (!itemToDisplay) {
     return null;
   }
+  const handleHeroImageSelected = async (imageUrl: string, storagePath?: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
+      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
+      Alert.alert('Success', 'Image updated successfully');
+    } catch (error) {
+      console.error('Error updating image:', error);
+      Alert.alert('Error', 'Failed to update image');
+    }
+  };
+
+  const handleHeroImageRemove = async () => {
+    if (!itemToDisplay) return;
+
+    try {
+      await itemsActions.removeItemImage(itemToDisplay.id);
+      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      Alert.alert('Success', 'Image removed successfully');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
 
   const metadataForItem = itemMetadataComputed.getMetadataForItem(itemToDisplay.id);
   const username = metadataForItem?.username || extractUsername(itemToDisplay);
@@ -678,7 +705,26 @@ const XItemView = observer(({
               </View>
             </View>
           );
-        } else if (hasMultipleImages) {
+        }
+
+        if (itemToDisplay?.thumbnail_url) {
+          return (
+            <View style={styles.mediaContainer}>
+              <ImageWithActions
+                source={{ uri: itemToDisplay.thumbnail_url }}
+                imageUrl={itemToDisplay.thumbnail_url}
+                style={styles.heroMedia}
+                contentFit="contain"
+                canReplace
+                canRemove
+                onImageReplace={() => imageUploadModalRef.current?.open()}
+                onImageRemove={handleHeroImageRemove}
+              />
+            </View>
+          );
+        }
+
+        if (hasMultipleImages) {
           return (
             <View style={styles.mediaContainer}>
               <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
@@ -708,6 +754,8 @@ const XItemView = observer(({
                         backgroundColor: '#000000'
                       }}
                       contentFit="contain"
+                      canReplace
+                      onImageReplace={() => imageUploadModalRef.current?.open()}
                     />
                   ))}
                 </ScrollView>
@@ -725,7 +773,9 @@ const XItemView = observer(({
               </View>
             </View>
           );
-        } else if (imageUrls && imageUrls.length === 1) {
+        }
+
+        if (imageUrls && imageUrls.length === 1) {
           return (
             <View style={styles.mediaContainer}>
               <ImageWithActions
@@ -733,11 +783,26 @@ const XItemView = observer(({
                 imageUrl={imageUrls[0]}
                 style={styles.heroMedia}
                 contentFit="contain"
+                canReplace
+                onImageReplace={() => imageUploadModalRef.current?.open()}
               />
             </View>
           );
         }
-        return null;
+        return (
+          <View style={styles.mediaContainer}>
+            <TouchableOpacity
+              style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
+              onPress={() => imageUploadModalRef.current?.open()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.placeholderIcon}>🖼️</Text>
+              <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
+                Tap to add image
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
       })()}
 
       {/* Content */}
@@ -1225,6 +1290,11 @@ const XItemView = observer(({
           </View>
         </View>
       </View>
+
+      <ImageUploadModal
+        ref={imageUploadModalRef}
+        onImageSelected={handleHeroImageSelected}
+      />
     </View>
   );
 });
@@ -1303,6 +1373,32 @@ const styles = StyleSheet.create({
     height: CONTENT_WIDTH,
     backgroundColor: '#000000',
     borderRadius: 12,
+  },
+  placeholderHero: {
+    width: CONTENT_WIDTH,
+    height: CONTENT_WIDTH,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderHeroDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  placeholderIcon: {
+    fontSize: 42,
+    marginBottom: 12,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  placeholderTextDark: {
+    color: '#AAA',
   },
   videoPlayButtonOverlay: {
     position: 'absolute',

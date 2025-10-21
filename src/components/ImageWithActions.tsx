@@ -1,11 +1,10 @@
-import React, { useState, ReactNode } from 'react';
-import { StyleProp, ImageStyle, Alert, Platform, Pressable, View } from 'react-native';
+import React, { useMemo, useState, ReactNode } from 'react';
+import { StyleProp, ImageStyle, Alert, Platform, Pressable, View, ActionSheetIOS } from 'react-native';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import ImageView from 'react-native-image-viewing';
-import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 
 export interface ImageWithActionsProps {
   source: { uri: string } | number;
@@ -18,6 +17,7 @@ export interface ImageWithActionsProps {
   onImageRemove?: () => void;
   imageUrl?: string; // For cases where source is a number (local asset)
   children?: ReactNode;
+  enableFullScreenOnPress?: boolean;
 }
 
 export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
@@ -31,6 +31,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
   onImageRemove,
   imageUrl,
   children,
+  enableFullScreenOnPress = true,
 }) => {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
 
@@ -46,7 +47,20 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
   const url = getImageUrl();
 
   const handleViewFullScreen = () => {
-    setIsViewerVisible(true);
+    if (!url) {
+      Alert.alert('Unavailable', 'No image available to preview.');
+      return;
+    }
+    requestAnimationFrame(() => {
+      setIsViewerVisible(true);
+    });
+  };
+
+  const handlePrimaryPress = () => {
+    if (!enableFullScreenOnPress) {
+      return;
+    }
+    handleViewFullScreen();
   };
 
   const handleCopyUrl = async () => {
@@ -116,55 +130,85 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
     }
   };
 
+  const availableActions = useMemo(() => {
+    const actions: Array<{
+      title: string;
+      onPress: () => void;
+      style?: 'destructive';
+    }> = [];
+
+    if (url) {
+      actions.push({ title: 'View Full Screen', onPress: handleViewFullScreen });
+      actions.push({ title: 'Copy Image URL', onPress: handleCopyUrl });
+      actions.push({ title: 'Save to Device', onPress: handleSaveToDevice });
+    }
+
+    if ((canReplace || onImageReplace) && onImageReplace) {
+      actions.push({ title: 'Replace Image', onPress: handleReplace });
+    }
+
+    if ((canRemove || onImageRemove) && onImageRemove) {
+      actions.push({ title: 'Remove Image', onPress: handleRemove, style: 'destructive' });
+    }
+
+    return actions;
+  }, [url, canReplace, canRemove, onImageReplace, onImageRemove]);
+
+  const showContextMenu = () => {
+    if (availableActions.length === 0) {
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      const options = [...availableActions.map(action => action.title), 'Cancel'];
+      const destructiveIndex = availableActions.findIndex(action => action.style === 'destructive');
+      const cancelIndex = options.length - 1;
+
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: cancelIndex,
+          destructiveButtonIndex: destructiveIndex >= 0 ? destructiveIndex : undefined,
+        },
+        (buttonIndex) => {
+          if (buttonIndex >= 0 && buttonIndex < availableActions.length) {
+            availableActions[buttonIndex].onPress();
+          }
+        }
+      );
+    } else {
+      const buttons = [
+        ...availableActions.map(action => ({
+          text: action.title,
+          onPress: action.onPress,
+          style: action.style,
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ];
+
+      Alert.alert('Image Options', undefined, buttons, { cancelable: true });
+    }
+  };
+
+  const hasContextMenu = availableActions.length > 0;
+
   return (
     <>
-      <Host>
-        <ContextMenu>
-          <ContextMenu.Trigger>
-            <Pressable onPress={handleViewFullScreen}>
-              <View>
-                <Image
-                  source={source}
-                  style={style}
-                  contentFit={contentFit}
-                  placeholder={placeholder}
-                />
-                {children}
-              </View>
-            </Pressable>
-          </ContextMenu.Trigger>
-
-          <ContextMenu.Items>
-            <Button onPress={handleViewFullScreen}>
-              View Full Screen
-            </Button>
-
-            {url && (
-              <>
-                <Button onPress={handleCopyUrl}>
-                  Copy Image URL
-                </Button>
-
-                <Button onPress={handleSaveToDevice}>
-                  Save to Device
-                </Button>
-              </>
-            )}
-
-            {canReplace && onImageReplace && (
-              <Button onPress={handleReplace}>
-                Replace Image
-              </Button>
-            )}
-
-            {canRemove && onImageRemove && (
-              <Button onPress={handleRemove}>
-                Remove Image
-              </Button>
-            )}
-          </ContextMenu.Items>
-        </ContextMenu>
-      </Host>
+      <Pressable
+        onPress={enableFullScreenOnPress ? handlePrimaryPress : undefined}
+        onLongPress={hasContextMenu ? showContextMenu : undefined}
+        delayLongPress={250}
+      >
+        <View>
+          <Image
+            source={source}
+            style={style}
+            contentFit={contentFit}
+            placeholder={placeholder}
+          />
+          {children}
+        </View>
+      </Pressable>
 
       {url && (
         <ImageView

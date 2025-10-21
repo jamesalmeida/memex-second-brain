@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { ImageDescription } from '../../types';
 import Animated, {
@@ -88,6 +89,7 @@ const RedditItemView = observer(({
   const [selectedType, setSelectedType] = useState(item?.content_type || 'reddit');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [expandedDescription, setExpandedDescription] = useState(false);
 
   // Image descriptions state
@@ -161,6 +163,32 @@ const RedditItemView = observer(({
   if (!itemToDisplay) {
     return null;
   }
+
+  const handleHeroImageSelected = async (imageUrl: string, storagePath?: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
+      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
+      Alert.alert('Success', 'Image updated successfully');
+    } catch (error) {
+      console.error('Error updating image:', error);
+      Alert.alert('Error', 'Failed to update image');
+    }
+  };
+
+  const handleHeroImageRemove = async () => {
+    if (!itemToDisplay) return;
+
+    try {
+      await itemsActions.removeItemImage(itemToDisplay.id);
+      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      Alert.alert('Success', 'Image removed successfully');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
 
   // Get Reddit metadata from ItemTypeMetadata
   const typeMetadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemToDisplay.id);
@@ -479,9 +507,34 @@ const RedditItemView = observer(({
         const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
         const hasMultipleImages = imageUrls && imageUrls.length > 1;
 
+        if (itemToDisplay?.thumbnail_url) {
+          return (
+            <View style={styles.heroContainer}>
+              <View style={{ position: 'relative' }}>
+                <ImageWithActions
+                  source={{ uri: itemToDisplay.thumbnail_url }}
+                  imageUrl={itemToDisplay.thumbnail_url}
+                  style={styles.heroMedia}
+                  contentFit="contain"
+                  canReplace
+                  canRemove={!!itemToDisplay.thumbnail_url}
+                  onImageReplace={() => imageUploadModalRef.current?.open()}
+                  onImageRemove={handleHeroImageRemove}
+                />
+                {redditMetadata?.video_duration && (
+                  <View style={styles.durationOverlay}>
+                    <Text style={styles.durationText}>
+                      ⏱️ {formatDuration(redditMetadata.video_duration)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        }
+
         if (hasMultipleImages) {
           return (
-            // Show carousel for multiple images
             <View style={styles.heroContainer}>
               <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
                 <ScrollView
@@ -510,10 +563,11 @@ const RedditItemView = observer(({
                         backgroundColor: '#000000'
                       }}
                       contentFit="contain"
+                      canReplace
+                      onImageReplace={() => imageUploadModalRef.current?.open()}
                     />
                   ))}
                 </ScrollView>
-                {/* Dots indicator */}
                 <View style={styles.dotsContainer}>
                   {imageUrls!.map((_, index) => (
                     <View
@@ -528,8 +582,9 @@ const RedditItemView = observer(({
               </View>
             </View>
           );
-        } else if (imageUrls && imageUrls.length === 1) {
-          // Single image
+        }
+
+        if (imageUrls && imageUrls.length === 1) {
           return (
             <View style={styles.heroContainer}>
               <ImageWithActions
@@ -537,31 +592,27 @@ const RedditItemView = observer(({
                 imageUrl={imageUrls[0]}
                 style={styles.heroMedia}
                 contentFit="contain"
+                canReplace
+                onImageReplace={() => imageUploadModalRef.current?.open()}
               />
-            </View>
-          );
-        } else if (itemToDisplay?.thumbnail_url) {
-          // Fallback to thumbnail
-          return (
-            <View style={styles.heroContainer}>
-              <ImageWithActions
-                source={{ uri: itemToDisplay.thumbnail_url }}
-                imageUrl={itemToDisplay.thumbnail_url}
-                style={styles.heroMedia}
-                contentFit="contain"
-              />
-              {/* Video duration overlay */}
-              {redditMetadata?.video_duration && (
-                <View style={styles.durationOverlay}>
-                  <Text style={styles.durationText}>
-                    ⏱️ {formatDuration(redditMetadata.video_duration)}
-                  </Text>
-                </View>
-              )}
             </View>
           );
         }
-        return null;
+
+        return (
+          <View style={styles.heroContainer}>
+            <TouchableOpacity
+              style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
+              onPress={() => imageUploadModalRef.current?.open()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.placeholderIcon}>🖼️</Text>
+              <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
+                Tap to add image
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
       })()}
 
       {/* Content */}
@@ -1058,6 +1109,11 @@ const RedditItemView = observer(({
           </View>
         </View>
       </View>
+
+      <ImageUploadModal
+        ref={imageUploadModalRef}
+        onImageSelected={handleHeroImageSelected}
+      />
     </View>
   );
 });
@@ -1101,6 +1157,32 @@ const styles = StyleSheet.create({
     height: CONTENT_WIDTH,
     backgroundColor: '#000000',
     borderRadius: 12,
+  },
+  placeholderHero: {
+    width: CONTENT_WIDTH,
+    height: CONTENT_WIDTH,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderHeroDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  placeholderIcon: {
+    fontSize: 42,
+    marginBottom: 12,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  placeholderTextDark: {
+    color: '#AAA',
   },
   content: {
     padding: 20,
