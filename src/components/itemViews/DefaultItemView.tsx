@@ -41,7 +41,7 @@ import { getXVideoTranscript } from '../../services/twitter';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { ImageWithActions } from '../ImageWithActions';
-import ImageUploadSheet, { ImageUploadSheetHandle } from '../ImageUploadSheet';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -100,7 +100,7 @@ const DefaultItemView = observer(({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const [showThumbnail, setShowThumbnail] = useState(false);
-  const imageUploadSheetRef = useRef<ImageUploadSheetHandle>(null);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [transcript, setTranscript] = useState<string>('');
@@ -972,7 +972,7 @@ const DefaultItemView = observer(({
             contentFit="contain"
             canReplace={true}
             canRemove={true}
-            onImageReplace={() => imageUploadSheetRef.current?.open()}
+            onImageReplace={() => imageUploadModalRef.current?.open()}
             onImageRemove={handleImageRemove}
           />
         ) : itemToDisplay?.content_type !== 'x' ? (
@@ -983,7 +983,7 @@ const DefaultItemView = observer(({
             return (
               <TouchableOpacity
                 style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-                onPress={() => imageUploadSheetRef.current?.open()}
+                onPress={() => imageUploadModalRef.current?.open()}
                 activeOpacity={0.7}
               >
                 <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
@@ -1578,9 +1578,9 @@ const DefaultItemView = observer(({
         </View>
       </View>
 
-      {/* Image Upload Sheet */}
-      <ImageUploadSheet
-        ref={imageUploadSheetRef}
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        ref={imageUploadModalRef}
         onImageSelected={handleImageSelected}
       />
     </View>
