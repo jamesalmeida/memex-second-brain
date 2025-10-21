@@ -38,6 +38,7 @@ import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import InlineEditableText from '../InlineEditableText';
+import { ImageWithActions } from '../ImageWithActions';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -811,21 +812,12 @@ const YouTubeItemView = observer(({
 
             {showThumbnail && (
               <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
-                <Image
+                <ImageWithActions
                   source={{ uri: itemToDisplay.thumbnail_url }}
+                  imageUrl={itemToDisplay.thumbnail_url}
                   style={styles.thumbnailImage}
                   contentFit="cover"
                 />
-                <TouchableOpacity
-                  style={[styles.thumbnailDownloadButton, isDownloading && styles.thumbnailDownloadButtonDisabled]}
-                  onPress={downloadThumbnail}
-                  disabled={isDownloading}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.thumbnailDownloadButtonText}>
-                    {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
-                  </Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>

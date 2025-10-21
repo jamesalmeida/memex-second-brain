@@ -14,6 +14,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
+import { ImageWithActions } from '../ImageWithActions';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { VideoTranscript, ImageDescription } from '../../types';
@@ -697,9 +698,10 @@ const XItemView = observer(({
                   contentContainerStyle={{ height: CONTENT_WIDTH }}
                 >
                   {imageUrls!.map((imageUrl, index) => (
-                    <Image
+                    <ImageWithActions
                       key={index}
                       source={{ uri: imageUrl }}
+                      imageUrl={imageUrl}
                       style={{
                         width: CONTENT_WIDTH,
                         height: CONTENT_WIDTH,
@@ -726,8 +728,9 @@ const XItemView = observer(({
         } else if (imageUrls && imageUrls.length === 1) {
           return (
             <View style={styles.mediaContainer}>
-              <Image
+              <ImageWithActions
                 source={{ uri: imageUrls[0] }}
+                imageUrl={imageUrls[0]}
                 style={styles.heroMedia}
                 contentFit="contain"
               />

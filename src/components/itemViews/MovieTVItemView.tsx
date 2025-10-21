@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Share, Dimensions, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { ImageWithActions } from '../ImageWithActions';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
@@ -262,8 +263,9 @@ const MovieTVItemView = observer(({
             >
               {imageUrls!.map((imageUrl, index) => (
                 <View key={index} style={{ width: screenWidth }}>
-                  <Image
+                  <ImageWithActions
                     source={{ uri: imageUrl }}
+                    imageUrl={imageUrl}
                     style={styles.carouselImage}
                     contentFit="contain"
                   />
@@ -308,8 +310,9 @@ const MovieTVItemView = observer(({
         </View>
       ) : imageUrls && imageUrls.length === 1 ? (
         <View style={styles.mediaSection}>
-          <Image
+          <ImageWithActions
             source={{ uri: imageUrls[0] }}
+            imageUrl={imageUrls[0]}
             style={styles.singleImage}
             contentFit="contain"
           />
@@ -337,8 +340,9 @@ const MovieTVItemView = observer(({
         </View>
       ) : itemToDisplay.thumbnail_url ? (
         <View style={styles.mediaSection}>
-          <Image
+          <ImageWithActions
             source={{ uri: itemToDisplay.thumbnail_url }}
+            imageUrl={itemToDisplay.thumbnail_url}
             style={styles.singleImage}
             contentFit="contain"
           />

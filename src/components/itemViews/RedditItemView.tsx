@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { ImageWithActions } from '../ImageWithActions';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { ImageDescription } from '../../types';
 import Animated, {
@@ -499,15 +500,16 @@ const RedditItemView = observer(({
                   contentContainerStyle={{ height: CONTENT_WIDTH }}
                 >
                   {imageUrls!.map((imageUrl, index) => (
-                    <Image
+                    <ImageWithActions
                       key={index}
                       source={{ uri: imageUrl }}
+                      imageUrl={imageUrl}
                       style={{
                         width: CONTENT_WIDTH,
                         height: CONTENT_WIDTH,
                         backgroundColor: '#000000'
                       }}
-                      resizeMode="contain"
+                      contentFit="contain"
                     />
                   ))}
                 </ScrollView>
@@ -530,10 +532,11 @@ const RedditItemView = observer(({
           // Single image
           return (
             <View style={styles.heroContainer}>
-              <Image
+              <ImageWithActions
                 source={{ uri: imageUrls[0] }}
+                imageUrl={imageUrls[0]}
                 style={styles.heroMedia}
-                resizeMode="contain"
+                contentFit="contain"
               />
             </View>
           );
@@ -541,10 +544,11 @@ const RedditItemView = observer(({
           // Fallback to thumbnail
           return (
             <View style={styles.heroContainer}>
-              <Image
+              <ImageWithActions
                 source={{ uri: itemToDisplay.thumbnail_url }}
+                imageUrl={itemToDisplay.thumbnail_url}
                 style={styles.heroMedia}
-                resizeMode="contain"
+                contentFit="contain"
               />
               {/* Video duration overlay */}
               {redditMetadata?.video_duration && (
