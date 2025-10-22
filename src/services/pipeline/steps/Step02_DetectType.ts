@@ -1,6 +1,7 @@
 import type { Step } from '../types';
 import type { ContentType } from '../../../types';
 import { itemsStore, itemsActions } from '../../../stores/items';
+import { isAmazonUrl } from '../../../utils/urlHelpers';
 
 export const Step02_DetectType: Step = async ({ itemId, url }) => {
   console.log('🧭 [Step02_DetectType] Detecting content type');
@@ -19,7 +20,7 @@ export const Step02_DetectType: Step = async ({ itemId, url }) => {
   else if (/reddit\.com|redd\.it/i.test(lower)) content_type = 'reddit';
   else if (/facebook\.com|fb\.com|fb\.watch/i.test(lower)) content_type = 'facebook';
   else if (/imdb\.com\/title\//i.test(lower)) content_type = 'movie';
-  else if (/amazon\./i.test(lower)) content_type = 'product';
+  else if (isAmazonUrl(url)) content_type = 'product';
 
   if (content_type !== 'bookmark') {
     await itemsActions.updateItemWithSync(itemId, { content_type });
@@ -28,5 +29,4 @@ export const Step02_DetectType: Step = async ({ itemId, url }) => {
     console.log('🧭 [Step02_DetectType] Defaulting content_type to bookmark');
   }
 };
-
 

@@ -6,6 +6,7 @@ import { extractInstagramPostId, fetchInstagramData } from './instagram';
 import { extractProductTitle } from './metadataCleaner';
 import { classifyUrlWithAI } from './aiUrlClassifier';
 import { ContentType } from '../types';
+import { isAmazonUrl } from '../utils/urlHelpers';
 
 export interface URLMetadata {
   url: string;
@@ -259,7 +260,7 @@ export const detectURLType = async (url: string, context?: { pageTitle?: string;
     return 'image';
   }
   // Product pages
-  if (lowerUrl.includes('amazon.com') || lowerUrl.includes('ebay.com')) {
+  if (isAmazonUrl(url) || lowerUrl.includes('ebay.com')) {
     return 'product';
   }
   // Articles/blogs
@@ -1513,7 +1514,7 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     return extractThreadsMetadata(url);
   }
 
-  if (url.includes('amazon.com') || url.includes('amazon.') || url.includes('a.co/')) {
+  if (isAmazonUrl(url)) {
     console.log('Using Amazon extractor');
     return extractAmazonMetadata(url);
   }
