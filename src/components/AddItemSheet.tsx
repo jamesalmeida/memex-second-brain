@@ -38,12 +38,25 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
   const selectedSpaceName = selectedSpaceId ? spacesComputed.getSpaceById(selectedSpaceId)?.name ?? 'selected space' : null;
+  const sheetIndexRef = useRef(-1);
+
+  const snapToCollapsed = useCallback(() => {
+    if (sheetIndexRef.current > 0) {
+      bottomSheetRef.current?.snapToIndex(0);
+    }
+  }, []);
 
   const snapPoints = useMemo(() => ['30%', '70%'], []); // Adjust heights of the Add Item Sheet
 
   useEffect(() => {
     setSelectedSpaceId(preSelectedSpaceId);
   }, [preSelectedSpaceId]);
+
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subscription = Keyboard.addListener(event, snapToCollapsed);
+    return () => subscription.remove();
+  }, [snapToCollapsed]);
 
   const openSheet = useCallback((spaceId?: string | null) => {
     setSelectedSpaceId(spaceId ?? null);
@@ -185,7 +198,9 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
       keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
       keyboardBlurBehavior="restore"
       onChange={(index) => {
+        sheetIndexRef.current = index;
         if (index === -1) {
+          Keyboard.dismiss();
           if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
           onClose?.();
           setSavedUI(null);
@@ -283,7 +298,15 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
 
       {Platform.OS === 'ios' && (
         <InputAccessoryView nativeID="doneAccessory2">
-          <View style={styles.inputAccessory}><Button title="Done" onPress={Keyboard.dismiss} /></View>
+          <View style={styles.inputAccessory}>
+            <Button
+              title="Done"
+              onPress={() => {
+                Keyboard.dismiss();
+                snapToCollapsed();
+              }}
+            />
+          </View>
         </InputAccessoryView>
       )}
     </BottomSheet>
