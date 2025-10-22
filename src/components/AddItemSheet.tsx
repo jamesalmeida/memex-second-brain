@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated, useWindowDimensions } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -38,8 +38,16 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
   const selectedSpaceName = selectedSpaceId ? spacesComputed.getSpaceById(selectedSpaceId)?.name ?? 'selected space' : null;
+  const { width: windowWidth } = useWindowDimensions();
 
-  const snapPoints = useMemo(() => ['30%', '70%'], []);
+  const collapsedButtonWidth = 144;
+  const expandedButtonWidth = useMemo(() => {
+    const availableWidth = windowWidth - 40;
+    const clampedWidth = Math.max(collapsedButtonWidth, availableWidth);
+    return Math.min(clampedWidth, 420);
+  }, [windowWidth, collapsedButtonWidth]);
+
+  const snapPoints = useMemo(() => ['30%', '70%'], []); // Adjust heights of the Add Item Sheet
 
   useEffect(() => {
     setSelectedSpaceId(preSelectedSpaceId);
@@ -155,10 +163,10 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
     }).start();
   }, [buttonAnimation, hasInput]);
 
-  const buttonWidth = buttonAnimation.interpolate({
+  const buttonWidth = useMemo(() => buttonAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [180, 120],
-  });
+    outputRange: [expandedButtonWidth, collapsedButtonWidth],
+  }), [buttonAnimation, expandedButtonWidth, collapsedButtonWidth]);
 
   const pasteSaveOpacity = buttonAnimation.interpolate({
     inputRange: [0, 0.5, 1],
@@ -168,6 +176,10 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const saveOpacity = buttonAnimation.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: [0, 0, 1],
+  });
+  const buttonBorderRadius = buttonAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [26, 22],
   });
 
   // Cleanup any pending close timer on unmount
@@ -201,12 +213,21 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         }
       }}
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, isDarkMode && styles.titleDark]}>Save</Text>
-        <View style={styles.headerActions}>
-          <Animated.View style={[styles.saveButtonWrapper, { width: buttonWidth }]}>
+      <View style={[styles.header, isDarkMode && styles.headerDark]}>
+        <View style={styles.headerButtonRow}>
+          <Animated.View
+            style={[
+              styles.saveButtonWrapper,
+              { width: buttonWidth, borderRadius: buttonBorderRadius, opacity: isSaving ? 0.65 : 1 },
+              isDarkMode && styles.saveButtonWrapperDark,
+            ]}
+          >
             <TouchableOpacity
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              style={[
+                styles.saveButton,
+                isDarkMode && styles.saveButtonDark,
+                isSaving && styles.saveButtonDisabled,
+              ]}
               onPress={hasInput ? handleSave : handlePasteAndSave}
               disabled={isSaving}
             >
@@ -215,16 +236,18 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
                   <Text style={styles.saveButtonText}>Saving…</Text>
                 ) : (
                   <>
-                    <Animated.Text
-                      style={[styles.saveButtonText, styles.saveButtonTextOverlay, { opacity: pasteSaveOpacity }]}
+                    <Animated.View
+                      style={[styles.saveButtonContentOverlay, { opacity: pasteSaveOpacity }]}
                     >
-                      Paste & Save
-                    </Animated.Text>
-                    <Animated.Text
-                      style={[styles.saveButtonText, styles.saveButtonTextOverlay, { opacity: saveOpacity }]}
+                      <MaterialIcons name="content-paste" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
+                      <Text style={styles.saveButtonText}>Paste & Save</Text>
+                    </Animated.View>
+                    <Animated.View
+                      style={[styles.saveButtonContentOverlay, { opacity: saveOpacity }]}
                     >
-                      Save
-                    </Animated.Text>
+                      <MaterialIcons name="send" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
+                      <Text style={styles.saveButtonText}>Save</Text>
+                    </Animated.View>
                   </>
                 )}
               </View>
@@ -251,11 +274,11 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
           </View>
         ) : (
           <View style={styles.section}>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
               <BottomSheetTextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
                 placeholder="Paste a link or type here"
-                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                placeholderTextColor={isDarkMode ? '#8E8E93' : '#A0A4B0'}
                 value={input}
                 onChangeText={setInput}
                 onFocus={() => bottomSheetRef.current?.expand()}
@@ -267,7 +290,7 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
               />
               {input.trim().length > 0 && (
                 <TouchableOpacity style={[styles.clearButton, isDarkMode && styles.clearButtonDark]} onPress={() => setInput('')}>
-                  <MaterialIcons name="close" size={18} color={isDarkMode ? '#999' : '#666'} />
+                  <MaterialIcons name="close" size={18} color={isDarkMode ? '#B0B0B5' : '#767A85'} />
                 </TouchableOpacity>
               )}
             </View>
@@ -291,27 +314,79 @@ const styles = StyleSheet.create({
   sheetBackgroundDark: { backgroundColor: '#1C1C1E' },
   handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
   handleIndicatorDark: { backgroundColor: '#666666' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5E7' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#000000' },
-  titleDark: { color: '#FFFFFF' },
-  saveButtonWrapper: { borderRadius: 20, overflow: 'hidden', alignItems: 'center' },
-  saveButton: { backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, width: '100%', alignItems: 'center', justifyContent: 'center' },
-  saveButtonDisabled: { opacity: 0.5 },
-  saveButtonLabel: { minHeight: 20, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  header: { paddingHorizontal: 20, paddingVertical: 0 },
+  headerButtonRow: { marginTop: 0, alignItems: 'flex-end', width: '100%' },
+  saveButtonWrapper: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 26,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+    alignSelf: 'flex-end',
+  },
+  saveButtonWrapperDark: {
+    shadowColor: '#000000',
+    backgroundColor: '#FF7C4B',
+    shadowOpacity: 0.45,
+  },
+  saveButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonDark: {
+    backgroundColor: 'transparent',
+  },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonLabel: { minHeight: 24, alignItems: 'center', justifyContent: 'center', width: '100%' },
   saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16, textAlign: 'center' },
-  saveButtonTextOverlay: { position: 'absolute', left: 0, right: 0 },
+  saveButtonContentOverlay: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  saveButtonIcon: { marginRight: 6 },
   scrollContent: { paddingBottom: 24 },
   spaceContext: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12, marginHorizontal: 20, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255, 107, 53, 0.08)' },
   spaceContextDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
   spaceContextText: { fontSize: 13, color: '#4A4A4A', fontWeight: '600' },
   spaceContextTextDark: { color: '#F2F2F7' },
   section: { paddingTop: 16, paddingHorizontal: 20 },
-  inputContainer: { position: 'relative' },
-  input: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 12, paddingRight: 40, fontSize: 16, color: '#000000', minHeight: 80, textAlignVertical: 'top' },
-  inputDark: { backgroundColor: '#2C2C2E', color: '#FFFFFF' },
-  clearButton: { position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center' },
-  clearButtonDark: { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+  inputContainer: {
+    position: 'relative',
+    borderRadius: 18,
+    backgroundColor: '#F6F7FB',
+    borderWidth: 1,
+    borderColor: '#E8EAF2',
+  },
+  inputContainerDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  input: {
+    backgroundColor: 'transparent',
+    padding: 16,
+    paddingRight: 48,
+    fontSize: 16,
+    color: '#000000',
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  inputDark: { color: '#FFFFFF' },
+  clearButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonDark: { backgroundColor: 'rgba(255, 255, 255, 0.12)' },
   inputAccessory: { backgroundColor: '#F2F2F7', flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5E7' },
   successPillContainer: { paddingTop: 20, paddingHorizontal: 20 },
   successPill: { alignSelf: 'center', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
