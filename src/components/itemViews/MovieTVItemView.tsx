@@ -7,7 +7,7 @@ import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';

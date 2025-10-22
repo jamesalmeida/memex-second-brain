@@ -38,7 +38,7 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { getXVideoTranscript } from '../../services/twitter';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';

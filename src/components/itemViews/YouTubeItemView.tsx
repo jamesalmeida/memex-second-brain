@@ -34,7 +34,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import InlineEditableText from '../InlineEditableText';

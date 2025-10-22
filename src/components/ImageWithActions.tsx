@@ -3,7 +3,7 @@ import { StyleProp, ImageStyle, Alert, Platform, Pressable, View, ActionSheetIOS
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import ImageView from 'react-native-image-viewing';
 import * as Haptics from 'expo-haptics';
 
