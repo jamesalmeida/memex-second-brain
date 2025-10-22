@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -65,22 +65,17 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
     <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
   );
 
-  const handlePaste = async () => {
-    const text = await Clipboard.getStringAsync();
-    if (text) setInput(text);
-  };
-
-  const handleSave = async () => {
-    const url = input.trim();
+  const performSave = useCallback(async (value: string) => {
+    const url = value.trim();
     if (!url) {
       Alert.alert('Enter a URL or note');
-      return;
+      return false;
     }
 
     const userId = authComputed.userId();
     if (!userId) {
       Alert.alert('Not signed in');
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -128,10 +123,52 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         .finally(() => {
           processingItemsActions.remove(id);
         });
+      return true;
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [selectedSpaceId]);
+
+  const handleSave = useCallback(async () => {
+    await performSave(input);
+  }, [performSave, input]);
+
+  const handlePasteAndSave = useCallback(async () => {
+    if (isSaving) return;
+    const clipboardText = (await Clipboard.getStringAsync()).trim();
+    if (!clipboardText) {
+      Alert.alert('Clipboard is empty', 'Copy a link first.');
+      return;
+    }
+    setInput(clipboardText);
+    await performSave(clipboardText);
+  }, [isSaving, performSave]);
+
+  const buttonAnimation = useRef(new Animated.Value(0)).current;
+  const hasInput = input.trim().length > 0;
+
+  useEffect(() => {
+    Animated.timing(buttonAnimation, {
+      toValue: hasInput ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [buttonAnimation, hasInput]);
+
+  const buttonWidth = buttonAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [180, 120],
+  });
+
+  const pasteSaveOpacity = buttonAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+  });
+
+  const saveOpacity = buttonAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
 
   // Cleanup any pending close timer on unmount
   useEffect(() => {
@@ -167,17 +204,32 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
       <View style={styles.header}>
         <Text style={[styles.title, isDarkMode && styles.titleDark]}>Save</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={[styles.quickAction, isDarkMode && styles.quickActionDark]} onPress={handlePaste}>
-            <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
-            <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>Paste</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.saveButton, (!input.trim() || isSaving) && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={!input.trim() || isSaving}
-          >
-            <Text style={styles.saveButtonText}>{isSaving ? 'Saving…' : 'Save'}</Text>
-          </TouchableOpacity>
+          <Animated.View style={[styles.saveButtonWrapper, { width: buttonWidth }]}>
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              onPress={hasInput ? handleSave : handlePasteAndSave}
+              disabled={isSaving}
+            >
+              <View style={styles.saveButtonLabel}>
+                {isSaving ? (
+                  <Text style={styles.saveButtonText}>Saving…</Text>
+                ) : (
+                  <>
+                    <Animated.Text
+                      style={[styles.saveButtonText, styles.saveButtonTextOverlay, { opacity: pasteSaveOpacity }]}
+                    >
+                      Paste & Save
+                    </Animated.Text>
+                    <Animated.Text
+                      style={[styles.saveButtonText, styles.saveButtonTextOverlay, { opacity: saveOpacity }]}
+                    >
+                      Save
+                    </Animated.Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
 
@@ -202,7 +254,7 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
             <View style={styles.inputContainer}>
               <BottomSheetTextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
-                placeholder="Paste a link or type a note"
+                placeholder="Paste a link or type here"
                 placeholderTextColor={isDarkMode ? '#666' : '#999'}
                 value={input}
                 onChangeText={setInput}
@@ -219,7 +271,6 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
                 </TouchableOpacity>
               )}
             </View>
-            {/* Quick actions row removed; Paste moved to header */}
           </View>
         )}
       </BottomSheetScrollView>
@@ -241,12 +292,15 @@ const styles = StyleSheet.create({
   handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
   handleIndicatorDark: { backgroundColor: '#666666' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5E7' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   title: { fontSize: 20, fontWeight: 'bold', color: '#000000' },
   titleDark: { color: '#FFFFFF' },
-  saveButton: { backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
+  saveButtonWrapper: { borderRadius: 20, overflow: 'hidden', alignItems: 'center' },
+  saveButton: { backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, width: '100%', alignItems: 'center', justifyContent: 'center' },
   saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+  saveButtonLabel: { minHeight: 20, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16, textAlign: 'center' },
+  saveButtonTextOverlay: { position: 'absolute', left: 0, right: 0 },
   scrollContent: { paddingBottom: 24 },
   spaceContext: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12, marginHorizontal: 20, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255, 107, 53, 0.08)' },
   spaceContextDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
@@ -258,11 +312,6 @@ const styles = StyleSheet.create({
   inputDark: { backgroundColor: '#2C2C2E', color: '#FFFFFF' },
   clearButton: { position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center' },
   clearButtonDark: { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  quickActionsRow: { flexDirection: 'row', marginTop: 8, gap: 8 },
-  quickAction: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 6 },
-  quickActionDark: { backgroundColor: '#2C2C2E' },
-  quickActionText: { fontSize: 12, color: '#666666', fontWeight: '500' },
-  quickActionTextDark: { color: '#AAAAAA' },
   inputAccessory: { backgroundColor: '#F2F2F7', flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5E7' },
   successPillContainer: { paddingTop: 20, paddingHorizontal: 20 },
   successPill: { alignSelf: 'center', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
