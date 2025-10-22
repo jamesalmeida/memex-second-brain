@@ -2,10 +2,12 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Share, Dimensions, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
@@ -43,9 +45,11 @@ const MovieTVItemView = observer(({
   const isDarkMode = themeStore.isDarkMode.get();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isGeneratingImageDescriptions, setIsGeneratingImageDescriptions] = useState(false);
   const [showDescriptions, setShowDescriptions] = useState(false);
   const [generatingTags, setGeneratingTags] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(item.thumbnail_url || null);
 
   // Get video URL and image URLs from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -71,6 +75,7 @@ const MovieTVItemView = observer(({
 
   useEffect(() => {
     setTags(item.tags || []);
+    setThumbnailUrl(item.thumbnail_url || null);
   }, [item.id, item.tags]);
 
   // Copy URL to clipboard
@@ -107,12 +112,41 @@ const MovieTVItemView = observer(({
     }
   };
 
+  const handleHeroImageSelected = async (imageUrl: string, storagePath?: string) => {
+    try {
+      await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
+      setThumbnailUrl(imageUrl);
+      Alert.alert('Success', 'Image updated successfully');
+    } catch (error) {
+      console.error('Error updating image:', error);
+      Alert.alert('Error', 'Failed to update image');
+    }
+  };
+
+  const handleHeroImageRemove = async () => {
+    try {
+      await itemsActions.removeItemImage(itemToDisplay.id);
+      setThumbnailUrl(null);
+      Alert.alert('Success', 'Image removed successfully');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
   // Generate AI descriptions for all images
   const generateImageDescriptions = async () => {
     if (!itemToDisplay) return;
 
-    const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
-    if (!imageUrls || imageUrls.length === 0) {
+    const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id) || [];
+    const urlsToDescribe = Array.from(
+      new Set([
+        ...metadataImageUrls.filter(Boolean),
+        ...(thumbnailUrl ? [thumbnailUrl] : []),
+      ])
+    );
+
+    if (urlsToDescribe.length === 0) {
       alert('No images found for this item.');
       return;
     }
@@ -121,11 +155,11 @@ const MovieTVItemView = observer(({
     imageDescriptionsActions.setGenerating(itemToDisplay.id, true);
 
     try {
-      console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
+      console.log('🖼️  Generating descriptions for', urlsToDescribe.length, 'images');
       const selectedModel = aiSettingsComputed.selectedModel();
       const generatedDescriptions: ImageDescription[] = [];
 
-      for (const imageUrl of imageUrls) {
+      for (const imageUrl of urlsToDescribe) {
         // Generate description for each image
         const description = await openai.describeImage(imageUrl, {
           model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
@@ -262,10 +296,13 @@ const MovieTVItemView = observer(({
             >
               {imageUrls!.map((imageUrl, index) => (
                 <View key={index} style={{ width: screenWidth }}>
-                  <Image
+                  <ImageWithActions
                     source={{ uri: imageUrl }}
+                    imageUrl={imageUrl}
                     style={styles.carouselImage}
                     contentFit="contain"
+                    canReplace
+                    onImageReplace={() => imageUploadModalRef.current?.open()}
                   />
                 </View>
               ))}
@@ -308,10 +345,13 @@ const MovieTVItemView = observer(({
         </View>
       ) : imageUrls && imageUrls.length === 1 ? (
         <View style={styles.mediaSection}>
-          <Image
+          <ImageWithActions
             source={{ uri: imageUrls[0] }}
+            imageUrl={imageUrls[0]}
             style={styles.singleImage}
             contentFit="contain"
+            canReplace
+            onImageReplace={() => imageUploadModalRef.current?.open()}
           />
 
           {/* Image Actions */}
@@ -335,12 +375,17 @@ const MovieTVItemView = observer(({
             </TouchableOpacity>
           </View>
         </View>
-      ) : itemToDisplay.thumbnail_url ? (
+      ) : thumbnailUrl ? (
         <View style={styles.mediaSection}>
-          <Image
-            source={{ uri: itemToDisplay.thumbnail_url }}
+          <ImageWithActions
+            source={{ uri: thumbnailUrl }}
+            imageUrl={thumbnailUrl}
             style={styles.singleImage}
             contentFit="contain"
+            canReplace
+            canRemove
+            onImageReplace={() => imageUploadModalRef.current?.open()}
+            onImageRemove={handleHeroImageRemove}
           />
 
           {/* Image Actions */}
@@ -358,13 +403,26 @@ const MovieTVItemView = observer(({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
-              onPress={() => handleDownloadImage(itemToDisplay.thumbnail_url!)}
+              onPress={() => handleDownloadImage(thumbnailUrl!)}
             >
               <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>⬇️ Save</Text>
             </TouchableOpacity>
           </View>
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.mediaSection}>
+          <TouchableOpacity
+            style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
+            onPress={() => imageUploadModalRef.current?.open()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.placeholderIcon}>🎬</Text>
+            <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
+              Tap to add image
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Image Descriptions Section */}
       {imageDescriptions && imageDescriptions.length > 0 && (
@@ -386,7 +444,12 @@ const MovieTVItemView = observer(({
               {imageDescriptions.map((desc, index) => (
                 <View key={desc.image_url} style={[styles.descriptionItem, isDarkMode && styles.descriptionItemDark]}>
                   <Text style={[styles.descriptionLabel, isDarkMode && styles.descriptionLabelDark]}>
-                    Image {imageUrls ? imageUrls.indexOf(desc.image_url) + 1 : index + 1}:
+                    {(() => {
+                      if (imageUrls && imageUrls.includes(desc.image_url)) {
+                        return `Image ${imageUrls.indexOf(desc.image_url) + 1}:`;
+                      }
+                      return `Image ${index + 1}:`;
+                    })()}
                   </Text>
                   <Text style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}>
                     {desc.description}
@@ -543,6 +606,11 @@ const MovieTVItemView = observer(({
           </TouchableOpacity>
         )}
       </View>
+
+      <ImageUploadModal
+        ref={imageUploadModalRef}
+        onImageSelected={handleHeroImageSelected}
+      />
     </View>
   );
 });
@@ -620,6 +688,32 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
     backgroundColor: '#F0F0F0',
+  },
+  placeholderHero: {
+    width: '100%',
+    height: 300,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderHeroDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  placeholderIcon: {
+    fontSize: 42,
+    marginBottom: 12,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  placeholderTextDark: {
+    color: '#AAA',
   },
   dotsContainer: {
     position: 'absolute',

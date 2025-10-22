@@ -23,7 +23,9 @@
       "buildNumber": "3",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "This app needs local network access to connect to the Metro development server.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to let you choose images for your items.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save images to your photo library."
       }
     },
     "android": {
@@ -43,7 +45,14 @@
       "expo-secure-store",
       "expo-video",
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "This app needs access to your photo library to let you choose images for your items.",
+          "savePhotosPermission": "This app needs permission to save images to your photo library."
+        }
+      ]
     ]
   }
 }

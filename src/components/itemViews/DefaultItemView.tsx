@@ -38,8 +38,10 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { getXVideoTranscript } from '../../services/twitter';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -98,6 +100,7 @@ const DefaultItemView = observer(({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const [showThumbnail, setShowThumbnail] = useState(false);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [transcript, setTranscript] = useState<string>('');
@@ -773,6 +776,40 @@ const DefaultItemView = observer(({
     }
   };
 
+  // Handle image upload/replace
+  const handleImageSelected = async (imageUrl: string, storagePath?: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
+
+      // Update local displayItem
+      setDisplayItem({ ...itemToDisplay, thumbnail_url: imageUrl });
+
+      Alert.alert('Success', 'Image updated successfully');
+    } catch (error) {
+      console.error('Error updating image:', error);
+      Alert.alert('Error', 'Failed to update image');
+    }
+  };
+
+  // Handle image remove
+  const handleImageRemove = async () => {
+    if (!itemToDisplay) return;
+
+    try {
+      await itemsActions.removeItemImage(itemToDisplay.id);
+
+      // Update local displayItem
+      setDisplayItem({ ...itemToDisplay, thumbnail_url: null });
+
+      Alert.alert('Success', 'Image removed successfully');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Hero Image/Video - Skip for X posts without media */}
@@ -871,15 +908,16 @@ const DefaultItemView = observer(({
                   contentContainerStyle={{ height: CONTENT_WIDTH }}
                 >
                   {imageUrls!.map((imageUrl, index) => (
-                    <Image
+                    <ImageWithActions
                       key={index}
                       source={{ uri: imageUrl }}
+                      imageUrl={imageUrl}
                       style={{
                         width: CONTENT_WIDTH,
                         height: CONTENT_WIDTH,
                         backgroundColor: '#000000'
                       }}
-                      resizeMode="contain"
+                      contentFit="contain"
                     />
                   ))}
                 </ScrollView>
@@ -900,8 +938,9 @@ const DefaultItemView = observer(({
           } else if (imageUrls && imageUrls.length === 1) {
             // Single image from X post
             return (
-              <Image
+              <ImageWithActions
                 source={{ uri: imageUrls[0] }}
+                imageUrl={imageUrls[0]}
                 style={[
                   styles.heroMedia,
                   imageAspectRatio ? {
@@ -911,22 +950,16 @@ const DefaultItemView = observer(({
                     borderRadius: 12
                   } : {}
                 ]}
-                resizeMode="contain"
-                onLoad={(e: any) => {
-                  // Dynamically adjust height based on image aspect ratio
-                  if (e.source && e.source.width && e.source.height) {
-                    const ratio = e.source.width / e.source.height;
-                    setImageAspectRatio(ratio);
-                  }
-                }}
+                contentFit="contain"
               />
             );
           }
           return null;
         })() || (itemToDisplay?.thumbnail_url && itemToDisplay?.content_type !== 'x' ? (
           // Show image for non-video, non-X items
-          <Image
+          <ImageWithActions
             source={{ uri: itemToDisplay.thumbnail_url }}
+            imageUrl={itemToDisplay.thumbnail_url}
             style={[
               styles.heroMedia,
               imageAspectRatio ? {
@@ -936,14 +969,11 @@ const DefaultItemView = observer(({
                 borderRadius: 12
               } : {}
             ]}
-            resizeMode="contain"
-            onLoad={(e: any) => {
-              // Dynamically adjust height based on image aspect ratio
-              if (e.source && e.source.width && e.source.height) {
-                const ratio = e.source.width / e.source.height;
-                setImageAspectRatio(ratio);
-              }
-            }}
+            contentFit="contain"
+            canReplace={true}
+            canRemove={true}
+            onImageReplace={() => imageUploadModalRef.current?.open()}
+            onImageRemove={handleImageRemove}
           />
         ) : itemToDisplay?.content_type !== 'x' ? (
           // Placeholder when no media (but not for X posts). Hide if a site icon exists (icon-only card)
@@ -951,9 +981,16 @@ const DefaultItemView = observer(({
             const hasSiteIcon = itemTypeMetadataComputed.getSiteIconUrl(itemToDisplay?.id || '');
             if (hasSiteIcon) return null;
             return (
-              <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
+              <TouchableOpacity
+                style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
+                onPress={() => imageUploadModalRef.current?.open()}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
-              </View>
+                <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
+                  Tap to add image
+                </Text>
+              </TouchableOpacity>
             );
           })()
         ) : null)}
@@ -1540,6 +1577,12 @@ const DefaultItemView = observer(({
           </View>
         </View>
       </View>
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        ref={imageUploadModalRef}
+        onImageSelected={handleImageSelected}
+      />
     </View>
   );
 });
@@ -1580,6 +1623,15 @@ const styles = StyleSheet.create({
   },
   placeholderIcon: {
     fontSize: 64,
+    marginBottom: 12,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  placeholderTextDark: {
+    color: '#999',
   },
   content: {
     padding: 20,

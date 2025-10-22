@@ -471,6 +471,32 @@ export const itemsActions = {
     }
   },
 
+  // Update item's thumbnail image
+  updateItemImage: async (itemId: string, imageUrl: string, storagePath?: string) => {
+    const updates: Partial<Item> = {
+      thumbnail_url: imageUrl,
+      updated_at: new Date().toISOString(),
+    };
+
+    // If this is a user-uploaded image, we could store the storage path in metadata
+    // For now, we'll just update the thumbnail_url
+    await itemsActions.updateItemWithSync(itemId, updates);
+
+    console.log('✅ Updated item image:', { itemId, imageUrl });
+  },
+
+  // Remove item's thumbnail image
+  removeItemImage: async (itemId: string) => {
+    const updates: Partial<Item> = {
+      thumbnail_url: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    await itemsActions.updateItemWithSync(itemId, updates);
+
+    console.log('✅ Removed item image:', itemId);
+  },
+
   // Note: Full sync is handled by syncService
   // Individual operations use syncOperations directly
 };
