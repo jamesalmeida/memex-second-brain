@@ -138,8 +138,15 @@ const MovieTVItemView = observer(({
   const generateImageDescriptions = async () => {
     if (!itemToDisplay) return;
 
-    const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
-    if (!imageUrls || imageUrls.length === 0) {
+    const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id) || [];
+    const urlsToDescribe = Array.from(
+      new Set([
+        ...metadataImageUrls.filter(Boolean),
+        ...(thumbnailUrl ? [thumbnailUrl] : []),
+      ])
+    );
+
+    if (urlsToDescribe.length === 0) {
       alert('No images found for this item.');
       return;
     }
@@ -148,11 +155,11 @@ const MovieTVItemView = observer(({
     imageDescriptionsActions.setGenerating(itemToDisplay.id, true);
 
     try {
-      console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
+      console.log('🖼️  Generating descriptions for', urlsToDescribe.length, 'images');
       const selectedModel = aiSettingsComputed.selectedModel();
       const generatedDescriptions: ImageDescription[] = [];
 
-      for (const imageUrl of imageUrls) {
+      for (const imageUrl of urlsToDescribe) {
         // Generate description for each image
         const description = await openai.describeImage(imageUrl, {
           model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
@@ -437,7 +444,12 @@ const MovieTVItemView = observer(({
               {imageDescriptions.map((desc, index) => (
                 <View key={desc.image_url} style={[styles.descriptionItem, isDarkMode && styles.descriptionItemDark]}>
                   <Text style={[styles.descriptionLabel, isDarkMode && styles.descriptionLabelDark]}>
-                    Image {imageUrls ? imageUrls.indexOf(desc.image_url) + 1 : index + 1}:
+                    {(() => {
+                      if (imageUrls && imageUrls.includes(desc.image_url)) {
+                        return `Image ${imageUrls.indexOf(desc.image_url) + 1}:`;
+                      }
+                      return `Image ${index + 1}:`;
+                    })()}
                   </Text>
                   <Text style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}>
                     {desc.description}
