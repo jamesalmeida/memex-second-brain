@@ -667,9 +667,14 @@ const XItemView = observer(({
 
       {/* Hero Media - Video or Images */}
       {(() => {
-        const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
+        const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '') || [];
         const hasVideo = videoUrl && videoPlayer;
-        const hasMultipleImages = imageUrls && imageUrls.length > 1;
+        const hasMultipleImages = imageUrls.length > 1;
+        const hasSingleImage = imageUrls.length === 1;
+        const isCustomThumbnail = Boolean(
+          itemToDisplay?.thumbnail_url &&
+          !imageUrls.includes(itemToDisplay.thumbnail_url)
+        );
 
         if (hasVideo) {
           return (
@@ -707,24 +712,7 @@ const XItemView = observer(({
           );
         }
 
-        if (itemToDisplay?.thumbnail_url) {
-          return (
-            <View style={styles.mediaContainer}>
-              <ImageWithActions
-                source={{ uri: itemToDisplay.thumbnail_url }}
-                imageUrl={itemToDisplay.thumbnail_url}
-                style={styles.heroMedia}
-                contentFit="contain"
-                canReplace
-                canRemove
-                onImageReplace={() => imageUploadModalRef.current?.open()}
-                onImageRemove={handleHeroImageRemove}
-              />
-            </View>
-          );
-        }
-
-        if (hasMultipleImages) {
+        if (hasMultipleImages && !isCustomThumbnail) {
           return (
             <View style={styles.mediaContainer}>
               <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
@@ -743,7 +731,7 @@ const XItemView = observer(({
                   style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
                   contentContainerStyle={{ height: CONTENT_WIDTH }}
                 >
-                  {imageUrls!.map((imageUrl, index) => (
+                  {imageUrls.map((imageUrl, index) => (
                     <ImageWithActions
                       key={index}
                       source={{ uri: imageUrl }}
@@ -760,7 +748,7 @@ const XItemView = observer(({
                   ))}
                 </ScrollView>
                 <View style={styles.dotsContainer}>
-                  {imageUrls!.map((_, index) => (
+                  {imageUrls.map((_, index) => (
                     <View
                       key={index}
                       style={[
@@ -775,7 +763,7 @@ const XItemView = observer(({
           );
         }
 
-        if (imageUrls && imageUrls.length === 1) {
+        if (hasSingleImage && !isCustomThumbnail) {
           return (
             <View style={styles.mediaContainer}>
               <ImageWithActions
@@ -789,6 +777,24 @@ const XItemView = observer(({
             </View>
           );
         }
+
+        if (itemToDisplay?.thumbnail_url) {
+          return (
+            <View style={styles.mediaContainer}>
+              <ImageWithActions
+                source={{ uri: itemToDisplay.thumbnail_url }}
+                imageUrl={itemToDisplay.thumbnail_url}
+                style={styles.heroMedia}
+                contentFit="contain"
+                canReplace
+                canRemove
+                onImageReplace={() => imageUploadModalRef.current?.open()}
+                onImageRemove={handleHeroImageRemove}
+              />
+            </View>
+          );
+        }
+
         return (
           <View style={styles.mediaContainer}>
             <TouchableOpacity
