@@ -10,6 +10,8 @@ import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import * as Clipboard from 'expo-clipboard';
+import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -33,6 +35,7 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
   const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
   const allSpaces = spacesStore.spaces.get();
   const spaces = allSpaces;
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
 
   useEffect(() => {
     if (item) {
@@ -48,6 +51,28 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
 
   const saveTagsToDatabase = async (tagsToSave: string[]) => {
     await itemsActions.updateItemWithSync(itemToDisplay.id, { tags: tagsToSave });
+  };
+
+  const handleImageSelected = async (imageUrl: string, storagePath?: string) => {
+    try {
+      await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
+      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
+      Alert.alert('Success', 'Image updated successfully');
+    } catch (error) {
+      console.error('Error updating image:', error);
+      Alert.alert('Error', 'Failed to update image');
+    }
+  };
+
+  const handleImageRemove = async () => {
+    try {
+      await itemsActions.removeItemImage(itemToDisplay.id);
+      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      Alert.alert('Success', 'Image removed successfully');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
   };
 
   const generateAITags = async () => {
@@ -76,6 +101,33 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
           Note
         </Text>
       </View> */}
+
+      {/* Hero Image */}
+      <View style={styles.heroWrapper}>
+        {itemToDisplay.thumbnail_url ? (
+          <ImageWithActions
+            source={{ uri: itemToDisplay.thumbnail_url }}
+            imageUrl={itemToDisplay.thumbnail_url}
+            style={styles.heroImage}
+            contentFit="contain"
+            canReplace
+            canRemove
+            onImageReplace={() => imageUploadModalRef.current?.open()}
+            onImageRemove={handleImageRemove}
+          />
+        ) : (
+          <TouchableOpacity
+            style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
+            onPress={() => imageUploadModalRef.current?.open()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.placeholderIcon}>🖼️</Text>
+            <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
+              Tap to add image
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={styles.content}>
         {/* Title (inline editable) */}
@@ -271,6 +323,11 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
           </View>
         </View>
       </View>
+
+      <ImageUploadModal
+        ref={imageUploadModalRef}
+        onImageSelected={handleImageSelected}
+      />
     </View>
   );
 });
@@ -280,6 +337,43 @@ export default NoteItemView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  heroWrapper: {
+    paddingHorizontal: CONTENT_PADDING,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  heroImage: {
+    width: CONTENT_WIDTH,
+    height: CONTENT_WIDTH * 0.6,
+    borderRadius: 12,
+    backgroundColor: '#000000',
+  },
+  placeholderHero: {
+    width: CONTENT_WIDTH,
+    height: CONTENT_WIDTH * 0.6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderHeroDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  placeholderIcon: {
+    fontSize: 42,
+    marginBottom: 12,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  placeholderTextDark: {
+    color: '#AAA',
   },
   noteHeader: {
     flexDirection: 'row',
@@ -521,5 +615,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-
-
