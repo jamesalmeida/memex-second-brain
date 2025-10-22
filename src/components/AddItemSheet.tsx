@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -38,14 +38,6 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
   const selectedSpaceName = selectedSpaceId ? spacesComputed.getSpaceById(selectedSpaceId)?.name ?? 'selected space' : null;
-  const { width: windowWidth } = useWindowDimensions();
-
-  const collapsedButtonWidth = 144;
-  const expandedButtonWidth = useMemo(() => {
-    const availableWidth = windowWidth - 40;
-    const clampedWidth = Math.max(collapsedButtonWidth, availableWidth);
-    return Math.min(clampedWidth, 420);
-  }, [windowWidth, collapsedButtonWidth]);
 
   const snapPoints = useMemo(() => ['30%', '70%'], []); // Adjust heights of the Add Item Sheet
 
@@ -163,11 +155,6 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
     }).start();
   }, [buttonAnimation, hasInput]);
 
-  const buttonWidth = useMemo(() => buttonAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [expandedButtonWidth, collapsedButtonWidth],
-  }), [buttonAnimation, expandedButtonWidth, collapsedButtonWidth]);
-
   const pasteSaveOpacity = buttonAnimation.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: [1, 0, 0],
@@ -176,10 +163,6 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const saveOpacity = buttonAnimation.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: [0, 0, 1],
-  });
-  const buttonBorderRadius = buttonAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [26, 22],
   });
 
   // Cleanup any pending close timer on unmount
@@ -218,7 +201,7 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
           <Animated.View
             style={[
               styles.saveButtonWrapper,
-              { width: buttonWidth, borderRadius: buttonBorderRadius, opacity: isSaving ? 0.65 : 1 },
+              { opacity: isSaving ? 0.65 : 1 },
               isDarkMode && styles.saveButtonWrapperDark,
             ]}
           >
@@ -245,7 +228,7 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
                     <Animated.View
                       style={[styles.saveButtonContentOverlay, { opacity: saveOpacity }]}
                     >
-                      <MaterialIcons name="send" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
+                      <MaterialIcons name="save" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
                       <Text style={styles.saveButtonText}>Save</Text>
                     </Animated.View>
                   </>
@@ -315,7 +298,7 @@ const styles = StyleSheet.create({
   handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
   handleIndicatorDark: { backgroundColor: '#666666' },
   header: { paddingHorizontal: 20, paddingVertical: 0 },
-  headerButtonRow: { marginTop: 0, alignItems: 'flex-end', width: '100%' },
+  headerButtonRow: { marginTop: 0, alignItems: 'stretch', width: '100%' },
   saveButtonWrapper: {
     backgroundColor: '#FF6B35',
     borderRadius: 26,
@@ -324,7 +307,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 6,
-    alignSelf: 'flex-end',
+    alignSelf: 'stretch',
+    width: '100%',
+    overflow: 'hidden',
   },
   saveButtonWrapperDark: {
     shadowColor: '#000000',
@@ -371,7 +356,7 @@ const styles = StyleSheet.create({
     paddingRight: 48,
     fontSize: 16,
     color: '#000000',
-    minHeight: 90,
+    minHeight: 96,
     textAlignVertical: 'top',
   },
   inputDark: { color: '#FFFFFF' },
