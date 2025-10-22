@@ -52,7 +52,6 @@ const TagsManagerModal = observer(({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const inputRef = useRef<TextInput>(null);
-  const isClosingRef = useRef(false);
   const listHeight = useSharedValue(0);
   const listOpacity = useSharedValue(0);
   const listTranslate = useSharedValue(-8);
@@ -60,7 +59,6 @@ const TagsManagerModal = observer(({
 
   useEffect(() => {
     if (visible) {
-      isClosingRef.current = false;
       setSelectedTags(initialTags);
       setQuery('');
       setRecentExpanded(true);
@@ -175,15 +173,6 @@ const TagsManagerModal = observer(({
     return !allTags.some(tag => tag.toLowerCase() === lower);
   }, [allTags, normalizedSelectedKeys, trimmedQuery]);
 
-  const refocusInput = useCallback(() => {
-    if (!visible || isClosingRef.current) return;
-    setTimeout(() => {
-      if (visible && !isClosingRef.current) {
-        inputRef.current?.focus();
-      }
-    }, 16);
-  }, [visible]);
-
   const handleAddTag = (tag: string) => {
     const trimmed = tag.trim();
     if (!trimmed) return;
@@ -194,12 +183,10 @@ const TagsManagerModal = observer(({
     }
     setSelectedTags(prev => [...prev, trimmed]);
     setQuery('');
-    refocusInput();
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
     setSelectedTags(prev => prev.filter(tag => tag !== tagToRemove));
-    refocusInput();
   };
 
   const handleChangeQuery = (text: string) => {
@@ -208,7 +195,6 @@ const TagsManagerModal = observer(({
 
   const handleToggleRecents = () => {
     setRecentExpanded(prev => !prev);
-    refocusInput();
   };
 
   const handleListContentSizeChange = useCallback((_: number, height: number) => {
@@ -224,7 +210,6 @@ const TagsManagerModal = observer(({
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
-    isClosingRef.current = true;
     Keyboard.dismiss();
     try {
       await Promise.resolve(onDone(selectedTags));
@@ -299,6 +284,7 @@ const TagsManagerModal = observer(({
               style={[styles.listItem, isDarkMode && styles.listItemDark]}
               onPress={forMeasurement ? undefined : () => handleAddTag(tag)}
               activeOpacity={forMeasurement ? 1 : 0.8}
+              focusable={false}
             >
               <Text style={[styles.listItemText, isDarkMode && styles.listItemTextDark]}>
                 {tag}
@@ -317,6 +303,7 @@ const TagsManagerModal = observer(({
               style={[styles.createItem, isDarkMode && styles.createItemDark]}
               onPress={forMeasurement ? undefined : () => handleAddTag(trimmedQuery)}
               activeOpacity={forMeasurement ? 1 : 0.8}
+              focusable={false}
             >
               <MaterialIcons name="add" size={18} color="#FF6B35" style={styles.createIcon} />
               <Text style={[styles.createText, isDarkMode && styles.createTextDark]}>
@@ -343,6 +330,7 @@ const TagsManagerModal = observer(({
               style={[styles.listItem, isDarkMode && styles.listItemDark]}
               onPress={forMeasurement ? undefined : () => handleAddTag(tag)}
               activeOpacity={forMeasurement ? 1 : 0.8}
+              focusable={false}
             >
               <Text style={[styles.listItemText, isDarkMode && styles.listItemTextDark]}>
                 {tag}
@@ -359,7 +347,6 @@ const TagsManagerModal = observer(({
   };
 
   const handleCancel = useCallback(() => {
-    isClosingRef.current = true;
     Keyboard.dismiss();
     onCancel();
   }, [onCancel]);
@@ -385,17 +372,19 @@ const TagsManagerModal = observer(({
           ]}
           activeOpacity={1}
           onPress={handleCancel}
+          focusable={false}
         >
           <TouchableOpacity
             activeOpacity={1}
             onPress={(event) => event.stopPropagation()}
             style={[styles.modalContent, isDarkMode && styles.modalContentDark]}
+            focusable={false}
           >
             <View style={styles.header}>
               <Text style={[styles.title, isDarkMode && styles.titleDark]}>
                 Add Tags
               </Text>
-              <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
+              <TouchableOpacity onPress={handleCancel} style={styles.closeButton} focusable={false}>
                 <MaterialIcons name="close" size={22} color={isDarkMode ? '#FFFFFF' : '#3A3A3C'} />
               </TouchableOpacity>
             </View>
@@ -427,6 +416,7 @@ const TagsManagerModal = observer(({
               <TouchableOpacity
                 style={styles.caretButton}
                 onPress={handleToggleRecents}
+                focusable={false}
               >
                 <Animated.View style={caretAnimatedStyle}>
                   <MaterialIcons name="expand-more" size={22} color={isDarkMode ? '#FFFFFF' : '#3A3A3C'} />
@@ -465,7 +455,7 @@ const TagsManagerModal = observer(({
                       <Text style={[styles.selectedTagText, isDarkMode && styles.selectedTagTextDark]}>
                         {tag}
                       </Text>
-                      <TouchableOpacity onPress={() => handleRemoveTag(tag)} style={styles.selectedTagRemove}>
+                      <TouchableOpacity onPress={() => handleRemoveTag(tag)} style={styles.selectedTagRemove} focusable={false}>
                         <MaterialIcons name="close" size={16} color={isDarkMode ? '#FFFFFF' : '#4A4A4A'} />
                       </TouchableOpacity>
                     </View>
@@ -482,6 +472,7 @@ const TagsManagerModal = observer(({
               style={[styles.doneButton, isDarkMode && styles.doneButtonDark, isSubmitting && styles.doneButtonDisabled]}
               onPress={handleSubmit}
               disabled={isSubmitting}
+              focusable={false}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" />
