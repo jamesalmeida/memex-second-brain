@@ -1,7 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { router, useSegments } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
+import { syncService } from '../services/syncService';
+import { STORAGE_KEYS } from '../constants';
+import { itemsActions } from '../stores/items';
+import { spacesActions } from '../stores/spaces';
+import { itemSpacesActions } from '../stores/itemSpaces';
+import { itemMetadataActions } from '../stores/itemMetadata';
+import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
+import { offlineQueueActions } from '../stores/offlineQueue';
+import { itemChatsActions } from '../stores/itemChats';
+import { chatMessagesActions } from '../stores/chatMessages';
+import { aiSettingsActions } from '../stores/aiSettings';
+import { filterActions } from '../stores/filter';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -46,6 +59,12 @@ export function useAuth() {
             email: session.user.email || '',
           });
           authActions.setSession(session);
+          
+          // Trigger sync for existing session
+          console.log('🔄 Starting sync for existing session...');
+          syncService.forceSync().catch(error => {
+            console.error('Failed to sync for existing session:', error);
+          });
         } else {
           console.log('ℹ️ No user in session (expected for first-time users)');
         }
@@ -81,10 +100,53 @@ export function useAuth() {
           authActions.setSession(session);
           authActions.setLoading(false);
 
+          // Trigger sync with Supabase after sign in
+          console.log('🔄 Starting sync after sign in...');
+          syncService.forceSync().catch(error => {
+            console.error('Failed to sync after sign in:', error);
+          });
+
           // Navigate to home screen - the state change will trigger navigation
           console.log('🔄 User authenticated, state updated');
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
+
+          // Clear all user data from AsyncStorage
+          console.log('🧹 Clearing all user data from storage...');
+          try {
+            await AsyncStorage.multiRemove([
+              STORAGE_KEYS.ITEMS,
+              STORAGE_KEYS.SPACES,
+              STORAGE_KEYS.ITEM_SPACES,
+              STORAGE_KEYS.ITEM_METADATA,
+              STORAGE_KEYS.ITEM_TYPE_METADATA,
+              STORAGE_KEYS.OFFLINE_QUEUE,
+              STORAGE_KEYS.VIDEO_TRANSCRIPTS,
+              STORAGE_KEYS.SYNC_STATUS,
+              STORAGE_KEYS.ITEM_CHATS,
+              STORAGE_KEYS.CHAT_MESSAGES,
+              STORAGE_KEYS.AI_SETTINGS,
+              STORAGE_KEYS.AI_MODELS,
+              STORAGE_KEYS.FILTERS,
+            ]);
+            console.log('✅ Cleared all user data from storage');
+          } catch (error) {
+            console.error('❌ Error clearing storage:', error);
+          }
+
+          // Reset all stores to initial state
+          itemsActions.clearAll();
+          spacesActions.clearAll();
+          itemSpacesActions.reset();
+          itemMetadataActions.reset();
+          itemTypeMetadataActions.reset();
+          offlineQueueActions.reset();
+          await itemChatsActions.clearAll();
+          await chatMessagesActions.clearAll();
+          await aiSettingsActions.clearAll();
+          await filterActions.clearAll();
+
+          // Reset auth store
           authActions.reset();
           authActions.setLoading(false);
 
@@ -149,6 +211,41 @@ export function useAuth() {
       console.log('🚪 Starting sign out process...');
       await auth.signOut();
       console.log('🚪 Sign out completed');
+
+      // Fallback: proactively clear local state and storage in case event is delayed
+      try {
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.ITEMS,
+          STORAGE_KEYS.SPACES,
+          STORAGE_KEYS.ITEM_SPACES,
+          STORAGE_KEYS.ITEM_METADATA,
+          STORAGE_KEYS.ITEM_TYPE_METADATA,
+          STORAGE_KEYS.OFFLINE_QUEUE,
+          STORAGE_KEYS.VIDEO_TRANSCRIPTS,
+          STORAGE_KEYS.SYNC_STATUS,
+          STORAGE_KEYS.ITEM_CHATS,
+          STORAGE_KEYS.CHAT_MESSAGES,
+          STORAGE_KEYS.AI_SETTINGS,
+          STORAGE_KEYS.AI_MODELS,
+          STORAGE_KEYS.FILTERS,
+        ]);
+      } catch (err) {
+        // swallow
+      }
+
+      itemsActions.clearAll();
+      spacesActions.clearAll();
+      itemSpacesActions.reset();
+      itemMetadataActions.reset();
+      itemTypeMetadataActions.reset();
+      offlineQueueActions.reset();
+      await itemChatsActions.clearAll();
+      await chatMessagesActions.clearAll();
+      await aiSettingsActions.clearAll();
+      await filterActions.clearAll();
+
+      authActions.reset();
+      authActions.setLoading(false);
     } catch (error) {
       console.error('❌ Error signing out:', error);
     }

@@ -87,6 +87,7 @@ export const db = {
         )
       `)
       .eq('user_id', userId)
+      .eq('is_deleted', false)
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -106,8 +107,9 @@ export const db = {
         )
       `)
       .eq('user_id', userId)
+      .eq('is_deleted', false)
       .eq('is_archived', false)
-      .or(`title.ilike.%${query}%,desc.ilike.%${query}%,content.ilike.%${query}%`)
+      .or(`title.ilike.%${query}%,desc.ilike.%${query}%,content.ilike.%${query}%,tags.cs.{${query}}`)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -135,19 +137,49 @@ export const db = {
     return { data, error };
   },
 
+  // Soft delete item (Trash): mark as deleted and set deleted_at
+  softDeleteItem: async (id: string) => {
+    console.log(`🗑️ [supabase.db] Soft-deleting item ${id} (mark is_deleted=true)`);
+    const { data, error } = await supabase
+      .from('items')
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error(`🗑️ [supabase.db] Error soft-deleting item ${id}:`, error);
+    } else {
+      console.log(`✅ [supabase.db] Successfully soft-deleted item ${id}`);
+    }
+
+    return { data, error };
+  },
+
   deleteItem: async (id: string) => {
+    console.log(`🗑️ [supabase.db] Deleting item ${id} from items table`);
     const { error } = await supabase
       .from('items')
       .delete()
       .eq('id', id);
 
+    if (error) {
+      console.error(`🗑️ [supabase.db] Error deleting item ${id}:`, error);
+    } else {
+      console.log(`✅ [supabase.db] Successfully deleted item ${id} from items table`);
+    }
+
     return { error };
   },
 
-  // YouTube Transcripts
-  getTranscript: async (itemId: string) => {
+  // Video Transcripts (supports multiple platforms)
+  getVideoTranscript: async (itemId: string) => {
     const { data, error } = await supabase
-      .from('youtube_transcripts')
+      .from('video_transcripts')
       .select('*')
       .eq('item_id', itemId)
       .single();
@@ -155,14 +187,25 @@ export const db = {
     return { data, error };
   },
 
-  saveTranscript: async (transcript: {
+  getVideoTranscriptsByPlatform: async (platform: string) => {
+    const { data, error } = await supabase
+      .from('video_transcripts')
+      .select('*')
+      .eq('platform', platform)
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  },
+
+  saveVideoTranscript: async (transcript: {
     item_id: string;
     transcript: string;
+    platform: string;
     language: string;
     duration?: number;
   }) => {
     const { data, error } = await supabase
-      .from('youtube_transcripts')
+      .from('video_transcripts')
       .upsert({
         ...transcript,
         fetched_at: new Date().toISOString(),
@@ -173,12 +216,43 @@ export const db = {
     return { data, error };
   },
 
-  deleteTranscript: async (itemId: string) => {
+  deleteVideoTranscript: async (itemId: string) => {
     const { error } = await supabase
-      .from('youtube_transcripts')
+      .from('video_transcripts')
       .delete()
       .eq('item_id', itemId);
 
+    return { error };
+  },
+
+  // Image descriptions
+  saveImageDescription: async (description: {
+    item_id: string;
+    image_url: string;
+    description: string;
+    model: string;
+  }) => {
+    const { data, error } = await supabase
+      .from('image_descriptions')
+      .upsert({
+        ...description,
+        fetched_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  deleteImageDescription: async (itemId: string, imageUrl?: string) => {
+    let query = supabase.from('image_descriptions').delete().eq('item_id', itemId);
+
+    // If imageUrl is provided, delete specific description, otherwise delete all for item
+    if (imageUrl) {
+      query = query.eq('image_url', imageUrl);
+    }
+
+    const { error } = await query;
     return { error };
   },
 
@@ -227,6 +301,30 @@ export const db = {
       .select()
       .single();
 
+    return { data, error };
+  },
+};
+
+// Storage helpers
+export const storage = {
+  uploadImage: async (bucket: string, path: string, file: Blob | File | Uint8Array | ArrayBuffer, contentType?: string) => {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(path, file, {
+        contentType: contentType || 'image/jpeg',
+        upsert: true,
+      });
+
+    return { data, error };
+  },
+
+  getPublicUrl: (bucket: string, path: string) => {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data.publicUrl;
+  },
+
+  deleteImage: async (bucket: string, path: string) => {
+    const { data, error } = await supabase.storage.from(bucket).remove([path]);
     return { data, error };
   },
 };

@@ -128,6 +128,7 @@ export const extractYouTubeData = async (url: string) => {
       /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
       /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
       /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
     ];
     
     let videoId = null;
@@ -150,11 +151,28 @@ export const extractYouTubeData = async (url: string) => {
     
     const info = await youtube.getInfo(videoId);
     console.log('Got video info from YouTube');
+    try {
+      // Log the raw youtubei.js basic_info payload for debugging
+      console.log('🎥 [YouTubeAPI] basic_info:', JSON.stringify(info.basic_info ?? {}, null, 2));
+    } catch (e) {
+      console.log('🎥 [YouTubeAPI] basic_info not serializable');
+    }
     
     // Get the best quality thumbnail
     const thumbnail = info.basic_info.thumbnail?.[0]?.url || 
                      info.basic_info.thumbnail?.[info.basic_info.thumbnail.length - 1]?.url;
     
+    // Check if it's a YouTube Short
+    const isShort = url.includes('/shorts/') || (info.basic_info.duration && info.basic_info.duration <= 60);
+    
+    const publishedAt = (info.basic_info as any).publish_date || (info.basic_info as any).upload_date || undefined;
+
+    const channel = (info.basic_info as any).channel || {};
+    const category = (info.basic_info as any).category;
+    const tags = (info.basic_info as any).tags || undefined;
+    const isLive = (info.basic_info as any).is_live ?? false;
+    const isLiveContent = (info.basic_info as any).is_live_content ?? false;
+
     const result = {
       title: info.basic_info.title,
       description: info.basic_info.short_description,
@@ -163,6 +181,17 @@ export const extractYouTubeData = async (url: string) => {
       duration: info.basic_info.duration,
       viewCount: info.basic_info.view_count,
       videoId,
+      isShort,
+      // include original published time when available
+      publishedAt,
+      // channel & extra metadata
+      channelId: channel.id,
+      channelName: channel.name || info.basic_info.author,
+      channelUrl: channel.url,
+      category,
+      tags,
+      isLive,
+      isLiveContent,
     };
     
     console.log('YouTube extraction successful:', result.title);

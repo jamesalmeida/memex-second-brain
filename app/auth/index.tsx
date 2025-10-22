@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { auth } from '../../src/services/supabase';
+import { syncService } from '../../src/services/syncService';
+import { authActions } from '../../src/stores';
 import { COLORS, UI } from '../../src/constants';
 import { themeStore } from '../../src/stores/theme';
 
@@ -55,6 +57,28 @@ const AuthScreen = observer(() => {
           Alert.alert('Sign In Error', error.message);
         } else {
           console.log('✅ Sign in successful');
+          // Clear the form
+          setEmail('');
+          setPassword('');
+          // Ensure auth store updates immediately so central nav reacts
+          try {
+            const { data: { session } } = await auth.getSession();
+            if (session?.user) {
+              authActions.setUser({
+                id: session.user.id,
+                email: session.user.email || '',
+              });
+              authActions.setSession(session);
+              authActions.setLoading(false);
+
+              // Kick off initial sync so data downloads immediately after login
+              syncService.forceSync().catch((err) => {
+                console.error('Failed to start initial sync after login:', err);
+              });
+            }
+          } catch (e) {
+            // No-op: central listener should still catch the event
+          }
         }
       }
     } catch (error) {

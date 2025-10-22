@@ -82,6 +82,12 @@ export const fetchTweetData = async (tweetId: string): Promise<TwitterMetadata> 
     }
 
     const data = await response.json();
+    try {
+      // Log the raw Twitter/X API payload for debugging saves
+      console.log('🐦 [TwitterAPI] Raw response:', JSON.stringify(data, null, 2));
+    } catch (e) {
+      console.log('🐦 [TwitterAPI] Raw response (non-serializable)');
+    }
     
     // Extract main tweet data
     const tweet = data.data;
@@ -162,7 +168,7 @@ export const formatTweetDate = (dateString: string): string => {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  
+
   if (diffHours < 1) {
     const diffMins = Math.floor(diffMs / (1000 * 60));
     return `${diffMins}m ago`;
@@ -173,5 +179,55 @@ export const formatTweetDate = (dateString: string): string => {
     return `${diffDays}d ago`;
   } else {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+};
+
+// Get the video URL from Twitter metadata
+export const getVideoUrlFromMetadata = (metadata: TwitterMetadata): string | null => {
+  if (!metadata.media || metadata.media.length === 0) {
+    return null;
+  }
+
+  // Find the first video or animated_gif
+  const videoMedia = metadata.media.find(
+    m => m.type === 'video' || m.type === 'animated_gif'
+  );
+
+  if (!videoMedia) {
+    return null;
+  }
+
+  // Return the highest quality video URL
+  if (videoMedia.variants && videoMedia.variants.length > 0) {
+    const mp4Variants = videoMedia.variants
+      .filter(v => v.content_type === 'video/mp4')
+      .sort((a, b) => (b.bit_rate || 0) - (a.bit_rate || 0));
+
+    if (mp4Variants.length > 0) {
+      return mp4Variants[0].url;
+    }
+  }
+
+  return videoMedia.url || null;
+};
+
+// Get transcript for X video using AssemblyAI
+export const getXVideoTranscript = async (
+  videoUrl: string,
+  onProgress?: (status: string) => void
+): Promise<{ transcript: string; language: string }> => {
+  const { transcribeVideo } = await import('./assemblyai');
+
+  try {
+    console.log('Fetching transcript for X video:', videoUrl);
+
+    const result = await transcribeVideo(videoUrl, onProgress);
+
+    console.log(`X video transcript fetched successfully: ${result.transcript.length} characters, language: ${result.language}`);
+
+    return result;
+  } catch (error) {
+    console.error('Error fetching X video transcript:', error);
+    throw error;
   }
 };

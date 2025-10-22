@@ -9,33 +9,38 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { observer } from '@legendapp/state/react';
+import uuid from 'react-native-uuid';
 import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
+import { authComputed } from '../stores/auth';
 import { Space } from '../types';
 
 interface CreateSpaceSheetProps {
   onSpaceCreated?: (space: Space) => void;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
-const EMOJI_OPTIONS = [null, '📁', '🚀', '💡', '📚', '🎨', '🔬', '🎯', '💼', '🌟', '🔥', '⚡'];
+// Emoji picker removed - no longer needed
 const COLOR_OPTIONS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#DDA0DD',
   '#FF8C94', '#98D8C8', '#6C5CE7', '#55A3FF', '#FD79A8', '#A29BFE',
 ];
 
 const CreateSpaceSheet = observer(
-  forwardRef<BottomSheet, CreateSpaceSheetProps>(({ onSpaceCreated }, ref) => {
+  forwardRef<BottomSheet, CreateSpaceSheetProps>(({ onSpaceCreated, onOpen, onClose }, ref) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const [spaceName, setSpaceName] = useState('');
     const [spaceDescription, setSpaceDescription] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+    // Emoji selection removed
     const [selectedColor, setSelectedColor] = useState('#4ECDC4');
     
-    // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['75%', '90%'], []);
+    // Snap points for the bottom sheet - single snap point to prevent sheet closing
+    const snapPoints = useMemo(() => ['94%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -50,41 +55,52 @@ const CreateSpaceSheet = observer(
       []
     );
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
       if (!spaceName.trim()) {
         Alert.alert('Error', 'Please enter a space name');
         return;
       }
 
+      const userId = authComputed.userId();
+      if (!userId) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      // Dismiss keyboard
+      Keyboard.dismiss();
+
       const newSpace: Space = {
-        id: `space-${Date.now()}`,
+        id: uuid.v4() as string,
         name: spaceName.trim(),
         description: spaceDescription.trim(),
         color: selectedColor,
-        icon: selectedEmoji || undefined,
+        // icon field removed - no emoji selection
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        item_count: 0,
-        user_id: 'current-user', // This should come from auth context
+        user_id: userId,
       };
 
-      spacesActions.addSpace(newSpace);
+      await spacesActions.addSpaceWithSync(newSpace);
       onSpaceCreated?.(newSpace);
-      
+
       // Reset form
       setSpaceName('');
       setSpaceDescription('');
-      setSelectedEmoji(null);
+      // emoji reset removed
       setSelectedColor('#4ECDC4');
-      
+
       // Close sheet
       (ref as any)?.current?.close();
     };
 
     const handleCancel = () => {
+      // Dismiss keyboard
+      Keyboard.dismiss();
+
       setSpaceName('');
       setSpaceDescription('');
-      setSelectedEmoji(null);
+      // emoji reset removed
       setSelectedColor('#4ECDC4');
       (ref as any)?.current?.close();
     };
@@ -104,26 +120,35 @@ const CreateSpaceSheet = observer(
           styles.handleIndicator,
           isDarkMode && styles.handleIndicatorDark,
         ]}
-        keyboardBehavior={Platform.OS === 'ios' ? 'interactive' : 'fillParent'}
+        keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        onChange={(index) => {
+          if (index === -1) {
+            onClose?.();
+          } else if (index >= 0) {
+            onOpen?.();
+          }
+        }}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleCancel}>
-            <Text style={[styles.headerButton, styles.cancelButton]}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-            Create New Space
-          </Text>
-          <TouchableOpacity onPress={handleCreate}>
-            <Text style={[styles.headerButton, styles.createButton]}>Create</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleCancel}>
+              <Text style={[styles.headerButton, styles.cancelButton]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.title, isDarkMode && styles.titleDark]}>
+              Create New Space
+            </Text>
+            <TouchableOpacity onPress={handleCreate}>
+              <Text style={[styles.headerButton, styles.createButton]}>Create</Text>
+            </TouchableOpacity>
+          </View>
 
-        <BottomSheetScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+          <BottomSheetScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Space Name */}
           <View style={styles.section}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>
@@ -140,30 +165,28 @@ const CreateSpaceSheet = observer(
             />
           </View>
 
-          {/* Emoji Selection */}
+          {/* Emoji Selection removed */}
+
+          
+
+          {/* Description */}
           <View style={styles.section}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>
-              CHOOSE AN EMOJI
+              DESCRIPTION (OPTIONAL)
             </Text>
-            <View style={styles.emojiGrid}>
-              {EMOJI_OPTIONS.map((emoji, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.emojiOption,
-                    selectedEmoji === emoji && styles.emojiOptionSelected,
-                    isDarkMode && styles.emojiOptionDark,
-                  ]}
-                  onPress={() => setSelectedEmoji(emoji)}
-                >
-                  {emoji === null ? (
-                    <Text style={[styles.noEmojiText, isDarkMode && styles.noEmojiTextDark]}>None</Text>
-                  ) : (
-                    <Text style={styles.emojiText}>{emoji}</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+            <BottomSheetTextInput
+              style={[styles.textArea, isDarkMode && styles.inputDark]}
+              placeholder="What's this space for?"
+              placeholderTextColor={isDarkMode ? '#666' : '#999'}
+              value={spaceDescription}
+              onChangeText={setSpaceDescription}
+              multiline
+              numberOfLines={4}
+              maxLength={200}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              blurOnSubmit={false}
+            />
           </View>
 
           {/* Color Selection */}
@@ -190,35 +213,13 @@ const CreateSpaceSheet = observer(
             </View>
           </View>
 
-          {/* Description */}
-          <View style={styles.section}>
-            <Text style={[styles.label, isDarkMode && styles.labelDark]}>
-              DESCRIPTION (OPTIONAL)
-            </Text>
-            <BottomSheetTextInput
-              style={[styles.textArea, isDarkMode && styles.inputDark]}
-              placeholder="What's this space for?"
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={spaceDescription}
-              onChangeText={setSpaceDescription}
-              multiline
-              numberOfLines={4}
-              maxLength={200}
-            />
-          </View>
-
           {/* Preview */}
           <View style={styles.section}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>
               PREVIEW
             </Text>
-            <View style={[styles.previewCard, isDarkMode && styles.previewCardDark]}>
-              {selectedEmoji && (
-                <View style={[styles.previewIcon, { backgroundColor: selectedColor }]}>
-                  <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
-                </View>
-              )}
-              <View style={[styles.previewContent, !selectedEmoji && { marginLeft: 0 }]}>
+            <View style={[styles.previewCard, isDarkMode && styles.previewCardDark, { borderTopColor: selectedColor }]}>
+              <View style={styles.previewContent}>
                 <Text style={[styles.previewName, isDarkMode && styles.previewNameDark]}>
                   {spaceName || 'Space Name'}
                 </Text>
@@ -231,6 +232,7 @@ const CreateSpaceSheet = observer(
             </View>
           </View>
         </BottomSheetScrollView>
+        </View>
       </BottomSheet>
     );
   })
@@ -251,6 +253,9 @@ const styles = StyleSheet.create({
   },
   handleIndicatorDark: {
     backgroundColor: '#48484A',
+  },
+  container: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -320,38 +325,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  emojiOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  emojiOptionDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  emojiOptionSelected: {
-    borderColor: '#007AFF',
-  },
-  emojiText: {
-    fontSize: 24,
-  },
-  noEmojiText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  noEmojiTextDark: {
-    color: '#999',
-  },
+  // Emoji-related styles removed
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -387,24 +361,16 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    borderTopWidth: 6,
   },
   previewCardDark: {
     backgroundColor: '#2C2C2E',
     borderColor: '#3A3A3C',
   },
-  previewIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  previewEmoji: {
-    fontSize: 28,
-  },
+  // Preview icon styles removed
   previewContent: {
     flex: 1,
+    marginLeft: 0, // No icon to offset from
   },
   previewName: {
     fontSize: 16,

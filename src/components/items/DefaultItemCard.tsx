@@ -1,145 +1,69 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
-import { themeStore } from '../stores/theme';
-import { Item } from '../types';
+import { themeStore } from '../../stores/theme';
+import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { Item } from '../../types';
+import { formatDate, getDomain, getContentTypeIcon, getContentTypeColor } from '../../utils/itemCardHelpers';
+import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-interface ItemCardProps {
+interface DefaultItemCardProps {
   item: Item;
   onPress: (item: Item) => void;
   onLongPress?: (item: Item) => void;
+  disabled?: boolean;
 }
 
-const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
+const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: DefaultItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  
+
+  // Get video URL and image URLs from item type metadata
+  const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+  const siteIconUrl = itemTypeMetadataComputed.getSiteIconUrl(item.id);
+
   // Set up video player if item has video
-  const player = useVideoPlayer(item.video_url ? item.video_url : null, player => {
-    if (player && item.video_url) {
+  const player = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
       player.loop = true;
       player.muted = true;
+      player.volume = 0;
       player.play();
     }
   });
-  
-  // Check if item has multiple images
-  const hasMultipleImages = item.image_urls && item.image_urls.length > 1;
+
+  const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const cardWidth = screenWidth / 2 - 18;
 
-  const getContentTypeIcon = () => {
-    switch (item.content_type) {
-      case 'youtube':
-        return '▶';
-      case 'x':
-        return '𝕏';
-      case 'github':
-        return '⚡';
-      case 'note':
-        return '📝';
-      case 'image':
-        return '🖼️';
-      case 'article':
-      case 'bookmark':
-        return '🔖';
-      default:
-        return '📎';
-    }
-  };
-
-  const getContentTypeColor = () => {
-    switch (item.content_type) {
-      case 'youtube':
-        return '#FF0000';
-      case 'x':
-        return '#000000';  // Black background for X
-      case 'github':
-        return '#24292e';
-      case 'note':
-        return '#FFC107';
-      case 'image':
-        return '#4CAF50';
-      default:
-        return '#007AFF';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 48) return 'Yesterday';
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    
-    return date.toLocaleDateString('en', { month: 'short', day: 'numeric' });
-  };
-
-  const getDomain = () => {
-    if (!item.url) return null;
-    
-    // For X posts, extract username from description
-    if (item.content_type === 'x' && item.desc) {
-      // Look for "by @username" pattern in description
-      const match = item.desc.match(/by @(\w+)$/m);
-      if (match) {
-        return `@${match[1]}`;
-      }
-      // Fallback: try to extract from title if it exists
-      if (item.title) {
-        const titleMatch = item.title.match(/@(\w+)/);
-        if (titleMatch) {
-          return `@${titleMatch[1]}`;
-        }
-      }
-    }
-    
-    try {
-      const url = new URL(item.url);
-      return url.hostname.replace('www.', '');
-    } catch {
-      return null;
-    }
-  };
-
   return (
-    <TouchableOpacity
-      style={[styles.card, isDarkMode && styles.cardDark]}
-      onPress={() => onPress(item)}
-      onLongPress={() => onLongPress?.(item)}
-      activeOpacity={0.7}
-    >
-      {/* Thumbnail or Content Preview */}
-      {item.video_url && player ? (
-        // Show video player for items with video
-        <View style={{ position: 'relative' }}>
-          <VideoView
-            player={player}
-            style={[
-              styles.thumbnail,
-              { height: 200 }
-            ]}
-            contentFit="cover"
-            allowsFullscreen={false}
-            showsTimecodes={false}
-          />
-          {/* Show play button overlay to indicate video */}
-          <View style={styles.playButtonOverlay} pointerEvents="none">
-            <View style={styles.playButton}>
-              <Text style={styles.playButtonIcon}>▶</Text>
+    <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
+      <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          {/* Thumbnail or Content Preview */}
+        {videoUrl && player ? (
+          <View style={{ position: 'relative' }}>
+            <VideoView
+              player={player}
+              style={[styles.thumbnail, { height: 200 }]}
+              contentFit="cover"
+              fullscreenOptions={{ enable: false }}
+              showsTimecodes={false}
+              muted={true}
+            />
+            <View style={styles.playButtonOverlay} pointerEvents="none">
+              <View style={styles.playButton}>
+                <Text style={styles.playButtonIcon}>▶</Text>
+              </View>
             </View>
           </View>
-        </View>
       ) : hasMultipleImages ? (
-        // Show carousel for multiple images
         <View style={{ position: 'relative' }}>
           <ScrollView
             ref={scrollViewRef}
@@ -153,7 +77,7 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
             scrollEventThrottle={16}
             style={{ width: '100%' }}
           >
-            {item.image_urls!.map((imageUrl, index) => (
+            {imageUrls!.map((imageUrl, index) => (
               <Image
                 key={index}
                 source={{ uri: imageUrl }}
@@ -174,8 +98,8 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
             ))}
           </ScrollView>
           {/* Dots indicator */}
-          <View style={styles.dotsContainer}>
-            {item.image_urls!.map((_, index) => (
+          <View style={styles.dotsContainer} pointerEvents="none">
+            {imageUrls!.map((_, index) => (
               <View
                 key={index}
                 style={[
@@ -191,61 +115,74 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
           <Image
             source={{ uri: item.thumbnail_url }}
             style={[
-              styles.thumbnail, 
+              styles.thumbnail,
               imageHeight ? { height: imageHeight } : null
             ]}
             contentFit="cover"
             onLoad={(e: any) => {
-              // Calculate height based on image aspect ratio
               if (e.source && e.source.width && e.source.height) {
                 const aspectRatio = e.source.height / e.source.width;
-                const cardWidth = screenWidth / 2 - 18; // Approximate card width
                 const calculatedHeight = cardWidth * aspectRatio;
-                // Cap maximum height to prevent overly tall cards
                 const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
                 setImageHeight(finalHeight);
               }
             }}
           />
         </View>
+      ) : (!item.thumbnail_url && siteIconUrl) ? (
+        null
       ) : item.content ? (
-        <View style={[styles.textPreview, { backgroundColor: getContentTypeColor() + '15' }]}>
+        <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
           <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={4}>
             {item.content}
           </Text>
         </View>
       ) : (
-        <View style={[styles.placeholder, { backgroundColor: getContentTypeColor() + '15' }]}>
-          <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
+        <View style={[styles.placeholder, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>
+          <Text style={styles.placeholderIcon}>{getContentTypeIcon(item.content_type)}</Text>
         </View>
       )}
 
       {/* Content Type Badge */}
-      <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor() }]}>
-        <Text style={[
-          styles.typeBadgeText,
-          (item.content_type === 'x' || item.content_type === 'youtube') && styles.typeBadgeTextWhite
-        ]}>
-          {getContentTypeIcon()}
-        </Text>
-      </View>
+      {/* <View style={[styles.typeBadge, { backgroundColor: getContentTypeColor(item.content_type) }]}>
+        {(!item.thumbnail_url && siteIconUrl) ? (
+          <Image
+            source={{ uri: siteIconUrl }}
+            style={styles.typeBadgeIconImage}
+            contentFit="cover"
+          />
+        ) : (
+          <Text style={[
+            styles.typeBadgeText,
+            (item.content_type === 'x' || item.content_type === 'youtube' || item.content_type === 'youtube_short' ||
+             item.content_type === 'instagram' || item.content_type === 'tiktok' || item.content_type === 'reddit' ||
+             item.content_type === 'tv_show') && styles.typeBadgeTextWhite
+          ]}>
+            {getContentTypeIcon(item.content_type)}
+          </Text>
+        )}
+      </View> */}
 
       {/* Card Content */}
       <View style={styles.cardContent}>
         <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
           {item.title}
         </Text>
-        
-        {item.desc && (
+
+        {item.desc ? (
           <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
             {item.desc}
           </Text>
-        )}
+        ) : getDomain(item) ? (
+          <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={1}>
+            {getDomain(item)}
+          </Text>
+        ) : null}
 
         <View style={styles.footer}>
-          {getDomain() && (
+          {getDomain(item) && (
             <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
-              {getDomain()}
+              {getDomain(item)}
             </Text>
           )}
           <Text style={[styles.date, isDarkMode && styles.dateDark]}>
@@ -253,27 +190,34 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+        </View>
+      </View>
+    </RadialActionMenu>
   );
 });
 
-export default ItemCard;
+export default DefaultItemCard;
 
 const styles = StyleSheet.create({
+  shadowContainer: {
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  shadowContainerDark: {
+    shadowOpacity: 0.4,
+  },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardDark: {
     backgroundColor: '#1C1C1E',
-    shadowOpacity: 0.3,
   },
   thumbnail: {
     width: '100%',
@@ -310,6 +254,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#007AFF',
+  },
+  typeBadgeIconImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
   },
   typeBadgeText: {
     fontSize: 14,

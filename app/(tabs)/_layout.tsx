@@ -1,79 +1,403 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Keyboard } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Keyboard, Dimensions, Share, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { observer } from '@legendapp/state/react';
-import { BlurView } from 'expo-blur';
-import BottomSheet from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import { usePathname } from 'expo-router';
 import { themeStore } from '../../src/stores/theme';
+import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
+import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
-import AddItemSheet from '../../src/components/AddItemSheet';
+import AddItemSheet, { AddItemSheetHandle } from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
+import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
+import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
+import ChatSheet from '../../src/components/ChatSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spaces';
+import { Item } from '../../src/types';
+import { itemsActions } from '../../src/stores/items';
+import ExpandedItemView from '../../src/components/ExpandedItemView';
+import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
+import { useDrawer } from '../../src/contexts/DrawerContext';
+import { spacesComputed } from '../../src/stores/spaces';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
-  
+  const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
+
+  // Get radial menu state to disable swipe gesture
+  const { shouldDisableScroll } = useRadialMenu();
+
+  // Register settings handler and sync view with drawer context
+  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
+  // Register create space handler
+  const handleCreateSpacePress = useCallback(() => {
+    console.log('➕ [TabLayout] handleCreateSpacePress called');
+    createSpaceSheetRef.current?.snapToIndex(0);
+    setIsAddSheetOpen(true);
+  }, []);
+
+  useEffect(() => {
+    console.log('➕ [TabLayout] Registering create space handler with DrawerContext');
+    registerCreateSpaceHandler(handleCreateSpacePress);
+  }, [registerCreateSpaceHandler, handleCreateSpacePress]);
+
+  // Register edit space handler
+  const handleEditSpacePress = useCallback((spaceId: string) => {
+    console.log('✏️ [TabLayout] handleEditSpacePress called for space:', spaceId);
+    const space = spacesComputed.spaces().find(s => s.id === spaceId);
+    if (space && editSpaceSheetRef.current) {
+      editSpaceSheetRef.current.openWithSpace(space);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('✏️ [TabLayout] Registering edit space handler with DrawerContext');
+    registerEditSpaceHandler(handleEditSpacePress);
+  }, [registerEditSpaceHandler, handleEditSpacePress]);
+
+  // Register reorder spaces handler
+  const handleReorderSpacesPress = useCallback(() => {
+    console.log('🔄 [TabLayout] handleReorderSpacesPress called');
+    // Open using the sheet's open() to ensure proper initialization
+    reorderSpacesSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  useEffect(() => {
+    console.log('🔄 [TabLayout] Registering reorder spaces handler with DrawerContext');
+    registerReorderSpacesHandler(handleReorderSpacesPress);
+  }, [registerReorderSpacesHandler, handleReorderSpacesPress]);
+
+  // Sync currentView with drawer context for dynamic swipeEdgeWidth
+  useEffect(() => {
+    setDrawerView(currentView);
+  }, [currentView, setDrawerView]);
+
+  // Animation value for sliding views using reanimated
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
+
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
-  const addItemSheetRef = useRef<BottomSheet>(null);
+  const addItemSheetRef = useRef<AddItemSheetHandle>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
+  const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
+  const reorderSpacesSheetRef = useRef<ReorderSpacesSheetRef>(null);
+  const chatSheetRef = useRef<BottomSheet>(null);
+  const expandedItemSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
   useEffect(() => {
     Keyboard.dismiss();
   }, []);
 
-  const handleSettingsPress = () => {
-    settingsSheetRef.current?.expand();
-  };
+  // Sync currentView with actual route from expo-router
+  useEffect(() => {
+    console.log('📍 Route changed - pathname:', pathname, 'currentView:', currentView);
+    if (pathname.includes('/spaces') && currentView !== 'spaces') {
+      console.log('✅ Switching to spaces view');
+      setCurrentView('spaces');
+    } else if (pathname === '/(tabs)' || pathname === '/' && currentView !== 'everything') {
+      console.log('✅ Switching to everything view');
+      setCurrentView('everything');
+    }
+  }, [pathname]);
+
+  // Watch chatUI store and control chat sheet
+  const isChatOpen = chatUIStore.isOpen.get();
+  useEffect(() => {
+    console.log('🔔 [TabLayout] isChatOpen changed to:', isChatOpen);
+    console.log('🔔 [TabLayout] chatSheetRef.current exists?', !!chatSheetRef.current);
+    if (isChatOpen) {
+      console.log('🔔 [TabLayout] Calling expand()...');
+      chatSheetRef.current?.expand();
+    } else {
+      console.log('🔔 [TabLayout] Calling close()...');
+      chatSheetRef.current?.close();
+    }
+  }, [isChatOpen]);
+
+  // Log when isExpandedItemOpen changes
+  useEffect(() => {
+    console.log('🏠 [TabLayout] isExpandedItemOpen state changed to:', isExpandedItemOpen);
+  }, [isExpandedItemOpen]);
+
+  // Observe expandedItemUIStore to control overlayed ExpandedItemView and nav visibility
+  useEffect(() => {
+    const unsubscribe = expandedItemUIStore.currentItem.onChange(({ value }) => {
+      if (value) {
+        setIsExpandedItemOpen(true);
+        // Open the sheet
+        expandedItemSheetRef.current?.snapToIndex(0);
+      } else {
+        setIsExpandedItemOpen(false);
+        expandedItemSheetRef.current?.close();
+      }
+    });
+    // Initialize if a value exists
+    const initialItem = expandedItemUIStore.currentItem.get();
+    if (initialItem) {
+      setIsExpandedItemOpen(true);
+      setTimeout(() => expandedItemSheetRef.current?.snapToIndex(0), 0);
+    }
+    return unsubscribe;
+  }, []);
+
+  const handleSettingsPress = useCallback(() => {
+    console.log('⚙️ [TabLayout] handleSettingsPress called');
+    if (isSettingsOpen) {
+      settingsSheetRef.current?.close();
+      setIsSettingsOpen(false);
+    } else {
+      // Close add sheets if open before opening settings
+      if (isAddSheetOpen) {
+        addItemSheetRef.current?.close();
+        createSpaceSheetRef.current?.close();
+        setIsAddSheetOpen(false);
+      }
+      settingsSheetRef.current?.expand();
+      setIsSettingsOpen(true);
+    }
+  }, [isSettingsOpen, isAddSheetOpen]);
+
+  useEffect(() => {
+    console.log('⚙️ [TabLayout] Registering settings handler with DrawerContext');
+    registerSettingsHandler(handleSettingsPress);
+  }, [registerSettingsHandler, handleSettingsPress]);
 
   const handleAddPress = () => {
-    // Show different sheet based on current view
-    if (currentView === 'spaces') {
-      createSpaceSheetRef.current?.snapToIndex(0);
+    console.log('🏠🏠🏠 handleAddPress called');
+    if (isAddSheetOpen) {
+      // Close the open sheet
+      addItemSheetRef.current?.close();
+      createSpaceSheetRef.current?.close();
+      setIsAddSheetOpen(false);
     } else {
-      addItemSheetRef.current?.snapToIndex(0);
+      // Close settings sheet if open before opening add sheets
+      if (isSettingsOpen) {
+        settingsSheetRef.current?.close();
+        setIsSettingsOpen(false);
+      }
+      // Show different sheet based on current view
+      if (currentView === 'spaces' && !currentSpaceId) {
+        createSpaceSheetRef.current?.snapToIndex(0);
+      } else {
+        // Determine which space to pre-select
+        // Priority: currentSpaceId (from SpacesScreen) > selectedSpace (from HeaderBar)
+        const selectedSpace = spacesComputed.selectedSpace();
+        const spaceIdToUse = currentSpaceId || selectedSpace?.id || null;
+
+        if (spaceIdToUse) {
+          addItemSheetRef.current?.openWithSpace(spaceIdToUse);
+        } else {
+          addItemSheetRef.current?.open();
+        }
+      }
+      setIsAddSheetOpen(true);
     }
   };
 
   const handleViewChange = (view: 'everything' | 'spaces') => {
+    console.log('🏠🏠🏠 handleViewChange called - setting currentView to:');
+    // Close any open sheets when switching views
+    if (isAddSheetOpen) {
+      addItemSheetRef.current?.close();
+      createSpaceSheetRef.current?.close();
+      setIsAddSheetOpen(false);
+    }
+    if (isSettingsOpen) {
+      settingsSheetRef.current?.close();
+      setIsSettingsOpen(false);
+    }
+
+    // Animate the slide based on the view
+    // const targetX = view === 'everything' ? 0 : -SCREEN_WIDTH;
+    // translateX.value = withTiming(targetX, {
+    //   duration: 250,
+    //   easing: Easing.out(Easing.cubic),
+    // });
+
     setCurrentView(view);
+    console.log('🏠 [TabLayout] handleViewChange called - setting currentView to:', view);
   };
 
+  // Pan gesture for swipe navigation
+  const panGesture = Gesture.Pan()
+    .enabled(!shouldDisableScroll) // Disable swipe when radial menu is active
+    .onStart(() => {
+      const timestamp = new Date().toISOString();
+      console.log('🔄 [TabLayout] Pan gesture START at:', timestamp);
+      console.log('🔄 [TabLayout] Current view:', currentView);
+      startX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      // Calculate new position with boundaries
+      const newX = startX.value + event.translationX;
+      // Clamp between -SCREEN_WIDTH (spaces) and 0 (everything)
+      translateX.value = Math.max(-SCREEN_WIDTH, Math.min(0, newX));
+    })
+    .onEnd((event) => {
+      const timestamp = new Date().toISOString();
+      const velocity = event.velocityX;
+      const position = translateX.value;
+
+      console.log('🔄 [TabLayout] Pan gesture END at:', timestamp);
+      console.log('🔄 [TabLayout] Velocity:', velocity, 'Position:', position);
+
+      // Determine which view to snap to based on velocity and position
+      let targetView: 'everything' | 'spaces';
+
+      // If velocity is strong enough, use velocity to determine direction
+      if (Math.abs(velocity) > 500) {
+        targetView = velocity > 0 ? 'everything' : 'spaces';
+      } else {
+        // Otherwise use position (snap to nearest)
+        targetView = position > -SCREEN_WIDTH / 2 ? 'everything' : 'spaces';
+      }
+
+      console.log('🔄 [TabLayout] Target view:', targetView);
+
+      // Animate to target position
+      const targetX = targetView === 'everything' ? 0 : -SCREEN_WIDTH;
+      translateX.value = withTiming(targetX, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+      });
+
+      // Update the view state
+      if (targetView !== currentView) {
+        console.log('🔄 [TabLayout] Changing view from', currentView, 'to', targetView);
+        runOnJS(setCurrentView)(targetView);
+      }
+    });
+
+  // Animated style for the sliding container
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Main Content - extends full screen */}
-      <View style={styles.fullScreenContent}>
-        {currentView === 'everything' ? <HomeScreen /> : <SpacesScreen />}
-      </View>
+    <BottomSheetModalProvider>
+      <View style={[styles.container, isDarkMode && styles.containerDark]}>
+        {/* Main Content - extends full screen */}
+        <View style={styles.fullScreenContent}>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[styles.slidingContainer, animatedStyle]}>
+                {/* Everything View */}
+                <View style={styles.viewContainer} pointerEvents={currentView === 'everything' ? 'auto' : 'none'}>
+                  <HomeScreen
+                    onExpandedItemOpen={() => {
+                      console.log('🏠 [TabLayout] onExpandedItemOpen called - setting isExpandedItemOpen to true');
+                      setIsExpandedItemOpen(true);
+                    }}
+                    onExpandedItemClose={() => {
+                      console.log('🏠 [TabLayout] onExpandedItemClose called - setting isExpandedItemOpen to false');
+                      setIsExpandedItemOpen(false);
+                    }}
+                  />
+                </View>
 
-      {/* Blurred top safe area overlay - extends behind search bar */}
-      <BlurView 
-        intensity={80} 
-        tint={isDarkMode ? 'dark' : 'light'}
-        style={[
-          styles.topSafeAreaOverlay, 
-          { height: insets.top + 40 }
-        ]}
-      />
+                {/* Spaces View */}
+                <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
+                  <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+                </View>
+              </Animated.View>
+            </GestureDetector>
+          </View>
 
-      {/* Custom Bottom Navigation */}
+      {/* Bottom Navigation */}
       <BottomNavigation
         currentView={currentView}
         onViewChange={handleViewChange}
-        onSettingsPress={handleSettingsPress}
         onAddPress={handleAddPress}
+        visible={!isExpandedItemOpen}
       />
 
-      {/* Bottom Sheets */}
-      <SettingsSheet ref={settingsSheetRef} />
-      <AddItemSheet ref={addItemSheetRef} />
-      <CreateSpaceSheet ref={createSpaceSheetRef} />
-    </View>
+      {/* Bottom Sheets - Higher z-index to appear above expanded views */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, pointerEvents: 'box-none' }}>
+        {/* Expanded Item Overlay - placed under Settings/Add sheets so they can still cover it if needed */}
+        <ExpandedItemView
+          ref={expandedItemSheetRef}
+          item={expandedItemUIStore.currentItem.get()}
+          onOpen={() => setIsExpandedItemOpen(true)}
+          onClose={() => {
+            expandedItemUIActions.closeExpandedItem();
+            setIsExpandedItemOpen(false);
+          }}
+          onChat={(item) => {
+            chatUIActions.openChat(item);
+          }}
+          onEdit={(item) => console.log('Edit item:', item.title)}
+          onArchive={(item) => console.log('Archive item:', item.title)}
+          onDelete={async (item) => {
+            console.log('🗑️ [TabLayout] Delete item:', item.title);
+            try {
+              await itemsActions.removeItemWithSync(item.id);
+              console.log('🗑️ [TabLayout] Successfully deleted item:', item.id);
+            } catch (error) {
+              console.error('🗑️ [TabLayout] Error deleting item:', error);
+            }
+            expandedItemUIActions.closeExpandedItem();
+          }}
+          onShare={async (item) => {
+            if (item.url) {
+              try {
+                await Share.share({
+                  url: item.url,
+                  message: item.title,
+                });
+              } catch (error) {
+                console.error('Error sharing:', error);
+              }
+            } else {
+              Alert.alert('No URL', 'This item doesn\'t have a URL to share');
+            }
+          }}
+          onSpaceChange={(item, spaceId) => console.log('Move item to space:', spaceId)}
+          currentSpaceId={null}
+        />
+        <SettingsSheet
+          ref={settingsSheetRef}
+          onOpen={() => setIsSettingsOpen(true)}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+        <AddItemSheet
+          ref={addItemSheetRef}
+          preSelectedSpaceId={currentSpaceId}
+          onOpen={() => setIsAddSheetOpen(true)}
+          onClose={() => setIsAddSheetOpen(false)}
+        />
+        <CreateSpaceSheet
+          ref={createSpaceSheetRef}
+          onOpen={() => setIsAddSheetOpen(true)}
+          onClose={() => setIsAddSheetOpen(false)}
+        />
+        <EditSpaceSheet
+          ref={editSpaceSheetRef}
+        />
+        <ReorderSpacesSheet
+          ref={reorderSpacesSheetRef}
+        />
+      </View>
+
+        {/* Chat Sheet Modal - absolute container with higher z-index so it sits above everything */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
+          <ChatSheet ref={chatSheetRef} />
+        </View>
+      </View>
+    </BottomSheetModalProvider>
   );
 });
 
@@ -81,6 +405,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    zIndex: 0,
   },
   containerDark: {
     backgroundColor: '#000000',
@@ -91,17 +416,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    overflow: 'hidden',
   },
-  topSafeAreaOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    // REMOVE THIS AFTER TESTING
-    // backgroundColor: 'green',
+  slidingContainer: {
+    flexDirection: 'row',
+    width: SCREEN_WIDTH * 2,
+    height: '100%',
+  },
+  viewContainer: {
+    width: SCREEN_WIDTH,
+    height: '100%',
   },
 });
 

@@ -1,178 +1,152 @@
 import React from 'react';
-import {
-  View,
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  Dimensions,
-  Platform,
-} from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, StyleSheet } from 'react-native';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { Host, ZStack, Image } from '@expo/ui/swift-ui';
+import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
-import { BlurView } from 'expo-blur';
-
-const { width } = Dimensions.get('window');
+import { COLORS } from '../constants';
+import { FilterContextMenuTrigger } from './FilterContextMenuTrigger';
 
 interface BottomNavigationProps {
   currentView: 'everything' | 'spaces';
   onViewChange: (view: 'everything' | 'spaces') => void;
-  onSettingsPress: () => void;
   onAddPress: () => void;
+  visible?: boolean;
 }
 
 const BottomNavigation = observer(({
   currentView,
   onViewChange,
-  onSettingsPress,
   onAddPress,
+  visible = true,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
 
+  // if (!visible) return null;
+
+  const textColor = isDarkMode ? '#FFFFFF' : '#000000';
+
   return (
-    <View style={styles.container}>
-      <BlurView 
-        intensity={80} 
-        tint={isDarkMode ? 'dark' : 'light'}
-        style={[styles.blurContainer, { paddingBottom: insets.bottom }]}
+    <>
+      {/* Liquid Glass Action Buttons */}
+      {/* Hamburger Menu Button - Bottom Left */}
+      <View
+        style={[
+          styles.glassButtonHost,
+          styles.leftButton,
+          { bottom: insets.bottom - 20 },
+        ]}
       >
-        <View style={styles.navigationContent}>
-          {/* Settings Button */}
-          <TouchableOpacity
-            style={[styles.circleButton, isDarkMode && styles.circleButtonDark]}
-            onPress={onSettingsPress}
-            activeOpacity={0.7}
+        <FilterContextMenuTrigger hostStyle={{ width: 60, height: 60 }}>
+          <ZStack
+            modifiers={[
+              frame({ width: 60, height: 60 }),
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' })
+            ]}
           >
-            <MaterialIcons 
-              name="menu" 
-              size={24} 
-              color={isDarkMode ? '#FFFFFF' : '#333333'} 
+            <Image
+              systemName="line.3.horizontal.decrease"
+              size={24}
+              color={textColor}
             />
-          </TouchableOpacity>
+          </ZStack>
+        </FilterContextMenuTrigger>
+      </View>
 
-          {/* View Toggle Pill */}
-          <View style={[styles.pillContainer, isDarkMode && styles.pillContainerDark]}>
-            <TouchableOpacity
-              style={[
-                styles.pillButton,
-                currentView === 'everything' && styles.pillButtonActive,
-              ]}
-              onPress={() => onViewChange('everything')}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons
-                name="apps"
-                size={20}
-                color={currentView === 'everything' ? '#FFFFFF' : (isDarkMode ? '#888' : '#666')}
-              />
-            </TouchableOpacity>
-            
-            <View style={[styles.pillDivider, isDarkMode && styles.pillDividerDark]} />
-            
-            <TouchableOpacity
-              style={[
-                styles.pillButton,
-                currentView === 'spaces' && styles.pillButtonActive,
-              ]}
-              onPress={() => onViewChange('spaces')}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons
-                name="folder"
-                size={20}
-                color={currentView === 'spaces' ? '#FFFFFF' : (isDarkMode ? '#888' : '#666')}
-              />
-            </TouchableOpacity>
-          </View>
+      {/* Native Tabs with Liquid Glass Effect */}
+      <NativeTabs
+        tintColor={COLORS.warning}
+        blurEffect={isDarkMode ? "systemChromeMaterialDark" : "systemChromeMaterial"}
+        backgroundColor={isDarkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"}
+      >
+        <NativeTabs.Trigger
+          name="index"
+          onPress={() => {
+            const timestamp = new Date().toISOString();
+            console.log('📱 [BottomNav] Everything tab pressed at:', timestamp);
+            onViewChange('everything');
+          }}
+          onTouchStart={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Everything tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
+          }}
+          onTouchEnd={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Everything tab TOUCH END at:', timestamp);
+          }}
+        >
+          <Icon src={<VectorIcon family={MaterialIcons} name="grid-view" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Everything</Label>
+        </NativeTabs.Trigger>
 
-          {/* Add Button */}
-          <TouchableOpacity
-            style={[styles.circleButton, styles.addButton]}
-            onPress={onAddPress}
-            activeOpacity={0.7}
+        <NativeTabs.Trigger
+          name="spaces"
+          onPress={() => {
+            const timestamp = new Date().toISOString();
+            console.log('📱 [BottomNav] Chats tab pressed at:', timestamp);
+            onViewChange('spaces');
+          }}
+          onTouchStart={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Chats tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
+          }}
+          onTouchEnd={(e) => {
+            const timestamp = new Date().toISOString();
+            console.log('👆 [BottomNav] Chats tab TOUCH END at:', timestamp);
+          }}
+        >
+          {/* <Icon src={<VectorIcon family={MaterialIcons} name="cube-outline" />} selectedColor={COLORS.warning} /> */}
+          <Icon src={<VectorIcon family={Ionicons} name="cube-outline" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Chats</Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+
+      {/* Add Item Button - Bottom Right */}
+      <View
+        style={[
+          styles.glassButtonHost,
+          styles.rightButton,
+          { bottom: insets.bottom - 20 },
+        ]}
+      >
+        <Host style={{ width: 60, height: 60 }}>
+          <ZStack
+            modifiers={[
+              frame({ width: 60, height: 60 }),
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
+              onTapGesture(onAddPress)
+            ]}
           >
-            <MaterialIcons 
-              name="add" 
-              size={28} 
-              color="#FFFFFF" 
+            <Image
+              systemName="plus"
+              size={24}
+              color={textColor}
             />
-          </TouchableOpacity>
-        </View>
-      </BlurView>
-    </View>
+          </ZStack>
+        </Host>
+      </View>
+    </>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
+  glassButtonHost: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    width: 56,
+    height: 56,
+    zIndex: 1
   },
-  blurContainer: {
-    flex: 1,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  leftButton: {
+    left: 30,
   },
-  navigationContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 30,
-    paddingTop: 10,
-    paddingBottom: 10,
-    minHeight: 60,
-  },
-  circleButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  circleButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  addButton: {
-    backgroundColor: '#FF6B35',
-    borderColor: '#FF6B35',
-  },
-  pillContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 25,
-    height: 46,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  pillContainerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  pillButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 22,
-  },
-  pillButtonActive: {
-    backgroundColor: '#FF6B35',
-  },
-  pillDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  pillDividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  rightButton: {
+    right: 30,
   },
 });
 

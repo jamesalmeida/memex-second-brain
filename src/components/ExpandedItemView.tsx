@@ -1,66 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  Dimensions,
-  Modal,
-  StatusBar,
-  Platform,
-  SafeAreaView,
-  Alert,
-  Linking,
-} from 'react-native';
-import * as Clipboard from 'expo-clipboard';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getYouTubeTranscript } from '../services/youtube';
-import { db } from '../services/supabase';
-import { STORAGE_KEYS } from '../constants';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { WebView } from 'react-native-webview';
-import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  interpolate,
-  runOnJS,
-  Easing,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { observer, useObservable } from '@legendapp/state/react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useMemo, useCallback, forwardRef } from 'react';
+import { StyleSheet } from 'react-native';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import { spacesStore, spacesActions } from '../stores/spaces';
-import { itemsStore, itemsActions } from '../stores/items';
-import { Item, Space, ContentType } from '../types';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const contentTypeOptions: { type: ContentType; label: string; icon: string }[] = [
-  { type: 'bookmark', label: 'Bookmark', icon: '🔖' },
-  { type: 'note', label: 'Note', icon: '📝' },
-  { type: 'youtube', label: 'YouTube', icon: '▶️' },
-  { type: 'x', label: 'X/Twitter', icon: '𝕏' },
-  { type: 'github', label: 'GitHub', icon: '⚡' },
-  { type: 'article', label: 'Article', icon: '📄' },
-  { type: 'image', label: 'Image', icon: '🖼️' },
-  { type: 'video', label: 'Video', icon: '🎥' },
-  { type: 'audio', label: 'Audio', icon: '🎵' },
-  { type: 'pdf', label: 'PDF', icon: '📑' },
-  { type: 'product', label: 'Product', icon: '🛍️' },
-];
+import { Item } from '../types';
+import RedditItemView from './itemViews/RedditItemView';
+import YouTubeItemView from './itemViews/YouTubeItemView';
+import XItemView from './itemViews/XItemView';
+import MovieTVItemView from './itemViews/MovieTVItemView';
+import DefaultItemView from './itemViews/DefaultItemView';
+import NoteItemView from './itemViews/NoteItemView';
 
 interface ExpandedItemViewProps {
   item: Item | null;
-  isVisible: boolean;
-  cardPosition?: { x: number; y: number; width: number; height: number };
-  onClose: () => void;
+  onClose?: () => void;
+  onOpen?: () => void;
   onChat?: (item: Item) => void;
   onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
@@ -70,11 +24,11 @@ interface ExpandedItemViewProps {
   currentSpaceId?: string | null;
 }
 
-const ExpandedItemView = observer(({
+const ExpandedItemView = observer(
+  forwardRef<BottomSheet, ExpandedItemViewProps>(({
   item,
-  isVisible,
-  cardPosition,
   onClose,
+  onOpen,
   onChat,
   onEdit,
   onArchive,
@@ -82,1726 +36,174 @@ const ExpandedItemView = observer(({
   onShare,
   onSpaceChange,
   currentSpaceId,
-}: ExpandedItemViewProps) => {
+}, ref) => {
   const isDarkMode = themeStore.isDarkMode.get();
-  const insets = useSafeAreaInsets();
-  const animationProgress = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0);
-  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
-  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
-  const allSpaces = spacesStore.spaces.get();
-  
-  // Just use all spaces without filtering
-  const spaces = allSpaces;
-  const [modalVisible, setModalVisible] = useState(false);
-  const [displayItem, setDisplayItem] = useState<Item | null>(null);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
-  const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
-  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const mainScrollViewRef = useRef<ScrollView>(null);
-  const [transcriptSectionY, setTranscriptSectionY] = useState<number>(0);
-  const [showThumbnail, setShowThumbnail] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [expandedDescription, setExpandedDescription] = useState(false);
-  const [transcript, setTranscript] = useState<string>('');
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
-  const [transcriptExists, setTranscriptExists] = useState(false);
-  const [transcriptStats, setTranscriptStats] = useState({ chars: 0, words: 0, readTime: 0 });
-  const transcriptOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(1);
-  
-  // Set up video player if item has video
-  const videoPlayer = useVideoPlayer(displayItem?.video_url ? displayItem.video_url : null, player => {
-    if (player && displayItem?.video_url) {
-      player.loop = true;
-      // Allow sound for all videos in expanded view
-      player.muted = false;
-      player.play();
-    }
-  });
 
-  const calculateTranscriptStats = (text: string) => {
-    const chars = text.length;
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    const readTime = Math.ceil(words / 200); // Average reading speed: 200 words per minute
-    return { chars, words, readTime };
-  };
-
-  const checkForExistingTranscript = async (itemId: string) => {
-    try {
-      console.log('Checking for existing transcript for item:', itemId);
-      
-      // First check local storage
-      const transcriptsJson = await AsyncStorage.getItem(STORAGE_KEYS.TRANSCRIPTS);
-      const transcripts = transcriptsJson ? JSON.parse(transcriptsJson) : {};
-      
-      if (transcripts[itemId]) {
-        console.log('Found transcript in local storage, length:', transcripts[itemId].transcript?.length);
-        const transcriptText = transcripts[itemId].transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-        transcriptOpacity.value = 1;
-        buttonOpacity.value = 0;
-        return;
-      }
-      
-      // If not in local storage, check Supabase
-      const { data, error } = await db.getTranscript(itemId);
-      console.log('Supabase transcript check result:', { data, error });
-      
-      if (data && !error) {
-        console.log('Found transcript in Supabase, length:', data.transcript?.length);
-        // Save to local storage for future use
-        transcripts[itemId] = data;
-        await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
-        
-        const transcriptText = data.transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-        transcriptOpacity.value = 1;
-        buttonOpacity.value = 0;
-      } else {
-        console.log('No existing transcript found');
-        setTranscript('');
-        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
-        setTranscriptExists(false);
-        transcriptOpacity.value = 0;
-        buttonOpacity.value = 1;
-      }
-    } catch (error) {
-      console.error('Error checking for transcript:', error);
-      // Set default state on error
-      setTranscript('');
-      setTranscriptExists(false);
-      transcriptOpacity.value = 0;
-      buttonOpacity.value = 1;
-    }
-  };
-
+  // Open sheet when item changes
   useEffect(() => {
-    if (isVisible && item) {
-      // Store the item for display
-      setDisplayItem(item);
-      setSelectedType(item.content_type);
-      // Initialize selected spaces from item's space_ids
-      setSelectedSpaceIds(item.space_ids || []);
-      
-      // Check for existing transcript if YouTube video
-      if (item.content_type === 'youtube') {
-        checkForExistingTranscript(item.id);
-      }
-      
-      // Show modal first, then animate in
-      setModalVisible(true);
-      setTimeout(() => {
-        animationProgress.value = withSpring(1, {
-          damping: 15,
-          stiffness: 150,
-          mass: 0.8,
-        });
-        opacity.value = withTiming(1, { duration: 150 });
-      }, 50);
-    } else if (!isVisible && modalVisible) {
-      // Animate out first, then hide modal
-      // Keep displayItem during animation
-      animationProgress.value = withSpring(0, {
-        damping: 18,
-        stiffness: 120,
-      }, (finished) => {
-        'worklet';
-        if (finished) {
-          runOnJS(setModalVisible)(false);
-          runOnJS(setDisplayItem)(null);
-        }
-      });
-      opacity.value = withTiming(0, { duration: 180 });
+    console.log('📄 [ExpandedItemView] useEffect - item changed:', item?.title || 'null');
+    if (item && ref && 'current' in ref && ref.current) {
+      console.log('📄 [ExpandedItemView] Opening sheet via snapToIndex(0)');
+      ref.current.snapToIndex(0);
     }
-  }, [isVisible, item]);
+  }, [item, ref]);
 
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      if (e.translationY > 0) {
-        translateY.value = e.translationY;
-      }
-    })
-    .onEnd(() => {
-      if (translateY.value > 100) {
-        runOnJS(onClose)();
-      } else {
-        translateY.value = withSpring(0);
-      }
-    });
+  // Bottom sheet configuration
+  const snapPoints = useMemo(() => ['100%'], []);
 
-  const containerStyle = useAnimatedStyle(() => {
-    const initialX = cardPosition?.x || SCREEN_WIDTH / 2;
-    const initialY = cardPosition?.y || SCREEN_HEIGHT / 2;
-    const initialWidth = cardPosition?.width || 100;
-    const initialHeight = cardPosition?.height || 100;
+  // Render backdrop
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.9}
+      />
+    ),
+    []
+  );
 
-    // Account for safe area insets
-    const finalY = insets.top;
-    const finalHeight = SCREEN_HEIGHT - insets.top - insets.bottom;
+  // Render the appropriate item view based on content type
+  const renderItemView = () => {
+    if (!item) return null;
 
-    const x = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialX, 0]
-    );
-    const y = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialY, finalY]
-    );
-    const width = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialWidth, SCREEN_WIDTH]
-    );
-    const height = interpolate(
-      animationProgress.value,
-      [0, 1],
-      [initialHeight, finalHeight]
-    );
+    switch (item.content_type) {
+      case 'note':
+        return (
+          <NoteItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
+      case 'reddit':
+        return (
+          <RedditItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
 
-    return {
-      position: 'absolute',
-      left: x,
-      top: y,
-      width,
-      height,
-      transform: [{ translateY: translateY.value }],
-    };
-  });
+      case 'youtube':
+      case 'youtube_short':
+        return (
+          <YouTubeItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value * 0.9,
-  }));
+      case 'x':
+        return (
+          <XItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
 
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+      case 'movie':
+      case 'tv_show':
+        return (
+          <MovieTVItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
 
-  // Use displayItem which persists during closing animation
-  if (!displayItem && !modalVisible) return null;
-  
-  const itemToDisplay = displayItem || item;
-
-  const getContentTypeIcon = () => {
-    switch (itemToDisplay?.content_type) {
-      case 'youtube': return '▶️';
-      case 'x': return '𝕏';
-      case 'github': return '⚡';
-      case 'note': return '📝';
-      case 'image': return '🖼️';
-      case 'article':
-      case 'bookmark': return '🔖';
-      default: return '📎';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-  
-  // Extract YouTube video ID from URL
-  const getYouTubeVideoId = (url?: string) => {
-    if (!url) return null;
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-      /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    ];
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
-    }
-    return null;
-  };
-  
-  // Download thumbnail to device
-  const generateTranscript = async () => {
-    if (!itemToDisplay || itemToDisplay.content_type !== 'youtube' || !itemToDisplay.url) return;
-
-    setIsGeneratingTranscript(true);
-    
-    try {
-      // Extract video ID from URL
-      const videoIdMatch = itemToDisplay.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-      if (!videoIdMatch) {
-        throw new Error('Invalid YouTube URL');
-      }
-      const videoId = videoIdMatch[1];
-
-      // Fetch transcript from YouTube
-      const { transcript: fetchedTranscript, language } = await getYouTubeTranscript(videoId);
-      
-      // Save to local storage first
-      console.log('Saving transcript to local storage for item:', itemToDisplay.id);
-      const transcriptsJson = await AsyncStorage.getItem(STORAGE_KEYS.TRANSCRIPTS);
-      const transcripts = transcriptsJson ? JSON.parse(transcriptsJson) : {};
-      
-      const transcriptData = {
-        item_id: itemToDisplay.id,
-        transcript: fetchedTranscript,
-        language,
-        duration: itemToDisplay.duration,
-        fetched_at: new Date().toISOString(),
-      };
-      
-      transcripts[itemToDisplay.id] = transcriptData;
-      await AsyncStorage.setItem(STORAGE_KEYS.TRANSCRIPTS, JSON.stringify(transcripts));
-      console.log('Transcript saved to local storage');
-      
-      // Try to save to database (but don't fail if it doesn't work)
-      try {
-        console.log('Attempting to save transcript to Supabase...');
-        const saveResult = await db.saveTranscript(transcriptData);
-        console.log('Supabase save result:', saveResult);
-      } catch (dbError) {
-        console.log('Failed to save to Supabase (will sync later):', dbError);
-        // Could add to offline queue here for later sync
-      }
-      
-      // Update local state
-      setTranscript(fetchedTranscript);
-      setTranscriptStats(calculateTranscriptStats(fetchedTranscript));
-      setTranscriptExists(true);
-      
-      // Animate transition from button to dropdown
-      buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
-        transcriptOpacity.value = withTiming(1, { duration: 150 });
-      });
-      
-      // Auto-expand dropdown after generation
-      setTimeout(() => {
-        setShowTranscript(true);
-        
-        // Auto-scroll to transcript section after dropdown opens
-        setTimeout(() => {
-          if (mainScrollViewRef.current && transcriptSectionY > 0) {
-            mainScrollViewRef.current.scrollTo({
-              y: transcriptSectionY,
-              animated: true
-            });
-          }
-        }, 400); // Allow time for dropdown animation
-      }, 300);
-      
-    } catch (error) {
-      console.error('Error generating transcript:', error);
-      alert('Failed to generate transcript. The video may not have captions available.');
-    } finally {
-      setIsGeneratingTranscript(false);
-    }
-  };
-
-  const copyTranscriptToClipboard = async () => {
-    if (transcript) {
-      await Clipboard.setStringAsync(transcript);
-      // Could add a toast notification here
-    }
-  };
-
-  const downloadThumbnail = async () => {
-    if (!itemToDisplay?.thumbnail_url) {
-      Alert.alert('Error', 'No thumbnail to download');
-      return;
-    }
-    
-    try {
-      setIsDownloading(true);
-      
-      // Request media library permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Need permission to save images');
-        return;
-      }
-      
-      // Download the image
-      const filename = `youtube_thumbnail_${Date.now()}.jpg`;
-      const result = await FileSystem.downloadAsync(
-        itemToDisplay.thumbnail_url,
-        FileSystem.documentDirectory + filename
-      );
-      
-      // Save to media library
-      const asset = await MediaLibrary.createAssetAsync(result.uri);
-      await MediaLibrary.createAlbumAsync('Memex', asset, false);
-      
-      Alert.alert('Success', 'Thumbnail saved to your photo library');
-    } catch (error) {
-      console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download thumbnail');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  const getDomain = () => {
-    if (!itemToDisplay?.url) return null;
-    try {
-      const url = new URL(itemToDisplay.url);
-      return url.hostname.replace('www.', '');
-    } catch {
-      return null;
+      default:
+        return (
+          <DefaultItemView
+            item={item}
+            onChat={onChat}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onShare={onShare}
+            currentSpaceId={currentSpaceId}
+          />
+        );
     }
   };
 
   return (
-    <Modal
-      visible={modalVisible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
+    <BottomSheet
+      ref={ref}
+      index={-1}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      topInset={51}
+      backgroundStyle={[
+        styles.sheetBackground,
+        isDarkMode && styles.sheetBackgroundDark,
+      ]}
+      handleIndicatorStyle={[
+        styles.handleIndicator,
+        isDarkMode && styles.handleIndicatorDark,
+      ]}
+      onChange={(index) => {
+        console.log('📄 [ExpandedItemView] onChange - index:', index);
+        if (index === -1) {
+          console.log('📄 [ExpandedItemView] Sheet closed - calling onClose');
+          onClose?.();
+        } else if (index >= 0) {
+          console.log('📄 [ExpandedItemView] Sheet opened - calling onOpen');
+          onOpen?.();
+        }
+      }}
     >
-      <SafeAreaView style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
-        {/* Backdrop */}
-        <Animated.View
-          style={[
-            styles.backdrop,
-            isDarkMode && styles.backdropDark,
-            backdropStyle,
-          ]}
-        />
-
-        {/* Expanded Card */}
-        <GestureDetector gesture={pan}>
-          <Animated.View style={[containerStyle]}>
-            <View style={[styles.container, isDarkMode && styles.containerDark]}>
-              <ScrollView
-                ref={mainScrollViewRef}
-                style={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                bounces={true}
-              >
-
-              <Animated.View style={[contentStyle]}>
-                {/* Hero Image/Video with Close Button Overlay */}
-                <View style={styles.heroContainer}>
-                  {itemToDisplay?.content_type === 'youtube' && getYouTubeVideoId(itemToDisplay?.url) ? (
-                    // YouTube video embed
-                    <View style={styles.youtubeEmbed}>
-                      <WebView
-                        source={{
-                          uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?autoplay=0&modestbranding=1&rel=0&playsinline=1&controls=1&disablekb=0`
-                        }}
-                        style={styles.webView}
-                        allowsFullscreenVideo={true}
-                        allowsInlineMediaPlayback={true}
-                        mediaPlaybackRequiresUserAction={false}
-                        javaScriptEnabled
-                        injectedJavaScript={`
-                          // Hide Watch on YouTube and Share buttons
-                          const style = document.createElement('style');
-                          style.innerHTML = \`
-                            .ytp-watch-later-button,
-                            .ytp-share-button,
-                            .ytp-youtube-button,
-                            .ytp-watermark,
-                            .ytp-chrome-top-buttons {
-                              display: none !important;
-                            }
-                          \`;
-                          document.head.appendChild(style);
-                          
-                          true; // Note: this is required for injectedJavaScript to work
-                        `}
-                      />
-                    </View>
-                  ) : itemToDisplay?.video_url && videoPlayer ? (
-                    // Show video player for Twitter/X videos
-                    <VideoView
-                      player={videoPlayer}
-                      style={[
-                        styles.heroMedia,
-                        { height: SCREEN_WIDTH / (16/9) } // Set aspect ratio for videos
-                      ]}
-                      contentFit="contain"
-                      allowsFullscreen={true}
-                      showsTimecodes={true}
-                    />
-                  ) : itemToDisplay?.image_urls && itemToDisplay.image_urls.length > 1 ? (
-                    // Show carousel for multiple images
-                    <View style={{ position: 'relative' }}>
-                      <ScrollView
-                        ref={scrollViewRef}
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        onMomentumScrollEnd={(event) => {
-                          const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                          setCurrentImageIndex(newIndex);
-                        }}
-                        scrollEventThrottle={16}
-                      >
-                        {itemToDisplay.image_urls.map((imageUrl, index) => (
-                          <Image
-                            key={index}
-                            source={{ uri: imageUrl }}
-                            style={[
-                              styles.heroMedia,
-                              { width: SCREEN_WIDTH }
-                            ]}
-                            resizeMode="contain"
-                          />
-                        ))}
-                      </ScrollView>
-                      {/* Dots indicator */}
-                      <View style={styles.dotsContainer}>
-                        {itemToDisplay.image_urls.map((_, index) => (
-                          <View
-                            key={index}
-                            style={[
-                              styles.dot,
-                              index === currentImageIndex && styles.activeDot
-                            ]}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  ) : itemToDisplay?.thumbnail_url ? (
-                    // Show image for non-video items
-                    <Image
-                      source={{ uri: itemToDisplay.thumbnail_url }}
-                      style={[
-                        styles.heroMedia,
-                        imageAspectRatio ? {
-                          width: SCREEN_WIDTH,
-                          height: SCREEN_WIDTH / imageAspectRatio,
-                          maxHeight: SCREEN_HEIGHT * 0.6
-                        } : {}
-                      ]}
-                      resizeMode="contain"
-                      onLoad={(e: any) => {
-                        // Dynamically adjust height based on image aspect ratio
-                        if (e.source && e.source.width && e.source.height) {
-                          const ratio = e.source.width / e.source.height;
-                          setImageAspectRatio(ratio);
-                        }
-                      }}
-                    />
-                  ) : (
-                    // Placeholder when no media
-                    <View style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}>
-                      <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
-                    </View>
-                  )}
-                  
-                  {/* Close Button Overlay */}
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.closeButtonText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Content */}
-                <View style={styles.content}>
-                  {/* Title and Metadata */}
-                  <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-                    {itemToDisplay?.title}
-                  </Text>
-
-                  <View style={styles.metadata}>
-                    {getDomain() && (
-                      <View style={styles.metaItem}>
-                        <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-                          {getDomain()}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.metaItem}>
-                      <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-                        {formatDate(itemToDisplay?.created_at || '')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Description */}
-                  {itemToDisplay?.desc && (
-                    <View style={styles.descriptionSection}>
-                      <Text style={[styles.descriptionSectionLabel, isDarkMode && styles.descriptionSectionLabelDark]}>
-                        DESCRIPTION
-                      </Text>
-                      <TouchableOpacity
-                        style={[styles.descriptionContainer, isDarkMode && styles.descriptionContainerDark]}
-                        onPress={() => setExpandedDescription(!expandedDescription)}
-                        activeOpacity={0.7}
-                      >
-                        <Text 
-                          style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]} 
-                          numberOfLines={expandedDescription ? undefined : 6}
-                        >
-                          {itemToDisplay.desc}
-                        </Text>
-                        {(!expandedDescription && itemToDisplay.desc.length > 300) && (
-                          <Text style={[styles.expandToggle, isDarkMode && styles.expandToggleDark]}>
-                            Show more ▼
-                          </Text>
-                        )}
-                        {expandedDescription && (
-                          <Text style={[styles.expandToggle, isDarkMode && styles.expandToggleDark]}>
-                            Show less ▲
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* Full Content */}
-                  {itemToDisplay?.content && (
-                    <View style={styles.fullContent}>
-                      <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
-                        {itemToDisplay.content}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Raw Text (for articles) */}
-                  {itemToDisplay?.raw_text && (
-                    <View style={styles.fullContent}>
-                      <Text style={[styles.contentText, isDarkMode && styles.contentTextDark]}>
-                        {itemToDisplay.raw_text}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Space Selector */}
-                  <View style={styles.spaceSection}>
-                    <Text style={[styles.spaceSectionLabel, isDarkMode && styles.spaceSectionLabelDark]}>
-                      SPACES
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
-                      onPress={() => {
-                        setShowSpaceSelector(!showSpaceSelector);
-                        setShowTypeSelector(false); // Close type selector if open
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      {selectedSpaceIds.length > 0 ? (
-                        <View style={styles.selectedSpaces}>
-                          {selectedSpaceIds.slice(0, 3).map(spaceId => {
-                            const space = spaces.find(s => s.id === spaceId);
-                            return space ? (
-                              <View key={spaceId} style={styles.selectedSpaceTag}>
-                                <View
-                                  style={[
-                                    styles.spaceTagDot,
-                                    { backgroundColor: space.color }
-                                  ]}
-                                />
-                                <Text style={[styles.spaceTagText, isDarkMode && styles.spaceTagTextDark]}>
-                                  {space.name}
-                                </Text>
-                              </View>
-                            ) : null;
-                          })}
-                          {selectedSpaceIds.length > 3 && (
-                            <Text style={[styles.moreSpaces, isDarkMode && styles.moreSpacesDark]}>
-                              +{selectedSpaceIds.length - 3} more
-                            </Text>
-                          )}
-                        </View>
-                      ) : (
-                        <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>
-                          No spaces assigned
-                        </Text>
-                      )}
-                      <Text style={styles.chevron}>{showSpaceSelector ? '▲' : '▼'}</Text>
-                    </TouchableOpacity>
-
-                    {/* Space Options */}
-                    {showSpaceSelector && (
-                      <View style={[styles.spaceOptions, isDarkMode && styles.spaceOptionsDark]}>
-                        {spaces.map((space) => (
-                          <TouchableOpacity
-                            key={space.id}
-                            style={styles.spaceOption}
-                            onPress={() => {
-                              const newSelectedIds = selectedSpaceIds.includes(space.id)
-                                ? selectedSpaceIds.filter(id => id !== space.id)
-                                : [...selectedSpaceIds, space.id];
-                              setSelectedSpaceIds(newSelectedIds);
-                              
-                              // Update the item with new space assignments
-                              if (itemToDisplay) {
-                                const updatedItem = { ...itemToDisplay, space_ids: newSelectedIds };
-                                itemsActions.updateItem(itemToDisplay.id, { space_ids: newSelectedIds });
-                                setDisplayItem(updatedItem);
-                                
-                                // Update space item counts
-                                newSelectedIds.forEach(spaceId => {
-                                  const space = spaces.find(s => s.id === spaceId);
-                                  if (space && !itemToDisplay.space_ids?.includes(spaceId)) {
-                                    spacesActions.updateSpace(spaceId, { 
-                                      item_count: (space.item_count || 0) + 1 
-                                    });
-                                  }
-                                });
-                                
-                                // Decrease count for removed spaces
-                                itemToDisplay.space_ids?.forEach(spaceId => {
-                                  if (!newSelectedIds.includes(spaceId)) {
-                                    const space = spaces.find(s => s.id === spaceId);
-                                    if (space) {
-                                      spacesActions.updateSpace(spaceId, { 
-                                        item_count: Math.max(0, (space.item_count || 0) - 1)
-                                      });
-                                    }
-                                  }
-                                });
-                              }
-                            }}
-                          >
-                            <View style={styles.spaceOptionContent}>
-                              <View style={[
-                                styles.checkbox,
-                                selectedSpaceIds.includes(space.id) && styles.checkboxSelected,
-                                selectedSpaceIds.includes(space.id) && { backgroundColor: space.color }
-                              ]}>
-                                {selectedSpaceIds.includes(space.id) && (
-                                  <Text style={styles.checkmark}>✓</Text>
-                                )}
-                              </View>
-                              <View
-                                style={[
-                                  styles.spaceColorDot,
-                                  { backgroundColor: space.color }
-                                ]}
-                              />
-                              <Text style={[styles.spaceOptionText, isDarkMode && styles.spaceOptionTextDark]}>
-                                {space.name}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                        {selectedSpaceIds.length > 0 && (
-                          <TouchableOpacity
-                            style={[styles.clearButton]}
-                            onPress={() => {
-                              // Update item to remove from all spaces
-                              if (itemToDisplay && itemToDisplay.space_ids) {
-                                // Decrease count for all current spaces
-                                itemToDisplay.space_ids.forEach(spaceId => {
-                                  const space = spaces.find(s => s.id === spaceId);
-                                  if (space) {
-                                    spacesActions.updateSpace(spaceId, { 
-                                      item_count: Math.max(0, (space.item_count || 0) - 1)
-                                    });
-                                  }
-                                });
-                                
-                                // Update item
-                                const updatedItem = { ...itemToDisplay, space_ids: [] };
-                                itemsActions.updateItem(itemToDisplay.id, { space_ids: [] });
-                                setDisplayItem(updatedItem);
-                              }
-                              setSelectedSpaceIds([]);
-                            }}
-                          >
-                            <Text style={[styles.clearButtonText, isDarkMode && styles.clearButtonTextDark]}>
-                              Clear All
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    )}
-                  </View>
-
-                  {/* URL Display */}
-                  {itemToDisplay?.url && (
-                    <View style={styles.urlSection}>
-                      <Text style={[styles.urlSectionLabel, isDarkMode && styles.urlSectionLabelDark]}>
-                        URL
-                      </Text>
-                      <View style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}>
-                        <View style={styles.urlContent}>
-                          <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
-                            {itemToDisplay.url}
-                          </Text>
-                        </View>
-                        <View style={styles.urlActions}>
-                          <TouchableOpacity
-                            style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                            onPress={async () => {
-                              if (itemToDisplay?.url) {
-                                await Clipboard.setStringAsync(itemToDisplay.url);
-                                Alert.alert('Copied', 'URL copied to clipboard');
-                              }
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.urlActionIcon}>📋</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                            onPress={async () => {
-                              if (itemToDisplay?.url) {
-                                await Linking.openURL(itemToDisplay.url);
-                              }
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.urlActionIcon}>🔗</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Type Selector */}
-                  <View style={styles.typeSection}>
-                    <Text style={[styles.typeSectionLabel, isDarkMode && styles.typeSectionLabelDark]}>
-                      CONTENT TYPE
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
-                      onPress={() => {
-                        setShowTypeSelector(!showTypeSelector);
-                        setShowSpaceSelector(false); // Close space selector if open
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.selectedType}>
-                        <Text style={styles.typeIcon}>
-                          {contentTypeOptions.find(t => t.type === selectedType)?.icon || '📎'}
-                        </Text>
-                        <Text style={[styles.typeName, isDarkMode && styles.typeNameDark]}>
-                          {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
-                        </Text>
-                      </View>
-                      <Text style={styles.chevron}>{showTypeSelector ? '▲' : '▼'}</Text>
-                    </TouchableOpacity>
-
-                    {/* Type Options */}
-                    {showTypeSelector && (
-                      <View style={[styles.typeOptions, isDarkMode && styles.typeOptionsDark]}>
-                        {contentTypeOptions.map((option) => (
-                          <TouchableOpacity
-                            key={option.type}
-                            style={[
-                              styles.typeOption,
-                              selectedType === option.type && styles.typeOptionSelected
-                            ]}
-                            onPress={() => {
-                              setSelectedType(option.type);
-                              // Update the item's type
-                              if (itemToDisplay) {
-                                itemToDisplay.content_type = option.type;
-                                // TODO: Call onEdit or update function to persist the change
-                              }
-                              setShowTypeSelector(false);
-                            }}
-                          >
-                            <View style={styles.typeOptionContent}>
-                              <Text style={styles.typeOptionIcon}>{option.icon}</Text>
-                              <Text style={[styles.typeOptionText, isDarkMode && styles.typeOptionTextDark]}>
-                                {option.label}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Thumbnail Section (for YouTube) */}
-                  {itemToDisplay?.content_type === 'youtube' && itemToDisplay?.thumbnail_url && (
-                    <View style={styles.thumbnailSection}>
-                      <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
-                        THUMBNAIL
-                      </Text>
-                      <TouchableOpacity
-                        style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
-                        onPress={() => setShowThumbnail(!showThumbnail)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.thumbnailSelectorText, isDarkMode && styles.thumbnailSelectorTextDark]}>
-                          {showThumbnail ? 'Hide Thumbnail' : 'View Thumbnail'}
-                        </Text>
-                        <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                          {showThumbnail ? '▲' : '▼'}
-                        </Text>
-                      </TouchableOpacity>
-                      
-                      {showThumbnail && (
-                        <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
-                          <Image
-                            source={{ uri: itemToDisplay.thumbnail_url }}
-                            style={styles.thumbnailImage}
-                            resizeMode="cover"
-                          />
-                          <TouchableOpacity
-                            style={[styles.thumbnailDownloadButton, isDownloading && styles.thumbnailDownloadButtonDisabled]}
-                            onPress={downloadThumbnail}
-                            disabled={isDownloading}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.thumbnailDownloadButtonText}>
-                              {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Transcript Section (for YouTube) */}
-                  {itemToDisplay?.content_type === 'youtube' && (
-                    <View 
-                      style={styles.transcriptSection}
-                      onLayout={(event) => {
-                        const { y } = event.nativeEvent.layout;
-                        setTranscriptSectionY(y);
-                      }}
-                    >
-                      <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
-                        TRANSCRIPT
-                      </Text>
-                      
-                      {/* Show button or dropdown based on transcript existence */}
-                      {!transcriptExists ? (
-                        <Animated.View style={{ opacity: buttonOpacity }}>
-                          <TouchableOpacity
-                            style={[
-                              styles.transcriptGenerateButton,
-                              isGeneratingTranscript && styles.transcriptGenerateButtonDisabled,
-                              isDarkMode && styles.transcriptGenerateButtonDark
-                            ]}
-                            onPress={generateTranscript}
-                            disabled={isGeneratingTranscript}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.transcriptGenerateButtonText}>
-                              {isGeneratingTranscript ? '⏳ Processing...' : '⚡ Generate'}
-                            </Text>
-                          </TouchableOpacity>
-                        </Animated.View>
-                      ) : (
-                        <Animated.View style={{ opacity: transcriptOpacity }}>
-                          <TouchableOpacity
-                            style={[styles.transcriptSelector, isDarkMode && styles.transcriptSelectorDark]}
-                            onPress={() => setShowTranscript(!showTranscript)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
-                              {showTranscript ? 'Hide Transcript' : 'View Transcript'}
-                            </Text>
-                            <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                              {showTranscript ? '▲' : '▼'}
-                            </Text>
-                          </TouchableOpacity>
-                          
-                          {showTranscript && (
-                            <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
-                              <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
-                                <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
-                                  {transcript}
-                                </Text>
-                              </ScrollView>
-                              <TouchableOpacity
-                                style={styles.transcriptCopyButton}
-                                onPress={copyTranscriptToClipboard}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={styles.transcriptCopyButtonText}>📋</Text>
-                              </TouchableOpacity>
-                              
-                              {/* Sticky Footer with Stats */}
-                              <View style={[styles.transcriptFooter, isDarkMode && styles.transcriptFooterDark]}>
-                                <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
-                                  {transcriptStats.chars.toLocaleString()} chars • {transcriptStats.words.toLocaleString()} words • ~{transcriptStats.readTime} min read
-                                </Text>
-                              </View>
-                            </View>
-                          )}
-                        </Animated.View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Action Buttons */}
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.primaryAction]}
-                      onPress={() => onChat?.(itemToDisplay!)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.actionButtonTextPrimary}>💬 Chat</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.secondaryActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => onEdit?.(itemToDisplay!)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                          ✏️ Edit
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => onShare?.(itemToDisplay!)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                          📤 Share
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => onArchive?.(itemToDisplay!)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                          📦 Archive
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.deleteButton]}
-                        onPress={() => onDelete?.(itemToDisplay!)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Bottom Padding */}
-                  <View style={{ height: 40 }} />
-                </View>
-              </Animated.View>
-              </ScrollView>
-            </View>
-          </Animated.View>
-        </GestureDetector>
-      </SafeAreaView>
-    </Modal>
+      <BottomSheetScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderItemView()}
+      </BottomSheetScrollView>
+    </BottomSheet>
   );
-});
+}));
 
 export default ExpandedItemView;
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  modalContainerDark: {
-    backgroundColor: 'transparent',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-  },
-  backdropDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-  },
-  container: {
-    flex: 1,
+  sheetBackground: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: 'hidden',
   },
-  scrollContent: {
-    flex: 1,
-  },
-  containerDark: {
+  sheetBackgroundDark: {
     backgroundColor: '#1C1C1E',
   },
-  heroContainer: {
-    position: 'relative',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '400',
-  },
-  heroImage: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#F0F0F0',
-  },
-  heroMedia: {
-    width: SCREEN_WIDTH,
-    minHeight: 250,
-    maxHeight: SCREEN_HEIGHT * 0.6,
-    backgroundColor: '#000000',
-  },
-  placeholderHero: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderHeroDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  placeholderIcon: {
-    fontSize: 64,
-  },
-  content: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 12,
-  },
-  titleDark: {
-    color: '#FFFFFF',
-  },
-  metadata: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  metaItem: {
-    marginRight: 16,
-    marginBottom: 4,
-  },
-  metaLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  metaLabelDark: {
-    color: '#999',
-  },
-  urlSection: {
-    marginBottom: 20,
-  },
-  urlSectionLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  urlSectionLabelDark: {
-    color: '#999',
-  },
-  urlContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  urlContainerDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
-  },
-  urlContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  urlActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  urlActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  urlActionButtonDark: {
-    backgroundColor: '#3A3A3C',
-  },
-  urlActionIcon: {
-    fontSize: 18,
-  },
-  urlText: {
-    fontSize: 14,
-    color: '#007AFF',
-    textDecorationLine: 'underline',
-  },
-  urlTextDark: {
-    color: '#5AC8FA',
-  },
-  descriptionSection: {
-    marginBottom: 20,
-  },
-  descriptionSectionLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  descriptionSectionLabelDark: {
-    color: '#999',
-  },
-  descriptionContainer: {
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  descriptionContainerDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 22,
-  },
-  descriptionTextDark: {
-    color: '#CCC',
-  },
-  expandToggle: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  expandToggleDark: {
-    color: '#5AC8FA',
-  },
-  fullContent: {
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-  },
-  contentText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 22,
-  },
-  contentTextDark: {
-    color: '#CCC',
-  },
-  actions: {
-    marginTop: 20,
-  },
-  primaryAction: {
-    backgroundColor: '#007AFF',
-    marginBottom: 16,
-  },
-  actionButton: {
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  actionButtonTextDark: {
-    color: '#FFF',
-  },
-  actionButtonTextPrimary: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  secondaryActions: {
-    gap: 8,
-  },
-  deleteButton: {
-    borderColor: '#FF3B30',
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  spaceSection: {
-    marginBottom: 20,
-  },
-  spaceSectionLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  spaceSectionLabelDark: {
-    color: '#999',
-  },
-  spaceSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  spaceSelectorDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  selectedSpaces: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  selectedSpaceTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  spaceTagDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
-  },
-  spaceTagText: {
-    fontSize: 12,
-    color: '#333',
-  },
-  spaceTagTextDark: {
-    color: '#FFF',
-  },
-  moreSpaces: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  moreSpacesDark: {
-    color: '#999',
-  },
-  spaceColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  spaceName: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  spaceNameDark: {
-    color: '#FFF',
-  },
-  noSpace: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  noSpaceDark: {
-    color: '#666',
-  },
-  chevron: {
-    fontSize: 12,
-    color: '#666',
-  },
-  spaceOptions: {
-    marginTop: 8,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  spaceOptionsDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  spaceOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  spaceOptionSelected: {
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-  },
-  spaceOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxSelected: {
-    borderColor: 'transparent',
-  },
-  checkmark: {
-    fontSize: 12,
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  clearButton: {
-    padding: 12,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    marginTop: 8,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  clearButtonTextDark: {
-    color: '#FF6B6B',
-  },
-  spaceOptionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  spaceOptionTextDark: {
-    color: '#FFF',
-  },
-  // Type Selector Styles
-  typeSection: {
-    marginBottom: 20,
-  },
-  typeSectionLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  typeSectionLabelDark: {
-    color: '#999',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  typeSelectorDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
-  },
-  selectedType: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeIcon: {
-    fontSize: 16,
-  },
-  typeName: {
-    fontSize: 16,
-    color: '#000',
-  },
-  typeNameDark: {
-    color: '#FFF',
-  },
-  typeOptions: {
-    marginTop: 8,
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    overflow: 'hidden',
-  },
-  typeOptionsDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
-  },
-  typeOption: {
-    padding: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E0E0E0',
-  },
-  typeOptionSelected: {
-    backgroundColor: '#F0F0F0',
-  },
-  typeOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  typeOptionIcon: {
-    fontSize: 16,
-  },
-  typeOptionText: {
-    fontSize: 15,
-    color: '#000',
-  },
-  typeOptionTextDark: {
-    color: '#FFF',
-  },
-  dotsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  // YouTube embed styles
-  youtubeEmbed: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio
-    backgroundColor: '#000',
-  },
-  webView: {
-    flex: 1,
-  },
-  // Thumbnail section styles
-  thumbnailSection: {
-    marginBottom: 20,
-  },
-  thumbnailSectionLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  thumbnailSectionLabelDark: {
-    color: '#999',
-  },
-  thumbnailSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  thumbnailSelectorDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  thumbnailSelectorText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  thumbnailSelectorTextDark: {
-    color: '#FFF',
-  },
-  thumbnailContent: {
-    marginTop: 8,
-    padding: 16,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  thumbnailContentDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  thumbnailDownloadButton: {
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  thumbnailDownloadButtonDisabled: {
-    backgroundColor: '#999',
-  },
-  thumbnailDownloadButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Transcript section styles
-  transcriptSection: {
-    marginBottom: 20,
-  },
-  transcriptSectionLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  transcriptSectionLabelDark: {
-    color: '#999',
-  },
-  transcriptGenerateButton: {
-    backgroundColor: '#007AFF',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transcriptGenerateButtonDark: {
-    backgroundColor: '#0A84FF',
-  },
-  transcriptGenerateButtonDisabled: {
-    backgroundColor: '#999',
-  },
-  transcriptGenerateButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  transcriptSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  transcriptSelectorDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  transcriptSelectorText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  transcriptSelectorTextDark: {
-    color: '#FFF',
-  },
-  transcriptContent: {
-    marginTop: 8,
-    padding: 16,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    position: 'relative',
-  },
-  transcriptContentDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3A3A3C',
-  },
-  transcriptScrollView: {
-    maxHeight: 300,
-    paddingBottom: 35, // Make room for sticky footer
-  },
-  transcriptText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 22,
-  },
-  transcriptTextDark: {
-    color: '#CCC',
-  },
-  transcriptCopyButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transcriptCopyButtonText: {
-    fontSize: 20,
-  },
-  transcriptFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(245, 245, 245, 0.95)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  transcriptFooterDark: {
-    backgroundColor: 'rgba(44, 44, 46, 0.98)',
-    borderTopColor: '#3A3A3C',
-  },
-  transcriptFooterText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  transcriptFooterTextDark: {
-    color: '#999',
+  handleIndicator: {
+    backgroundColor: '#CCCCCC',
+    width: 40,
+  },
+  handleIndicatorDark: {
+    backgroundColor: '#666666',
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
 });

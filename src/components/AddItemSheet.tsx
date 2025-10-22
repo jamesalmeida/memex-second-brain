@@ -1,951 +1,270 @@
-import React, { forwardRef, useMemo, useCallback, useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ScrollView,
-  Clipboard,
-  Keyboard,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
-  InputAccessoryView,
-  Button,
-  Dimensions,
-} from 'react-native';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
+import uuid from 'react-native-uuid';
+import * as Clipboard from 'expo-clipboard';
 import { themeStore } from '../stores/theme';
-import { spacesStore, spacesComputed, spacesActions } from '../stores/spaces';
-import { itemsStore, itemsActions } from '../stores/items';
-import { extractURLMetadata, generateTags, detectURLType, URLMetadata } from '../services/urlMetadata';
-import { COLORS, UI } from '../constants';
-import { Space, Item, ContentType } from '../types';
+import { itemsActions } from '../stores/items';
+import { authComputed } from '../stores/auth';
+import { Item } from '../types';
+import { processingItemsActions } from '../stores/processingItems';
+import { runPipeline } from '../services/pipeline/runPipeline';
+import { itemSpacesActions } from '../stores/itemSpaces';
+import { spacesComputed } from '../stores/spaces';
 
 interface AddItemSheetProps {
-  onItemAdded?: () => void;
+  preSelectedSpaceId?: string | null;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
-const contentTypes = [
-  { id: 'bookmark', icon: 'bookmark', label: 'Bookmark' },
-  { id: 'note', icon: 'note', label: 'Note' },
-  { id: 'youtube', icon: 'ondemand-video', label: 'YouTube' },
-  { id: 'video', icon: 'videocam', label: 'Video' },
-  { id: 'image', icon: 'image', label: 'Image' },
-  { id: 'article', icon: 'article', label: 'Article' },
-  { id: 'product', icon: 'shopping-bag', label: 'Product' },
-  { id: 'twitter', icon: 'tag', label: 'X/Twitter' },
-];
+export interface AddItemSheetHandle {
+  snapToIndex: (index: number) => void;
+  expand: () => void;
+  close: () => void;
+  open: () => void;
+  openWithSpace: (spaceId: string) => void;
+}
 
-const AddItemSheet = observer(
-  forwardRef<BottomSheet, AddItemSheetProps>(({ onItemAdded }, ref) => {
-    const isDarkMode = themeStore.isDarkMode.get();
-    const spaces = spacesComputed.spaces();
-    
-    const [selectedType, setSelectedType] = useState('bookmark');
-    const [url, setUrl] = useState('');
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
-    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-    const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
-    const [tags, setTags] = useState<string[]>([]);
-    const [tagInput, setTagInput] = useState('');
-    const [metadata, setMetadata] = useState<URLMetadata | null>(null);
-    const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
-    const [isGeneratingTags, setIsGeneratingTags] = useState(false);
-    
-    // Snap points for the bottom sheet - just 75% height
-    const snapPoints = useMemo(() => {
-      const points = ['75%'];
-      console.log('Snap points set to:', points);
-      return points;
-    }, []);
+const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(({ preSelectedSpaceId = null, onOpen, onClose }, ref) => {
+  const isDarkMode = themeStore.isDarkMode.get();
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
-    // Keyboard event listeners for height tracking
-    useEffect(() => {
-      console.log('Setting up keyboard listeners');
-      
-      const keyboardWillShow = Keyboard.addListener(
-        Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-        (e) => {
-          console.log('Keyboard will/did show, height:', e.endCoordinates.height);
-          setKeyboardHeight(e.endCoordinates.height);
-          setIsKeyboardVisible(true);
-        }
-      );
+  const [input, setInput] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedUI, setSavedUI] = useState<{ visible: boolean; title?: string } | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
+  const selectedSpaceName = selectedSpaceId ? spacesComputed.getSpaceById(selectedSpaceId)?.name ?? 'selected space' : null;
 
-      const keyboardWillHide = Keyboard.addListener(
-        Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-        () => {
-          console.log('Keyboard will/did hide');
-          setKeyboardHeight(0);
-          setIsKeyboardVisible(false);
-        }
-      );
+  const snapPoints = useMemo(() => ['30%', '70%'], []);
 
-      return () => {
-        keyboardWillShow.remove();
-        keyboardWillHide.remove();
-      };
-    }, []);
+  useEffect(() => {
+    setSelectedSpaceId(preSelectedSpaceId);
+  }, [preSelectedSpaceId]);
 
-    // Render backdrop
-    const renderBackdrop = useCallback(
-      (props: any) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      []
-    );
+  const openSheet = useCallback((spaceId?: string | null) => {
+    setSelectedSpaceId(spaceId ?? null);
+    bottomSheetRef.current?.snapToIndex(0);
+  }, []);
 
-    const handlePaste = async () => {
-      try {
-        const clipboardContent = await Clipboard.getString();
-        if (clipboardContent) {
-          setUrl(clipboardContent);
-          // Auto-detect content type from URL pattern
-          detectContentType(clipboardContent);
-        }
-      } catch (error) {
-        console.error('Failed to paste from clipboard:', error);
-      }
-    };
-
-    const detectContentType = (urlString: string) => {
-      const detectedType = detectURLType(urlString);
-      setSelectedType(detectedType);
-    };
-
-    // Extract metadata when URL is detected
-    useEffect(() => {
-      const timeoutId = setTimeout(() => {
-        if (url.trim() && url.startsWith('http')) {
-          setIsLoadingMetadata(true);
-          extractURLMetadata(url.trim())
-            .then(data => {
-              setMetadata(data);
-              setIsLoadingMetadata(false);
-              // Update content type based on metadata
-              if (data.contentType) {
-                setSelectedType(data.contentType);
-              }
-            })
-            .catch(err => {
-              console.error('Metadata extraction failed:', err);
-              setIsLoadingMetadata(false);
-            });
-        } else {
-          setMetadata(null);
-        }
-      }, 800); // Debounce for 800ms
-
-      return () => clearTimeout(timeoutId);
-    }, [url]);
-
-    const handleAddTag = () => {
-      const trimmedTag = tagInput.trim();
-      if (trimmedTag && !tags.includes(trimmedTag)) {
-        setTags([...tags, trimmedTag]);
-        setTagInput('');
-      }
-    };
-
-    const handleRemoveTag = (tagToRemove: string) => {
-      setTags(tags.filter(tag => tag !== tagToRemove));
-    };
-
-    const handleGenerateTags = async () => {
-      if (!url.trim()) return;
-      
-      setIsGeneratingTags(true);
-      try {
-        const generatedTags = await generateTags(url, metadata || undefined);
-        // Add generated tags to existing tags (avoiding duplicates)
-        const newTags = [...tags];
-        generatedTags.forEach(tag => {
-          if (!newTags.includes(tag)) {
-            newTags.push(tag);
-          }
-        });
-        setTags(newTags);
-      } catch (error) {
-        console.error('Tag generation failed:', error);
-        Alert.alert('Error', 'Failed to generate tags');
-      } finally {
-        setIsGeneratingTags(false);
-      }
-    };
-
-    const handleSave = () => {
-      if (!url.trim()) {
-        Alert.alert('Error', 'Please enter some content');
-        return;
-      }
-
-      // Create the new item
-      const newItem: Item = {
-        id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        user_id: 'current-user', // TODO: Get from auth store
-        title: metadata?.title || url.slice(0, 50),
-        desc: metadata?.description || undefined,
-        content: selectedType === 'note' ? url : undefined,
-        url: selectedType !== 'note' ? url : undefined,
-        thumbnail_url: metadata?.image || undefined,
-        video_url: metadata?.videoUrl || undefined,
-        image_urls: metadata?.images || undefined,
-        content_type: selectedType as ContentType,
-        space_ids: selectedSpaceId ? [selectedSpaceId] : undefined,
-        tags: tags.length > 0 ? tags : undefined,
-        is_archived: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        isMockData: false, // This is a real saved item
-      };
-      
-      // Add to the items store
-      const currentItems = itemsStore.items.get();
-      itemsActions.setItems([newItem, ...currentItems]);
-      
-      // Update space item count if item was added to a space
-      if (selectedSpaceId) {
-        const spaces = spacesStore.spaces.get();
-        const space = spaces.find(s => s.id === selectedSpaceId);
-        if (space) {
-          spacesActions.updateSpace(selectedSpaceId, { 
-            item_count: (space.item_count || 0) + 1 
-          });
-        }
-      }
-      
-      console.log('Item saved:', newItem);
-      
-      // Dismiss keyboard first
-      Keyboard.dismiss();
-      
-      // Reset form
-      setUrl('');
-      setSelectedType('bookmark');
+  useImperativeHandle(ref, () => ({
+    snapToIndex: (index: number) => bottomSheetRef.current?.snapToIndex(index),
+    expand: () => bottomSheetRef.current?.expand(),
+    close: () => {
+      bottomSheetRef.current?.close();
       setSelectedSpaceId(null);
-      setTags([]);
-      setTagInput('');
-      setMetadata(null);
-      
-      // Close sheet after keyboard dismisses
-      setTimeout(() => {
-        if (ref && 'current' in ref && ref.current) {
-          ref.current.close();
-        }
-      }, 100);
-      
-      if (onItemAdded) {
-        onItemAdded();
-      }
-      
-      Alert.alert('Success', 'Item saved successfully!');
-    };
+    },
+    open: () => openSheet(null),
+    openWithSpace: (spaceId: string) => openSheet(spaceId),
+  }), [openSheet]);
 
-    return (
-      <BottomSheet
-        ref={ref}
-        index={-1}
-        snapPoints={snapPoints}
-        enablePanDownToClose
-        enableDynamicSizing={false}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={[
-          styles.sheetBackground,
-          isDarkMode && styles.sheetBackgroundDark,
-        ]}
-        handleIndicatorStyle={[
-          styles.handleIndicator,
-          isDarkMode && styles.handleIndicatorDark,
-        ]}
-        keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
-        onChange={(index) => {
-          console.log('Sheet index changed to:', index);
-        }}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-            Save New Item
-          </Text>
+  const renderBackdrop = (props: any) => (
+    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+  );
+
+  const handlePaste = async () => {
+    const text = await Clipboard.getStringAsync();
+    if (text) setInput(text);
+  };
+
+  const handleSave = async () => {
+    const url = input.trim();
+    if (!url) {
+      Alert.alert('Enter a URL or note');
+      return;
+    }
+
+    const userId = authComputed.userId();
+    if (!userId) {
+      Alert.alert('Not signed in');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const id = uuid.v4() as string;
+      const now = new Date().toISOString();
+      let provisionalTitle = url;
+      try { provisionalTitle = new URL(url).hostname.replace('www.', ''); } catch {}
+
+      const newItem: Item = {
+        id,
+        user_id: userId,
+        title: provisionalTitle,
+        url,
+        content_type: 'bookmark',
+        is_archived: false,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await itemsActions.addItemWithSync(newItem);
+      processingItemsActions.add(id);
+
+      if (selectedSpaceId) {
+        try {
+          await itemSpacesActions.addItemToSpace(id, selectedSpaceId);
+        } catch (error) {
+          console.error('Error adding item to space:', error);
+        }
+      }
+
+      // Optimistic success UI in the sheet
+      setSavedUI({ visible: true, title: provisionalTitle });
+      Keyboard.dismiss();
+
+      // Auto-close the sheet after 0.8 second on success
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => {
+        bottomSheetRef.current?.close();
+      }, 800);
+
+      // Run the numbered pipeline (detect type, parse, enrich)
+      runPipeline({ itemId: id, url })
+        .catch(() => {})
+        .finally(() => {
+          processingItemsActions.remove(id);
+        });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Cleanup any pending close timer on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <BottomSheet
+      ref={bottomSheetRef}
+      index={-1}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      enableDynamicSizing={false}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={[styles.sheetBackground, isDarkMode && styles.sheetBackgroundDark]}
+      handleIndicatorStyle={[styles.handleIndicator, isDarkMode && styles.handleIndicatorDark]}
+      keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
+      keyboardBlurBehavior="restore"
+      onChange={(index) => {
+        if (index === -1) {
+          if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+          onClose?.();
+          setSavedUI(null);
+          setInput('');
+          setSelectedSpaceId(null);
+        } else if (index >= 0) {
+          onOpen?.();
+        }
+      }}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.title, isDarkMode && styles.titleDark]}>Save</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={[styles.quickAction, isDarkMode && styles.quickActionDark]} onPress={handlePaste}>
+            <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
+            <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>Paste</Text>
+          </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.saveButton, !url.trim() && styles.saveButtonDisabled]}
+            style={[styles.saveButton, (!input.trim() || isSaving) && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={!url.trim()}
+            disabled={!input.trim() || isSaving}
           >
-            <Text style={styles.saveButtonText}>Save</Text>
+            <Text style={styles.saveButtonText}>{isSaving ? 'Saving…' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        <BottomSheetScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onScrollBeginDrag={() => {
-            console.log('Scroll began - dismissing keyboard');
-            Keyboard.dismiss();
-          }}
-          scrollEnabled={true}
-        >
-          {/* Primary Input Field and Quick Actions */}
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-          >
+      <BottomSheetScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {selectedSpaceId && (
+          <View style={[styles.spaceContext, isDarkMode && styles.spaceContextDark]}>
+            <MaterialIcons name="folder" size={16} color={isDarkMode ? '#FFD699' : '#FF6B35'} />
+            <Text style={[styles.spaceContextText, isDarkMode && styles.spaceContextTextDark]}>
+              Saving to {selectedSpaceName}
+            </Text>
+          </View>
+        )}
+        {savedUI?.visible ? (
+          <View style={styles.successPillContainer}>
+            <View style={styles.successPill}>
+              <MaterialIcons name="check" size={16} color="#fff" />
+              <Text style={styles.successText}>Saved to Memex</Text>
+            </View>
+          </View>
+        ) : (
           <View style={styles.section}>
             <View style={styles.inputContainer}>
-              <TextInput
-                style={[styles.input, styles.primaryInput, isDarkMode && styles.inputDark]}
-                placeholder="Type a note or paste something here..."
+              <BottomSheetTextInput
+                style={[styles.input, isDarkMode && styles.inputDark]}
+                placeholder="Paste a link or type a note"
                 placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                value={url}
-                onChangeText={(text) => {
-                  setUrl(text);
-                  detectContentType(text);
-                }}
+                value={input}
+                onChangeText={setInput}
+                onFocus={() => bottomSheetRef.current?.expand()}
                 autoCapitalize="none"
                 autoCorrect={false}
                 multiline
                 numberOfLines={3}
-                onFocus={() => {
-                  console.log('Input focused');
-                  // Sheet is already at 75%, no need to snap
-                }}
-                onBlur={() => console.log('Input blurred')}
-                inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory' : undefined}
+                inputAccessoryViewID={Platform.OS === 'ios' ? 'doneAccessory2' : undefined}
               />
-              
-              {/* Clear Button - Always present when there's text */}
-              {url.trim().length > 0 && (
-                <TouchableOpacity
-                  style={[styles.clearButton, isDarkMode && styles.clearButtonDark]}
-                  onPress={() => {
-                    setUrl('');
-                    setSelectedType('bookmark');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons
-                    name="close"
-                    size={18}
-                    color={isDarkMode ? '#999' : '#666'}
-                  />
+              {input.trim().length > 0 && (
+                <TouchableOpacity style={[styles.clearButton, isDarkMode && styles.clearButtonDark]} onPress={() => setInput('')}>
+                  <MaterialIcons name="close" size={18} color={isDarkMode ? '#999' : '#666'} />
                 </TouchableOpacity>
               )}
             </View>
-            
-            {/* Quick Actions - Right below textarea */}
-            <View style={styles.quickActionsCompact}>
-              <TouchableOpacity 
-                style={[styles.quickActionCompact, isDarkMode && styles.quickActionCompactDark]}
-                onPress={() => {
-                  console.log('Camera pressed - dismissing keyboard');
-                  Keyboard.dismiss();
-                }}
-              >
-                <MaterialIcons name="camera-alt" size={20} color="#FF6B35" />
-                <Text style={[styles.quickActionTextCompact, isDarkMode && styles.quickActionTextDarkCompact]}>
-                  Camera
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.quickActionCompact, isDarkMode && styles.quickActionCompactDark]}>
-                <MaterialIcons name="photo-library" size={20} color="#FF6B35" />
-                <Text style={[styles.quickActionTextCompact, isDarkMode && styles.quickActionTextDarkCompact]}>
-                  Gallery
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.quickActionCompact, isDarkMode && styles.quickActionCompactDark]} onPress={handlePaste}>
-                <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
-                <Text style={[styles.quickActionTextCompact, isDarkMode && styles.quickActionTextDarkCompact]}>
-                  Paste
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Quick actions row removed; Paste moved to header */}
           </View>
-          </KeyboardAvoidingView>
-
-          {/* Metadata Preview */}
-          {isLoadingMetadata && (
-            <View style={[styles.section, styles.metadataSection]}>
-              <View style={[styles.metadataCard, isDarkMode && styles.metadataCardDark]}>
-                <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>
-                  Loading metadata...
-                </Text>
-              </View>
-            </View>
-          )}
-          
-          {metadata && !isLoadingMetadata && (
-            <View style={[styles.section, styles.metadataSection]}>
-              <View style={[styles.metadataCard, isDarkMode && styles.metadataCardDark]}>
-                {metadata.image && (
-                  <Image 
-                    source={{ uri: metadata.image }}
-                    style={styles.metadataImage}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                )}
-                <View style={styles.metadataContent}>
-                  <Text style={[styles.metadataTitle, isDarkMode && styles.metadataTitleDark]} numberOfLines={2}>
-                    {metadata.title || 'No title'}
-                  </Text>
-                  {metadata.description && (
-                    <Text style={[styles.metadataDescription, isDarkMode && styles.metadataDescriptionDark]} numberOfLines={2}>
-                      {metadata.description}
-                    </Text>
-                  )}
-                  <View style={styles.metadataFooter}>
-                    {metadata.siteName && (
-                      <Text style={[styles.metadataSite, isDarkMode && styles.metadataSiteDark]}>
-                        {metadata.siteName}
-                      </Text>
-                    )}
-                    {metadata.duration && (
-                      <Text style={[styles.metadataDuration, isDarkMode && styles.metadataDurationDark]}>
-                        {metadata.duration}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Space Selector */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Space
-            </Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.spaceScroll}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.spaceButton,
-                  isDarkMode && styles.spaceButtonDark,
-                  selectedSpaceId === null && styles.spaceButtonActive,
-                ]}
-                onPress={() => setSelectedSpaceId(null)}
-              >
-                <Text style={[
-                  styles.spaceLabel,
-                  isDarkMode && styles.spaceLabelDark,
-                  selectedSpaceId === null && styles.spaceLabelActive,
-                ]}>
-                  No Space
-                </Text>
-              </TouchableOpacity>
-              {spaces.map((space) => (
-                <TouchableOpacity
-                  key={space.id}
-                  style={[
-                    styles.spaceButton,
-                    isDarkMode && styles.spaceButtonDark,
-                    selectedSpaceId === space.id && styles.spaceButtonActive,
-                  ]}
-                  onPress={() => setSelectedSpaceId(space.id)}
-                >
-                  {selectedSpaceId !== space.id && (
-                    <View style={[styles.spaceIndicator, { backgroundColor: space.color }]} />
-                  )}
-                  <Text style={[
-                    styles.spaceLabel,
-                    isDarkMode && styles.spaceLabelDark,
-                    selectedSpaceId === space.id && styles.spaceLabelActive,
-                  ]}>
-                    {space.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Tags */}
-          <View style={styles.section}>
-            <View style={styles.tagsHeader}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-                Tags
-              </Text>
-              <TouchableOpacity
-                style={[styles.generateTagsButton, isGeneratingTags && styles.generateTagsButtonDisabled]}
-                onPress={handleGenerateTags}
-                disabled={isGeneratingTags || !url.trim()}
-              >
-                <MaterialIcons name="auto-awesome" size={16} color="#FF6B35" />
-                <Text style={styles.generateTagsText}>
-                  {isGeneratingTags ? 'Generating...' : 'Generate with AI'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.tagInputContainer}>
-              <TextInput
-                style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
-                placeholder="Add a tag..."
-                placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                value={tagInput}
-                onChangeText={setTagInput}
-                onSubmitEditing={handleAddTag}
-                returnKeyType="done"
-              />
-              {tagInput.trim().length > 0 && (
-                <TouchableOpacity style={styles.addTagButton} onPress={handleAddTag}>
-                  <MaterialIcons name="add" size={20} color="#FF6B35" />
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            {tags.length > 0 && (
-              <View style={styles.tagsContainer}>
-                {tags.map((tag, index) => (
-                  <View key={index} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-                    <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
-                      {tag}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
-                      <MaterialIcons name="close" size={16} color={isDarkMode ? '#999' : '#666'} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-
-
-          {/* Content Type Selection - Hidden below fold */}
-          <View style={[styles.section, styles.typeSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Type (Auto-detected)
-            </Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.typeScroll}
-            >
-              {contentTypes.map((type) => (
-                <TouchableOpacity
-                  key={type.id}
-                  style={[
-                    styles.typeButton,
-                    isDarkMode && styles.typeButtonDark,
-                    selectedType === type.id && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setSelectedType(type.id)}
-                >
-                  <MaterialIcons
-                    name={type.icon as any}
-                    size={24}
-                    color={
-                      selectedType === type.id
-                        ? '#FFFFFF'
-                        : isDarkMode
-                        ? '#AAAAAA'
-                        : '#666666'
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.typeLabel,
-                      isDarkMode && styles.typeLabelDark,
-                      selectedType === type.id && styles.typeLabelActive,
-                    ]}
-                  >
-                    {type.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </BottomSheetScrollView>
-        
-        {/* iOS Keyboard Done Button */}
-        {Platform.OS === 'ios' && (
-          <InputAccessoryView nativeID="doneAccessory">
-            <View style={styles.inputAccessory}>
-              <Button
-                onPress={() => {
-                  console.log('Done button pressed');
-                  Keyboard.dismiss();
-                }}
-                title="Done"
-              />
-            </View>
-          </InputAccessoryView>
         )}
-      </BottomSheet>
-    );
-  })
-);
+      </BottomSheetScrollView>
 
-const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: '#FFFFFF',
-  },
-  sheetBackgroundDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  handleIndicator: {
-    backgroundColor: '#CCCCCC',
-    width: 40,
-  },
-  handleIndicatorDark: {
-    backgroundColor: '#666666',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5E7',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  titleDark: {
-    color: '#FFFFFF',
-  },
-  saveButton: {
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  section: {
-    paddingTop: 20,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666666',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
-  sectionTitleDark: {
-    color: '#999999',
-  },
-  typeScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  typeButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    marginRight: 12,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    minWidth: 80,
-  },
-  typeButtonDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  typeButtonActive: {
-    backgroundColor: '#FF6B35',
-  },
-  typeLabel: {
-    fontSize: 12,
-    color: '#666666',
-    marginTop: 4,
-  },
-  typeLabelDark: {
-    color: '#AAAAAA',
-  },
-  typeLabelActive: {
-    color: '#FFFFFF',
-  },
-  inputContainer: {
-    position: 'relative',
-  },
-  input: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 12,
-    paddingRight: 40, // Make room for clear button
-    fontSize: 16,
-    color: '#000000',
-  },
-  primaryInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  inputDark: {
-    backgroundColor: '#2C2C2E',
-    color: '#FFFFFF',
-  },
-  clearButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  quickAction: {
-    alignItems: 'center',
-    padding: 16,
-    flex: 1,
-  },
-  quickActionText: {
-    fontSize: 12,
-    color: '#666666',
-    marginTop: 4,
-  },
-  quickActionTextDark: {
-    color: '#AAAAAA',
-  },
-  // Compact quick actions styles
-  quickActionsCompact: {
-    flexDirection: 'row',
-    marginTop: 8,
-    gap: 8,
-  },
-  quickActionCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  quickActionCompactDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  quickActionTextCompact: {
-    fontSize: 12,
-    color: '#666666',
-    fontWeight: '500',
-  },
-  quickActionTextDarkCompact: {
-    color: '#AAAAAA',
-  },
-  typeSection: {
-    marginTop: 30,
-  },
-  inputAccessory: {
-    backgroundColor: '#F2F2F7',
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5E7',
-  },
-  // Metadata styles
-  metadataSection: {
-    paddingTop: 10,
-  },
-  metadataCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-  },
-  metadataCardDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  metadataImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  metadataContent: {
-    flex: 1,
-  },
-  metadataTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  metadataTitleDark: {
-    color: '#FFFFFF',
-  },
-  metadataDescription: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 4,
-  },
-  metadataDescriptionDark: {
-    color: '#AAAAAA',
-  },
-  metadataSite: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  metadataSiteDark: {
-    color: '#777777',
-  },
-  metadataFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metadataDuration: {
-    fontSize: 12,
-    color: '#666666',
-    fontWeight: '600',
-  },
-  metadataDurationDark: {
-    color: '#AAAAAA',
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-  },
-  loadingTextDark: {
-    color: '#AAAAAA',
-  },
-  // Space selector styles
-  spaceScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  spaceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 10,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-  },
-  spaceButtonDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  spaceButtonActive: {
-    backgroundColor: '#FF6B35',
-  },
-  spaceIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  spaceLabel: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  spaceLabelDark: {
-    color: '#AAAAAA',
-  },
-  spaceLabelActive: {
-    color: '#FFFFFF',
-  },
-  // Tags styles
-  tagsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  generateTagsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#FFF5F0',
-    borderRadius: 12,
-  },
-  generateTagsButtonDisabled: {
-    opacity: 0.5,
-  },
-  generateTagsText: {
-    fontSize: 12,
-    color: '#FF6B35',
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  tagInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-  },
-  tagInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#000000',
-  },
-  tagInputDark: {
-    color: '#FFFFFF',
-  },
-  addTagButton: {
-    padding: 4,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  tagChipDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  tagText: {
-    fontSize: 14,
-    color: '#333333',
-    marginRight: 6,
-  },
-  tagTextDark: {
-    color: '#FFFFFF',
-  },
-});
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID="doneAccessory2">
+          <View style={styles.inputAccessory}><Button title="Done" onPress={Keyboard.dismiss} /></View>
+        </InputAccessoryView>
+      )}
+    </BottomSheet>
+  );
+}));
 
 export default AddItemSheet;
+
+const styles = StyleSheet.create({
+  sheetBackground: { backgroundColor: '#FFFFFF' },
+  sheetBackgroundDark: { backgroundColor: '#1C1C1E' },
+  handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
+  handleIndicatorDark: { backgroundColor: '#666666' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5E7' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#000000' },
+  titleDark: { color: '#FFFFFF' },
+  saveButton: { backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
+  saveButtonDisabled: { opacity: 0.5 },
+  saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+  scrollContent: { paddingBottom: 24 },
+  spaceContext: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12, marginHorizontal: 20, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255, 107, 53, 0.08)' },
+  spaceContextDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+  spaceContextText: { fontSize: 13, color: '#4A4A4A', fontWeight: '600' },
+  spaceContextTextDark: { color: '#F2F2F7' },
+  section: { paddingTop: 16, paddingHorizontal: 20 },
+  inputContainer: { position: 'relative' },
+  input: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 12, paddingRight: 40, fontSize: 16, color: '#000000', minHeight: 80, textAlignVertical: 'top' },
+  inputDark: { backgroundColor: '#2C2C2E', color: '#FFFFFF' },
+  clearButton: { position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  clearButtonDark: { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+  quickActionsRow: { flexDirection: 'row', marginTop: 8, gap: 8 },
+  quickAction: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  quickActionDark: { backgroundColor: '#2C2C2E' },
+  quickActionText: { fontSize: 12, color: '#666666', fontWeight: '500' },
+  quickActionTextDark: { color: '#AAAAAA' },
+  inputAccessory: { backgroundColor: '#F2F2F7', flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5E7' },
+  successPillContainer: { paddingTop: 20, paddingHorizontal: 20 },
+  successPill: { alignSelf: 'center', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  successText: { color: '#fff', fontWeight: '600', marginLeft: 6, fontSize: 16 },
+});

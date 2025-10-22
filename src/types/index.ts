@@ -3,9 +3,12 @@
 export type ContentType =
   | 'bookmark'
   | 'youtube'
+  | 'youtube_short'
   | 'x'
   | 'github'
   | 'instagram'
+  | 'facebook'
+  | 'threads'
   | 'tiktok'
   | 'reddit'
   | 'amazon'
@@ -14,11 +17,14 @@ export type ContentType =
   | 'pdf'
   | 'video'
   | 'audio'
+  | 'podcast'
   | 'note'
   | 'article'
   | 'product'
   | 'book'
-  | 'course';
+  | 'course'
+  | 'movie'
+  | 'tv_show';
 
 export interface User {
   id: string;
@@ -34,13 +40,15 @@ export interface Item {
   content?: string;
   desc?: string;
   thumbnail_url?: string;
-  video_url?: string;
-  image_urls?: string[]; // For multiple images (e.g., X posts with multiple photos)
   raw_text?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
   is_archived: boolean;
-  space_ids?: string[]; // Array of space IDs this item belongs to
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  // Removed: video_url, image_urls, space_ids
+  // These are now in separate tables
 }
 
 export interface ItemMetadata {
@@ -55,7 +63,11 @@ export interface ItemMetadata {
 export interface ItemTypeMetadata {
   item_id: string;
   content_type: ContentType;
-  data: Record<string, any>;
+  data: {
+    video_url?: string;
+    image_urls?: string[];
+    [key: string]: any;
+  };
 }
 
 export interface Space {
@@ -69,6 +81,7 @@ export interface Space {
   created_at?: string;
   updated_at?: string;
   item_count?: number;
+  order_index?: number;
 }
 
 export interface ItemSpace {
@@ -77,12 +90,26 @@ export interface ItemSpace {
   created_at: string;
 }
 
-export interface YouTubeTranscript {
+export type VideoPlatform = 'youtube' | 'x' | 'tiktok' | 'instagram' | 'reddit';
+
+export interface VideoTranscript {
   id: string;
   item_id: string;
   transcript: string;
+  platform: VideoPlatform;
   language: string;
   duration?: number;
+  fetched_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImageDescription {
+  id: string;
+  item_id: string;
+  image_url: string;
+  description: string;
+  model: string;
   fetched_at: string;
   created_at: string;
   updated_at: string;
@@ -93,6 +120,8 @@ export interface ItemChat {
   item_id: string;
   user_id: string;
   created_at: string;
+  title?: string;
+  updated_at?: string;
 }
 
 export interface SpaceChat {
@@ -100,9 +129,22 @@ export interface SpaceChat {
   space_id: string;
   user_id: string;
   created_at: string;
+  title?: string;
+  updated_at?: string;
 }
 
 export type ChatType = 'item' | 'space';
+
+export interface ChatMessageMetadata {
+  model?: string;
+  tokens?: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
+  timestamp?: string;
+  context_version?: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -111,6 +153,7 @@ export interface ChatMessage {
   role: 'user' | 'system' | 'assistant';
   content: string;
   created_at: string;
+  metadata?: ChatMessageMetadata;
 }
 
 export type ActionType =
@@ -118,7 +161,10 @@ export type ActionType =
   | 'update_item'
   | 'delete_item'
   | 'create_capture'
-  | 'save_transcript';
+  | 'save_video_transcript'
+  | 'delete_video_transcript'
+  | 'add_item_to_space'
+  | 'remove_item_from_space';
 
 export type QueueStatus = 'pending' | 'synced' | 'failed';
 

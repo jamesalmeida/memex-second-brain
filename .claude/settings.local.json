@@ -10,7 +10,16 @@
       "Bash(npm info:*)",
       "Bash(cat:*)",
       "Bash(npx supabase db diff:*)",
-      "Bash(pod install:*)"
+      "Bash(pod install:*)",
+      "Bash(lsof:*)",
+      "Bash(sips:*)",
+      "Bash(ls:*)",
+      "Bash(curl -s -H \"Authorization: Bearer jina_67ee204e71ce49fc8654b0ab69908ab204Vc0gH5J2kxhpRqCABnwM87QVxD\" -H \"Accept: application/json\" -H \"X-With-Images-Summary: true\" -H \"X-With-Links-Summary: true\" \"https://r.jina.ai/https://www.kaseyklimes.com/notes/2024/12/22/universal-heirloom-what-if-everything-you-touched-was-made-to-last\")",
+      "WebFetch(domain:docs.expo.dev)",
+      "WebSearch",
+      "Bash(npx tsc:*)",
+      "Bash(xargs ls:*)",
+      "Bash(curl -s \"https://www.amazon.com/ADZERD-Rechargeable-Automatic-Shuffler-Electric/dp/B0FJFB2NSH\" -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36\")"
     ],
     "deny": [],
     "ask": []

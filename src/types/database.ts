@@ -190,12 +190,15 @@ export interface Database {
           desc: string | null
           id: string
           is_archived: boolean
+          is_deleted: boolean
           raw_text: string | null
+          tags: string[] | null
           thumbnail_url: string | null
           title: string
           updated_at: string
           url: string | null
           user_id: string
+          deleted_at: string | null
         }
         Insert: {
           content?: string | null
@@ -204,12 +207,15 @@ export interface Database {
           desc?: string | null
           id?: string
           is_archived?: boolean
+          is_deleted?: boolean
           raw_text?: string | null
+          tags?: string[] | null
           thumbnail_url?: string | null
           title: string
           updated_at?: string
           url?: string | null
           user_id: string
+          deleted_at?: string | null
         }
         Update: {
           content?: string | null
@@ -218,12 +224,15 @@ export interface Database {
           desc?: string | null
           id?: string
           is_archived?: boolean
+          is_deleted?: boolean
           raw_text?: string | null
+          tags?: string[] | null
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
           url?: string | null
           user_id?: string
+          deleted_at?: string | null
         }
         Relationships: [
           {

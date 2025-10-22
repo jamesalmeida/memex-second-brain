@@ -2,6 +2,7 @@ import { ContentType } from '../types';
 import { supabase } from './supabase';
 
 // URL pattern matching for content type detection
+// NOTE: Amazon URLs are detected as 'product' type, with visual differentiation in the ProductItemCard
 const URL_PATTERNS: Record<ContentType, RegExp[]> = {
   bookmark: [/.*/], // Default fallback
   youtube: [
@@ -25,10 +26,6 @@ const URL_PATTERNS: Record<ContentType, RegExp[]> = {
   reddit: [
     /reddit\.com\/r\/.*\/comments\//,
   ],
-  amazon: [
-    /amazon\.com\/.*\/dp\//,
-    /amazon\.co\.uk\/.*\/dp\//,
-  ],
   linkedin: [
     /linkedin\.com\/.*\/posts\//,
   ],
@@ -46,9 +43,10 @@ const URL_PATTERNS: Record<ContentType, RegExp[]> = {
   ],
   note: [], // Handled differently
   article: [], // Handled differently
-  product: [], // Handled differently
+  product: [], // Handled differently (includes Amazon)
   book: [], // Handled differently
   course: [], // Handled differently
+  amazon: [], // Amazon URLs are detected as 'product', not a separate type
 };
 
 export interface Metadata {
