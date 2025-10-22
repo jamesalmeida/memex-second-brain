@@ -6,7 +6,7 @@ import { extractInstagramPostId, fetchInstagramData } from './instagram';
 import { extractProductTitle } from './metadataCleaner';
 import { classifyUrlWithAI } from './aiUrlClassifier';
 import { ContentType } from '../types';
-import { isAmazonUrl } from '../utils/urlHelpers';
+import { isAmazonUrl, resolveToAbsoluteUrl } from '../utils/urlHelpers';
 
 export interface URLMetadata {
   url: string;
@@ -41,17 +41,6 @@ export interface URLMetadata {
     raw_json?: string; // Full Reddit API JSON response
   };
 }
-
-// Resolve a possibly relative icon URL to an absolute URL based on the page URL
-const resolveToAbsoluteUrl = (baseUrl: string, href: string | undefined): string | undefined => {
-  try {
-    if (!href) return undefined;
-    if (href.startsWith('data:')) return href; // keep data URIs as-is
-    return new URL(href, baseUrl).toString();
-  } catch {
-    return href;
-  }
-};
 
 // Universal OG tag extractor - tries direct HTML fetch first for best metadata
 const extractOGTags = async (url: string): Promise<Partial<URLMetadata>> => {
