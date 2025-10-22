@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   View,
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
@@ -208,15 +209,14 @@ const TagsManagerModal = observer(({
     setListContentHeight(prev => (Math.abs(prev - clamped) > 1 ? clamped : prev));
   }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
-    Keyboard.dismiss();
     try {
       await Promise.resolve(onDone(selectedTags));
     } catch (error) {
       console.error('Error applying tags:', error);
     }
-  };
+  }, [isSubmitting, onDone, selectedTags]);
 
   const visibleRecent = useMemo(
     () => recentTags.filter(tag => !normalizedSelectedKeys.includes(tag.toLowerCase())),
@@ -468,10 +468,15 @@ const TagsManagerModal = observer(({
               )}
             </View>
 
-            <TouchableOpacity
-              style={[styles.doneButton, isDarkMode && styles.doneButtonDark, isSubmitting && styles.doneButtonDisabled]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.doneButton,
+                isDarkMode && styles.doneButtonDark,
+                (isSubmitting || pressed) && styles.doneButtonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={isSubmitting}
+              android_disableSound
               focusable={false}
             >
               {isSubmitting ? (
@@ -479,7 +484,7 @@ const TagsManagerModal = observer(({
               ) : (
                 <Text style={styles.doneButtonText}>Done</Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </TouchableOpacity>
         </TouchableOpacity>
       </View>
