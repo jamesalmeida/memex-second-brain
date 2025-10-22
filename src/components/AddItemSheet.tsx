@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     paddingRight: 48,
     fontSize: 16,
     color: '#000000',
-    minHeight: 96,
+    minHeight: 90,
     textAlignVertical: 'top',
   },
   inputDark: { color: '#FFFFFF' },
