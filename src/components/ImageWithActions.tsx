@@ -1,10 +1,11 @@
-import React, { useMemo, useState, ReactNode } from 'react';
-import { StyleProp, ImageStyle, Alert, Platform, Pressable, View, ActionSheetIOS } from 'react-native';
+import React, { useMemo, useState, ReactNode, useRef, useCallback } from 'react';
+import { StyleProp, ImageStyle, Alert, Platform, Pressable, View, ActionSheetIOS, Animated, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import ImageView from 'react-native-image-viewing';
+import * as Haptics from 'expo-haptics';
 
 export interface ImageWithActionsProps {
   source: { uri: string } | number;
@@ -34,6 +35,9 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
   enableFullScreenOnPress = true,
 }) => {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const scale = useRef(new Animated.Value(1)).current;
+  const isRaisedRef = useRef(false);
+  const [isRaised, setIsRaised] = useState(false);
 
   // Get the actual URL from source
   const getImageUrl = (): string | null => {
@@ -130,6 +134,35 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
     }
   };
 
+  const liftImage = useCallback(() => {
+    if (isRaisedRef.current) return;
+    isRaisedRef.current = true;
+    setIsRaised(true);
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1.04,
+        friction: 6,
+        tension: 160,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scale]);
+
+  const releaseImage = useCallback(() => {
+    if (!isRaisedRef.current) return;
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        friction: 6,
+        tension: 160,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      isRaisedRef.current = false;
+      setIsRaised(false);
+    });
+  }, [scale]);
+
   const availableActions = useMemo(() => {
     const actions: Array<{
       title: string;
@@ -154,7 +187,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
     return actions;
   }, [url, canReplace, canRemove, onImageReplace, onImageRemove]);
 
-  const showContextMenu = () => {
+  const openActionSheet = () => {
     if (availableActions.length === 0) {
       return;
     }
@@ -192,23 +225,46 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
 
   const hasContextMenu = availableActions.length > 0;
 
+  const handleLongPress = useCallback(() => {
+    if (!hasContextMenu) {
+      return;
+    }
+
+    liftImage();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    openActionSheet();
+  }, [hasContextMenu, liftImage, openActionSheet]);
+
+  const handlePressOut = useCallback(() => {
+    releaseImage();
+  }, [releaseImage]);
+
   return (
     <>
-      <Pressable
-        onPress={enableFullScreenOnPress ? handlePrimaryPress : undefined}
-        onLongPress={hasContextMenu ? showContextMenu : undefined}
-        delayLongPress={250}
+      <Animated.View
+        style={[
+          styles.wrapper,
+          { transform: [{ scale }] },
+          isRaised && styles.raised,
+        ]}
       >
-        <View>
-          <Image
-            source={source}
-            style={style}
-            contentFit={contentFit}
-            placeholder={placeholder}
-          />
-          {children}
-        </View>
-      </Pressable>
+        <Pressable
+          onPress={enableFullScreenOnPress ? handlePrimaryPress : undefined}
+          onLongPress={hasContextMenu ? handleLongPress : undefined}
+          onPressOut={handlePressOut}
+          delayLongPress={250}
+        >
+          <View>
+            <Image
+              source={source}
+              style={style}
+              contentFit={contentFit}
+              placeholder={placeholder}
+            />
+            {children}
+          </View>
+        </Pressable>
+      </Animated.View>
 
       {url && (
         <ImageView
@@ -221,3 +277,16 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  wrapper: {
+    overflow: 'visible',
+  },
+  raised: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+});
