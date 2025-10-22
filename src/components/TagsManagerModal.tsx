@@ -52,6 +52,7 @@ const TagsManagerModal = observer(({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const inputRef = useRef<TextInput>(null);
+  const isClosingRef = useRef(false);
   const listHeight = useSharedValue(0);
   const listOpacity = useSharedValue(0);
   const listTranslate = useSharedValue(-8);
@@ -59,6 +60,7 @@ const TagsManagerModal = observer(({
 
   useEffect(() => {
     if (visible) {
+      isClosingRef.current = false;
       setSelectedTags(initialTags);
       setQuery('');
       setRecentExpanded(true);
@@ -173,11 +175,14 @@ const TagsManagerModal = observer(({
     return !allTags.some(tag => tag.toLowerCase() === lower);
   }, [allTags, normalizedSelectedKeys, trimmedQuery]);
 
-  const refocusInput = () => {
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-  };
+  const refocusInput = useCallback(() => {
+    if (!visible || isClosingRef.current) return;
+    setTimeout(() => {
+      if (visible && !isClosingRef.current) {
+        inputRef.current?.focus();
+      }
+    }, 16);
+  }, [visible]);
 
   const handleAddTag = (tag: string) => {
     const trimmed = tag.trim();
@@ -219,6 +224,7 @@ const TagsManagerModal = observer(({
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    isClosingRef.current = true;
     Keyboard.dismiss();
     try {
       await Promise.resolve(onDone(selectedTags));
@@ -353,6 +359,7 @@ const TagsManagerModal = observer(({
   };
 
   const handleCancel = useCallback(() => {
+    isClosingRef.current = true;
     Keyboard.dismiss();
     onCancel();
   }, [onCancel]);
@@ -410,6 +417,7 @@ const TagsManagerModal = observer(({
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="done"
+                blurOnSubmit={false}
                 onSubmitEditing={() => {
                   if (trimmedQuery) {
                     handleAddTag(trimmedQuery);
