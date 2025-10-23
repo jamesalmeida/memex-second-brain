@@ -1,12 +1,11 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { Host, ContextMenu, Button, Submenu, Switch } from '@expo/ui/swift-ui';
 import { filterStore, filterActions } from '../stores/filter';
 import { CONTENT_TYPES } from '../constants';
 import { ContentType } from '../types';
-
-const placeholderTags = ['Important', 'Work', 'Personal', 'Learning', 'To Review'];
+import { itemsStore } from '../stores/items';
 
 interface FilterContextMenuTriggerProps {
   children: ReactNode;
@@ -17,6 +16,23 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
+  const allItems = itemsStore.items.get();
+
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    allItems.forEach(item => {
+      item.tags?.forEach(tag => {
+        const trimmed = tag?.trim();
+        if (trimmed) {
+          tagSet.add(trimmed);
+        }
+      });
+    });
+    // ContextMenu renders items from bottom to top, so reverse after sorting A→Z.
+    return Array.from(tagSet)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .reverse();
+  }, [allItems]);
 
   return (
     <Host style={hostStyle}>
@@ -58,7 +74,12 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
           </Submenu>
 
           <Submenu button={<Button>Tags</Button>}>
-            {placeholderTags.map((tag) => {
+            {availableTags.length === 0 && (
+              <Button onPress={() => {}}>
+                No tags yet
+              </Button>
+            )}
+            {availableTags.map((tag) => {
               const isSelected = selectedTags.includes(tag);
               return (
                 <Switch
@@ -83,4 +104,3 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
 };
 
 export const FilterContextMenuTrigger = observer(FilterContextMenuTriggerComponent);
-
