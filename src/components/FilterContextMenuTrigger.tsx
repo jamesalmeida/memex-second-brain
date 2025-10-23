@@ -18,19 +18,19 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
   const selectedTags = filterStore.selectedTags.get();
   const allItems = itemsStore.items.get();
 
-  const availableTags = useMemo(() => {
-    const tagSet = new Set<string>();
+  const tagStats = useMemo(() => {
+    const counts: Record<string, number> = {};
     allItems.forEach(item => {
       item.tags?.forEach(tag => {
         const trimmed = tag?.trim();
         if (trimmed) {
-          tagSet.add(trimmed);
+          counts[trimmed] = (counts[trimmed] || 0) + 1;
         }
       });
     });
     // ContextMenu renders items from bottom to top, so reverse after sorting A→Z.
-    return Array.from(tagSet)
-      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    return Object.entries(counts)
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .reverse();
   }, [allItems]);
 
@@ -74,18 +74,18 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
           </Submenu>
 
           <Submenu button={<Button>Tags</Button>}>
-            {availableTags.length === 0 && (
+            {tagStats.length === 0 && (
               <Button onPress={() => {}}>
                 No tags yet
               </Button>
             )}
-            {availableTags.map((tag) => {
+            {tagStats.map(([tag, count]) => {
               const isSelected = selectedTags.includes(tag);
               return (
                 <Switch
                   key={tag}
                   variant="checkbox"
-                  label={tag}
+                  label={`${tag} (${count})`}
                   value={isSelected}
                   onValueChange={() => filterActions.toggleTag(tag)}
                 />
