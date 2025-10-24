@@ -82,6 +82,8 @@ export interface Space {
   updated_at?: string;
   item_count?: number;
   order_index?: number;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 export interface ItemSpace {

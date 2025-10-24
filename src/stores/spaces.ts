@@ -48,8 +48,9 @@ loadSpaces();
 export const spacesComputed = {
   spaces: () => {
     const spaces = spacesStore.spaces.get();
-    // Sort by order_index (ascending), spaces without order_index go to the end
-    return [...spaces].sort((a, b) => {
+    // Filter out deleted spaces and sort by order_index (ascending)
+    const activeSpaces = spaces.filter(space => !space.is_deleted);
+    return [...activeSpaces].sort((a, b) => {
       if (a.order_index === undefined && b.order_index === undefined) return 0;
       if (a.order_index === undefined) return 1;
       if (b.order_index === undefined) return -1;
@@ -58,10 +59,10 @@ export const spacesComputed = {
   },
   isLoading: () => spacesStore.isLoading.get(),
   selectedSpace: () => spacesStore.selectedSpace.get(),
-  totalCount: () => spacesStore.spaces.get().length,
+  totalCount: () => spacesStore.spaces.get().filter(s => !s.is_deleted).length,
   getSpaceById: (id: string) => {
     const spaces = spacesStore.spaces.get();
-    return spaces.find(space => space.id === id) || null;
+    return spaces.find(space => space.id === id && !space.is_deleted) || null;
   },
 };
 
@@ -111,6 +112,37 @@ export const spacesActions = {
     const currentSpaces = spacesStore.spaces.get();
     const filteredSpaces = currentSpaces.filter(space => space.id !== id);
     spacesStore.spaces.set(filteredSpaces);
+  },
+
+  // Remove space with Supabase sync (Soft delete)
+  removeSpaceWithSync: async (id: string) => {
+    console.log(`🗑️ [spacesActions] Starting removeSpaceWithSync (soft delete) for space ${id}`);
+
+    const nowIso = new Date().toISOString();
+
+    // Mark space as deleted locally (keep as tombstone for sync)
+    const currentSpaces = spacesStore.spaces.get();
+    const updatedSpaces = currentSpaces.map(space =>
+      space.id === id ? { ...space, is_deleted: true, deleted_at: nowIso, updated_at: nowIso } : space
+    );
+
+    // Store ALL spaces including tombstones
+    spacesStore.spaces.set(updatedSpaces);
+    console.log(`🗑️ [spacesActions] Soft-deleted space ${id} locally (kept as tombstone)`);
+
+    try {
+      // Save ALL spaces including tombstones to AsyncStorage
+      await AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(updatedSpaces));
+      console.log(`🗑️ [spacesActions] Updated AsyncStorage with tombstone for space ${id}`);
+
+      // Sync soft delete to Supabase (dynamic import to avoid require cycle)
+      const { syncOperations } = await import('../services/syncOperations');
+      await syncOperations.softDeleteSpace(id);
+      console.log(`🗑️ [spacesActions] Completed soft delete sync for space ${id}`);
+    } catch (error) {
+      console.error(`🗑️ [spacesActions] Error soft-deleting space ${id}:`, error);
+      throw error;
+    }
   },
 
   setLoading: (loading: boolean) => {

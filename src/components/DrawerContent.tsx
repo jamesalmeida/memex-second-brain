@@ -8,8 +8,6 @@ import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatli
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
-import { syncOperations } from '../services/syncOperations';
-import { authComputed } from '../stores/auth';
 import { COLORS } from '../constants';
 
 const DrawerContentInner = observer(() => {
@@ -55,13 +53,9 @@ const DrawerContentInner = observer(() => {
             try {
               console.log('🗑️ Deleting space:', spaceId);
 
-              spacesActions.removeSpace(spaceId);
-
-              const user = authComputed.user();
-              if (user) {
-                await syncOperations.deleteSpace(spaceId);
-                console.log('✅ Space deleted successfully');
-              }
+              // Use removeSpaceWithSync for proper tombstone-based deletion
+              await spacesActions.removeSpaceWithSync(spaceId);
+              console.log('✅ Space deleted successfully');
             } catch (error) {
               console.error('❌ Error deleting space:', error);
               Alert.alert('Error', 'Failed to delete space. Please try again.');

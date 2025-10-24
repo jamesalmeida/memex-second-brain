@@ -276,22 +276,23 @@ export const itemsActions = {
 
     const nowIso = new Date().toISOString();
 
-    // Mark item as deleted locally (retain relations/metadata for restore later)
+    // Mark item as deleted locally (keep as tombstone for sync)
     const currentItems = itemsStore.items.get();
     const updatedItems = currentItems.map(item =>
       item.id === id ? { ...item, is_deleted: true, deleted_at: nowIso, updated_at: nowIso } : item
     );
 
-    // Remove from visible lists immediately
-    const visibleItems = updatedItems.filter(item => !(item.id === id));
+    // Keep ALL items including deleted (tombstones) but filter for UI
+    const visibleItems = updatedItems.filter(item => !item.is_deleted);
 
-    itemsStore.items.set(visibleItems);
-    itemsStore.filteredItems.set(visibleItems);
-    console.log(`🗑️ [itemsActions] Soft-deleted item ${id} locally. ${visibleItems.length} items remain.`);
+    itemsStore.items.set(updatedItems); // Store ALL items including tombstones
+    itemsStore.filteredItems.set(visibleItems); // Filter for UI only
+    console.log(`🗑️ [itemsActions] Soft-deleted item ${id} locally. ${visibleItems.length} visible items, ${updatedItems.length} total (including tombstones).`);
 
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(visibleItems));
-      console.log(`🗑️ [itemsActions] Updated AsyncStorage after soft delete for item ${id}`);
+      // Save ALL items including tombstones to AsyncStorage
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      console.log(`🗑️ [itemsActions] Updated AsyncStorage with tombstone for item ${id}`);
 
       // Sync soft delete to Supabase
       await syncOperations.deleteItem(id);
@@ -399,9 +400,10 @@ export const itemsActions = {
       const savedItems = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
       if (savedItems) {
         const items = JSON.parse(savedItems) as Item[];
-        itemsStore.items.set(items);
-        itemsStore.filteredItems.set(items);
-        console.log('📚 Loaded', items.length, 'items from storage');
+        const visibleItems = items.filter(item => !item.is_deleted);
+        itemsStore.items.set(items); // Load ALL items including tombstones
+        itemsStore.filteredItems.set(visibleItems); // Filter deleted for UI
+        console.log('📚 Loaded', items.length, 'items from storage (', visibleItems.length, 'visible,', items.length - visibleItems.length, 'deleted)');
       }
     } catch (error) {
       console.error('Error loading items from storage:', error);

@@ -15,8 +15,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
-import { itemsStore, itemsActions } from '../stores/items';
-import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { Space } from '../types';
 import { syncService } from '../services/syncService';
 
@@ -105,7 +103,7 @@ const EditSpaceSheet = observer(
 
     const handleDelete = () => {
       if (!currentSpace) return;
-      
+
       Alert.alert(
         'Delete Space',
         `Are you sure you want to delete "${currentSpace.name}"? This space will be removed from all items that use it.`,
@@ -116,19 +114,10 @@ const EditSpaceSheet = observer(
             style: 'destructive',
             onPress: async () => {
               try {
-                // Remove all item-space relationships for this space locally
-                const itemIds = itemSpacesComputed.getItemIdsInSpace(currentSpace.id);
-                for (const itemId of itemIds) {
-                  await itemSpacesActions.removeItemFromSpace(itemId, currentSpace.id);
-                }
-                
-                // Delete from Supabase first
-                await syncService.deleteSpace(currentSpace.id);
-                
-                // Then delete locally
-                spacesActions.removeSpace(currentSpace.id);
+                // Use removeSpaceWithSync for proper tombstone-based deletion
+                await spacesActions.removeSpaceWithSync(currentSpace.id);
                 onSpaceDeleted?.(currentSpace.id);
-                
+
                 // Close sheet
                 bottomSheetRef.current?.close();
               } catch (error) {

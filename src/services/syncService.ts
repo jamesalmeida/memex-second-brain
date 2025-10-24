@@ -179,26 +179,37 @@ class SyncService {
     const spacesData = await AsyncStorage.getItem(STORAGE_KEYS.SPACES);
     const localSpaces: Space[] = spacesData ? JSON.parse(spacesData) : [];
     console.log(`📦 Found ${localSpaces.length} local spaces to sync`);
-    console.log('Local spaces:', localSpaces.map(s => ({ id: s.id, name: s.name, user_id: s.user_id })));
-    
+    console.log('Local spaces:', localSpaces.map(s => ({ id: s.id, name: s.name, user_id: s.user_id, is_deleted: s.is_deleted })));
+
+    // Get ALL remote spaces including deleted (need to know what was deleted remotely)
     const { data: remoteSpaces, error } = await supabase
       .from('spaces')
       .select('*')
       .eq('user_id', userId);
-    
+
     if (error) {
       console.error('Error fetching remote spaces:', error);
       throw error;
     }
 
-    console.log(`📦 Found ${remoteSpaces?.length || 0} remote spaces`);
+    const activeRemoteSpaces = (remoteSpaces || []).filter(space => !space.is_deleted);
+    console.log(`📦 Found ${activeRemoteSpaces.length} active remote spaces, ${(remoteSpaces?.length || 0) - activeRemoteSpaces.length} deleted remote spaces`);
 
     const localSpacesMap = new Map(localSpaces.map(space => [space.id, space]));
     const remoteSpacesMap = new Map((remoteSpaces || []).map(space => [space.id, space]));
 
-    // Upload local spaces not in remote
+    // Upload local spaces not in remote (but skip spaces marked as deleted locally)
     for (const localSpace of localSpaces) {
-      if (!remoteSpacesMap.has(localSpace.id)) {
+      const remoteSpace = remoteSpacesMap.get(localSpace.id);
+
+      // Skip if space is marked as deleted locally (tombstone)
+      if (localSpace.is_deleted) {
+        console.log(`⚠️ Skipping upload of deleted space (tombstone): ${localSpace.name} (${localSpace.id})`);
+        continue;
+      }
+
+      // Upload if not in remote at all
+      if (!remoteSpace) {
         console.log(`📤 Uploading space: ${localSpace.name} (${localSpace.id})`);
         const { error } = await supabase
           .from('spaces')
@@ -220,17 +231,48 @@ class SyncService {
       }
     }
 
-    // Download remote spaces not in local
+    // Mark spaces as deleted locally if they were deleted remotely
+    const spacesToMarkDeleted: string[] = [];
+    for (const localSpace of localSpaces) {
+      const remoteSpace = remoteSpacesMap.get(localSpace.id);
+
+      // If remote space is deleted but local space is not, mark it deleted locally
+      if (remoteSpace?.is_deleted && !localSpace.is_deleted) {
+        console.log(`🗑️ Marking space ${localSpace.name} as deleted locally (deleted remotely)`);
+        spacesToMarkDeleted.push(localSpace.id);
+      }
+    }
+
+    // Apply deletions to local storage
+    let updatedLocalSpaces = localSpaces;
+    if (spacesToMarkDeleted.length > 0) {
+      updatedLocalSpaces = localSpaces.map(space => {
+        if (spacesToMarkDeleted.includes(space.id)) {
+          const remoteSpace = remoteSpacesMap.get(space.id);
+          return {
+            ...space,
+            is_deleted: true,
+            deleted_at: remoteSpace?.deleted_at || new Date().toISOString(),
+            updated_at: remoteSpace?.deleted_at || new Date().toISOString(),
+          };
+        }
+        return space;
+      });
+      console.log(`🗑️ Marked ${spacesToMarkDeleted.length} spaces as deleted locally`);
+    }
+
+    // Download remote spaces not in local (only active spaces, not deleted)
     const newSpaces: Space[] = [];
-    for (const remoteSpace of (remoteSpaces || [])) {
+    for (const remoteSpace of activeRemoteSpaces) {
       if (!localSpacesMap.has(remoteSpace.id)) {
         newSpaces.push(remoteSpace as Space);
       }
     }
 
-    if (newSpaces.length > 0) {
-      const updatedSpaces = [...localSpaces, ...newSpaces];
-      await AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(updatedSpaces));
+    if (newSpaces.length > 0 || spacesToMarkDeleted.length > 0) {
+      const finalSpaces = [...updatedLocalSpaces, ...newSpaces];
+      await AsyncStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(finalSpaces));
+      console.log(`✅ Updated local spaces: ${newSpaces.length} new, ${spacesToMarkDeleted.length} marked deleted`);
     }
   }
 
@@ -255,33 +297,75 @@ class SyncService {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(localItems));
     }
 
-    // Get remote item IDs only (lightweight query for scalability)
-    const { data: remoteItemIds, error: idsError } = await supabase
+    // Get ALL remote items including deleted (need to know what was deleted remotely)
+    const { data: remoteItems, error: idsError } = await supabase
       .from('items')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_deleted', false);
+      .select('id, is_deleted, deleted_at')
+      .eq('user_id', userId);
 
     if (idsError) throw idsError;
 
     // DIAGNOSTIC: Log sync status
-    console.log('🔍 [DIAGNOSTIC] Found', remoteItemIds?.length || 0, 'remote items for user:', userId);
+    const activeRemoteItems = (remoteItems || []).filter(item => !item.is_deleted);
+    console.log('🔍 [DIAGNOSTIC] Found', activeRemoteItems.length, 'active remote items,', (remoteItems?.length || 0) - activeRemoteItems.length, 'deleted remote items for user:', userId);
     console.log('🔍 [DIAGNOSTIC] Found', localItems.length, 'local items (after filtering invalid UUIDs)');
 
-    // Create Set for O(1) lookup of remote IDs
-    const remoteItemsSet = new Set((remoteItemIds || []).map(item => item.id));
+    // Create maps for O(1) lookup
+    const remoteItemsMap = new Map((remoteItems || []).map(item => [item.id, item]));
     const localItemsMap = new Map(localItems.map(item => [item.id, item]));
 
-    // Upload local items not in remote
+    // Upload local items not in remote (but skip items marked as deleted locally)
     for (const localItem of localItems) {
-      if (!remoteItemsSet.has(localItem.id)) {
+      const remoteItem = remoteItemsMap.get(localItem.id);
+
+      // Skip if item is marked as deleted locally (tombstone)
+      if (localItem.is_deleted) {
+        console.log(`⚠️ Skipping upload of deleted item (tombstone): ${localItem.id}`);
+        continue;
+      }
+
+      // Upload if not in remote at all
+      if (!remoteItem) {
         await this.uploadItem(localItem, userId);
         itemsSynced++;
       }
     }
 
+    // Mark items as deleted locally if they were deleted remotely
+    const itemsToMarkDeleted: string[] = [];
+    for (const localItem of localItems) {
+      const remoteItem = remoteItemsMap.get(localItem.id);
+
+      // If remote item is deleted but local item is not, mark it deleted locally
+      if (remoteItem?.is_deleted && !localItem.is_deleted) {
+        console.log(`🗑️ Marking item ${localItem.id} as deleted locally (deleted remotely)`);
+        itemsToMarkDeleted.push(localItem.id);
+      }
+    }
+
+    // Apply deletions to local storage
+    if (itemsToMarkDeleted.length > 0) {
+      const updatedLocalItems = localItems.map(item => {
+        if (itemsToMarkDeleted.includes(item.id)) {
+          const remoteItem = remoteItemsMap.get(item.id);
+          return {
+            ...item,
+            is_deleted: true,
+            deleted_at: remoteItem?.deleted_at || new Date().toISOString(),
+            updated_at: remoteItem?.deleted_at || new Date().toISOString(),
+          };
+        }
+        return item;
+      });
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedLocalItems));
+      console.log(`🗑️ Marked ${itemsToMarkDeleted.length} items as deleted locally`);
+    }
+
     // Download remote items not in local (fetch full data only for missing items)
-    const missingItemIds = Array.from(remoteItemsSet).filter(id => !localItemsMap.has(id));
+    // Only download active items (not deleted)
+    const missingItemIds = activeRemoteItems
+      .map(item => item.id)
+      .filter(id => !localItemsMap.has(id));
 
     // DIAGNOSTIC: Log missing items
     console.log('🔍 [DIAGNOSTIC] Missing items to download:', missingItemIds.length);
@@ -290,15 +374,14 @@ class SyncService {
     }
 
     if (missingItemIds.length > 0) {
-      const { data: remoteItems, error } = await supabase
+      const { data: fullRemoteItems, error } = await supabase
         .from('items')
         .select('*')
-        .in('id', missingItemIds)
-        .eq('is_deleted', false);
+        .in('id', missingItemIds);
 
       if (error) throw error;
 
-      const newItems = (remoteItems || []).map(item => this.convertRemoteToLocal(item));
+      const newItems = (fullRemoteItems || []).map(item => this.convertRemoteToLocal(item));
       const updatedItems = [...localItems, ...newItems];
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
       itemsSynced += newItems.length;
