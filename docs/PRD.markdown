@@ -163,7 +163,8 @@
   - Unique constraint on `item_id` - one transcript per video item.  
 - **Spaces**:
   - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `description` (text, nullable), `color` (text, default '#007AFF'), `item_count` (integer, default 0), `order_index` (integer, nullable), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
-  - Note: `description` is an alternative field for `desc`; `item_count` is denormalized for performance; `order_index` enables custom space ordering.
+  - Note: `description` is an alternative field for `desc`; `item_count` is denormalized for performance.
+  - Note: `order_index` is the **single source of truth** for space ordering across all devices. When spaces are manually reordered via drag-and-drop, the new `order_index` values are synced to Supabase and propagated to other devices via real-time updates. The UI always displays spaces sorted by their `order_index` value.
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
 - **Item_Spaces** (DEPRECATED):
@@ -405,8 +406,9 @@ The app implements **instant cross-device synchronization** using Supabase real-
 
 - **Event Handling**:
   - **INSERT**: Adds new items/spaces to local store if they don't exist
-  - **UPDATE**: Updates existing items/spaces with latest data from server
+  - **UPDATE**: Updates existing items/spaces with latest data from server (Supabase is source of truth)
     - Handles `space_id` changes for item reassignment
+    - Handles `order_index` changes for space reordering (automatically re-sorts local array when order changes)
     - Updates all fields including metadata, archive state, etc.
   - **DELETE**: Marks items/spaces as deleted locally (soft-delete/tombstone)
 

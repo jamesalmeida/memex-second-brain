@@ -156,7 +156,17 @@ class RealtimeSyncService {
           console.log('🔄 [RealtimeSync] Updating space:', newSpace.name);
           const spaceIndex = updatedSpaces.findIndex(s => s.id === newSpace.id);
           if (spaceIndex >= 0) {
+            const existingSpace = updatedSpaces[spaceIndex];
+            const orderChanged = newSpace.order_index !== existingSpace.order_index;
+
+            // Always use the remote data (Supabase is the source of truth)
             updatedSpaces[spaceIndex] = newSpace as Space;
+
+            // If order changed, re-sort the array to reflect new ordering
+            if (orderChanged) {
+              console.log('🔄 [RealtimeSync] Order changed for space, re-sorting');
+              updatedSpaces.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            }
           } else {
             // Space doesn't exist locally, add it
             updatedSpaces.push(newSpace as Space);
