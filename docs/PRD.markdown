@@ -56,20 +56,34 @@
 - **Empty States**: Custom UI for no items or no search results, with offline messaging (e.g., “No cached items”).
 
 ### 2.3 Item Management
-- **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.  
-- **Item Data**: See [Data Models](#3-data-models-supabase-schema) for details.  
-- **Actions**:  
-  - **Create**: Via FAB, Sharesheet/Intent, or Chrome extension. Auto-detect type and fetch metadata (online only).  
-  - **Update**: Edit title, desc, or metadata; refresh metadata from source (online only).  
-  - **Delete/Archive**: Soft-delete (archive flag) or permanent delete. Queue offline actions in Legend-State.  
-  - **Move**: Reassign to another space via `Item_Spaces` table; queue offline.  
-- **Metadata Extraction**:  
-  - On create/refresh: Fetch title, desc, thumbnail, and type-specific data (e.g., YouTube views, X likes).  
-  - Services: `urlMetadataService` (scraping/API), YouTube.js, X API.  
-  - Offline: Store minimal data (e.g., URL, title) with “pending” UI (e.g., loading spinner or badge); queue metadata refresh for online sync.  
-- **Media Handling**:  
-  - Display images/videos in cards (Expo AV for video playback).  
-  - Show transcripts for videos (if cached).  
+- **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.
+- **Item Data**: See [Data Models](#3-data-models-supabase-schema) for details.
+- **Space Assignment**: Each item belongs to exactly ONE space (or none). Managed via `Items.space_id` field.
+  - Users select space via modal UI (SpaceSelectorModal component)
+  - "Everything (No Space)" option available for unassigned items
+  - Space changes sync instantly across devices via real-time subscriptions
+- **Actions**:
+  - **Create**: Via FAB, Sharesheet/Intent, or Chrome extension. Auto-detect type and fetch metadata (online only).
+  - **Update**: Edit title, desc, or metadata; refresh metadata from source (online only).
+  - **Archive**: Mark item as archived (`is_archived=true`). Archived items hidden from main views but retained in database.
+    - Manual archive: User explicitly archives an item
+    - Auto-archive: Item automatically archived when parent space is archived (tracked via `auto_archived=true`)
+    - Unarchive: Restore archived item to active state. Auto-archived items can be selectively restored when parent space is unarchived.
+  - **Delete**: Soft-delete using tombstone pattern (`is_deleted=true`, `deleted_at` timestamp).
+    - Items marked as deleted are retained locally for cross-device sync reliability
+    - Prevents "resurrection bug" where offline devices re-upload deleted items
+    - UI filters out deleted items automatically
+  - **Move**: Reassign to different space by updating `Items.space_id` field. Queue offline.
+  - **Space Deletion**: When deleting a space with items, user chooses:
+    - "Move to Everything" - Sets `space_id=null` for all items in space
+    - "Delete All" - Soft-deletes the space and all items within it
+- **Metadata Extraction**:
+  - On create/refresh: Fetch title, desc, thumbnail, and type-specific data (e.g., YouTube views, X likes).
+  - Services: `urlMetadataService` (scraping/API), YouTube.js, X API.
+  - Offline: Store minimal data (e.g., URL, title) with "pending" UI (e.g., loading spinner or badge); queue metadata refresh for online sync.
+- **Media Handling**:
+  - Display images/videos in cards (Expo AV for video playback).
+  - Show transcripts for videos (if cached).
   - Download media via Expo FileSystem (store locally for offline access).
 
 ### 2.4 Capture/Save
@@ -124,9 +138,11 @@
 - **Users**:  
   - Managed by Supabase auth.  
   - Fields: `id` (UUID, PK), `email` (text).  
-- **Items**:  
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `title` (text), `url` (text, nullable), `content_type` (enum: bookmark, youtube, youtube_short, x, github, instagram, facebook, threads, tiktok, reddit, amazon, linkedin, image, pdf, video, audio, podcast, note, article, product, book, course, movie, tv_show), `content` (text, nullable), `desc` (text, nullable), `thumbnail_url` (text, nullable), `raw_text` (text, nullable), `tags` (text[], nullable), `created_at` (timestamp), `updated_at` (timestamp), `is_archived` (boolean).  
-  - Note: `tags` field is a TEXT array for categorization and search with GIN index for efficient array operations.  
+- **Items**:
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `title` (text), `url` (text, nullable), `content_type` (enum: bookmark, youtube, youtube_short, x, github, instagram, facebook, threads, tiktok, reddit, amazon, linkedin, image, pdf, video, audio, podcast, note, article, product, book, course, movie, tv_show), `content` (text, nullable), `desc` (text, nullable), `thumbnail_url` (text, nullable), `raw_text` (text, nullable), `tags` (text[], nullable), `space_id` (UUID, nullable, FK to Spaces), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `auto_archived` (boolean, default false), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
+  - Note: `tags` field is a TEXT array for categorization and search with GIN index for efficient array operations.
+  - Note: `space_id` replaces the many-to-many `Item_Spaces` relationship - each item now belongs to exactly ONE space (or none if null).
+  - Note: `auto_archived` tracks if an item was automatically archived when its parent space was archived, enabling selective restoration.  
 - **Item_Metadata**:  
   - Fields: `item_id` (UUID, PK/FK to Items), `domain` (text, nullable), `author` (text, nullable), `username` (text, nullable), `profile_image` (text, nullable), `published_date` (date, nullable).  
   - Purpose: Stores universal metadata applicable to most content types.  
@@ -145,12 +161,15 @@
   - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `transcript` (text), `platform` (text: youtube, x, tiktok, instagram, reddit, etc.), `language` (text, default 'en'), `duration` (integer, seconds), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
   - Purpose: Stores transcripts for videos from various platforms.  
   - Unique constraint on `item_id` - one transcript per video item.  
-- **Spaces**:  
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `description` (text, nullable), `color` (text, default '#007AFF'), `item_count` (integer, default 0), `order_index` (integer, nullable), `created_at` (timestamp), `updated_at` (timestamp).  
-  - Note: `description` is an alternative field for `desc`; `item_count` is denormalized for performance; `order_index` enables custom space ordering.  
-- **Item_Spaces**:  
-  - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).  
-  - Purpose: Enables items to belong to multiple spaces (future-proof).  
+- **Spaces**:
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `description` (text, nullable), `color` (text, default '#007AFF'), `item_count` (integer, default 0), `order_index` (integer, nullable), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
+  - Note: `description` is an alternative field for `desc`; `item_count` is denormalized for performance; `order_index` enables custom space ordering.
+  - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
+  - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
+- **Item_Spaces** (DEPRECATED):
+  - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).
+  - **Status**: Deprecated in favor of `Items.space_id`. This table is no longer used for new data but remains for historical records.
+  - Migration: Existing data was migrated to `Items.space_id` (keeping first space per item), completed in migration `20251024_add_archive_and_simplify_spaces.sql`.  
 - **Item_Chats**:  
   - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `user_id` (UUID, FK to Users), `title` (text, nullable), `created_at` (timestamp), `updated_at` (timestamp).  
   - Purpose: Dedicated table for item-based chat sessions. `title` allows naming conversations; `updated_at` is auto-updated via trigger when messages are added.  
@@ -166,14 +185,18 @@
     - Create item: `{ "title": "...", "url": "...", "content_type": "bookmark" }`  
     - Update item: `{ "item_id": "...", "title": "...", "desc": "..." }`  
   - Purpose: Tracks offline actions for reliable sync with Supabase.  
-- **Performance Indexes**:  
-  - Items: `idx_items_user_id`, `idx_items_content_type`, `idx_items_created_at`, `idx_items_is_archived`, `idx_items_tags` (GIN on tags array).  
-  - Spaces: `idx_spaces_user_id`, `idx_spaces_user_order` (user_id, order_index).  
-  - Item_Spaces: `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.  
-  - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).  
-  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.  
-  - Image_Descriptions: `idx_image_descriptions_item_id`, `idx_image_descriptions_created_at`.  
+- **Performance Indexes**:
+  - Items: `idx_items_user_id`, `idx_items_content_type`, `idx_items_created_at`, `idx_items_is_archived`, `idx_items_is_deleted`, `idx_items_space_id`, `idx_items_tags` (GIN on tags array).
+  - Spaces: `idx_spaces_user_id`, `idx_spaces_user_order` (user_id, order_index), `idx_spaces_is_deleted`, `idx_spaces_is_archived`.
+  - Item_Spaces (deprecated): `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.
+  - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).
+  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.
+  - Image_Descriptions: `idx_image_descriptions_item_id`, `idx_image_descriptions_created_at`.
   - Offline_Queue: `idx_offline_queue_user_id`, `idx_offline_queue_status`.
+- **Database Migrations**:
+  - `20251024_add_soft_delete_to_spaces.sql` - Adds soft-delete fields to spaces table
+  - `20251024_add_archive_and_simplify_spaces.sql` - Adds archive fields to items/spaces, migrates to one-space-per-item, adds `Items.space_id`
+  - `20251024_enable_realtime.sql` - Enables Supabase real-time replication for items and spaces tables
 
 ## 4. UI/UX Requirements
 - **Navigation**:  
@@ -185,10 +208,18 @@
 - **Layouts**:  
   - Mobile: Filter Button; Bottom tab bar; FAB for capture; bottom sheet for item details, new item captures, item chats, settings; ContextMenu for Filter; Drawer for organizing Spaces and opening settings.   
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
-- **Components**:  
-  - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).  
-  - **Bottom Sheets**: Edxpanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.   
-  - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.  
+- **Components**:
+  - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
+  - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+  - **SpaceSelectorModal**: Modal-based UI for selecting item's space. Features:
+    - Single-select with radio buttons (one space per item)
+    - "Everything (No Space)" option at top
+    - Scrollable list of active spaces
+    - Auto-closes on selection
+    - Matches TagsManagerModal styling pattern
+    - Dark mode support
+  - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.
+  - **ItemView Components**: All item detail views (DefaultItemView, YouTubeItemView, XItemView, NoteItemView, RedditItemView) are reactive to store updates and automatically refresh when item data changes on other devices.  
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
     - Save directly (no space).  
@@ -321,29 +352,36 @@ All external API calls are made directly from the client (`src/services/` and `s
   - Subsequent detection/enrichment steps naturally skip because the item is no longer a `bookmark`
 
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
-The app uses an **offline-first architecture** with automatic sync:
+The app uses an **offline-first architecture** with automatic sync and real-time updates:
 
 - **Local Storage**: Legend-State stores backed by AsyncStorage
-  - Items, Spaces, ItemSpaces, ItemMetadata, ItemTypeMetadata, VideoTranscripts
+  - Items, Spaces, ItemSpaces (deprecated), ItemMetadata, ItemTypeMetadata, VideoTranscripts
   - All data cached locally for offline access
+  - Tombstones (soft-deleted items/spaces) retained for cross-device sync reliability
 
 - **Sync Operations** (`syncService.ts`):
   - `syncService.syncToCloud()` - Full bidirectional sync (spaces → items → metadata → transcripts)
   - `syncService.uploadItem(item, userId)` - Upload single item
   - `syncService.updateItem(itemId, updates)` - Update item online/offline
-  - `syncService.deleteItem(itemId)` - Delete item online/offline
+  - `syncService.deleteItem(itemId)` - Soft-delete item (tombstone)
   - `syncService.uploadSpace(space, userId)` - Upload space
   - `syncService.updateSpace(space)` - Update space
-  - `syncService.deleteSpace(spaceId)` - Delete space
-  - `syncService.addItemToSpace(itemId, spaceId)` - Create relationship
-  - `syncService.removeItemFromSpace(itemId, spaceId)` - Remove relationship
+  - `syncService.deleteSpace(spaceId)` - Soft-delete space (tombstone)
   - `syncService.uploadVideoTranscript(transcript)` - Upload transcript
   - `syncService.deleteVideoTranscript(itemId)` - Delete transcript
+  - **Update Detection**: Compares `updated_at` timestamps and `space_id` changes to download modified items (not just new ones)
+
+- **Tombstone-Based Deletion Sync**:
+  - Items and spaces marked as deleted (`is_deleted=true`, `deleted_at` timestamp) instead of being removed
+  - Prevents "resurrection bug" where offline devices re-upload deleted content
+  - Sync detects remote deletions and marks local items/spaces as deleted
+  - UI automatically filters out deleted items/spaces
+  - Tombstones retained indefinitely for sync reliability (optional cleanup can be added later)
 
 - **Offline Queue** (`src/stores/offlineQueue.ts`):
   - Queues all write operations when offline
   - Automatically processes queue on reconnect
-  - Supports: create_item, update_item, delete_item, add_item_to_space, remove_item_from_space, save_video_transcript, delete_video_transcript
+  - Supports: create_item, update_item, delete_item, save_video_transcript, delete_video_transcript
 
 - **Network Detection**:
   - Periodic connection checks (every 30 seconds)
@@ -353,7 +391,56 @@ The app uses an **offline-first architecture** with automatic sync:
 - **Conflict Resolution**:
   - Newest-wins strategy based on `updated_at` timestamps
   - Bi-directional sync with merge logic
-  - Orphaned data cleanup utilities
+  - Tombstone pattern prevents data resurrection
+  - Real-time updates provide instant conflict detection
+
+### 5.6 Real-time Cross-Device Sync (`src/services/realtimeSync.ts`)
+The app implements **instant cross-device synchronization** using Supabase real-time subscriptions:
+
+- **WebSocket Subscriptions** (`realtimeSync.ts`):
+  - Subscribes to PostgreSQL changes on `items` and `spaces` tables
+  - Listens for INSERT, UPDATE, and DELETE events filtered by user ID
+  - Automatically starts on user sign-in, stops on sign-out
+  - Provides instant updates (typically 1-2 seconds) when changes occur on other devices
+
+- **Event Handling**:
+  - **INSERT**: Adds new items/spaces to local store if they don't exist
+  - **UPDATE**: Updates existing items/spaces with latest data from server
+    - Handles `space_id` changes for item reassignment
+    - Updates all fields including metadata, archive state, etc.
+  - **DELETE**: Marks items/spaces as deleted locally (soft-delete/tombstone)
+
+- **Local Store Updates**:
+  - Updates AsyncStorage with new data
+  - Updates Legend-State stores (items, spaces)
+  - Triggers reactive UI updates via store observers
+  - Maintains filtered views (excludes deleted/archived items)
+
+- **Integration with useAuth Hook** (`src/hooks/useAuth.ts`):
+  - Real-time sync starts automatically on SIGNED_IN and INITIAL_SESSION events
+  - Stops on SIGNED_OUT to clean up subscriptions
+  - Runs alongside manual sync for redundancy
+
+- **Reliability & Fallback**:
+  - Real-time provides **fast path** for instant updates (99% of cases)
+  - Manual sync provides **safety net** for missed events:
+    - Offline scenarios (device was offline when change occurred)
+    - Network hiccups or WebSocket interruptions
+    - App backgrounded (mobile OS may suspend connections)
+    - Supabase service interruptions
+  - Tombstone pattern ensures correct state even if events are missed
+  - Combination of real-time + manual sync provides both speed and reliability
+
+- **Database Configuration**:
+  - Requires real-time replication enabled for `items` and `spaces` tables
+  - Configured via migration `20251024_enable_realtime.sql`
+  - Uses Supabase's built-in publication `supabase_realtime`
+
+- **Performance**:
+  - WebSocket connection is persistent and lightweight
+  - Events are filtered server-side by user ID (no unnecessary data transfer)
+  - Updates batched and debounced to prevent UI thrashing
+  - Minimal battery impact (single WebSocket vs periodic polling)
 
 ## 6. Non-Functional Requirements
 - **Security**:  
