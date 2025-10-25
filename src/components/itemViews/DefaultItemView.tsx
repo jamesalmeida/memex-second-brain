@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
@@ -1151,7 +1152,11 @@ const DefaultItemView = observer(({
               <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
                 {itemToDisplay.url}
               </Text>
-              <Text style={styles.urlActionIcon}>🔗</Text>
+              <MaterialIcons
+                name="open-in-new"
+                size={20}
+                color={isDarkMode ? '#5AC8FA' : '#007AFF'}
+              />
             </TouchableOpacity>
           </View>
         )}

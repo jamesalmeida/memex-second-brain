@@ -6,6 +6,7 @@ import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
+import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
@@ -511,7 +512,11 @@ const MovieTVItemView = observer(({
             >
               {itemToDisplay.url}
             </Text>
-            <Text style={styles.urlActionIcon}>🔗</Text>
+            <MaterialIcons
+              name="open-in-new"
+              size={20}
+              color={isDarkMode ? '#5AC8FA' : '#007AFF'}
+            />
           </TouchableOpacity>
         </View>
       )}

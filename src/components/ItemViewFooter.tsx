@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Item } from '../types';
 import { formatDate } from '../utils/itemCardHelpers';
@@ -45,16 +46,6 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
     <View style={styles.footer}>
       {/* Icon Buttons Row */}
       <View style={styles.actionsRow}>
-        {item.url && (
-          <TouchableOpacity
-            style={[styles.iconButton, isDarkMode && styles.iconButtonDark]}
-            onPress={handleCopyUrl}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.iconText}>📋</Text>
-          </TouchableOpacity>
-        )}
-
         {item.url && onRefresh && (
           <TouchableOpacity
             style={[styles.iconButton, isDarkMode && styles.iconButtonDark]}
@@ -62,7 +53,29 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             disabled={isRefreshing}
             activeOpacity={0.7}
           >
-            <Text style={styles.iconText}>{isRefreshing ? '⏳' : '🔄'}</Text>
+            {isRefreshing ? (
+              <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
+            ) : (
+              <MaterialIcons
+                name="refresh"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
+            )}
+          </TouchableOpacity>
+        )}
+
+        {item.url && (
+          <TouchableOpacity
+            style={[styles.iconButton, isDarkMode && styles.iconButtonDark]}
+            onPress={handleCopyUrl}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="content-copy"
+              size={24}
+              color={isDarkMode ? '#FFFFFF' : '#000000'}
+            />
           </TouchableOpacity>
         )}
 
@@ -72,7 +85,11 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={onShare}
             activeOpacity={0.7}
           >
-            <Text style={styles.iconText}>📤</Text>
+            <MaterialIcons
+              name="share"
+              size={24}
+              color={isDarkMode ? '#FFFFFF' : '#000000'}
+            />
           </TouchableOpacity>
         )}
 
@@ -82,7 +99,11 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={onArchive}
             activeOpacity={0.7}
           >
-            <Text style={styles.iconText}>📦</Text>
+            <MaterialIcons
+              name="archive"
+              size={24}
+              color={isDarkMode ? '#FFFFFF' : '#000000'}
+            />
           </TouchableOpacity>
         )}
 
@@ -92,7 +113,11 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={onDelete}
             activeOpacity={0.7}
           >
-            <Text style={styles.iconText}>🗑️</Text>
+            <MaterialIcons
+              name="delete-forever"
+              size={24}
+              color="#FF3B30"
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -144,9 +169,6 @@ const styles = StyleSheet.create({
   deleteButtonDark: {
     backgroundColor: '#3A2020',
     borderColor: '#5A3030',
-  },
-  iconText: {
-    fontSize: 24,
   },
   timestampContainer: {
     alignItems: 'center',
