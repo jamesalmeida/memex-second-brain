@@ -24,7 +24,6 @@ import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { itemsStore, itemsActions } from '../../stores/items';
-import { itemSpacesComputed, itemSpacesActions } from '../../stores/itemSpaces';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { aiSettingsComputed } from '../../stores/aiSettings';
 import { Item, ContentType } from '../../types';
@@ -33,6 +32,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
+import SpaceSelectorModal from '../SpaceSelectorModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -79,10 +79,8 @@ const RedditItemView = observer(({
   currentSpaceId,
 }: RedditItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
-  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
-  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
-  const allSpaces = spacesStore.spaces.get();
-  const spaces = allSpaces;
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
 
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -114,9 +112,8 @@ const RedditItemView = observer(({
       // Store the item for display
       setDisplayItem(item);
       setSelectedType(item.content_type);
-      // Initialize selected spaces from item_spaces relationships
-      const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
-      setSelectedSpaceIds(spaceIds);
+      // Initialize selected space from item.space_id
+      setSelectedSpaceId(item.space_id || null);
 
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
@@ -755,18 +752,16 @@ const RedditItemView = observer(({
           </Text>
           <TouchableOpacity
             style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
-            onPress={() => {
-              setShowSpaceSelector(!showSpaceSelector);
-              setShowTypeSelector(false);
-            }}
+            onPress={() => setShowSpaceModal(true)}
             activeOpacity={0.7}
           >
-            {selectedSpaceIds.length > 0 ? (
+            {selectedSpaceId ? (
               <View style={styles.selectedSpaces}>
-                {selectedSpaceIds.slice(0, 3).map(spaceId => {
-                  const space = spaces.find(s => s.id === spaceId);
+                {(() => {
+                  const allSpaces = spacesStore.spaces.get();
+                  const space = allSpaces.find(s => s.id === selectedSpaceId);
                   return space ? (
-                    <View key={spaceId} style={styles.selectedSpaceTag}>
+                    <View key={selectedSpaceId} style={styles.selectedSpaceTag}>
                       <View
                         style={[
                           styles.spaceTagDot,
@@ -778,111 +773,14 @@ const RedditItemView = observer(({
                       </Text>
                     </View>
                   ) : null;
-                })}
-                {selectedSpaceIds.length > 3 && (
-                  <Text style={[styles.moreSpaces, isDarkMode && styles.moreSpacesDark]}>
-                    +{selectedSpaceIds.length - 3} more
-                  </Text>
-                )}
+                })()}
               </View>
             ) : (
               <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>
-                No spaces assigned
+                📂 Everything (No Space)
               </Text>
             )}
-            <Text style={styles.chevron}>{showSpaceSelector ? '▲' : '▼'}</Text>
           </TouchableOpacity>
-
-          {showSpaceSelector && (
-            <View style={[styles.spaceOptions, isDarkMode && styles.spaceOptionsDark]}>
-              {spaces.map((space) => (
-                <TouchableOpacity
-                  key={space.id}
-                  style={styles.spaceOption}
-                  onPress={async () => {
-                    const newSelectedIds = selectedSpaceIds.includes(space.id)
-                      ? selectedSpaceIds.filter(id => id !== space.id)
-                      : [...selectedSpaceIds, space.id];
-                    setSelectedSpaceIds(newSelectedIds);
-
-                    if (itemToDisplay) {
-                      const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
-
-                      for (const spaceId of newSelectedIds) {
-                        if (!currentSpaceIds.includes(spaceId)) {
-                          await itemSpacesActions.addItemToSpace(itemToDisplay.id, spaceId);
-                          const space = spaces.find(s => s.id === spaceId);
-                          if (space) {
-                            spacesActions.updateSpace(spaceId, {
-                              item_count: (space.item_count || 0) + 1
-                            });
-                          }
-                        }
-                      }
-
-                      for (const spaceId of currentSpaceIds) {
-                        if (!newSelectedIds.includes(spaceId)) {
-                          await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
-                          const space = spaces.find(s => s.id === spaceId);
-                          if (space) {
-                            spacesActions.updateSpace(spaceId, {
-                              item_count: Math.max(0, (space.item_count || 0) - 1)
-                            });
-                          }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <View style={styles.spaceOptionContent}>
-                    <View style={[
-                      styles.checkbox,
-                      selectedSpaceIds.includes(space.id) && styles.checkboxSelected,
-                      selectedSpaceIds.includes(space.id) && { backgroundColor: space.color }
-                    ]}>
-                      {selectedSpaceIds.includes(space.id) && (
-                        <Text style={styles.checkmark}>✓</Text>
-                      )}
-                    </View>
-                    <View
-                      style={[
-                        styles.spaceColorDot,
-                        { backgroundColor: space.color }
-                      ]}
-                    />
-                    <Text style={[styles.spaceOptionText, isDarkMode && styles.spaceOptionTextDark]}>
-                      {space.name}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {selectedSpaceIds.length > 0 && (
-                <TouchableOpacity
-                  style={[styles.clearButton]}
-                  onPress={async () => {
-                    if (itemToDisplay) {
-                      const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
-
-                      for (const spaceId of currentSpaceIds) {
-                        await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
-                        const space = spaces.find(s => s.id === spaceId);
-                        if (space) {
-                          spacesActions.updateSpace(spaceId, {
-                            item_count: Math.max(0, (space.item_count || 0) - 1)
-                          });
-                        }
-                      }
-                    }
-                    setSelectedSpaceIds([]);
-                  }}
-                >
-                  <Text style={[styles.clearButtonText, isDarkMode && styles.clearButtonTextDark]}>
-                    Clear All
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
         </View>
 
         {/* URL Display */}
@@ -1113,6 +1011,15 @@ const RedditItemView = observer(({
       <ImageUploadModal
         ref={imageUploadModalRef}
         onImageSelected={handleHeroImageSelected}
+      />
+
+      {/* Space Selector Modal */}
+      <SpaceSelectorModal
+        visible={showSpaceModal}
+        itemId={itemToDisplay?.id || ''}
+        currentSpaceId={selectedSpaceId}
+        onClose={() => setShowSpaceModal(false)}
+        onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
       />
     </View>
   );
@@ -1446,68 +1353,6 @@ const styles = StyleSheet.create({
   },
   chevronDark: {
     color: '#999',
-  },
-  spaceOptions: {
-    marginTop: 8,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  spaceOptionsDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  spaceOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  spaceOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxSelected: {
-    borderColor: 'transparent',
-  },
-  checkmark: {
-    fontSize: 12,
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  clearButton: {
-    padding: 12,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    marginTop: 8,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  clearButtonTextDark: {
-    color: '#FF6B6B',
-  },
-  spaceOptionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  spaceOptionTextDark: {
-    color: '#FFF',
   },
   typeSection: {
     marginBottom: 20,

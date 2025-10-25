@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemsStore, itemsActions } from '../../stores/items';
-import { itemSpacesComputed, itemSpacesActions } from '../../stores/itemSpaces';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
@@ -12,6 +11,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import * as Clipboard from 'expo-clipboard';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
+import SpaceSelectorModal from '../SpaceSelectorModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -31,17 +31,14 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
   const isDarkMode = themeStore.isDarkMode.get();
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [tags, setTags] = useState<string[]>([]);
-  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
-  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
-  const allSpaces = spacesStore.spaces.get();
-  const spaces = allSpaces;
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
 
   useEffect(() => {
     if (item) {
       setDisplayItem(item);
-      const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
-      setSelectedSpaceIds(spaceIds);
+      setSelectedSpaceId(item.space_id || null);
       setTags(item.tags || []);
     }
   }, [item]);
@@ -199,99 +196,42 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
           />
         </View>
 
-        {/* Spaces */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>SPACES</Text>
+        {/* Space Selector */}
+        <View style={styles.spaceSection}>
+          <Text style={[styles.spaceSectionLabel, isDarkMode && styles.spaceSectionLabelDark]}>
+            SPACES
+          </Text>
           <TouchableOpacity
-            style={[styles.selector, isDarkMode && styles.selectorDark]}
-            onPress={() => setShowSpaceSelector(!showSpaceSelector)}
+            style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
+            onPress={() => setShowSpaceModal(true)}
             activeOpacity={0.7}
           >
-            {selectedSpaceIds.length > 0 ? (
+            {selectedSpaceId ? (
               <View style={styles.selectedSpaces}>
-                {selectedSpaceIds.slice(0, 3).map(spaceId => {
-                  const space = spaces.find(s => s.id === spaceId);
+                {(() => {
+                  const allSpaces = spacesStore.spaces.get();
+                  const space = allSpaces.find(s => s.id === selectedSpaceId);
                   return space ? (
-                    <View key={spaceId} style={styles.selectedSpaceTag}>
-                      <View style={[styles.spaceDot, { backgroundColor: space.color }]} />
-                      <Text style={[styles.spaceText, isDarkMode && styles.spaceTextDark]}>
+                    <View key={selectedSpaceId} style={styles.selectedSpaceTag}>
+                      <View
+                        style={[
+                          styles.spaceTagDot,
+                          { backgroundColor: space.color }
+                        ]}
+                      />
+                      <Text style={[styles.spaceTagText, isDarkMode && styles.spaceTagTextDark]}>
                         {space.name}
                       </Text>
                     </View>
                   ) : null;
-                })}
-                {selectedSpaceIds.length > 3 && (
-                  <Text style={[styles.moreSpaces, isDarkMode && styles.moreSpacesDark]}>+{selectedSpaceIds.length - 3} more</Text>
-                )}
+                })()}
               </View>
             ) : (
-              <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>No spaces assigned</Text>
+              <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>
+                📂 Everything (No Space)
+              </Text>
             )}
-            <Text style={styles.chevron}>{showSpaceSelector ? '▲' : '▼'}</Text>
           </TouchableOpacity>
-
-          {showSpaceSelector && (
-            <View style={[styles.spaceOptions, isDarkMode && styles.spaceOptionsDark]}>
-              {spaces.map((space) => (
-                <TouchableOpacity
-                  key={space.id}
-                  style={styles.spaceOption}
-                  onPress={async () => {
-                    const newSelectedIds = selectedSpaceIds.includes(space.id)
-                      ? selectedSpaceIds.filter(id => id !== space.id)
-                      : [...selectedSpaceIds, space.id];
-                    setSelectedSpaceIds(newSelectedIds);
-
-                    const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
-
-                    for (const spaceId of newSelectedIds) {
-                      if (!currentSpaceIds.includes(spaceId)) {
-                        await itemSpacesActions.addItemToSpace(itemToDisplay.id, spaceId);
-                        const s = spaces.find(sp => sp.id === spaceId);
-                        if (s) spacesActions.updateSpace(spaceId, { item_count: (s.item_count || 0) + 1 });
-                      }
-                    }
-
-                    for (const spaceId of currentSpaceIds) {
-                      if (!newSelectedIds.includes(spaceId)) {
-                        await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
-                        const s = spaces.find(sp => sp.id === spaceId);
-                        if (s) spacesActions.updateSpace(spaceId, { item_count: Math.max(0, (s.item_count || 0) - 1) });
-                      }
-                    }
-                  }}
-                >
-                  <View style={styles.spaceOptionContent}>
-                    <View style={[styles.checkbox, selectedSpaceIds.includes(space.id) && styles.checkboxSelected, selectedSpaceIds.includes(space.id) && { backgroundColor: space.color }]}>
-                      {selectedSpaceIds.includes(space.id) && (
-                        <Text style={styles.checkmark}>✓</Text>
-                      )}
-                    </View>
-                    <View style={[styles.spaceDot, { backgroundColor: space.color }]} />
-                    <Text style={[styles.spaceOptionText, isDarkMode && styles.spaceOptionTextDark]}>
-                      {space.name}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {selectedSpaceIds.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearButton}
-                  onPress={async () => {
-                    const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
-                    for (const spaceId of currentSpaceIds) {
-                      await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
-                      const s = spaces.find(sp => sp.id === spaceId);
-                      if (s) spacesActions.updateSpace(spaceId, { item_count: Math.max(0, (s.item_count || 0) - 1) });
-                    }
-                    setSelectedSpaceIds([]);
-                  }}
-                >
-                  <Text style={[styles.clearButtonText, isDarkMode && styles.clearButtonTextDark]}>Clear All</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
         </View>
 
         {/* Actions */}
@@ -327,6 +267,15 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
       <ImageUploadModal
         ref={imageUploadModalRef}
         onImageSelected={handleImageSelected}
+      />
+
+      {/* Space Selector Modal */}
+      <SpaceSelectorModal
+        visible={showSpaceModal}
+        itemId={itemToDisplay?.id || ''}
+        currentSpaceId={selectedSpaceId}
+        onClose={() => setShowSpaceModal(false)}
+        onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
       />
     </View>
   );
@@ -458,7 +407,20 @@ const styles = StyleSheet.create({
   sectionLabelDark: {
     color: '#999',
   },
-  selector: {
+  spaceSection: {
+    marginBottom: 20,
+  },
+  spaceSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  spaceSectionLabelDark: {
+    color: '#999',
+  },
+  spaceSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -468,7 +430,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  selectorDark: {
+  spaceSelectorDark: {
     backgroundColor: '#2C2C2E',
     borderColor: '#3C3C3E',
   },
@@ -487,26 +449,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  spaceDot: {
+  spaceTagDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
     marginRight: 6,
   },
-  spaceText: {
+  spaceTagText: {
     fontSize: 12,
     color: '#333',
   },
-  spaceTextDark: {
+  spaceTagTextDark: {
     color: '#FFF',
-  },
-  moreSpaces: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  moreSpacesDark: {
-    color: '#999',
   },
   noSpace: {
     fontSize: 14,
@@ -515,65 +469,6 @@ const styles = StyleSheet.create({
   },
   noSpaceDark: {
     color: '#666',
-  },
-  chevron: {
-    fontSize: 12,
-    color: '#666',
-  },
-  spaceOptions: {
-    marginTop: 8,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  spaceOptionsDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  spaceOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  spaceOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxSelected: {
-    borderColor: 'transparent',
-  },
-  checkmark: {
-    fontSize: 12,
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  clearButton: {
-    padding: 12,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    marginTop: 8,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  clearButtonTextDark: {
-    color: '#FF6B6B',
   },
   actions: {
     marginTop: 20,
