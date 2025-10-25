@@ -23,6 +23,7 @@ export const syncOperations = {
       thumbnail_url: item.thumbnail_url || null,
       content_type: contentType,
       is_archived: item.is_archived || false,
+      space_id: item.space_id || null,
       raw_text: item.raw_text || null,
       tags: item.tags || null,
     });
@@ -116,29 +117,52 @@ export const syncOperations = {
         description: space.description || space.desc || null,
         color: space.color,
         item_count: space.item_count || 0,
+        is_archived: space.is_archived || false,
+        archived_at: space.archived_at || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', space.id);
-    
+
     if (error) throw error;
     console.log('✅ Space updated in Supabase:', space.name);
   },
 
+  async softDeleteSpace(spaceId: string) {
+    console.log(`🗑️ [syncOperations] Soft-deleting space ${spaceId} in Supabase`);
+    const nowIso = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('spaces')
+      .update({
+        is_deleted: true,
+        deleted_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq('id', spaceId);
+
+    if (error) {
+      console.error(`🗑️ [syncOperations] Error soft-deleting space ${spaceId}:`, error);
+      throw error;
+    }
+    console.log(`✅ [syncOperations] Space soft-deleted in Supabase: ${spaceId}`);
+  },
+
   async deleteSpace(spaceId: string) {
+    // Hard delete (legacy) - kept for backwards compatibility but should use softDeleteSpace instead
     const { error: itemSpacesError } = await supabase
       .from('item_spaces')
       .delete()
       .eq('space_id', spaceId);
-    
+
     if (itemSpacesError) {
       console.error('Error deleting item_spaces relationships:', itemSpacesError);
     }
-    
+
     const { error } = await supabase
       .from('spaces')
       .delete()
       .eq('id', spaceId);
-    
+
     if (error) throw error;
     console.log('✅ Space deleted from Supabase:', spaceId);
   },

@@ -276,28 +276,165 @@ export const itemsActions = {
 
     const nowIso = new Date().toISOString();
 
-    // Mark item as deleted locally (retain relations/metadata for restore later)
+    // Mark item as deleted locally (keep as tombstone for sync)
     const currentItems = itemsStore.items.get();
     const updatedItems = currentItems.map(item =>
       item.id === id ? { ...item, is_deleted: true, deleted_at: nowIso, updated_at: nowIso } : item
     );
 
-    // Remove from visible lists immediately
-    const visibleItems = updatedItems.filter(item => !(item.id === id));
+    // Keep ALL items including deleted (tombstones) but filter for UI
+    const visibleItems = updatedItems.filter(item => !item.is_deleted);
 
-    itemsStore.items.set(visibleItems);
-    itemsStore.filteredItems.set(visibleItems);
-    console.log(`🗑️ [itemsActions] Soft-deleted item ${id} locally. ${visibleItems.length} items remain.`);
+    itemsStore.items.set(updatedItems); // Store ALL items including tombstones
+    itemsStore.filteredItems.set(visibleItems); // Filter for UI only
+    console.log(`🗑️ [itemsActions] Soft-deleted item ${id} locally. ${visibleItems.length} visible items, ${updatedItems.length} total (including tombstones).`);
 
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(visibleItems));
-      console.log(`🗑️ [itemsActions] Updated AsyncStorage after soft delete for item ${id}`);
+      // Save ALL items including tombstones to AsyncStorage
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      console.log(`🗑️ [itemsActions] Updated AsyncStorage with tombstone for item ${id}`);
 
       // Sync soft delete to Supabase
       await syncOperations.deleteItem(id);
       console.log(`🗑️ [itemsActions] Completed soft delete sync for item ${id}`);
     } catch (error) {
       console.error(`🗑️ [itemsActions] Error soft-deleting item ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Archive item with Supabase sync
+  archiveItemWithSync: async (id: string, autoArchived: boolean = false) => {
+    console.log(`📦 [itemsActions] Archiving item ${id} (auto: ${autoArchived})`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.id === id ? {
+        ...item,
+        is_archived: true,
+        archived_at: nowIso,
+        auto_archived: autoArchived,
+        updated_at: nowIso
+      } : item
+    );
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+
+      const { syncService } = await import('../services/syncService');
+      await syncService.updateItem(id, { is_archived: true, archived_at: nowIso, auto_archived: autoArchived });
+      console.log(`✅ [itemsActions] Archived item ${id}`);
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error archiving item ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Unarchive item with Supabase sync
+  unarchiveItemWithSync: async (id: string) => {
+    console.log(`📂 [itemsActions] Unarchiving item ${id}`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.id === id ? {
+        ...item,
+        is_archived: false,
+        archived_at: null,
+        auto_archived: false,
+        updated_at: nowIso
+      } : item
+    );
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+
+      const { syncService } = await import('../services/syncService');
+      await syncService.updateItem(id, { is_archived: false, archived_at: null, auto_archived: false });
+      console.log(`✅ [itemsActions] Unarchived item ${id}`);
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error unarchiving item ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Bulk archive items in a space (used when archiving a space)
+  bulkArchiveItemsInSpace: async (spaceId: string) => {
+    console.log(`📦 [itemsActions] Bulk archiving items in space ${spaceId}`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const itemsToArchive = currentItems.filter(item => item.space_id === spaceId && !item.is_archived);
+
+    const updatedItems = currentItems.map(item =>
+      item.space_id === spaceId && !item.is_archived ? {
+        ...item,
+        is_archived: true,
+        archived_at: nowIso,
+        auto_archived: true, // Mark as auto-archived for restoration
+        updated_at: nowIso
+      } : item
+    );
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+
+      // Sync each archived item to Supabase
+      const { syncOperations } = await import('../services/syncOperations');
+      for (const item of itemsToArchive) {
+        await syncOperations.updateItem(item.id, {
+          is_archived: true,
+          archived_at: nowIso,
+          auto_archived: true,
+          updated_at: nowIso
+        });
+      }
+
+      console.log(`✅ [itemsActions] Bulk archived ${itemsToArchive.length} items in space ${spaceId}`);
+      return itemsToArchive.length;
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error bulk archiving items:`, error);
+      throw error;
+    }
+  },
+
+  // Bulk unarchive auto-archived items in a space (used when unarchiving a space)
+  bulkUnarchiveAutoArchivedItemsInSpace: async (spaceId: string) => {
+    console.log(`📂 [itemsActions] Bulk unarchiving auto-archived items in space ${spaceId}`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.space_id === spaceId && item.is_archived && item.auto_archived ? {
+        ...item,
+        is_archived: false,
+        archived_at: null,
+        auto_archived: false,
+        updated_at: nowIso
+      } : item
+    );
+
+    const unarchivedCount = currentItems.filter(i => i.space_id === spaceId && i.is_archived && i.auto_archived).length;
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      console.log(`✅ [itemsActions] Bulk unarchived ${unarchivedCount} auto-archived items in space ${spaceId}`);
+      return unarchivedCount;
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error bulk unarchiving items:`, error);
       throw error;
     }
   },
@@ -378,30 +515,15 @@ export const itemsActions = {
     itemsStore.filteredItems.set(itemsStore.items.get());
   },
 
-  // Clear mock items from storage
-  clearMockItems: async () => {
-    const currentItems = itemsStore.items.get();
-    const realItems = currentItems.filter(item => !item.isMockData);
-    
-    itemsStore.items.set(realItems);
-    itemsStore.filteredItems.set(realItems);
-    
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(realItems));
-      console.log('✅ Cleared mock items, kept', realItems.length, 'real items');
-    } catch (error) {
-      console.error('Error clearing mock items:', error);
-    }
-  },
-
   loadItems: async () => {
     try {
       const savedItems = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
       if (savedItems) {
         const items = JSON.parse(savedItems) as Item[];
-        itemsStore.items.set(items);
-        itemsStore.filteredItems.set(items);
-        console.log('📚 Loaded', items.length, 'items from storage');
+        const visibleItems = items.filter(item => !item.is_deleted);
+        itemsStore.items.set(items); // Load ALL items including tombstones
+        itemsStore.filteredItems.set(visibleItems); // Filter deleted for UI
+        console.log('📚 Loaded', items.length, 'items from storage (', visibleItems.length, 'visible,', items.length - visibleItems.length, 'deleted)');
       }
     } catch (error) {
       console.error('Error loading items from storage:', error);

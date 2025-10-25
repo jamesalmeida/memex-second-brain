@@ -11,7 +11,6 @@ import { authComputed } from '../stores/auth';
 import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
 import { runPipeline } from '../services/pipeline/runPipeline';
-import { itemSpacesActions } from '../stores/itemSpaces';
 import { spacesComputed } from '../stores/spaces';
 
 interface AddItemSheetProps {
@@ -105,20 +104,13 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         url,
         content_type: 'bookmark',
         is_archived: false,
+        space_id: selectedSpaceId || null,
         created_at: now,
         updated_at: now,
       };
 
       await itemsActions.addItemWithSync(newItem);
       processingItemsActions.add(id);
-
-      if (selectedSpaceId) {
-        try {
-          await itemSpacesActions.addItemToSpace(id, selectedSpaceId);
-        } catch (error) {
-          console.error('Error adding item to space:', error);
-        }
-      }
 
       // Optimistic success UI in the sheet
       setSavedUI({ visible: true, title: provisionalTitle });
