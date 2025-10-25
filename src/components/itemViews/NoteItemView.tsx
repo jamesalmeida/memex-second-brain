@@ -12,6 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
+import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -248,30 +249,23 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
           </TouchableOpacity>
         </View>
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryAction]}
-            onPress={() => onChat?.(itemToDisplay)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonTextPrimary}>💬 Chat</Text>
-          </TouchableOpacity>
+        {/* Primary Action */}
+        <TouchableOpacity
+          style={[styles.chatButton, isDarkMode && styles.chatButtonDark]}
+          onPress={() => onChat?.(itemToDisplay)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.chatButtonText}>💬 Chat</Text>
+        </TouchableOpacity>
 
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity style={styles.actionButton} onPress={() => onShare?.(itemToDisplay)} activeOpacity={0.7}>
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>📤 Share</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={() => onArchive?.(itemToDisplay)} activeOpacity={0.7}>
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>📦 Archive</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => onDelete?.(itemToDisplay)} activeOpacity={0.7}>
-              <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Footer */}
+        <ItemViewFooter
+          item={itemToDisplay}
+          onShare={() => onShare?.(itemToDisplay)}
+          onArchive={() => onArchive?.(itemToDisplay)}
+          onDelete={() => onDelete?.(itemToDisplay)}
+          isDarkMode={isDarkMode}
+        />
       </View>
 
       <ImageUploadModal
@@ -480,43 +474,19 @@ const styles = StyleSheet.create({
   noSpaceDark: {
     color: '#666',
   },
-  actions: {
+  chatButton: {
     marginTop: 20,
-  },
-  primaryAction: {
-    backgroundColor: '#007AFF',
-    marginBottom: 16,
-  },
-  actionButton: {
-    padding: 14,
+    padding: 16,
     borderRadius: 12,
+    backgroundColor: '#007AFF',
     alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+  chatButtonDark: {
+    backgroundColor: '#0A84FF',
   },
-  actionButtonTextDark: {
-    color: '#FFF',
-  },
-  actionButtonTextPrimary: {
+  chatButtonText: {
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  secondaryActions: {
-    gap: 8,
-  },
-  deleteButton: {
-    borderColor: '#FF3B30',
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
   },
 });

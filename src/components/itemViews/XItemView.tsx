@@ -42,6 +42,7 @@ import { itemMetadataComputed } from '../../stores/itemMetadata';
 import { extractUsername } from '../../utils/itemCardHelpers';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
+import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -837,11 +838,6 @@ const XItemView = observer(({
               </Text>
             </View>
           )}
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-              {formatDate((metadataForItem?.published_date as string) || itemToDisplay?.created_at || '')}
-            </Text>
-          </View>
         </View>
 
         {/* Tags Section */}
@@ -917,38 +913,20 @@ const XItemView = observer(({
             <Text style={[styles.urlSectionLabel, isDarkMode && styles.urlSectionLabelDark]}>
               URL
             </Text>
-            <View style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}>
-              <View style={styles.urlContent}>
-                <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
-                  {itemToDisplay.url}
-                </Text>
-              </View>
-              <View style={styles.urlActions}>
-                <TouchableOpacity
-                  style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                  onPress={async () => {
-                    if (itemToDisplay?.url) {
-                      await Clipboard.setStringAsync(itemToDisplay.url);
-                      Alert.alert('Copied', 'URL copied to clipboard');
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.urlActionIcon}>📋</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                  onPress={async () => {
-                    if (itemToDisplay?.url) {
-                      await Linking.openURL(itemToDisplay.url);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.urlActionIcon}>🔗</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <TouchableOpacity
+              style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
+              onPress={async () => {
+                if (itemToDisplay?.url) {
+                  await Linking.openURL(itemToDisplay.url);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
+                {itemToDisplay.url}
+              </Text>
+              <Text style={styles.urlActionIcon}>🔗</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1110,61 +1088,25 @@ const XItemView = observer(({
           </View>
         )}
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryAction]}
-            onPress={() => {
-              onChat?.(itemToDisplay!);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonTextPrimary}>💬 Chat</Text>
-          </TouchableOpacity>
+        {/* Primary Action */}
+        <TouchableOpacity
+          style={[styles.chatButton, isDarkMode && styles.chatButtonDark]}
+          onPress={() => onChat?.(itemToDisplay!)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.chatButtonText}>💬 Chat</Text>
+        </TouchableOpacity>
 
-          <View style={styles.secondaryActions}>
-            {itemToDisplay?.url && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleRefreshMetadata}
-                disabled={isRefreshingMetadata}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                  {isRefreshingMetadata ? '⏳ Refreshing...' : '🔄 Refresh'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onShare?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                📤 Share
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onArchive?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                📦 Archive
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={() => onDelete?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Footer */}
+        <ItemViewFooter
+          item={itemToDisplay!}
+          onRefresh={handleRefreshMetadata}
+          onShare={() => onShare?.(itemToDisplay!)}
+          onArchive={() => onArchive?.(itemToDisplay!)}
+          onDelete={() => onDelete?.(itemToDisplay!)}
+          isRefreshing={isRefreshingMetadata}
+          isDarkMode={isDarkMode}
+        />
       </View>
 
       <ImageUploadModal
@@ -1349,44 +1291,20 @@ const styles = StyleSheet.create({
   metaLabelDark: {
     color: '#999',
   },
-  actions: {
+  chatButton: {
     marginTop: 20,
-  },
-  primaryAction: {
-    backgroundColor: '#007AFF',
-    marginBottom: 16,
-  },
-  actionButton: {
-    padding: 14,
+    padding: 16,
     borderRadius: 12,
+    backgroundColor: '#007AFF',
     alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+  chatButtonDark: {
+    backgroundColor: '#0A84FF',
   },
-  actionButtonTextDark: {
-    color: '#FFF',
-  },
-  actionButtonTextPrimary: {
+  chatButtonText: {
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  secondaryActions: {
-    gap: 8,
-  },
-  deleteButton: {
-    borderColor: '#FF3B30',
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
   },
   spaceSection: {
     marginBottom: 20,
@@ -1494,40 +1412,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    gap: 8,
   },
   urlContainerDark: {
     backgroundColor: '#2C2C2E',
     borderColor: '#3A3A3C',
   },
-  urlContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  urlActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  urlActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  urlActionButtonDark: {
-    backgroundColor: '#3A3A3C',
-  },
-  urlActionIcon: {
-    fontSize: 18,
-  },
   urlText: {
+    flex: 1,
     fontSize: 14,
     color: '#007AFF',
     textDecorationLine: 'underline',
   },
   urlTextDark: {
     color: '#5AC8FA',
+  },
+  urlActionIcon: {
+    fontSize: 20,
   },
   typeSection: {
     marginBottom: 20,
