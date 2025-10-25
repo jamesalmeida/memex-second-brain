@@ -42,6 +42,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
+import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -92,7 +93,7 @@ const DefaultItemView = observer(({
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
 
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -759,32 +760,21 @@ const DefaultItemView = observer(({
     if (!itemToDisplay) return;
 
     setSelectedType(newType);
-    setShowTypeSelector(false);
+    setDisplayItem({ ...itemToDisplay, content_type: newType });
 
-    try {
-      // Update the content type in the database
-      await itemsActions.updateItemWithSync(itemToDisplay.id, { content_type: newType });
-
-      // Update local displayItem
-      setDisplayItem({ ...itemToDisplay, content_type: newType });
-
-      // Ask if user wants to refresh metadata with new type
-      if (itemToDisplay.url) {
-        Alert.alert(
-          'Refresh Metadata?',
-          'Would you like to re-extract metadata for this item based on the new content type?',
-          [
-            { text: 'Not Now', style: 'cancel' },
-            {
-              text: 'Refresh',
-              onPress: handleRefreshMetadata,
-            },
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error updating content type:', error);
-      Alert.alert('Error', 'Failed to update content type');
+    // Ask if user wants to refresh metadata with new type
+    if (itemToDisplay.url) {
+      Alert.alert(
+        'Refresh Metadata?',
+        'Would you like to re-extract metadata for this item based on the new content type?',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          {
+            text: 'Refresh',
+            onPress: handleRefreshMetadata,
+          },
+        ]
+      );
     }
   };
 
@@ -1197,10 +1187,7 @@ const DefaultItemView = observer(({
           </Text>
           <TouchableOpacity
             style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
-            onPress={() => {
-              setShowTypeSelector(!showTypeSelector);
-              setShowSpaceSelector(false); // Close space selector if open
-            }}
+            onPress={() => setShowTypeModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.selectedType}>
@@ -1211,31 +1198,8 @@ const DefaultItemView = observer(({
                 {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
               </Text>
             </View>
-            <Text style={styles.chevron}>{showTypeSelector ? '▲' : '▼'}</Text>
+            <Text style={styles.chevron}>▼</Text>
           </TouchableOpacity>
-
-          {/* Type Options */}
-          {showTypeSelector && (
-            <View style={[styles.typeOptions, isDarkMode && styles.typeOptionsDark]}>
-              {contentTypeOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.type}
-                  style={[
-                    styles.typeOption,
-                    selectedType === option.type && styles.typeOptionSelected
-                  ]}
-                  onPress={() => handleContentTypeChange(option.type)}
-                >
-                  <View style={styles.typeOptionContent}>
-                    <Text style={styles.typeOptionIcon}>{option.icon}</Text>
-                    <Text style={[styles.typeOptionText, isDarkMode && styles.typeOptionTextDark]}>
-                      {option.label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
 
         {/* Image Descriptions Section (for items with images) */}
@@ -1498,6 +1462,14 @@ const DefaultItemView = observer(({
         currentSpaceId={selectedSpaceId}
         onClose={() => setShowSpaceModal(false)}
         onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
+      />
+
+      <ContentTypeSelectorModal
+        visible={showTypeModal}
+        itemId={itemToDisplay?.id || ''}
+        currentType={selectedType}
+        onClose={() => setShowTypeModal(false)}
+        onTypeChange={handleContentTypeChange}
       />
     </View>
   );

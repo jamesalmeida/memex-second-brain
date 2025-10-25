@@ -231,6 +231,14 @@
     - Auto-closes on selection
     - Matches TagsManagerModal styling pattern
     - Dark mode support
+  - **ContentTypeSelectorModal**: Modal-based UI for changing item's content type. Features:
+    - Single-select with radio buttons (bookmark, note, YouTube, X, etc.)
+    - Scrollable list of all available content types with icons
+    - Auto-closes on selection and syncs to Supabase
+    - Triggers "Refresh Metadata?" alert after type change (for URL-based items)
+    - Consistent modal pattern matching SpaceSelectorModal
+    - Dark mode support
+    - Used in: DefaultItemView, YouTubeItemView, XItemView, RedditItemView
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.
   - **ItemView Components**: All item detail views (DefaultItemView, YouTubeItemView, XItemView, NoteItemView, RedditItemView) are reactive to store updates and automatically refresh when item data changes on other devices.  
 - **iOS Sharesheet** (via `expo-share-extension`):  
