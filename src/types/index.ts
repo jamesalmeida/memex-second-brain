@@ -50,8 +50,6 @@ export interface Item {
   auto_archived?: boolean; // True if archived automatically when space was archived
   is_deleted?: boolean;
   deleted_at?: string | null;
-  // Removed: video_url, image_urls
-  // These are now in item_type_metadata table
 }
 
 export interface ItemMetadata {

@@ -298,9 +298,10 @@ class SyncService {
     }
 
     // Get ALL remote items including deleted (need to know what was deleted remotely)
+    // Also get updated_at and space_id to detect changes
     const { data: remoteItems, error: idsError } = await supabase
       .from('items')
-      .select('id, is_deleted, deleted_at')
+      .select('id, is_deleted, deleted_at, updated_at, space_id')
       .eq('user_id', userId);
 
     if (idsError) throw idsError;
@@ -343,6 +344,22 @@ class SyncService {
       }
     }
 
+    // Check for items that need updating (remote version is newer)
+    const itemsToUpdate: string[] = [];
+    for (const remoteItem of activeRemoteItems) {
+      const localItem = localItemsMap.get(remoteItem.id);
+      if (localItem && !localItem.is_deleted) {
+        const remoteUpdated = new Date(remoteItem.updated_at || 0).getTime();
+        const localUpdated = new Date(localItem.updated_at || 0).getTime();
+
+        // If remote is newer, or if space_id changed, we need to update
+        if (remoteUpdated > localUpdated || remoteItem.space_id !== localItem.space_id) {
+          console.log(`🔄 Item ${remoteItem.id} needs update (remote newer or space changed)`);
+          itemsToUpdate.push(remoteItem.id);
+        }
+      }
+    }
+
     // Apply deletions to local storage
     if (itemsToMarkDeleted.length > 0) {
       const updatedLocalItems = localItems.map(item => {
@@ -369,22 +386,43 @@ class SyncService {
 
     // DIAGNOSTIC: Log missing items
     console.log('🔍 [DIAGNOSTIC] Missing items to download:', missingItemIds.length);
+    console.log('🔍 [DIAGNOSTIC] Items to update:', itemsToUpdate.length);
     if (missingItemIds.length > 0) {
       console.log('🔍 [DIAGNOSTIC] Missing item IDs:', missingItemIds);
     }
 
-    if (missingItemIds.length > 0) {
+    // Combine missing items and items that need updating
+    const itemsToFetch = [...missingItemIds, ...itemsToUpdate];
+
+    if (itemsToFetch.length > 0) {
       const { data: fullRemoteItems, error } = await supabase
         .from('items')
         .select('*')
-        .in('id', missingItemIds);
+        .in('id', itemsToFetch);
 
       if (error) throw error;
 
-      const newItems = (fullRemoteItems || []).map(item => this.convertRemoteToLocal(item));
-      const updatedItems = [...localItems, ...newItems];
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
-      itemsSynced += newItems.length;
+      // Convert remote items to local format
+      const fetchedItems = (fullRemoteItems || []).map(item => this.convertRemoteToLocal(item));
+
+      // Update existing items or add new ones
+      let updatedLocalItems = [...localItems];
+      for (const fetchedItem of fetchedItems) {
+        const existingIndex = updatedLocalItems.findIndex(item => item.id === fetchedItem.id);
+        if (existingIndex >= 0) {
+          // Update existing item
+          updatedLocalItems[existingIndex] = fetchedItem;
+          console.log(`✅ Updated item ${fetchedItem.id} with remote changes`);
+        } else {
+          // Add new item
+          updatedLocalItems.push(fetchedItem);
+          console.log(`✅ Added new item ${fetchedItem.id}`);
+          itemsSynced++;
+        }
+      }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedLocalItems));
+      console.log(`✅ Synced ${missingItemIds.length} new items and updated ${itemsToUpdate.length} existing items`);
     }
 
     return itemsSynced;

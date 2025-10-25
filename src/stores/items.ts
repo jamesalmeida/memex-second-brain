@@ -504,22 +504,6 @@ export const itemsActions = {
     itemsStore.filteredItems.set(itemsStore.items.get());
   },
 
-  // Clear mock items from storage
-  clearMockItems: async () => {
-    const currentItems = itemsStore.items.get();
-    const realItems = currentItems.filter(item => !item.isMockData);
-    
-    itemsStore.items.set(realItems);
-    itemsStore.filteredItems.set(realItems);
-    
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(realItems));
-      console.log('✅ Cleared mock items, kept', realItems.length, 'real items');
-    } catch (error) {
-      console.error('Error clearing mock items:', error);
-    }
-  },
-
   loadItems: async () => {
     try {
       const savedItems = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);

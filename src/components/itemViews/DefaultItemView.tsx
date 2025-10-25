@@ -233,11 +233,14 @@ const DefaultItemView = observer(({
   useEffect(() => {
     console.log('📄 [DefaultItemView] useEffect - item changed:', item?.title || 'null');
     if (item) {
+      // Get the latest item from store (in case it was updated)
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id) || item;
+
       // Store the item for display
-      setDisplayItem(item);
-      setSelectedType(item.content_type);
+      setDisplayItem(latestItem);
+      setSelectedType(latestItem.content_type);
       // Initialize selected space from item.space_id
-      setSelectedSpaceId(item.space_id || null);
+      setSelectedSpaceId(latestItem.space_id || null);
 
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
@@ -284,6 +287,18 @@ const DefaultItemView = observer(({
       }
     }
   }, [item]);
+
+  // Watch items store for updates to the current item
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [DefaultItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+        setDisplayItem(latestItem);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   // Watch for changes in image descriptions store to update UI state
   useEffect(() => {

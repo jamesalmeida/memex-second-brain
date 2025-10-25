@@ -11,7 +11,7 @@ import SpaceCard from '../../src/components/SpaceCard';
 import SpaceChatSheet, { SpaceChatSheetRef } from '../../src/components/SpaceChatSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import { Space } from '../../src/types';
-import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
+import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 
 interface SpacesScreenProps {

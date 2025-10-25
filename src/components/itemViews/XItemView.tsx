@@ -176,42 +176,57 @@ const XItemView = observer(({
   useEffect(() => {
     console.log('📄 [XItemView] useEffect - item changed:', item?.title || 'null');
     if (item) {
-      setDisplayItem(item);
-      setSelectedType(item.content_type);
-      setSelectedSpaceId(item.space_id || null);
+      // Get the latest item from store (in case it was updated)
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id) || item;
+
+      setDisplayItem(latestItem);
+      setSelectedType(latestItem.content_type);
+      setSelectedSpaceId(latestItem.space_id || null);
 
       setCurrentImageIndex(0);
 
-      const isDifferentItem = currentItemId.current !== item.id;
-      currentItemId.current = item.id;
+      const isDifferentItem = currentItemId.current !== latestItem.id;
+      currentItemId.current = latestItem.id;
 
       if (isDifferentItem) {
         console.log('🎬 [VideoPlayer] Different item opened - resetting UI state');
         setIsVideoPlaying(false);
         hasInitializedVideo.current = false;
       } else {
-        if (videoPlayer && item.content_type === 'x') {
+        if (videoPlayer && latestItem.content_type === 'x') {
           const isCurrentlyPlaying = videoPlayer.playing;
           console.log('🎬 [VideoPlayer] Same item reopened - checking player state:', isCurrentlyPlaying);
           setIsVideoPlaying(isCurrentlyPlaying);
         }
       }
 
-      setTags(item.tags || []);
+      setTags(latestItem.tags || []);
       setShowAllTags(false);
 
       // Check for existing transcript if X video
-      if (item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id)) {
-        checkForExistingTranscript(item.id);
+      if (latestItem.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(latestItem.id)) {
+        checkForExistingTranscript(latestItem.id);
       }
 
       // Check for existing image descriptions if item has images
-      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(latestItem.id);
       if (imageUrls && imageUrls.length > 0) {
-        checkForExistingImageDescriptions(item.id);
+        checkForExistingImageDescriptions(latestItem.id);
       }
     }
   }, [item]);
+
+  // Watch items store for updates to the current item
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [ItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+        setDisplayItem(latestItem);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   // Watch for changes in image descriptions store
   useEffect(() => {

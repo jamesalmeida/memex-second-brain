@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
 import { syncService } from '../services/syncService';
+import { realtimeSyncService } from '../services/realtimeSync';
 import { STORAGE_KEYS } from '../constants';
 import { itemsActions } from '../stores/items';
 import { spacesActions } from '../stores/spaces';
@@ -59,11 +60,17 @@ export function useAuth() {
             email: session.user.email || '',
           });
           authActions.setSession(session);
-          
+
           // Trigger sync for existing session
           console.log('🔄 Starting sync for existing session...');
           syncService.forceSync().catch(error => {
             console.error('Failed to sync for existing session:', error);
+          });
+
+          // Start real-time sync
+          console.log('📡 Starting real-time sync for existing session...');
+          realtimeSyncService.start().catch(error => {
+            console.error('Failed to start real-time sync:', error);
           });
         } else {
           console.log('ℹ️ No user in session (expected for first-time users)');
@@ -106,10 +113,22 @@ export function useAuth() {
             console.error('Failed to sync after sign in:', error);
           });
 
+          // Start real-time sync
+          console.log('📡 Starting real-time sync after sign in...');
+          realtimeSyncService.start().catch(error => {
+            console.error('Failed to start real-time sync:', error);
+          });
+
           // Navigate to home screen - the state change will trigger navigation
           console.log('🔄 User authenticated, state updated');
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
+
+          // Stop real-time sync
+          console.log('📡 Stopping real-time sync...');
+          realtimeSyncService.stop().catch(error => {
+            console.error('Failed to stop real-time sync:', error);
+          });
 
           // Clear all user data from AsyncStorage
           console.log('🧹 Clearing all user data from storage...');
@@ -209,6 +228,11 @@ export function useAuth() {
   const signOut = async () => {
     try {
       console.log('🚪 Starting sign out process...');
+
+      // Stop real-time sync before signing out
+      console.log('📡 Stopping real-time sync...');
+      await realtimeSyncService.stop();
+
       await auth.signOut();
       console.log('🚪 Sign out completed');
 

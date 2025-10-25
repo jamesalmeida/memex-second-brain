@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   Modal,
   ScrollView,
@@ -31,6 +31,11 @@ const SpaceSelectorModal = observer(({
   const isDarkMode = themeStore.isDarkMode.get();
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId);
   const allSpaces = spacesStore.spaces.get().filter(s => !s.is_deleted && !s.is_archived);
+
+  // Sync internal state with prop when currentSpaceId changes
+  useEffect(() => {
+    setSelectedSpaceId(currentSpaceId);
+  }, [currentSpaceId]);
 
   const handleSpaceSelect = useCallback(async (spaceId: string | null) => {
     setSelectedSpaceId(spaceId);

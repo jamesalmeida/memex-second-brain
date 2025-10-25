@@ -115,19 +115,34 @@ const YouTubeItemView = observer(({
   useEffect(() => {
     console.log('📄 [YouTubeItemView] useEffect - item changed:', item?.title || 'null');
     if (item) {
-      setDisplayItem(item);
-      setSelectedType(item.content_type);
-      setSelectedSpaceId(item.space_id || null);
+      // Get the latest item from store (in case it was updated)
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id) || item;
 
-      setTags(item.tags || []);
+      setDisplayItem(latestItem);
+      setSelectedType(latestItem.content_type);
+      setSelectedSpaceId(latestItem.space_id || null);
+
+      setTags(latestItem.tags || []);
       setShowAllTags(false);
 
       // Check for existing transcript
-      if (item.content_type === 'youtube' || item.content_type === 'youtube_short') {
-        checkForExistingTranscript(item.id);
+      if (latestItem.content_type === 'youtube' || latestItem.content_type === 'youtube_short') {
+        checkForExistingTranscript(latestItem.id);
       }
     }
   }, [item]);
+
+  // Watch items store for updates to the current item
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [ItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+        setDisplayItem(latestItem);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   // Watch for changes in video transcripts store
   useEffect(() => {

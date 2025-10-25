@@ -37,11 +37,26 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
 
   useEffect(() => {
     if (item) {
-      setDisplayItem(item);
-      setSelectedSpaceId(item.space_id || null);
-      setTags(item.tags || []);
+      // Get the latest item from store (in case it was updated)
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id) || item;
+
+      setDisplayItem(latestItem);
+      setSelectedSpaceId(latestItem.space_id || null);
+      setTags(latestItem.tags || []);
     }
   }, [item]);
+
+  // Watch items store for updates to the current item
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [ItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+        setDisplayItem(latestItem);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   const itemToDisplay = displayItem || item;
   if (!itemToDisplay) return null;

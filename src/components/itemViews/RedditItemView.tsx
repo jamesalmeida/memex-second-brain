@@ -109,26 +109,41 @@ const RedditItemView = observer(({
   useEffect(() => {
     console.log('📄 [RedditItemView] useEffect - item changed:', item?.title || 'null');
     if (item) {
+      // Get the latest item from store (in case it was updated)
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id) || item;
+
       // Store the item for display
-      setDisplayItem(item);
-      setSelectedType(item.content_type);
+      setDisplayItem(latestItem);
+      setSelectedType(latestItem.content_type);
       // Initialize selected space from item.space_id
-      setSelectedSpaceId(item.space_id || null);
+      setSelectedSpaceId(latestItem.space_id || null);
 
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
 
       // Initialize tags
-      setTags(item.tags || []);
+      setTags(latestItem.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
 
       // Check for existing image descriptions if item has images
-      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(latestItem.id);
       if (imageUrls && imageUrls.length > 0) {
-        checkForExistingImageDescriptions(item.id);
+        checkForExistingImageDescriptions(latestItem.id);
       }
     }
   }, [item]);
+
+  // Watch items store for updates to the current item
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [ItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+        setDisplayItem(latestItem);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   // Watch for changes in image descriptions store to update UI state
   useEffect(() => {
