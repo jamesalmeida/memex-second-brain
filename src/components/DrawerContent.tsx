@@ -34,36 +34,79 @@ const DrawerContentInner = observer(() => {
     onEditSpacePress(spaceId);
   };
 
-  const handleDeleteSpace = (spaceId: string) => {
+  const handleDeleteSpace = async (spaceId: string) => {
     const space = spaces.find(s => s.id === spaceId);
     if (!space) return;
 
-    Alert.alert(
-      'Delete Space',
-      `Are you sure you want to delete "${space.name}"? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Deleting space:', spaceId);
+    // Check if space has items
+    const { itemsStore } = await import('../stores/items');
+    const items = itemsStore.items.get();
+    const itemsInSpace = items.filter(item => item.space_id === spaceId && !item.is_deleted);
+    const itemCount = itemsInSpace.length;
 
-              // Use removeSpaceWithSync for proper tombstone-based deletion
-              await spacesActions.removeSpaceWithSync(spaceId);
-              console.log('✅ Space deleted successfully');
-            } catch (error) {
-              console.error('❌ Error deleting space:', error);
-              Alert.alert('Error', 'Failed to delete space. Please try again.');
-            }
+    if (itemCount === 0) {
+      // Space is empty, delete immediately
+      Alert.alert(
+        'Delete Space',
+        `Are you sure you want to delete "${space.name}"?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await spacesActions.removeSpaceWithSync(spaceId, false);
+                console.log('✅ Space deleted successfully');
+              } catch (error) {
+                console.error('❌ Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Space has items, show options
+      Alert.alert(
+        'Delete Space',
+        `This space contains ${itemCount} item${itemCount !== 1 ? 's' : ''}. What would you like to do?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Move to Everything',
+            onPress: async () => {
+              try {
+                await spacesActions.removeSpaceWithSync(spaceId, false);
+                console.log('✅ Space deleted, items moved to Everything');
+              } catch (error) {
+                console.error('❌ Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
+              }
+            },
+          },
+          {
+            text: 'Delete All',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await spacesActions.removeSpaceWithSync(spaceId, true);
+                console.log('✅ Space and items deleted successfully');
+              } catch (error) {
+                console.error('❌ Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   return (

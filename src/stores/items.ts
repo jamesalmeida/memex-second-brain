@@ -303,6 +303,131 @@ export const itemsActions = {
     }
   },
 
+  // Archive item with Supabase sync
+  archiveItemWithSync: async (id: string, autoArchived: boolean = false) => {
+    console.log(`📦 [itemsActions] Archiving item ${id} (auto: ${autoArchived})`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.id === id ? {
+        ...item,
+        is_archived: true,
+        archived_at: nowIso,
+        auto_archived: autoArchived,
+        updated_at: nowIso
+      } : item
+    );
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+
+      const { syncService } = await import('../services/syncService');
+      await syncService.updateItem(id, { is_archived: true, archived_at: nowIso, auto_archived: autoArchived });
+      console.log(`✅ [itemsActions] Archived item ${id}`);
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error archiving item ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Unarchive item with Supabase sync
+  unarchiveItemWithSync: async (id: string) => {
+    console.log(`📂 [itemsActions] Unarchiving item ${id}`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.id === id ? {
+        ...item,
+        is_archived: false,
+        archived_at: null,
+        auto_archived: false,
+        updated_at: nowIso
+      } : item
+    );
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+
+      const { syncService } = await import('../services/syncService');
+      await syncService.updateItem(id, { is_archived: false, archived_at: null, auto_archived: false });
+      console.log(`✅ [itemsActions] Unarchived item ${id}`);
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error unarchiving item ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Bulk archive items in a space (used when archiving a space)
+  bulkArchiveItemsInSpace: async (spaceId: string) => {
+    console.log(`📦 [itemsActions] Bulk archiving items in space ${spaceId}`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.space_id === spaceId && !item.is_archived ? {
+        ...item,
+        is_archived: true,
+        archived_at: nowIso,
+        auto_archived: true, // Mark as auto-archived for restoration
+        updated_at: nowIso
+      } : item
+    );
+
+    const archivedCount = updatedItems.filter(i => i.space_id === spaceId && i.is_archived).length -
+                         currentItems.filter(i => i.space_id === spaceId && i.is_archived).length;
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      console.log(`✅ [itemsActions] Bulk archived ${archivedCount} items in space ${spaceId}`);
+      return archivedCount;
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error bulk archiving items:`, error);
+      throw error;
+    }
+  },
+
+  // Bulk unarchive auto-archived items in a space (used when unarchiving a space)
+  bulkUnarchiveAutoArchivedItemsInSpace: async (spaceId: string) => {
+    console.log(`📂 [itemsActions] Bulk unarchiving auto-archived items in space ${spaceId}`);
+
+    const nowIso = new Date().toISOString();
+    const currentItems = itemsStore.items.get();
+    const updatedItems = currentItems.map(item =>
+      item.space_id === spaceId && item.is_archived && item.auto_archived ? {
+        ...item,
+        is_archived: false,
+        archived_at: null,
+        auto_archived: false,
+        updated_at: nowIso
+      } : item
+    );
+
+    const unarchivedCount = currentItems.filter(i => i.space_id === spaceId && i.is_archived && i.auto_archived).length;
+
+    itemsStore.items.set(updatedItems);
+    itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+      console.log(`✅ [itemsActions] Bulk unarchived ${unarchivedCount} auto-archived items in space ${spaceId}`);
+      return unarchivedCount;
+    } catch (error) {
+      console.error(`❌ [itemsActions] Error bulk unarchiving items:`, error);
+      throw error;
+    }
+  },
+
   setLoading: (loading: boolean) => {
     itemsStore.isLoading.set(loading);
   },

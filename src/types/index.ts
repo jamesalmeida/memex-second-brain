@@ -44,11 +44,14 @@ export interface Item {
   tags?: string[];
   created_at: string;
   updated_at: string;
+  space_id?: string | null; // Single space per item (replaces item_spaces many-to-many)
   is_archived: boolean;
+  archived_at?: string | null;
+  auto_archived?: boolean; // True if archived automatically when space was archived
   is_deleted?: boolean;
   deleted_at?: string | null;
-  // Removed: video_url, image_urls, space_ids
-  // These are now in separate tables
+  // Removed: video_url, image_urls
+  // These are now in item_type_metadata table
 }
 
 export interface ItemMetadata {
@@ -82,10 +85,16 @@ export interface Space {
   updated_at?: string;
   item_count?: number;
   order_index?: number;
+  is_archived?: boolean;
+  archived_at?: string | null;
   is_deleted?: boolean;
   deleted_at?: string | null;
 }
 
+/**
+ * @deprecated Use Item.space_id instead. Items now have a single space_id field.
+ * This interface is kept for backwards compatibility during migration.
+ */
 export interface ItemSpace {
   item_id: string;
   space_id: string;
