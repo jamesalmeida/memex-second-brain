@@ -157,31 +157,29 @@ const DrawerContentInner = observer(() => {
               </TouchableOpacity>
             </View>
 
-            {spaces.length > 0 && (
-              <View style={styles.sectionHeader}>
-                <Feather
-                  name="box"
-                  size={24}
-                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+            <View style={styles.sectionHeader}>
+              <Feather
+                name="box"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
+              <Text style={[styles.menuText, isDarkMode && styles.sectionTitleDark]}>
+                Spaces
+              </Text>
+              <TouchableOpacity
+                style={[styles.addButton, isDarkMode && styles.addButtonDark]}
+                onPress={onCreateSpacePress}
+              >
+                <MaterialIcons
+                  name="add"
+                  size={16}
+                  color="#FFFFFF"
                 />
-                <Text style={[styles.menuText, isDarkMode && styles.sectionTitleDark]}>
-                  Spaces
+                <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
+                  New Space
                 </Text>
-                <TouchableOpacity
-                  style={[styles.addButton, isDarkMode && styles.addButtonDark]}
-                  onPress={onCreateSpacePress}
-                >
-                  <MaterialIcons
-                    name="add"
-                    size={16}
-                    color="#FFFFFF"
-                  />
-                  <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
-                    New Space
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         onDragEnd={({ data }) => {
