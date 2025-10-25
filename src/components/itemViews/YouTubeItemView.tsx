@@ -39,6 +39,7 @@ import { Image } from 'expo-image';
 import InlineEditableText from '../InlineEditableText';
 import { ImageWithActions } from '../ImageWithActions';
 import SpaceSelectorModal from '../SpaceSelectorModal';
+import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -89,7 +90,7 @@ const YouTubeItemView = observer(({
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
 
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'youtube');
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -664,10 +665,7 @@ const YouTubeItemView = observer(({
           </Text>
           <TouchableOpacity
             style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
-            onPress={() => {
-              setShowTypeSelector(!showTypeSelector);
-              setShowSpaceSelector(false);
-            }}
+            onPress={() => setShowTypeModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.selectedType}>
@@ -678,30 +676,8 @@ const YouTubeItemView = observer(({
                 {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
               </Text>
             </View>
-            <Text style={styles.chevron}>{showTypeSelector ? '▲' : '▼'}</Text>
+            <Text style={styles.chevron}>▼</Text>
           </TouchableOpacity>
-
-          {showTypeSelector && (
-            <View style={[styles.typeOptions, isDarkMode && styles.typeOptionsDark]}>
-              {contentTypeOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.type}
-                  style={[
-                    styles.typeOption,
-                    selectedType === option.type && styles.typeOptionSelected
-                  ]}
-                  onPress={() => handleContentTypeChange(option.type)}
-                >
-                  <View style={styles.typeOptionContent}>
-                    <Text style={styles.typeOptionIcon}>{option.icon}</Text>
-                    <Text style={[styles.typeOptionText, isDarkMode && styles.typeOptionTextDark]}>
-                      {option.label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
 
         {/* Thumbnail Section */}
@@ -874,6 +850,14 @@ const YouTubeItemView = observer(({
         currentSpaceId={selectedSpaceId}
         onClose={() => setShowSpaceModal(false)}
         onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
+      />
+
+      <ContentTypeSelectorModal
+        visible={showTypeModal}
+        itemId={itemToDisplay?.id || ''}
+        currentType={selectedType}
+        onClose={() => setShowTypeModal(false)}
+        onTypeChange={(type) => setSelectedType(type)}
       />
     </View>
   );
