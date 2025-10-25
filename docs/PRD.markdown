@@ -65,10 +65,17 @@
 - **Actions**:
   - **Create**: Via FAB, Sharesheet/Intent, or Chrome extension. Auto-detect type and fetch metadata (online only).
   - **Update**: Edit title, desc, or metadata; refresh metadata from source (online only).
-  - **Archive**: Mark item as archived (`is_archived=true`). Archived items hidden from main views but retained in database.
-    - Manual archive: User explicitly archives an item
-    - Auto-archive: Item automatically archived when parent space is archived (tracked via `auto_archived=true`)
+  - **Archive**: Mark item as archived (`is_archived=true`, `archived_at` timestamp). Archived items hidden from main views but retained in database.
+    - Manual archive: User explicitly archives an item via archive button in ItemView or context menu
+    - Auto-archive: Item automatically archived when parent space is archived (tracked via `auto_archived=true` flag)
+    - Archive syncs to Supabase immediately, propagates to other devices via real-time subscriptions
     - Unarchive: Restore archived item to active state. Auto-archived items can be selectively restored when parent space is unarchived.
+  - **Space Archive**: Archive entire space and all items within it
+    - User confirms via alert: "Archive [space name]? This will also archive all X item(s) inside."
+    - All items in space marked with `is_archived=true`, `archived_at` timestamp, and `auto_archived=true`
+    - Space marked with `is_archived=true` and `archived_at` timestamp
+    - Changes sync to Supabase and propagate instantly to other devices
+    - Archived spaces hidden from drawer, header tabs, and all space selectors
   - **Delete**: Soft-delete using tombstone pattern (`is_deleted=true`, `deleted_at` timestamp).
     - Items marked as deleted are retained locally for cross-device sync reliability
     - Prevents "resurrection bug" where offline devices re-upload deleted items
@@ -87,23 +94,28 @@
   - Download media via Expo FileSystem (store locally for offline access).
 
 ### 2.4 Capture/Save
-- **Quick Capture**:  
-  - In-app: FAB opens modal to paste URL/text or upload image. Auto-detects type and triggers metadata extraction.  
-  - Mobile:  
-    - **iOS Sharesheet**: Use `expo-share-extension` for custom UI with options:  
-      - Save directly (no space assigned).  
-      - Select existing space from dropdown (fetched from Supabase or cached in Legend-State).  
-      - Post-MVP: Create new space (text input, color picker).  
-      - Handle URLs, text, images, videos, files.  
-      - Authentication via shared app group (Supabase JWT persisted).  
-    - **Android Intent**: Use Expo Sharing API to capture URLs, text, or images; same save options as Sharesheet.  
-    - Offline: Queue captures in Legend-State with minimal data (e.g., URL, text); sync on reconnect; show “pending” UI for incomplete items.  
-- **Chrome Extension**:  
-  - Saves page/selection (URL, title, text) via `POST /api/capture`.  
-  - Requires user ID header for authentication.  
-  - Auto-detects content type and triggers metadata refresh.  
-  - Sync: App pulls changes via Supabase real-time subscriptions on launch/foreground, cached in Legend-State.  
+- **Quick Capture**:
+  - In-app: FAB opens AddItemSheet modal (via `@gorhom/bottom-sheet`) to paste URL/text or upload image
+    - Space selection via dropdown showing active spaces only (excludes archived/deleted)
+    - Items created with `space_id` field set directly (one-space-per-item model)
+    - Auto-detects content type and triggers metadata extraction pipeline
+    - Pipeline preserves `space_id` during enrichment steps
+  - Mobile:
+    - **iOS Sharesheet**: Use `expo-share-extension` for custom UI with options:
+      - Save directly (no space assigned).
+      - Select existing space from dropdown (fetched from Supabase or cached in Legend-State).
+      - Post-MVP: Create new space (text input, color picker).
+      - Handle URLs, text, images, videos, files.
+      - Authentication via shared app group (Supabase JWT persisted).
+    - **Android Intent**: Use Expo Sharing API to capture URLs, text, or images; same save options as Sharesheet.
+    - Offline: Queue captures in Legend-State with minimal data (e.g., URL, text); sync on reconnect; show "pending" UI for incomplete items.
+- **Chrome Extension**:
+  - Saves page/selection (URL, title, text) via `POST /api/capture`.
+  - Requires user ID header for authentication.
+  - Auto-detects content type and triggers metadata refresh.
+  - Sync: App pulls changes via Supabase real-time subscriptions on launch/foreground, cached in Legend-State.
 - **API Endpoint**: `POST /api/capture` (create item with optional metadata/space_id).
+- **Space Assignment on Creation**: Items created via AddItemSheet include `space_id` in the initial item object, which is uploaded to Supabase via `syncOperations.uploadItem()` to ensure the space assignment persists across devices from the moment of creation.
 
 ### 2.5 Search & Filtering
 - Fuzzy search on title, desc, tags, and metadata (client-side via Fuse.js, using Legend-State cache offline).  
@@ -255,19 +267,25 @@ The app uses an **offline-first architecture** with Supabase for backend data, d
   - `auth.onAuthStateChange(callback)` - Listen for auth state changes
 - **OAuth Callbacks**: Handled via Expo AuthSession for mobile OAuth flows (`app/auth/callback.tsx`)
 
-### 5.2 Database Operations (`src/services/supabase.ts`)
-All data operations use **Supabase Client SDK** via the `db` helper object:
+### 5.2 Database Operations (`src/services/supabase.ts` and `src/services/syncOperations.ts`)
+All data operations use **Supabase Client SDK** via the `db` helper object and `syncOperations`:
 
-- **Items**:
+- **Items** (`src/services/supabase.ts`):
   - `db.getItems(userId, limit, offset)` - Fetch user's items with metadata
   - `db.searchItems(userId, query, limit, offset)` - Search items by title/content/tags
-  - `db.createItem(item)` - Create new item
-  - `db.updateItem(id, updates)` - Update item fields
+  - `db.createItem(item)` - Create new item (supports all fields including `space_id`, `is_archived`, `auto_archived`)
+  - `db.updateItem(id, updates)` - Partial update of item fields using spread operator
   - `db.deleteItem(id)` - Delete item
-  
-- **Spaces**:
+
+- **Items** (`src/services/syncOperations.ts`):
+  - `syncOperations.uploadItem(item, userId)` - Upload complete item to Supabase (includes `space_id` for proper space assignment)
+  - `syncOperations.updateItem(itemId, updates)` - Update item with partial changes (used by pipeline and manual updates)
+
+- **Spaces** (`src/services/supabase.ts` and `src/services/syncOperations.ts`):
   - `db.getSpaces(userId)` - Fetch user's spaces with item counts
   - `db.createSpace(space)` - Create new space
+  - `syncOperations.updateSpace(space)` - Update space including archive state (`is_archived`, `archived_at`) and order
+  - `syncOperations.softDeleteSpace(spaceId)` - Soft-delete space using tombstone pattern
   
 - **Video Transcripts**:
   - `db.getVideoTranscript(itemId)` - Get transcript for item
@@ -376,8 +394,18 @@ The app uses an **offline-first architecture** with automatic sync and real-time
   - Items and spaces marked as deleted (`is_deleted=true`, `deleted_at` timestamp) instead of being removed
   - Prevents "resurrection bug" where offline devices re-upload deleted content
   - Sync detects remote deletions and marks local items/spaces as deleted
-  - UI automatically filters out deleted items/spaces
+  - UI automatically filters out deleted items/spaces (using `activeSpaces()` and filtered item queries)
   - Tombstones retained indefinitely for sync reliability (optional cleanup can be added later)
+
+- **Archive Sync** (`src/stores/items.ts`, `src/stores/spaces.ts`):
+  - **Item Archive**: `itemsActions.archiveItemWithSync(itemId, autoArchived)` - Archives individual items with optional auto-archive flag
+  - **Space Archive**: `spacesActions.archiveSpaceWithSync(spaceId)` - Archives space and all items within it
+    - Calls `itemsActions.bulkArchiveItemsInSpace(spaceId)` to archive all items
+    - Each item marked with `is_archived=true`, `archived_at` timestamp, and `auto_archived=true`
+    - Items synced to Supabase individually with all archive fields
+    - Space synced with `is_archived=true` and `archived_at` via `syncOperations.updateSpace()`
+  - **Space Unarchive**: `spacesActions.unarchiveSpaceWithSync(spaceId)` - Unarchives space and selectively restores auto-archived items
+  - **UI Filtering**: All views use `spacesComputed.activeSpaces()` to exclude archived/deleted spaces; items filtered with `!item.is_archived && !item.is_deleted`
 
 - **Offline Queue** (`src/stores/offlineQueue.ts`):
   - Queues all write operations when offline

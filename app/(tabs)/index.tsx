@@ -78,7 +78,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Filter items based on filters and sort order
   const displayItems = useMemo(() => {
-    let filtered = allItems.filter(item => !item.is_deleted);
+    let filtered = allItems.filter(item => !item.is_deleted && !item.is_archived);
 
     // Apply content type filter (single selection)
     if (selectedContentType !== null) {
@@ -107,7 +107,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, [allItems, selectedContentType, selectedTags, sortOrder]);
 
   // Spaces and pager state
-  const spaces = spacesComputed.spaces();
+  const spaces = spacesComputed.activeSpaces();
   const [selectedPage, setSelectedPage] = useState(1); // 0 = Drawer, 1 = Everything, 2..n = spaces
   const pagerRef = useRef<ScrollView>(null);
   const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);

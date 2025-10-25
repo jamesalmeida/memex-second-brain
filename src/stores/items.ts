@@ -371,6 +371,8 @@ export const itemsActions = {
 
     const nowIso = new Date().toISOString();
     const currentItems = itemsStore.items.get();
+    const itemsToArchive = currentItems.filter(item => item.space_id === spaceId && !item.is_archived);
+
     const updatedItems = currentItems.map(item =>
       item.space_id === spaceId && !item.is_archived ? {
         ...item,
@@ -381,16 +383,25 @@ export const itemsActions = {
       } : item
     );
 
-    const archivedCount = updatedItems.filter(i => i.space_id === spaceId && i.is_archived).length -
-                         currentItems.filter(i => i.space_id === spaceId && i.is_archived).length;
-
     itemsStore.items.set(updatedItems);
     itemsStore.filteredItems.set(updatedItems.filter(i => !i.is_deleted));
 
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
-      console.log(`✅ [itemsActions] Bulk archived ${archivedCount} items in space ${spaceId}`);
-      return archivedCount;
+
+      // Sync each archived item to Supabase
+      const { syncOperations } = await import('../services/syncOperations');
+      for (const item of itemsToArchive) {
+        await syncOperations.updateItem(item.id, {
+          is_archived: true,
+          archived_at: nowIso,
+          auto_archived: true,
+          updated_at: nowIso
+        });
+      }
+
+      console.log(`✅ [itemsActions] Bulk archived ${itemsToArchive.length} items in space ${spaceId}`);
+      return itemsToArchive.length;
     } catch (error) {
       console.error(`❌ [itemsActions] Error bulk archiving items:`, error);
       throw error;

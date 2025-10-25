@@ -15,7 +15,7 @@ const DrawerContentInner = observer(() => {
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
-  const spaces = spacesComputed.spaces();
+  const spaces = spacesComputed.activeSpaces();
   const {
     onSettingsPress,
     onCreateSpacePress,
@@ -32,6 +32,44 @@ const DrawerContentInner = observer(() => {
   const handleEditSpace = (spaceId: string) => {
     console.log('📝 Edit space:', spaceId);
     onEditSpacePress(spaceId);
+  };
+
+  const handleArchiveSpace = async (spaceId: string) => {
+    const space = spaces.find(s => s.id === spaceId);
+    if (!space) return;
+
+    // Check if space has items
+    const { itemsStore } = await import('../stores/items');
+    const items = itemsStore.items.get();
+    const itemsInSpace = items.filter(item => item.space_id === spaceId && !item.is_deleted);
+    const itemCount = itemsInSpace.length;
+
+    const message = itemCount === 0
+      ? `Archive "${space.name}"?`
+      : `Archive "${space.name}"? This will also archive all ${itemCount} item${itemCount !== 1 ? 's' : ''} inside.`;
+
+    Alert.alert(
+      'Archive Space',
+      message,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Archive',
+          onPress: async () => {
+            try {
+              await spacesActions.archiveSpaceWithSync(spaceId);
+              console.log('✅ Space archived successfully');
+            } catch (error) {
+              console.error('❌ Error archiving space:', error);
+              Alert.alert('Error', 'Failed to archive space. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteSpace = async (spaceId: string) => {
@@ -239,6 +277,9 @@ const DrawerContentInner = observer(() => {
                   <ContextMenu.Items>
                     <Button onPress={() => handleEditSpace(item.id)}>
                       {`Edit ${item.name}`}
+                    </Button>
+                    <Button onPress={() => handleArchiveSpace(item.id)}>
+                      Archive Space
                     </Button>
                     <Button onPress={() => handleDeleteSpace(item.id)} role="destructive">
                       Delete Space

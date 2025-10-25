@@ -23,6 +23,7 @@ export const syncOperations = {
       thumbnail_url: item.thumbnail_url || null,
       content_type: contentType,
       is_archived: item.is_archived || false,
+      space_id: item.space_id || null,
       raw_text: item.raw_text || null,
       tags: item.tags || null,
     });
@@ -116,10 +117,12 @@ export const syncOperations = {
         description: space.description || space.desc || null,
         color: space.color,
         item_count: space.item_count || 0,
+        is_archived: space.is_archived || false,
+        archived_at: space.archived_at || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', space.id);
-    
+
     if (error) throw error;
     console.log('✅ Space updated in Supabase:', space.name);
   },
