@@ -26,7 +26,6 @@ const { width: screenWidth } = Dimensions.get('window');
 interface MovieTVItemViewProps {
   item: Item;
   onChat?: (item: Item) => void;
-  onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
@@ -36,7 +35,6 @@ interface MovieTVItemViewProps {
 const MovieTVItemView = observer(({
   item,
   onChat,
-  onEdit,
   onArchive,
   onDelete,
   onShare,
@@ -579,14 +577,6 @@ const MovieTVItemView = observer(({
             onPress={() => onChat(itemToDisplay)}
           >
             <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>💬 Chat</Text>
-          </TouchableOpacity>
-        )}
-        {onEdit && (
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode && styles.actionButtonDark]}
-            onPress={() => onEdit(itemToDisplay)}
-          >
-            <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>✏️ Edit</Text>
           </TouchableOpacity>
         )}
         {onArchive && (

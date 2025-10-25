@@ -69,7 +69,6 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 interface YouTubeItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
-  onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
@@ -79,7 +78,6 @@ interface YouTubeItemViewProps {
 const YouTubeItemView = observer(({
   item,
   onChat,
-  onEdit,
   onArchive,
   onDelete,
   onShare,
@@ -789,16 +787,6 @@ const YouTubeItemView = observer(({
           </TouchableOpacity>
 
           <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onEdit?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                ✏️ Edit
-              </Text>
-            </TouchableOpacity>
-
             {itemToDisplay?.url && (
               <TouchableOpacity
                 style={styles.actionButton}

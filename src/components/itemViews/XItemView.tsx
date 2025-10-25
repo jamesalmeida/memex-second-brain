@@ -71,7 +71,6 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 interface XItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
-  onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
@@ -81,7 +80,6 @@ interface XItemViewProps {
 const XItemView = observer(({
   item,
   onChat,
-  onEdit,
   onArchive,
   onDelete,
   onShare,
@@ -1125,16 +1123,6 @@ const XItemView = observer(({
           </TouchableOpacity>
 
           <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onEdit?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                ✏️ Edit
-              </Text>
-            </TouchableOpacity>
-
             {itemToDisplay?.url && (
               <TouchableOpacity
                 style={styles.actionButton}

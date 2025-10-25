@@ -20,14 +20,13 @@ const CONTENT_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 interface NoteItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
-  onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
 }
 
-const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onShare, currentSpaceId }: NoteItemViewProps) => {
+const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, currentSpaceId }: NoteItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [tags, setTags] = useState<string[]>([]);
@@ -260,10 +259,6 @@ const NoteItemView = observer(({ item, onChat, onEdit, onArchive, onDelete, onSh
           </TouchableOpacity>
 
           <View style={styles.secondaryActions}>
-            <TouchableOpacity style={styles.actionButton} onPress={() => onEdit?.(itemToDisplay)} activeOpacity={0.7}>
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>✏️ Edit</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.actionButton} onPress={() => onShare?.(itemToDisplay)} activeOpacity={0.7}>
               <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>📤 Share</Text>
             </TouchableOpacity>
