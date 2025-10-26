@@ -6,27 +6,27 @@ import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
-import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system/legacy';
+import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { aiSettingsComputed } from '../../stores/aiSettings';
-import { itemsActions } from '../../stores/items';
+import { itemsActions, itemsStore } from '../../stores/items';
 import { Item, ImageDescription } from '../../types';
 import { formatDate } from '../../utils/itemCardHelpers';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
+import ItemViewFooter from '../ItemViewFooter';
+import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 interface MovieTVItemViewProps {
   item: Item;
   onChat?: (item: Item) => void;
-  onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
@@ -36,7 +36,6 @@ interface MovieTVItemViewProps {
 const MovieTVItemView = observer(({
   item,
   onChat,
-  onEdit,
   onArchive,
   onDelete,
   onShare,
@@ -72,6 +71,8 @@ const MovieTVItemView = observer(({
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const itemToDisplay = item;
   const [tags, setTags] = useState<string[]>(itemToDisplay.tags || []);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
 
   useEffect(() => {
     setTags(item.tags || []);
@@ -109,6 +110,26 @@ const MovieTVItemView = observer(({
       } catch (error) {
         console.error('Error sharing URL:', error);
       }
+    }
+  };
+
+  // Handle metadata refresh
+  const handleRefreshMetadata = async () => {
+    if (!itemToDisplay) return;
+
+    setIsRefreshingMetadata(true);
+    try {
+      const success = await itemsActions.refreshMetadata(itemToDisplay.id);
+      if (success) {
+        Alert.alert('Success', 'Metadata refreshed successfully');
+      } else {
+        Alert.alert('Error', 'Failed to refresh metadata');
+      }
+    } catch (error) {
+      console.error('Error refreshing metadata:', error);
+      Alert.alert('Error', 'Failed to refresh metadata');
+    } finally {
+      setIsRefreshingMetadata(false);
     }
   };
 
@@ -189,33 +210,6 @@ const MovieTVItemView = observer(({
     } finally {
       setIsGeneratingImageDescriptions(false);
       imageDescriptionsActions.setGenerating(itemToDisplay.id, false);
-    }
-  };
-
-  // Download image to device
-  const handleDownloadImage = async (imageUrl: string) => {
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant media library permissions to download images');
-        return;
-      }
-
-      const filename = imageUrl.split('/').pop() || 'image.jpg';
-      const fileUri = FileSystem.documentDirectory + filename;
-
-      const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
-
-      if (downloadResult.status === 200) {
-        const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
-        await MediaLibrary.createAlbumAsync('Memex', asset, false);
-        Alert.alert('Success', 'Image saved to Photos');
-      } else {
-        throw new Error('Download failed');
-      }
-    } catch (error) {
-      console.error('Error downloading image:', error);
-      Alert.alert('Error', 'Failed to download image');
     }
   };
 
@@ -331,14 +325,8 @@ const MovieTVItemView = observer(({
                 {isGeneratingImageDescriptions || isGeneratingFromStore ? (
                   <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
                 ) : (
-                  <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Describe</Text>
+                  <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Generate Poster Description</Text>
                 )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
-                onPress={() => handleDownloadImage(imageUrls![currentImageIndex])}
-              >
-                <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>⬇️ Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -364,14 +352,8 @@ const MovieTVItemView = observer(({
               {isGeneratingImageDescriptions || isGeneratingFromStore ? (
                 <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
               ) : (
-                <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Describe</Text>
+                <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Generate Poster Description</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
-              onPress={() => handleDownloadImage(imageUrls[0])}
-            >
-              <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>⬇️ Save</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -398,14 +380,8 @@ const MovieTVItemView = observer(({
               {isGeneratingImageDescriptions || isGeneratingFromStore ? (
                 <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
               ) : (
-                <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Describe</Text>
+                <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Generate Poster Description</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
-              onPress={() => handleDownloadImage(thumbnailUrl!)}
-            >
-              <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>⬇️ Save</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -524,7 +500,11 @@ const MovieTVItemView = observer(({
       {itemToDisplay.url && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>URL</Text>
-          <View style={styles.urlContainer}>
+          <TouchableOpacity
+            style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
+            onPress={handleOpenUrl}
+            activeOpacity={0.7}
+          >
             <Text
               style={[styles.urlText, isDarkMode && styles.urlTextDark]}
               numberOfLines={2}
@@ -532,84 +512,66 @@ const MovieTVItemView = observer(({
             >
               {itemToDisplay.url}
             </Text>
-            <View style={styles.urlActions}>
-              <TouchableOpacity
-                style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                onPress={handleCopyUrl}
-              >
-                <Text style={[styles.urlActionText, isDarkMode && styles.urlActionTextDark]}>📋 Copy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                onPress={handleOpenUrl}
-              >
-                <Text style={[styles.urlActionText, isDarkMode && styles.urlActionTextDark]}>🔗 Open</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                onPress={handleShareUrl}
-              >
-                <Text style={[styles.urlActionText, isDarkMode && styles.urlActionTextDark]}>📤 Share</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            <MaterialIcons
+              name="open-in-new"
+              size={20}
+              color={isDarkMode ? '#5AC8FA' : '#007AFF'}
+            />
+          </TouchableOpacity>
         </View>
       )}
 
       {/* Content Type Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Content Type</Text>
-        <Text style={[styles.contentType, isDarkMode && styles.contentTypeDark]}>
-          {itemToDisplay.content_type}
-        </Text>
+        <TouchableOpacity
+          style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
+          onPress={() => setShowTypeModal(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.contentType, isDarkMode && styles.contentTypeDark]}>
+            {itemToDisplay.content_type}
+          </Text>
+          <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>›</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Metadata */}
-      <View style={styles.metadata}>
-        <Text style={[styles.metadataText, isDarkMode && styles.metadataTextDark]}>
-          Created {formatDate(itemToDisplay.created_at)}
-        </Text>
-      </View>
+      {/* Primary Action */}
+      {onChat && (
+        <TouchableOpacity
+          style={[styles.chatButton, isDarkMode && styles.chatButtonDark]}
+          onPress={() => onChat(itemToDisplay)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.chatButtonText}>💬 Chat</Text>
+        </TouchableOpacity>
+      )}
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
-        {onChat && (
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode && styles.actionButtonDark]}
-            onPress={() => onChat(itemToDisplay)}
-          >
-            <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>💬 Chat</Text>
-          </TouchableOpacity>
-        )}
-        {onEdit && (
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode && styles.actionButtonDark]}
-            onPress={() => onEdit(itemToDisplay)}
-          >
-            <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>✏️ Edit</Text>
-          </TouchableOpacity>
-        )}
-        {onArchive && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.archiveButton, isDarkMode && styles.archiveButtonDark]}
-            onPress={() => onArchive(itemToDisplay)}
-          >
-            <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>📦 Archive</Text>
-          </TouchableOpacity>
-        )}
-        {onDelete && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => onDelete(itemToDisplay)}
-          >
-            <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Footer */}
+      <ItemViewFooter
+        item={itemToDisplay}
+        onRefresh={handleRefreshMetadata}
+        onShare={() => onShare?.(itemToDisplay)}
+        onArchive={() => onArchive?.(itemToDisplay)}
+        onDelete={() => onDelete?.(itemToDisplay)}
+        isRefreshing={isRefreshingMetadata}
+        isDarkMode={isDarkMode}
+      />
 
       <ImageUploadModal
         ref={imageUploadModalRef}
         onImageSelected={handleHeroImageSelected}
+      />
+
+      {/* Content Type Selector Modal */}
+      <ContentTypeSelectorModal
+        visible={showTypeModal}
+        itemId={itemToDisplay.id}
+        currentType={itemToDisplay.content_type}
+        onClose={() => setShowTypeModal(false)}
+        onTypeChange={() => {
+          // Modal handles the update, just close
+        }}
       />
     </View>
   );
@@ -852,39 +814,45 @@ const styles = StyleSheet.create({
     color: '#CCCCCC',
   },
   urlContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F5F5F5',
     padding: 12,
     borderRadius: 8,
-  },
-  urlText: {
-    fontSize: 14,
-    color: '#0066CC',
-    marginBottom: 8,
-  },
-  urlTextDark: {
-    color: '#4A9EFF',
-  },
-  urlActions: {
-    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     gap: 8,
   },
-  urlActionButton: {
-    flex: 1,
-    paddingVertical: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  urlActionButtonDark: {
+  urlContainerDark: {
     backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
   },
-  urlActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#000000',
+  urlText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#007AFF',
+    textDecorationLine: 'underline',
   },
-  urlActionTextDark: {
-    color: '#FFFFFF',
+  urlTextDark: {
+    color: '#5AC8FA',
+  },
+  urlActionIcon: {
+    fontSize: 20,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  typeSelectorDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
   },
   contentType: {
     fontSize: 15,
@@ -894,56 +862,27 @@ const styles = StyleSheet.create({
   contentTypeDark: {
     color: '#999999',
   },
-  metadata: {
-    marginBottom: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+  chevron: {
+    fontSize: 24,
+    color: '#666666',
+    fontWeight: '300',
   },
-  metadataText: {
-    fontSize: 13,
+  chevronDark: {
     color: '#999999',
   },
-  metadataTextDark: {
-    color: '#666666',
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  actionButton: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: 12,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 8,
+  chatButton: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
     alignItems: 'center',
   },
-  actionButtonDark: {
-    backgroundColor: '#2C2C2E',
+  chatButtonDark: {
+    backgroundColor: '#0A84FF',
   },
-  actionButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  actionButtonTextDark: {
+  chatButtonText: {
+    fontSize: 16,
     color: '#FFFFFF',
-  },
-  archiveButton: {
-    backgroundColor: '#FFE5B4',
-  },
-  archiveButtonDark: {
-    backgroundColor: '#4A3C2A',
-  },
-  deleteButton: {
-    backgroundColor: '#FFE5E5',
-  },
-  deleteButtonText: {
-    fontSize: 15,
     fontWeight: '600',
-    color: '#CC0000',
   },
 });

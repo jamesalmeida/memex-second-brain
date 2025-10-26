@@ -1,4 +1,5 @@
 import { API_CONFIG, isAPIConfigured } from '../config/api';
+import { extractTweetId as extractTweetIdFromUrl } from '../utils/urlHelpers';
 
 export interface TwitterMetadata {
   id: string;
@@ -32,25 +33,7 @@ export interface TwitterMetadata {
 }
 
 // Extract tweet ID from various Twitter/X URL formats
-export const extractTweetId = (url: string): string | null => {
-  // Handle various Twitter/X URL formats:
-  // https://twitter.com/user/status/1234567890
-  // https://x.com/user/status/1234567890
-  // https://twitter.com/user/status/1234567890?s=20
-  const patterns = [
-    /(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/i,
-    /(?:twitter\.com|x\.com)\/i\/web\/status\/(\d+)/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-};
+export const extractTweetId = extractTweetIdFromUrl;
 
 // Fetch tweet data using Twitter API v2
 export const fetchTweetData = async (tweetId: string): Promise<TwitterMetadata> => {

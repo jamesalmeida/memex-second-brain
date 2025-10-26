@@ -57,7 +57,7 @@ const TabLayout = observer(() => {
   // Register edit space handler
   const handleEditSpacePress = useCallback((spaceId: string) => {
     console.log('✏️ [TabLayout] handleEditSpacePress called for space:', spaceId);
-    const space = spacesComputed.spaces().find(s => s.id === spaceId);
+    const space = spacesComputed.activeSpaces().find(s => s.id === spaceId);
     if (space && editSpaceSheetRef.current) {
       editSpaceSheetRef.current.openWithSpace(space);
     }
@@ -340,7 +340,16 @@ const TabLayout = observer(() => {
             chatUIActions.openChat(item);
           }}
           onEdit={(item) => console.log('Edit item:', item.title)}
-          onArchive={(item) => console.log('Archive item:', item.title)}
+          onArchive={async (item) => {
+            console.log('📦 [TabLayout] Archive item:', item.title);
+            try {
+              await itemsActions.archiveItemWithSync(item.id);
+              console.log('📦 [TabLayout] Successfully archived item:', item.id);
+            } catch (error) {
+              console.error('📦 [TabLayout] Error archiving item:', error);
+            }
+            expandedItemUIActions.closeExpandedItem();
+          }}
           onDelete={async (item) => {
             console.log('🗑️ [TabLayout] Delete item:', item.title);
             try {

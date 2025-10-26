@@ -1,5 +1,6 @@
 import { ContentType } from '../types';
 import { supabase } from './supabase';
+export { extractYouTubeVideoId, extractTweetId, extractGitHubRepo } from '../utils/urlHelpers';
 
 // URL pattern matching for content type detection
 // NOTE: Amazon URLs are detected as 'product' type, with visual differentiation in the ProductItemCard
@@ -120,37 +121,4 @@ function extractFallbackMetadata(url: string): Metadata {
       content_type: 'bookmark',
     };
   }
-}
-
-// Helper functions (kept for backward compatibility)
-export function extractYouTubeVideoId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-    /youtube\.com\/embed\/([^&\n?#]+)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
-
-export function extractTweetId(url: string): string | null {
-  const match = url.match(/(?:twitter\.com|x\.com)\/[^\/]+\/status\/(\d+)/);
-  return match ? match[1] : null;
-}
-
-export function extractGitHubRepo(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-  if (match) {
-    return {
-      owner: match[1],
-      repo: match[2],
-    };
-  }
-  return null;
 }

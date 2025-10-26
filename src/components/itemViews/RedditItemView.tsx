@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { MaterialIcons } from '@expo/vector-icons';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
@@ -24,7 +25,6 @@ import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { itemsStore, itemsActions } from '../../stores/items';
-import { itemSpacesComputed, itemSpacesActions } from '../../stores/itemSpaces';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { aiSettingsComputed } from '../../stores/aiSettings';
 import { Item, ContentType } from '../../types';
@@ -33,6 +33,9 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
+import SpaceSelectorModal from '../SpaceSelectorModal';
+import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
+import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -62,7 +65,6 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 interface RedditItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
-  onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
@@ -72,20 +74,17 @@ interface RedditItemViewProps {
 const RedditItemView = observer(({
   item,
   onChat,
-  onEdit,
   onArchive,
   onDelete,
   onShare,
   currentSpaceId,
 }: RedditItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
-  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
-  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(currentSpaceId ? [currentSpaceId] : []);
-  const allSpaces = spacesStore.spaces.get();
-  const spaces = allSpaces;
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
 
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'reddit');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -111,27 +110,41 @@ const RedditItemView = observer(({
   useEffect(() => {
     console.log('📄 [RedditItemView] useEffect - item changed:', item?.title || 'null');
     if (item) {
+      // Get the latest item from store (in case it was updated)
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id) || item;
+
       // Store the item for display
-      setDisplayItem(item);
-      setSelectedType(item.content_type);
-      // Initialize selected spaces from item_spaces relationships
-      const spaceIds = itemSpacesComputed.getSpaceIdsForItem(item.id);
-      setSelectedSpaceIds(spaceIds);
+      setDisplayItem(latestItem);
+      setSelectedType(latestItem.content_type);
+      // Initialize selected space from item.space_id
+      setSelectedSpaceId(latestItem.space_id || null);
 
       // Reset carousel index when opening a new item
       setCurrentImageIndex(0);
 
       // Initialize tags
-      setTags(item.tags || []);
+      setTags(latestItem.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
 
       // Check for existing image descriptions if item has images
-      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+      const imageUrls = itemTypeMetadataComputed.getImageUrls(latestItem.id);
       if (imageUrls && imageUrls.length > 0) {
-        checkForExistingImageDescriptions(item.id);
+        checkForExistingImageDescriptions(latestItem.id);
       }
     }
   }, [item]);
+
+  // Watch items store for updates to the current item
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [ItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+        setDisplayItem(latestItem);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   // Watch for changes in image descriptions store to update UI state
   useEffect(() => {
@@ -440,32 +453,21 @@ const RedditItemView = observer(({
     if (!itemToDisplay) return;
 
     setSelectedType(newType);
-    setShowTypeSelector(false);
+    setDisplayItem({ ...itemToDisplay, content_type: newType });
 
-    try {
-      // Update the content type in the database
-      await itemsActions.updateItemWithSync(itemToDisplay.id, { content_type: newType });
-
-      // Update local displayItem
-      setDisplayItem({ ...itemToDisplay, content_type: newType });
-
-      // Ask if user wants to refresh metadata with new type
-      if (itemToDisplay.url) {
-        Alert.alert(
-          'Refresh Metadata?',
-          'Would you like to re-extract metadata for this item based on the new content type?',
-          [
-            { text: 'Not Now', style: 'cancel' },
-            {
-              text: 'Refresh',
-              onPress: handleRefreshMetadata,
-            },
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error updating content type:', error);
-      Alert.alert('Error', 'Failed to update content type');
+    // Ask if user wants to refresh metadata with new type
+    if (itemToDisplay.url) {
+      Alert.alert(
+        'Refresh Metadata?',
+        'Would you like to re-extract metadata for this item based on the new content type?',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          {
+            text: 'Refresh',
+            onPress: handleRefreshMetadata,
+          },
+        ]
+      );
     }
   };
 
@@ -681,11 +683,6 @@ const RedditItemView = observer(({
               </Text>
             </View>
           )}
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
-              {formatDate(itemToDisplay?.created_at || '')}
-            </Text>
-          </View>
         </View>
 
         {/* Description (inline editable) */}
@@ -755,18 +752,16 @@ const RedditItemView = observer(({
           </Text>
           <TouchableOpacity
             style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
-            onPress={() => {
-              setShowSpaceSelector(!showSpaceSelector);
-              setShowTypeSelector(false);
-            }}
+            onPress={() => setShowSpaceModal(true)}
             activeOpacity={0.7}
           >
-            {selectedSpaceIds.length > 0 ? (
+            {selectedSpaceId ? (
               <View style={styles.selectedSpaces}>
-                {selectedSpaceIds.slice(0, 3).map(spaceId => {
-                  const space = spaces.find(s => s.id === spaceId);
+                {(() => {
+                  const allSpaces = spacesStore.spaces.get();
+                  const space = allSpaces.find(s => s.id === selectedSpaceId);
                   return space ? (
-                    <View key={spaceId} style={styles.selectedSpaceTag}>
+                    <View key={selectedSpaceId} style={styles.selectedSpaceTag}>
                       <View
                         style={[
                           styles.spaceTagDot,
@@ -778,111 +773,14 @@ const RedditItemView = observer(({
                       </Text>
                     </View>
                   ) : null;
-                })}
-                {selectedSpaceIds.length > 3 && (
-                  <Text style={[styles.moreSpaces, isDarkMode && styles.moreSpacesDark]}>
-                    +{selectedSpaceIds.length - 3} more
-                  </Text>
-                )}
+                })()}
               </View>
             ) : (
               <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>
-                No spaces assigned
+                📂 Everything (No Space)
               </Text>
             )}
-            <Text style={styles.chevron}>{showSpaceSelector ? '▲' : '▼'}</Text>
           </TouchableOpacity>
-
-          {showSpaceSelector && (
-            <View style={[styles.spaceOptions, isDarkMode && styles.spaceOptionsDark]}>
-              {spaces.map((space) => (
-                <TouchableOpacity
-                  key={space.id}
-                  style={styles.spaceOption}
-                  onPress={async () => {
-                    const newSelectedIds = selectedSpaceIds.includes(space.id)
-                      ? selectedSpaceIds.filter(id => id !== space.id)
-                      : [...selectedSpaceIds, space.id];
-                    setSelectedSpaceIds(newSelectedIds);
-
-                    if (itemToDisplay) {
-                      const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
-
-                      for (const spaceId of newSelectedIds) {
-                        if (!currentSpaceIds.includes(spaceId)) {
-                          await itemSpacesActions.addItemToSpace(itemToDisplay.id, spaceId);
-                          const space = spaces.find(s => s.id === spaceId);
-                          if (space) {
-                            spacesActions.updateSpace(spaceId, {
-                              item_count: (space.item_count || 0) + 1
-                            });
-                          }
-                        }
-                      }
-
-                      for (const spaceId of currentSpaceIds) {
-                        if (!newSelectedIds.includes(spaceId)) {
-                          await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
-                          const space = spaces.find(s => s.id === spaceId);
-                          if (space) {
-                            spacesActions.updateSpace(spaceId, {
-                              item_count: Math.max(0, (space.item_count || 0) - 1)
-                            });
-                          }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <View style={styles.spaceOptionContent}>
-                    <View style={[
-                      styles.checkbox,
-                      selectedSpaceIds.includes(space.id) && styles.checkboxSelected,
-                      selectedSpaceIds.includes(space.id) && { backgroundColor: space.color }
-                    ]}>
-                      {selectedSpaceIds.includes(space.id) && (
-                        <Text style={styles.checkmark}>✓</Text>
-                      )}
-                    </View>
-                    <View
-                      style={[
-                        styles.spaceColorDot,
-                        { backgroundColor: space.color }
-                      ]}
-                    />
-                    <Text style={[styles.spaceOptionText, isDarkMode && styles.spaceOptionTextDark]}>
-                      {space.name}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {selectedSpaceIds.length > 0 && (
-                <TouchableOpacity
-                  style={[styles.clearButton]}
-                  onPress={async () => {
-                    if (itemToDisplay) {
-                      const currentSpaceIds = itemSpacesComputed.getSpaceIdsForItem(itemToDisplay.id);
-
-                      for (const spaceId of currentSpaceIds) {
-                        await itemSpacesActions.removeItemFromSpace(itemToDisplay.id, spaceId);
-                        const space = spaces.find(s => s.id === spaceId);
-                        if (space) {
-                          spacesActions.updateSpace(spaceId, {
-                            item_count: Math.max(0, (space.item_count || 0) - 1)
-                          });
-                        }
-                      }
-                    }
-                    setSelectedSpaceIds([]);
-                  }}
-                >
-                  <Text style={[styles.clearButtonText, isDarkMode && styles.clearButtonTextDark]}>
-                    Clear All
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
         </View>
 
         {/* URL Display */}
@@ -891,38 +789,24 @@ const RedditItemView = observer(({
             <Text style={[styles.urlSectionLabel, isDarkMode && styles.urlSectionLabelDark]}>
               URL
             </Text>
-            <View style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}>
-              <View style={styles.urlContent}>
-                <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
-                  {itemToDisplay.url}
-                </Text>
-              </View>
-              <View style={styles.urlActions}>
-                <TouchableOpacity
-                  style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                  onPress={async () => {
-                    if (itemToDisplay?.url) {
-                      await Clipboard.setStringAsync(itemToDisplay.url);
-                      Alert.alert('Copied', 'URL copied to clipboard');
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.urlActionIcon}>📋</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.urlActionButton, isDarkMode && styles.urlActionButtonDark]}
-                  onPress={async () => {
-                    if (itemToDisplay?.url) {
-                      await Linking.openURL(itemToDisplay.url);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.urlActionIcon}>🔗</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <TouchableOpacity
+              style={[styles.urlContainer, isDarkMode && styles.urlContainerDark]}
+              onPress={async () => {
+                if (itemToDisplay?.url) {
+                  await Linking.openURL(itemToDisplay.url);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.urlText, isDarkMode && styles.urlTextDark]} numberOfLines={2}>
+                {itemToDisplay.url}
+              </Text>
+              <MaterialIcons
+                name="open-in-new"
+                size={20}
+                color={isDarkMode ? '#5AC8FA' : '#007AFF'}
+              />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -933,10 +817,7 @@ const RedditItemView = observer(({
           </Text>
           <TouchableOpacity
             style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
-            onPress={() => {
-              setShowTypeSelector(!showTypeSelector);
-              setShowSpaceSelector(false);
-            }}
+            onPress={() => setShowTypeModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.selectedType}>
@@ -947,30 +828,8 @@ const RedditItemView = observer(({
                 {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
               </Text>
             </View>
-            <Text style={styles.chevron}>{showTypeSelector ? '▲' : '▼'}</Text>
+            <Text style={styles.chevron}>▼</Text>
           </TouchableOpacity>
-
-          {showTypeSelector && (
-            <View style={[styles.typeOptions, isDarkMode && styles.typeOptionsDark]}>
-              {contentTypeOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.type}
-                  style={[
-                    styles.typeOption,
-                    selectedType === option.type && styles.typeOptionSelected
-                  ]}
-                  onPress={() => handleContentTypeChange(option.type)}
-                >
-                  <View style={styles.typeOptionContent}>
-                    <Text style={styles.typeOptionIcon}>{option.icon}</Text>
-                    <Text style={[styles.typeOptionText, isDarkMode && styles.typeOptionTextDark]}>
-                      {option.label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
 
         {/* Image Descriptions Section */}
@@ -1043,76 +902,47 @@ const RedditItemView = observer(({
           </View>
         )}
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryAction]}
-            onPress={() => {
-              onChat?.(itemToDisplay!);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonTextPrimary}>💬 Chat</Text>
-          </TouchableOpacity>
+        {/* Primary Action */}
+        <TouchableOpacity
+          style={[styles.chatButton, isDarkMode && styles.chatButtonDark]}
+          onPress={() => onChat?.(itemToDisplay!)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.chatButtonText}>💬 Chat</Text>
+        </TouchableOpacity>
 
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onEdit?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                ✏️ Edit
-              </Text>
-            </TouchableOpacity>
-
-            {itemToDisplay?.url && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleRefreshMetadata}
-                disabled={isRefreshingMetadata}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                  {isRefreshingMetadata ? '⏳ Refreshing...' : '🔄 Refresh'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onShare?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                📤 Share
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => onArchive?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, isDarkMode && styles.actionButtonTextDark]}>
-                📦 Archive
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={() => onDelete?.(itemToDisplay!)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Footer */}
+        <ItemViewFooter
+          item={itemToDisplay!}
+          onRefresh={handleRefreshMetadata}
+          onShare={() => onShare?.(itemToDisplay!)}
+          onArchive={() => onArchive?.(itemToDisplay!)}
+          onDelete={() => onDelete?.(itemToDisplay!)}
+          isRefreshing={isRefreshingMetadata}
+          isDarkMode={isDarkMode}
+        />
       </View>
 
       <ImageUploadModal
         ref={imageUploadModalRef}
         onImageSelected={handleHeroImageSelected}
+      />
+
+      {/* Space Selector Modal */}
+      <SpaceSelectorModal
+        visible={showSpaceModal}
+        itemId={itemToDisplay?.id || ''}
+        currentSpaceId={selectedSpaceId}
+        onClose={() => setShowSpaceModal(false)}
+        onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
+      />
+
+      <ContentTypeSelectorModal
+        visible={showTypeModal}
+        itemId={itemToDisplay?.id || ''}
+        currentType={selectedType}
+        onClose={() => setShowTypeModal(false)}
+        onTypeChange={handleContentTypeChange}
       />
     </View>
   );
@@ -1234,40 +1064,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    gap: 8,
   },
   urlContainerDark: {
     backgroundColor: '#2C2C2E',
     borderColor: '#3A3A3C',
   },
-  urlContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  urlActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  urlActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  urlActionButtonDark: {
-    backgroundColor: '#3A3A3C',
-  },
-  urlActionIcon: {
-    fontSize: 18,
-  },
   urlText: {
+    flex: 1,
     fontSize: 14,
     color: '#007AFF',
     textDecorationLine: 'underline',
   },
   urlTextDark: {
     color: '#5AC8FA',
+  },
+  urlActionIcon: {
+    fontSize: 20,
   },
   descriptionSection: {
     marginBottom: 20,
@@ -1324,44 +1137,20 @@ const styles = StyleSheet.create({
   contentTextDark: {
     color: '#CCC',
   },
-  actions: {
+  chatButton: {
     marginTop: 20,
-  },
-  primaryAction: {
-    backgroundColor: '#007AFF',
-    marginBottom: 16,
-  },
-  actionButton: {
-    padding: 14,
+    padding: 16,
     borderRadius: 12,
+    backgroundColor: '#007AFF',
     alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+  chatButtonDark: {
+    backgroundColor: '#0A84FF',
   },
-  actionButtonTextDark: {
-    color: '#FFF',
-  },
-  actionButtonTextPrimary: {
+  chatButtonText: {
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  secondaryActions: {
-    gap: 8,
-  },
-  deleteButton: {
-    borderColor: '#FF3B30',
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
   },
   spaceSection: {
     marginBottom: 20,
@@ -1446,68 +1235,6 @@ const styles = StyleSheet.create({
   },
   chevronDark: {
     color: '#999',
-  },
-  spaceOptions: {
-    marginTop: 8,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  spaceOptionsDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#3C3C3E',
-  },
-  spaceOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  spaceOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxSelected: {
-    borderColor: 'transparent',
-  },
-  checkmark: {
-    fontSize: 12,
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  clearButton: {
-    padding: 12,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    marginTop: 8,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  clearButtonTextDark: {
-    color: '#FF6B6B',
-  },
-  spaceOptionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  spaceOptionTextDark: {
-    color: '#FFF',
   },
   typeSection: {
     marginBottom: 20,

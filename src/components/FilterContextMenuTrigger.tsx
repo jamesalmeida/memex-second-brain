@@ -1,12 +1,11 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { Host, ContextMenu, Button, Submenu, Switch } from '@expo/ui/swift-ui';
 import { filterStore, filterActions } from '../stores/filter';
 import { CONTENT_TYPES } from '../constants';
 import { ContentType } from '../types';
-
-const placeholderTags = ['Important', 'Work', 'Personal', 'Learning', 'To Review'];
+import { itemsStore } from '../stores/items';
 
 interface FilterContextMenuTriggerProps {
   children: ReactNode;
@@ -17,6 +16,23 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
+  const allItems = itemsStore.items.get();
+
+  const tagStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allItems.forEach(item => {
+      item.tags?.forEach(tag => {
+        const trimmed = tag?.trim();
+        if (trimmed) {
+          counts[trimmed] = (counts[trimmed] || 0) + 1;
+        }
+      });
+    });
+    // ContextMenu renders items from bottom to top, so reverse after sorting A→Z.
+    return Object.entries(counts)
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .reverse();
+  }, [allItems]);
 
   return (
     <Host style={hostStyle}>
@@ -58,13 +74,18 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
           </Submenu>
 
           <Submenu button={<Button>Tags</Button>}>
-            {placeholderTags.map((tag) => {
+            {tagStats.length === 0 && (
+              <Button onPress={() => {}}>
+                No tags yet
+              </Button>
+            )}
+            {tagStats.map(([tag, count]) => {
               const isSelected = selectedTags.includes(tag);
               return (
                 <Switch
                   key={tag}
                   variant="checkbox"
-                  label={tag}
+                  label={`${tag} (${count})`}
                   value={isSelected}
                   onValueChange={() => filterActions.toggleTag(tag)}
                 />
@@ -83,4 +104,3 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
 };
 
 export const FilterContextMenuTrigger = observer(FilterContextMenuTriggerComponent);
-
