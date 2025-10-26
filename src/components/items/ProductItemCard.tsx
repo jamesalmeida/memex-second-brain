@@ -5,6 +5,7 @@ import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { Item } from '../../types';
 import { formatDate, getDomain, getContentTypeIcon } from '../../utils/itemCardHelpers';
+import { isAmazonUrl } from '../../utils/urlHelpers';
 import RadialActionMenu from './RadialActionMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -24,7 +25,7 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
   const cardWidth = screenWidth / 2 - 18;
 
   // Check if this is an Amazon product by URL
-  const isAmazon = item.url ? /amazon\.[a-z.]+\//.test(item.url) || /a\.co\//.test(item.url) : false;
+  const isAmazon = isAmazonUrl(item.url);
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>

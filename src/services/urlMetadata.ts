@@ -6,6 +6,7 @@ import { extractInstagramPostId, fetchInstagramData } from './instagram';
 import { extractProductTitle } from './metadataCleaner';
 import { classifyUrlWithAI } from './aiUrlClassifier';
 import { ContentType } from '../types';
+import { isAmazonUrl, resolveToAbsoluteUrl } from '../utils/urlHelpers';
 
 export interface URLMetadata {
   url: string;
@@ -40,17 +41,6 @@ export interface URLMetadata {
     raw_json?: string; // Full Reddit API JSON response
   };
 }
-
-// Resolve a possibly relative icon URL to an absolute URL based on the page URL
-const resolveToAbsoluteUrl = (baseUrl: string, href: string | undefined): string | undefined => {
-  try {
-    if (!href) return undefined;
-    if (href.startsWith('data:')) return href; // keep data URIs as-is
-    return new URL(href, baseUrl).toString();
-  } catch {
-    return href;
-  }
-};
 
 // Universal OG tag extractor - tries direct HTML fetch first for best metadata
 const extractOGTags = async (url: string): Promise<Partial<URLMetadata>> => {
@@ -259,7 +249,7 @@ export const detectURLType = async (url: string, context?: { pageTitle?: string;
     return 'image';
   }
   // Product pages
-  if (lowerUrl.includes('amazon.com') || lowerUrl.includes('ebay.com')) {
+  if (isAmazonUrl(url) || lowerUrl.includes('ebay.com')) {
     return 'product';
   }
   // Articles/blogs
@@ -1513,7 +1503,7 @@ export const extractURLMetadata = async (url: string): Promise<URLMetadata> => {
     return extractThreadsMetadata(url);
   }
 
-  if (url.includes('amazon.com') || url.includes('amazon.') || url.includes('a.co/')) {
+  if (isAmazonUrl(url)) {
     console.log('Using Amazon extractor');
     return extractAmazonMetadata(url);
   }

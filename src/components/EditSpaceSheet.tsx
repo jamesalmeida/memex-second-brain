@@ -15,8 +15,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
-import { itemsStore, itemsActions } from '../stores/items';
-import { itemSpacesComputed, itemSpacesActions } from '../stores/itemSpaces';
 import { Space } from '../types';
 import { syncService } from '../services/syncService';
 
@@ -103,42 +101,75 @@ const EditSpaceSheet = observer(
       }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
       if (!currentSpace) return;
-      
-      Alert.alert(
-        'Delete Space',
-        `Are you sure you want to delete "${currentSpace.name}"? This space will be removed from all items that use it.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // Remove all item-space relationships for this space locally
-                const itemIds = itemSpacesComputed.getItemIdsInSpace(currentSpace.id);
-                for (const itemId of itemIds) {
-                  await itemSpacesActions.removeItemFromSpace(itemId, currentSpace.id);
+
+      // Check if space has items
+      const { itemsStore } = await import('../stores/items');
+      const items = itemsStore.items.get();
+      const itemsInSpace = items.filter(item => item.space_id === currentSpace.id && !item.is_deleted);
+      const itemCount = itemsInSpace.length;
+
+      if (itemCount === 0) {
+        // Space is empty, delete immediately
+        Alert.alert(
+          'Delete Space',
+          `Are you sure you want to delete "${currentSpace.name}"?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await spacesActions.removeSpaceWithSync(currentSpace.id, false);
+                  onSpaceDeleted?.(currentSpace.id);
+                  bottomSheetRef.current?.close();
+                } catch (error) {
+                  console.error('Error deleting space:', error);
+                  Alert.alert('Error', 'Failed to delete space. Please try again.');
                 }
-                
-                // Delete from Supabase first
-                await syncService.deleteSpace(currentSpace.id);
-                
-                // Then delete locally
-                spacesActions.removeSpace(currentSpace.id);
-                onSpaceDeleted?.(currentSpace.id);
-                
-                // Close sheet
-                bottomSheetRef.current?.close();
-              } catch (error) {
-                console.error('Error deleting space:', error);
-                Alert.alert('Error', 'Failed to delete space. Please try again.');
               }
             }
-          }
-        ]
-      );
+          ]
+        );
+      } else {
+        // Space has items, show options
+        Alert.alert(
+          'Delete Space',
+          `This space contains ${itemCount} item${itemCount !== 1 ? 's' : ''}. What would you like to do?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Move to Everything',
+              onPress: async () => {
+                try {
+                  await spacesActions.removeSpaceWithSync(currentSpace.id, false);
+                  onSpaceDeleted?.(currentSpace.id);
+                  bottomSheetRef.current?.close();
+                } catch (error) {
+                  console.error('Error deleting space:', error);
+                  Alert.alert('Error', 'Failed to delete space. Please try again.');
+                }
+              }
+            },
+            {
+              text: 'Delete All',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await spacesActions.removeSpaceWithSync(currentSpace.id, true);
+                  onSpaceDeleted?.(currentSpace.id);
+                  bottomSheetRef.current?.close();
+                } catch (error) {
+                  console.error('Error deleting space:', error);
+                  Alert.alert('Error', 'Failed to delete space. Please try again.');
+                }
+              }
+            }
+          ]
+        );
+      }
     };
 
     const handleCancel = () => {

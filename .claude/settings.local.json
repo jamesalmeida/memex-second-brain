@@ -19,7 +19,9 @@
       "WebSearch",
       "Bash(npx tsc:*)",
       "Bash(xargs ls:*)",
-      "Bash(curl -s \"https://www.amazon.com/ADZERD-Rechargeable-Automatic-Shuffler-Electric/dp/B0FJFB2NSH\" -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36\")"
+      "Bash(curl -s \"https://www.amazon.com/ADZERD-Rechargeable-Automatic-Shuffler-Electric/dp/B0FJFB2NSH\" -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36\")",
+      "Bash(find:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

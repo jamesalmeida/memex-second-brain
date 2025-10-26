@@ -9,8 +9,6 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
-import { syncOperations } from '../services/syncOperations';
-import { authComputed } from '../stores/auth';
 import { COLORS } from '../constants';
 import TagManagerSheet from './TagManagerSheet';
 
@@ -19,7 +17,7 @@ const DrawerContentInner = observer(() => {
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
-  const spaces = spacesComputed.spaces();
+  const spaces = spacesComputed.activeSpaces();
   const tagManagerSheetRef = useRef<BottomSheet>(null);
   const {
     onSettingsPress,
@@ -39,40 +37,117 @@ const DrawerContentInner = observer(() => {
     onEditSpacePress(spaceId);
   };
 
-  const handleDeleteSpace = (spaceId: string) => {
+  const handleArchiveSpace = async (spaceId: string) => {
     const space = spaces.find(s => s.id === spaceId);
     if (!space) return;
 
+    // Check if space has items
+    const { itemsStore } = await import('../stores/items');
+    const items = itemsStore.items.get();
+    const itemsInSpace = items.filter(item => item.space_id === spaceId && !item.is_deleted);
+    const itemCount = itemsInSpace.length;
+
+    const message = itemCount === 0
+      ? `Archive "${space.name}"?`
+      : `Archive "${space.name}"? This will also archive all ${itemCount} item${itemCount !== 1 ? 's' : ''} inside.`;
+
     Alert.alert(
-      'Delete Space',
-      `Are you sure you want to delete "${space.name}"? This action cannot be undone.`,
+      'Archive Space',
+      message,
       [
         {
           text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'Archive',
           onPress: async () => {
             try {
-              console.log('🗑️ Deleting space:', spaceId);
-
-              spacesActions.removeSpace(spaceId);
-
-              const user = authComputed.user();
-              if (user) {
-                await syncOperations.deleteSpace(spaceId);
-                console.log('✅ Space deleted successfully');
-              }
+              await spacesActions.archiveSpaceWithSync(spaceId);
+              console.log('✅ Space archived successfully');
             } catch (error) {
-              console.error('❌ Error deleting space:', error);
-              Alert.alert('Error', 'Failed to delete space. Please try again.');
+              console.error('❌ Error archiving space:', error);
+              Alert.alert('Error', 'Failed to archive space. Please try again.');
             }
           },
         },
       ]
     );
+  };
+
+  const handleDeleteSpace = async (spaceId: string) => {
+    const space = spaces.find(s => s.id === spaceId);
+    if (!space) return;
+
+    // Check if space has items
+    const { itemsStore } = await import('../stores/items');
+    const items = itemsStore.items.get();
+    const itemsInSpace = items.filter(item => item.space_id === spaceId && !item.is_deleted);
+    const itemCount = itemsInSpace.length;
+
+    if (itemCount === 0) {
+      // Space is empty, delete immediately
+      Alert.alert(
+        'Delete Space',
+        `Are you sure you want to delete "${space.name}"?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await spacesActions.removeSpaceWithSync(spaceId, false);
+                console.log('✅ Space deleted successfully');
+              } catch (error) {
+                console.error('❌ Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Space has items, show options
+      Alert.alert(
+        'Delete Space',
+        `This space contains ${itemCount} item${itemCount !== 1 ? 's' : ''}. What would you like to do?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Move to Everything',
+            onPress: async () => {
+              try {
+                await spacesActions.removeSpaceWithSync(spaceId, false);
+                console.log('✅ Space deleted, items moved to Everything');
+              } catch (error) {
+                console.error('❌ Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
+              }
+            },
+          },
+          {
+            text: 'Delete All',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await spacesActions.removeSpaceWithSync(spaceId, true);
+                console.log('✅ Space and items deleted successfully');
+              } catch (error) {
+                console.error('❌ Error deleting space:', error);
+                Alert.alert('Error', 'Failed to delete space. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   return (
@@ -140,31 +215,29 @@ const DrawerContentInner = observer(() => {
               </TouchableOpacity>
             </View>
 
-            {spaces.length > 0 && (
-              <View style={styles.sectionHeader}>
-                <Feather
-                  name="box"
-                  size={24}
-                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+            <View style={styles.sectionHeader}>
+              <Feather
+                name="box"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
+              <Text style={[styles.menuText, isDarkMode && styles.sectionTitleDark]}>
+                Spaces
+              </Text>
+              <TouchableOpacity
+                style={[styles.addButton, isDarkMode && styles.addButtonDark]}
+                onPress={onCreateSpacePress}
+              >
+                <MaterialIcons
+                  name="add"
+                  size={16}
+                  color="#FFFFFF"
                 />
-                <Text style={[styles.menuText, isDarkMode && styles.sectionTitleDark]}>
-                  Spaces
+                <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
+                  New Space
                 </Text>
-                <TouchableOpacity
-                  style={[styles.addButton, isDarkMode && styles.addButtonDark]}
-                  onPress={onCreateSpacePress}
-                >
-                  <MaterialIcons
-                    name="add"
-                    size={16}
-                    color="#FFFFFF"
-                  />
-                  <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
-                    New Space
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         onDragEnd={({ data }) => {
@@ -224,6 +297,9 @@ const DrawerContentInner = observer(() => {
                   <ContextMenu.Items>
                     <Button onPress={() => handleEditSpace(item.id)}>
                       {`Edit ${item.name}`}
+                    </Button>
+                    <Button onPress={() => handleArchiveSpace(item.id)}>
+                      Archive Space
                     </Button>
                     <Button onPress={() => handleDeleteSpace(item.id)} role="destructive">
                       Delete Space

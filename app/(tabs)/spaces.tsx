@@ -11,7 +11,7 @@ import SpaceCard from '../../src/components/SpaceCard';
 import SpaceChatSheet, { SpaceChatSheetRef } from '../../src/components/SpaceChatSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import { Space } from '../../src/types';
-import { getSpaceItemCount, getEmptyStateMessage } from '../../src/utils/mockData';
+import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 
 interface SpacesScreenProps {
@@ -27,7 +27,7 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const allSpaces = spacesComputed.spaces();
+  const allSpaces = spacesComputed.activeSpaces();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
