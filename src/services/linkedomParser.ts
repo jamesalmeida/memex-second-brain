@@ -1,4 +1,5 @@
 import { API_CONFIG } from '../config/api';
+import { resolveToAbsoluteUrl } from '../utils/urlHelpers';
 
 // Lightweight client-side HTML parsing using linkedom
 // Extracts: title, description, lead image, full HTML, and siteName
@@ -9,16 +10,6 @@ export interface ParsedPage {
   html: string;
   siteName?: string;
 }
-
-const resolveToAbsoluteUrl = (baseUrl: string, href: string | undefined): string | undefined => {
-  try {
-    if (!href) return undefined;
-    if (href.startsWith('data:')) return href;
-    return new URL(href, baseUrl).toString();
-  } catch {
-    return href;
-  }
-};
 
 export async function parseUrlWithLinkedom(url: string): Promise<ParsedPage> {
   // Basic validation
@@ -72,5 +63,4 @@ export async function parseUrlWithLinkedom(url: string): Promise<ParsedPage> {
 
   return { title, description, image, html: fullHTML, siteName };
 }
-
 

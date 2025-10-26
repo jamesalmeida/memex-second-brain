@@ -11,10 +11,9 @@ import { filterStore, filterActions } from '../../src/stores/filter';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
-import { generateMockItems, getEmptyStateMessage } from '../../src/utils/mockData';
+import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import { spacesComputed, spacesActions } from '../../src/stores/spaces';
-import { itemSpacesComputed } from '../../src/stores/itemSpaces';
 import HeaderBar, { HeaderTabConfig } from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 import { DrawerContentBody } from '../../src/components/DrawerContent';
@@ -35,7 +34,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
-  const showMockData = themeStore.showMockData.get();
   const allItems = itemsStore.items.get();
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
@@ -51,14 +49,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   // Initialize items and filters on first load
   useEffect(() => {
     const initializeItems = async () => {
-      // Load items from storage first
+      // Load items from storage
       await itemsActions.loadItems();
-
-      // If no items exist after loading, generate mock items
-      if (itemsStore.items.get().length === 0) {
-        const mockItems = generateMockItems(20);
-        await itemsActions.setItems(mockItems);
-      }
     };
 
     const initializeFilters = async () => {
@@ -85,14 +77,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     previousItemCount.current = currentItemCount;
   }, [allItems.length, insets.top]);
 
-  // Filter items based on showMockData toggle, filters, and sort order
+  // Filter items based on filters and sort order
   const displayItems = useMemo(() => {
-    let filtered;
-    if (showMockData) {
-      filtered = allItems; // Show all items including mock
-    } else {
-      filtered = allItems.filter(item => !item.isMockData); // Only show real items
-    }
+    let filtered = allItems.filter(item => !item.is_deleted && !item.is_archived);
 
     // Apply content type filter (single selection)
     if (selectedContentType !== null) {
@@ -118,10 +105,10 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, showMockData, selectedContentType, selectedTags, sortOrder]);
+  }, [allItems, selectedContentType, selectedTags, sortOrder]);
 
   // Spaces and pager state
-  const spaces = spacesComputed.spaces();
+  const spaces = spacesComputed.activeSpaces();
   const [selectedPage, setSelectedPage] = useState(1); // 0 = Drawer, 1 = Everything, 2..n = spaces
   const pagerRef = useRef<ScrollView>(null);
   const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
@@ -139,8 +126,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   ], [spaces]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
-    const ids = itemSpacesComputed.getItemIdsInSpace(spaceId);
-    return displayItems.filter(item => ids.includes(item.id));
+    return displayItems.filter(item => item.space_id === spaceId);
   }, [displayItems]);
 
   const scrollToPage = useCallback((index: number, animated = true) => {

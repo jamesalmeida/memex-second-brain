@@ -30,12 +30,9 @@ import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/exp
 import ItemCard from '../../src/components/items/ItemCard';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { Item, Space } from '../../src/types';
-import { 
-  generateMockItems, 
-  generateMockSpaces, 
-  getItemsForSpace, 
-  getEmptyStateMessage 
-} from '../../src/utils/mockData';
+import { getEmptyStateMessage } from '../../src/utils/mockData';
+import { spacesComputed } from '../../src/stores/spaces';
+import { itemsStore, itemsActions } from '../../src/stores/items';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,18 +54,24 @@ const SpaceDetailScreen = observer(() => {
   const animationProgress = useSharedValue(0);
   const opacity = useSharedValue(0);
   const [modalVisible, setModalVisible] = useState(true);
-  
-  // Get mock space data
-  const spaces = generateMockSpaces();
-  const space = spaces.find(s => s.id === id) || spaces[0];
-  
+
+  // Get space data from store
+  const spaces = spacesComputed.spaces();
+  const space = spaces.find(s => s.id === id);
+
   // State
-  const allItems = generateMockItems(30);
-  const [items, setItems] = useState<Item[]>(getItemsForSpace(space.id, allItems));
+  const allItems = itemsStore.items.get();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const expandedItemSheetRef = useRef<BottomSheet>(null);
+
+  // If space not found, go back
+  useEffect(() => {
+    if (!space) {
+      router.back();
+    }
+  }, [space]);
 
   // Parse animation params
   const initialX = cardX ? Number(cardX) : SCREEN_WIDTH / 2;
@@ -166,12 +169,11 @@ const SpaceDetailScreen = observer(() => {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    // TODO: Refresh from backend
     setTimeout(() => {
-      const newItems = generateMockItems(30);
-      setItems(getItemsForSpace(space.id, newItems));
       setRefreshing(false);
     }, 1500);
-  }, [space.id]);
+  }, []);
 
   const handleItemPress = (item: Item) => {
     setSelectedItem(item);
@@ -215,9 +217,17 @@ const SpaceDetailScreen = observer(() => {
     );
   };
 
-  // Filter items based on search and sort by created_at (newest first)
+  // Filter items for this space based on search and sort by created_at (newest first)
   const filteredItems = useMemo(() => {
-    return items
+    if (!space) return [];
+
+    // Get items for this space only
+    const spaceItems = allItems.filter(item =>
+      item.space_id === space.id && !item.is_deleted
+    );
+
+    // Apply search filter
+    return spaceItems
       .filter(item =>
         searchQuery === '' ||
         item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -228,7 +238,11 @@ const SpaceDetailScreen = observer(() => {
         const dateB = new Date(b.created_at).getTime();
         return dateB - dateA;
       });
-  }, [items, searchQuery]);
+  }, [allItems, space, searchQuery]);
+
+  if (!space) {
+    return null;
+  }
 
   return (
     <Modal
@@ -322,9 +336,9 @@ const SpaceDetailScreen = observer(() => {
           onChat={(item) => console.log('Chat with item:', item.title)}
           onEdit={(item) => console.log('Edit item:', item.title)}
           onArchive={(item) => console.log('Archive item:', item.title)}
-          onDelete={(item) => {
+          onDelete={async (item) => {
             console.log('Delete item:', item.title);
-            setItems(prev => prev.filter(i => i.id !== item.id));
+            await itemsActions.removeItemWithSync(item.id);
             setSelectedItem(null);
           }}
           onShare={async (item) => {

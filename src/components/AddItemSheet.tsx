@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -11,7 +11,6 @@ import { authComputed } from '../stores/auth';
 import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
 import { runPipeline } from '../services/pipeline/runPipeline';
-import { itemSpacesActions } from '../stores/itemSpaces';
 import { spacesComputed } from '../stores/spaces';
 
 interface AddItemSheetProps {
@@ -38,12 +37,25 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
   const selectedSpaceName = selectedSpaceId ? spacesComputed.getSpaceById(selectedSpaceId)?.name ?? 'selected space' : null;
+  const sheetIndexRef = useRef(-1);
 
-  const snapPoints = useMemo(() => ['30%', '70%'], []);
+  const snapToCollapsed = useCallback(() => {
+    if (sheetIndexRef.current > 0) {
+      bottomSheetRef.current?.snapToIndex(0);
+    }
+  }, []);
+
+  const snapPoints = useMemo(() => ['30%', '70%'], []); // Adjust heights of the Add Item Sheet
 
   useEffect(() => {
     setSelectedSpaceId(preSelectedSpaceId);
   }, [preSelectedSpaceId]);
+
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subscription = Keyboard.addListener(event, snapToCollapsed);
+    return () => subscription.remove();
+  }, [snapToCollapsed]);
 
   const openSheet = useCallback((spaceId?: string | null) => {
     setSelectedSpaceId(spaceId ?? null);
@@ -65,22 +77,17 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
     <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
   );
 
-  const handlePaste = async () => {
-    const text = await Clipboard.getStringAsync();
-    if (text) setInput(text);
-  };
-
-  const handleSave = async () => {
-    const url = input.trim();
+  const performSave = useCallback(async (value: string) => {
+    const url = value.trim();
     if (!url) {
       Alert.alert('Enter a URL or note');
-      return;
+      return false;
     }
 
     const userId = authComputed.userId();
     if (!userId) {
       Alert.alert('Not signed in');
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -97,20 +104,13 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         url,
         content_type: 'bookmark',
         is_archived: false,
+        space_id: selectedSpaceId || null,
         created_at: now,
         updated_at: now,
       };
 
       await itemsActions.addItemWithSync(newItem);
       processingItemsActions.add(id);
-
-      if (selectedSpaceId) {
-        try {
-          await itemSpacesActions.addItemToSpace(id, selectedSpaceId);
-        } catch (error) {
-          console.error('Error adding item to space:', error);
-        }
-      }
 
       // Optimistic success UI in the sheet
       setSavedUI({ visible: true, title: provisionalTitle });
@@ -128,10 +128,47 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         .finally(() => {
           processingItemsActions.remove(id);
         });
+      return true;
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [selectedSpaceId]);
+
+  const handleSave = useCallback(async () => {
+    await performSave(input);
+  }, [performSave, input]);
+
+  const handlePasteAndSave = useCallback(async () => {
+    if (isSaving) return;
+    const clipboardText = (await Clipboard.getStringAsync()).trim();
+    if (!clipboardText) {
+      Alert.alert('Clipboard is empty', 'Copy a link first.');
+      return;
+    }
+    setInput(clipboardText);
+    await performSave(clipboardText);
+  }, [isSaving, performSave]);
+
+  const buttonAnimation = useRef(new Animated.Value(0)).current;
+  const hasInput = input.trim().length > 0;
+
+  useEffect(() => {
+    Animated.timing(buttonAnimation, {
+      toValue: hasInput ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [buttonAnimation, hasInput]);
+
+  const pasteSaveOpacity = buttonAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+  });
+
+  const saveOpacity = buttonAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
 
   // Cleanup any pending close timer on unmount
   useEffect(() => {
@@ -153,7 +190,9 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
       keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
       keyboardBlurBehavior="restore"
       onChange={(index) => {
+        sheetIndexRef.current = index;
         if (index === -1) {
+          Keyboard.dismiss();
           if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
           onClose?.();
           setSavedUI(null);
@@ -164,20 +203,46 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         }
       }}
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, isDarkMode && styles.titleDark]}>Save</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={[styles.quickAction, isDarkMode && styles.quickActionDark]} onPress={handlePaste}>
-            <MaterialIcons name="content-paste" size={20} color="#FF6B35" />
-            <Text style={[styles.quickActionText, isDarkMode && styles.quickActionTextDark]}>Paste</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.saveButton, (!input.trim() || isSaving) && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={!input.trim() || isSaving}
+      <View style={[styles.header, isDarkMode && styles.headerDark]}>
+        <View style={styles.headerButtonRow}>
+          <Animated.View
+            style={[
+              styles.saveButtonWrapper,
+              { opacity: isSaving ? 0.65 : 1 },
+              isDarkMode && styles.saveButtonWrapperDark,
+            ]}
           >
-            <Text style={styles.saveButtonText}>{isSaving ? 'Saving…' : 'Save'}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                isDarkMode && styles.saveButtonDark,
+                isSaving && styles.saveButtonDisabled,
+              ]}
+              onPress={hasInput ? handleSave : handlePasteAndSave}
+              disabled={isSaving}
+            >
+              <View style={styles.saveButtonLabel}>
+                {isSaving ? (
+                  <Text style={styles.saveButtonText}>Saving…</Text>
+                ) : (
+                  <>
+                    <Animated.View
+                      style={[styles.saveButtonContentOverlay, { opacity: pasteSaveOpacity }]}
+                    >
+                      <MaterialIcons name="content-paste" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
+                      <Text style={styles.saveButtonText}>Paste & Save</Text>
+                    </Animated.View>
+                    <Animated.View
+                      style={[styles.saveButtonContentOverlay, { opacity: saveOpacity }]}
+                    >
+                      <MaterialIcons name="save" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
+                      <Text style={styles.saveButtonText}>Save</Text>
+                    </Animated.View>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
 
@@ -199,11 +264,11 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
           </View>
         ) : (
           <View style={styles.section}>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
               <BottomSheetTextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
-                placeholder="Paste a link or type a note"
-                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                placeholder="Paste a link or type here"
+                placeholderTextColor={isDarkMode ? '#8E8E93' : '#A0A4B0'}
                 value={input}
                 onChangeText={setInput}
                 onFocus={() => bottomSheetRef.current?.expand()}
@@ -215,18 +280,25 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
               />
               {input.trim().length > 0 && (
                 <TouchableOpacity style={[styles.clearButton, isDarkMode && styles.clearButtonDark]} onPress={() => setInput('')}>
-                  <MaterialIcons name="close" size={18} color={isDarkMode ? '#999' : '#666'} />
+                  <MaterialIcons name="close" size={18} color={isDarkMode ? '#B0B0B5' : '#767A85'} />
                 </TouchableOpacity>
               )}
             </View>
-            {/* Quick actions row removed; Paste moved to header */}
           </View>
         )}
       </BottomSheetScrollView>
 
       {Platform.OS === 'ios' && (
         <InputAccessoryView nativeID="doneAccessory2">
-          <View style={styles.inputAccessory}><Button title="Done" onPress={Keyboard.dismiss} /></View>
+          <View style={styles.inputAccessory}>
+            <Button
+              title="Done"
+              onPress={() => {
+                Keyboard.dismiss();
+                snapToCollapsed();
+              }}
+            />
+          </View>
         </InputAccessoryView>
       )}
     </BottomSheet>
@@ -240,29 +312,81 @@ const styles = StyleSheet.create({
   sheetBackgroundDark: { backgroundColor: '#1C1C1E' },
   handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
   handleIndicatorDark: { backgroundColor: '#666666' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5E7' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#000000' },
-  titleDark: { color: '#FFFFFF' },
-  saveButton: { backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
-  saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+  header: { paddingHorizontal: 20, paddingVertical: 0 },
+  headerButtonRow: { marginTop: 0, alignItems: 'stretch', width: '100%' },
+  saveButtonWrapper: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 26,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+    alignSelf: 'stretch',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  saveButtonWrapperDark: {
+    shadowColor: '#000000',
+    backgroundColor: '#FF7C4B',
+    shadowOpacity: 0.45,
+  },
+  saveButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonDark: {
+    backgroundColor: 'transparent',
+  },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonLabel: { minHeight: 24, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  saveButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16, textAlign: 'center' },
+  saveButtonContentOverlay: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  saveButtonIcon: { marginRight: 6 },
   scrollContent: { paddingBottom: 24 },
   spaceContext: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12, marginHorizontal: 20, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255, 107, 53, 0.08)' },
   spaceContextDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
   spaceContextText: { fontSize: 13, color: '#4A4A4A', fontWeight: '600' },
   spaceContextTextDark: { color: '#F2F2F7' },
   section: { paddingTop: 16, paddingHorizontal: 20 },
-  inputContainer: { position: 'relative' },
-  input: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 12, paddingRight: 40, fontSize: 16, color: '#000000', minHeight: 80, textAlignVertical: 'top' },
-  inputDark: { backgroundColor: '#2C2C2E', color: '#FFFFFF' },
-  clearButton: { position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center' },
-  clearButtonDark: { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  quickActionsRow: { flexDirection: 'row', marginTop: 8, gap: 8 },
-  quickAction: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 6 },
-  quickActionDark: { backgroundColor: '#2C2C2E' },
-  quickActionText: { fontSize: 12, color: '#666666', fontWeight: '500' },
-  quickActionTextDark: { color: '#AAAAAA' },
+  inputContainer: {
+    position: 'relative',
+    borderRadius: 18,
+    backgroundColor: '#F6F7FB',
+    borderWidth: 1,
+    borderColor: '#E8EAF2',
+  },
+  inputContainerDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3A3A3C',
+  },
+  input: {
+    backgroundColor: 'transparent',
+    padding: 16,
+    paddingRight: 48,
+    fontSize: 16,
+    color: '#000000',
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  inputDark: { color: '#FFFFFF' },
+  clearButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonDark: { backgroundColor: 'rgba(255, 255, 255, 0.12)' },
   inputAccessory: { backgroundColor: '#F2F2F7', flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5E7' },
   successPillContainer: { paddingTop: 20, paddingHorizontal: 20 },
   successPill: { alignSelf: 'center', backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },

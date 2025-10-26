@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
+import TagsManagerModal from './TagsManagerModal';
 
 export interface TagsEditorProps {
   tags: string[];
@@ -13,29 +14,58 @@ export interface TagsEditorProps {
 const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: TagsEditorProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
 
-  const [tagInput, setTagInput] = useState('');
-  const [showTagInput, setShowTagInput] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const overlayPulse = useRef(new Animated.Value(0)).current;
+  const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const resolvedButtonLabel = useMemo(() => buttonLabel || '✨ Generate Tags', [buttonLabel]);
 
-  const handleAddTag = async () => {
-    const trimmed = tagInput.trim();
-    if (!trimmed) return;
-    if (tags.includes(trimmed)) {
-      setTagInput('');
-      setShowTagInput(false);
-      return;
+  useEffect(() => {
+    if (isUpdating) {
+      pulseLoopRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(overlayPulse, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(overlayPulse, { toValue: 0, duration: 600, useNativeDriver: true }),
+        ]),
+      );
+      pulseLoopRef.current.start();
+    } else {
+      pulseLoopRef.current?.stop();
+      overlayPulse.setValue(0);
     }
-    const next = [...tags, trimmed];
-    await Promise.resolve(onChangeTags(next));
-    setTagInput('');
-    setShowTagInput(false);
+
+    return () => {
+      pulseLoopRef.current?.stop();
+    };
+  }, [isUpdating, overlayPulse]);
+
+  const overlayOpacity = overlayPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.25, 0.55],
+  });
+
+  const handleOpenModal = () => {
+    setIsModalVisible(true);
   };
 
-  const handleRemoveTag = async (tagToRemove: string) => {
-    const next = tags.filter(t => t !== tagToRemove);
-    await Promise.resolve(onChangeTags(next));
+  const handleModalCancel = () => {
+    if (isSubmitting) return;
+    setIsModalVisible(false);
+  };
+
+  const handleModalDone = async (nextTags: string[]) => {
+    setIsSubmitting(true);
+    setIsModalVisible(false);
+    setIsUpdating(true);
+    try {
+      await Promise.resolve(onChangeTags(nextTags));
+    } finally {
+      setIsUpdating(false);
+      setIsSubmitting(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -54,53 +84,72 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
 
   return (
     <View>
-      <View style={styles.tagsContainer}>
-        {tags.map((tag, index) => (
-          <View key={`${tag}-${index}`} style={[styles.tagChip, isDarkMode && styles.tagChipDark]}>
-            <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>{tag}</Text>
-            <TouchableOpacity onPress={() => handleRemoveTag(tag)} style={styles.tagRemoveButton}>
-              <Text style={[styles.tagRemoveText, isDarkMode && styles.tagRemoveTextDark]}>×</Text>
+      <View style={styles.tagsWrapper}>
+        <View
+          style={[styles.tagsContainer, isUpdating && styles.tagsContainerDisabled]}
+          pointerEvents={isUpdating ? 'none' : 'auto'}
+        >
+          {tags.map((tag, index) => (
+            <TouchableOpacity
+              key={`${tag}-${index}`}
+              style={[styles.tagChip, isDarkMode && styles.tagChipDark]}
+              onPress={handleOpenModal}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>{tag}</Text>
             </TouchableOpacity>
-          </View>
-        ))}
+          ))}
 
-        {showTagInput ? (
-          <View style={[styles.tagInputContainer, isDarkMode && styles.tagInputContainerDark]}>
-            <TextInput
-              style={[styles.tagInput, isDarkMode && styles.tagInputDark]}
-              value={tagInput}
-              onChangeText={setTagInput}
-              onSubmitEditing={handleAddTag}
-              placeholder="Add tag..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              autoFocus
-              onBlur={() => {
-                if (!tagInput.trim()) setShowTagInput(false);
-              }}
-              returnKeyType="done"
-            />
-          </View>
-        ) : (
           <TouchableOpacity
             style={[styles.addTagButton, isDarkMode && styles.addTagButtonDark]}
-            onPress={() => setShowTagInput(true)}
+            onPress={handleOpenModal}
           >
-            <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>+ Add Tag</Text>
-          </TouchableOpacity>
-        )}
-
-        {generateTags && (
-          <TouchableOpacity
-            style={[styles.aiButton, isDarkMode && styles.aiButtonDark, isGenerating && styles.aiButtonDisabled]}
-            onPress={handleGenerate}
-            disabled={isGenerating}
-          >
-            <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
-              {isGenerating ? 'Generating...' : resolvedButtonLabel}
+            <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>
+              + {tags.length > 0 ? 'Manage Tags' : 'Add Tag'}
             </Text>
           </TouchableOpacity>
+
+          {generateTags && (
+            <TouchableOpacity
+              style={[styles.aiButton, isDarkMode && styles.aiButtonDark, isGenerating && styles.aiButtonDisabled]}
+              onPress={handleGenerate}
+              disabled={isGenerating}
+            >
+              <Text style={[styles.aiButtonText, isDarkMode && styles.aiButtonTextDark]}>
+                {isGenerating ? 'Generating...' : resolvedButtonLabel}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {isUpdating && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.updateOverlay,
+              {
+                opacity: overlayOpacity,
+                backgroundColor: isDarkMode ? 'rgba(28,28,30,0.75)' : 'rgba(255,255,255,0.85)',
+              },
+            ]}
+          >
+            <View style={[styles.updateOverlayContent, isDarkMode && styles.updateOverlayContentDark]}>
+              <ActivityIndicator size="small" color={isDarkMode ? '#F2F2F7' : '#333'} />
+              <Text style={[styles.updateOverlayText, isDarkMode && styles.updateOverlayTextDark]}>
+                Updating tags…
+              </Text>
+            </View>
+          </Animated.View>
         )}
       </View>
+
+      <TagsManagerModal
+        visible={isModalVisible}
+        initialTags={tags}
+        onCancel={handleModalCancel}
+        onDone={handleModalDone}
+        isSubmitting={isSubmitting}
+      />
     </View>
   );
 });
@@ -108,12 +157,17 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
 export default TagsEditor;
 
 const styles = StyleSheet.create({
+  tagsWrapper: {
+    position: 'relative',
+  },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  // Tag chip styles (match AddItemSheet)
+  tagsContainerDisabled: {
+    opacity: 0.6,
+  },
   tagChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,18 +186,6 @@ const styles = StyleSheet.create({
   tagTextDark: {
     color: '#FFF',
   },
-  tagRemoveButton: {
-    marginLeft: 6,
-  },
-  tagRemoveText: {
-    fontSize: 18,
-    color: '#999',
-    fontWeight: 'bold',
-  },
-  tagRemoveTextDark: {
-    color: '#666',
-  },
-  // AI button (blue) matching AddItemSheet
   aiButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -164,28 +206,6 @@ const styles = StyleSheet.create({
   aiButtonTextDark: {
     color: '#FFF',
   },
-  // Add tag input and button
-  tagInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    minWidth: 100,
-  },
-  tagInputContainerDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  tagInput: {
-    fontSize: 14,
-    color: '#333',
-    padding: 0,
-    minWidth: 80,
-  },
-  tagInputDark: {
-    color: '#FFF',
-  },
   addTagButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -204,6 +224,30 @@ const styles = StyleSheet.create({
   addTagButtonTextDark: {
     color: '#999',
   },
+  updateOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateOverlayContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  updateOverlayContentDark: {
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  updateOverlayText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  updateOverlayTextDark: {
+    color: '#F2F2F7',
+  },
 });
-
-
