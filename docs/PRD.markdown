@@ -84,6 +84,14 @@
   - **Space Deletion**: When deleting a space with items, user chooses:
     - "Move to Everything" - Sets `space_id=null` for all items in space
     - "Delete All" - Soft-deletes the space and all items within it
+- **Tag Management**:
+  - Access via "Manage Tags" button in drawer menu (below Settings).
+  - Bottom sheet UI displays all unique tags with usage counts (sorted by frequency).
+  - **Edit Tag**: Rename a tag across all items. If the new tag name already exists, prompts to merge (all items with old tag receive new tag, duplicates removed).
+  - **Delete Tag**: Remove tag from all items with confirmation dialog showing item count.
+  - Tag updates sync to all affected items via `itemsActions.updateItemWithSync()`.
+  - Full dark mode support; follows existing bottom sheet patterns.
+  - Empty state displayed when no tags exist.  
 - **Metadata Extraction**:
   - On create/refresh: Fetch title, desc, thumbnail, and type-specific data (e.g., YouTube views, X likes).
   - Services: `urlMetadataService` (scraping/API), YouTube.js, X API.
@@ -223,7 +231,7 @@
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
 - **Components**:
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
-  - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+  - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
   - **SpaceSelectorModal**: Modal-based UI for selecting item's space. Features:
     - Single-select with radio buttons (one space per item)
     - "Everything (No Space)" option at top
