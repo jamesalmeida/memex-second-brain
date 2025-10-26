@@ -18,6 +18,7 @@ import { itemSpacesComputed } from '../../src/stores/itemSpaces';
 import HeaderBar, { HeaderTabConfig } from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 import { DrawerContentBody } from '../../src/components/DrawerContent';
+import FilterPills from '../../src/components/FilterPills';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -310,7 +311,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         </View>
 
         {/* Page 1: Everything */}
-        <View style={{ width: screenWidth }}>
+        <View style={{ width: screenWidth, flex: 1 }}>
+          <FilterPills />
           <FlashList
             ref={listRef}
             data={displayItems}
@@ -336,7 +338,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
         {/* Pages 2..n: one per space */}
         {spaces.map(space => (
-          <View key={space.id} style={{ width: screenWidth }}>
+          <View key={space.id} style={{ width: screenWidth, flex: 1 }}>
+            <FilterPills />
             <FlashList
               data={getItemsForSpace(space.id)}
               renderItem={renderItem}
