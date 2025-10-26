@@ -56,13 +56,21 @@
 - **Empty States**: Custom UI for no items or no search results, with offline messaging (e.g., “No cached items”).
 
 ### 2.3 Item Management
-- **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.  
-- **Item Data**: See [Data Models](#3-data-models-supabase-schema) for details.  
-- **Actions**:  
-  - **Create**: Via FAB, Sharesheet/Intent, or Chrome extension. Auto-detect type and fetch metadata (online only).  
-  - **Update**: Edit title, desc, or metadata; refresh metadata from source (online only).  
-  - **Delete/Archive**: Soft-delete (archive flag) or permanent delete. Queue offline actions in Legend-State.  
-  - **Move**: Reassign to another space via `Item_Spaces` table; queue offline.  
+- **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.
+- **Item Data**: See [Data Models](#3-data-models-supabase-schema) for details.
+- **Actions**:
+  - **Create**: Via FAB, Sharesheet/Intent, or Chrome extension. Auto-detect type and fetch metadata (online only).
+  - **Update**: Edit title, desc, or metadata; refresh metadata from source (online only).
+  - **Delete/Archive**: Soft-delete (archive flag) or permanent delete. Queue offline actions in Legend-State.
+  - **Move**: Reassign to another space via `Item_Spaces` table; queue offline.
+- **Tag Management**:
+  - Access via "Manage Tags" button in drawer menu (below Settings).
+  - Bottom sheet UI displays all unique tags with usage counts (sorted by frequency).
+  - **Edit Tag**: Rename a tag across all items. If the new tag name already exists, prompts to merge (all items with old tag receive new tag, duplicates removed).
+  - **Delete Tag**: Remove tag from all items with confirmation dialog showing item count.
+  - Tag updates sync to all affected items via `itemsActions.updateItemWithSync()`.
+  - Full dark mode support; follows existing bottom sheet patterns.
+  - Empty state displayed when no tags exist.  
 - **Metadata Extraction**:  
   - On create/refresh: Fetch title, desc, thumbnail, and type-specific data (e.g., YouTube views, X likes).  
   - Services: `urlMetadataService` (scraping/API), YouTube.js, X API.  
@@ -185,9 +193,9 @@
 - **Layouts**:  
   - Mobile: Filter Button; Bottom tab bar; FAB for capture; bottom sheet for item details, new item captures, item chats, settings; ContextMenu for Filter; Drawer for organizing Spaces and opening settings.   
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
-- **Components**:  
-  - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).  
-  - **Bottom Sheets**: Edxpanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.   
+- **Components**:
+  - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
+  - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.  
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
