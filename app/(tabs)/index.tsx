@@ -17,6 +17,7 @@ import { spacesComputed, spacesActions } from '../../src/stores/spaces';
 import HeaderBar, { HeaderTabConfig } from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 import { DrawerContentBody } from '../../src/components/DrawerContent';
+import FilterPills from '../../src/components/FilterPills';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -258,6 +259,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         scrollOffset={scrollOffsetX}
         onHamburgerPress={handleHamburgerPress}
       />
+
+      <FilterPills />
 
       <ScrollView
         ref={pagerRef}

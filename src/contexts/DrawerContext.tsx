@@ -7,6 +7,8 @@ interface DrawerContextType {
   drawerRef: React.MutableRefObject<any>;
   onSettingsPress: () => void;
   registerSettingsHandler: (handler: () => void) => void;
+  onTagManagerPress: () => void;
+  registerTagManagerHandler: (handler: () => void) => void;
   onCreateSpacePress: () => void;
   registerCreateSpaceHandler: (handler: () => void) => void;
   onEditSpacePress: (spaceId: string) => void;
@@ -34,6 +36,8 @@ export const useDrawer = () => {
       drawerRef: { current: null },
       onSettingsPress: () => console.log('⚠️ Drawer context not available'),
       registerSettingsHandler: () => console.log('⚠️ Drawer context not available'),
+      onTagManagerPress: () => console.log('⚠️ Drawer context not available'),
+      registerTagManagerHandler: () => console.log('⚠️ Drawer context not available'),
       onCreateSpacePress: () => console.log('⚠️ Drawer context not available'),
       registerCreateSpaceHandler: () => console.log('⚠️ Drawer context not available'),
       onEditSpacePress: () => console.log('⚠️ Drawer context not available'),
@@ -60,6 +64,7 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const [currentView, setCurrentView] = useState<'everything' | 'spaces' | null>(null);
   const drawerRef = useRef<any>(null);
   const settingsHandlerRef = useRef<(() => void) | null>(null);
+  const tagManagerHandlerRef = useRef<(() => void) | null>(null);
   const createSpaceHandlerRef = useRef<(() => void) | null>(null);
   const editSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
   const navigateToSpaceHandlerRef = useRef<((spaceId: string) => void) | null>(null);
@@ -107,6 +112,27 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
         settingsHandlerRef.current();
       } else {
         console.warn('⚠️ [DrawerContext] No settings handler registered');
+      }
+    }, 300); // Match drawer animation duration
+  }, []);
+
+  const registerTagManagerHandler = useCallback((handler: () => void) => {
+    console.log('🏷️ [DrawerContext] Registering tag manager handler');
+    tagManagerHandlerRef.current = handler;
+  }, []);
+
+  const onTagManagerPress = useCallback(() => {
+    console.log('🏷️ [DrawerContext] onTagManagerPress called');
+    console.log('🏷️ [DrawerContext] Closing drawer');
+    setIsDrawerOpen(false);
+
+    // Wait for drawer to close before opening tag manager
+    setTimeout(() => {
+      if (tagManagerHandlerRef.current) {
+        console.log('🏷️ [DrawerContext] Calling registered tag manager handler');
+        tagManagerHandlerRef.current();
+      } else {
+        console.warn('⚠️ [DrawerContext] No tag manager handler registered');
       }
     }, 300); // Match drawer animation duration
   }, []);
@@ -223,6 +249,8 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
     drawerRef,
     onSettingsPress,
     registerSettingsHandler,
+    onTagManagerPress,
+    registerTagManagerHandler,
     onCreateSpacePress,
     registerCreateSpaceHandler,
     onEditSpacePress,
