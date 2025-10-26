@@ -92,8 +92,15 @@
 - **API Endpoint**: `POST /api/capture` (create item with optional metadata/space_id).
 
 ### 2.5 Search & Filtering
-- Fuzzy search on title, desc, tags, and metadata (client-side via Fuse.js, using Legend-State cache offline).  
-- Filter by content type (dynamically generated from unique item types).  
+- Fuzzy search on title, desc, tags, and metadata (client-side via Fuse.js, using Legend-State cache offline).
+- Filter by content type (single selection) and tags (multiple selection) via bottom navigation context menu.
+- **Filter Pills**: Active filters displayed as removable pills below HeaderBar and above cards grid:
+  - Shows selected content type (if any) and selected tags (if any).
+  - Each pill has an X button to remove that specific filter.
+  - Pills only render when filters are active.
+  - Horizontal scrolling when multiple filters are applied.
+  - Full light/dark mode support.
+  - Filter state persisted to AsyncStorage via `filterStore`.
 - Offline: Search/filter cached items only.
 
 ### 2.6 Chat/Intelligence
@@ -185,9 +192,10 @@
 - **Layouts**:  
   - Mobile: Filter Button; Bottom tab bar; FAB for capture; bottom sheet for item details, new item captures, item chats, settings; ContextMenu for Filter; Drawer for organizing Spaces and opening settings.   
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
-- **Components**:  
-  - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).  
-  - **Bottom Sheets**: Edxpanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.   
+- **Components**:
+  - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
+  - **FilterPills**: Displays active filters (content type and tags) as removable pills positioned below HeaderBar and above cards grid. Each pill has an X button to remove the filter. Horizontal scrolling for multiple filters. Only renders when filters are active. Theme-aware (light/dark mode).
+  - **Bottom Sheets**: Edxpanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.  
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
