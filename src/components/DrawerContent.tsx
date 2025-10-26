@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 import { syncOperations } from '../services/syncOperations';
 import { authComputed } from '../stores/auth';
 import { COLORS } from '../constants';
+import TagManagerSheet from './TagManagerSheet';
 
 const DrawerContentInner = observer(() => {
   console.log('🎨 [DrawerContent] Body rendered');
@@ -18,6 +20,7 @@ const DrawerContentInner = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.spaces();
+  const tagManagerSheetRef = useRef<BottomSheet>(null);
   const {
     onSettingsPress,
     onCreateSpacePress,
@@ -95,6 +98,23 @@ const DrawerContentInner = observer(() => {
                 />
                 <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
                   Settings
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuItem, { marginTop: 12 }]}
+                onPress={() => {
+                  console.log('🏷️ [DrawerContent] Tag Manager pressed');
+                  tagManagerSheetRef.current?.snapToIndex(0);
+                }}
+              >
+                <MaterialIcons
+                  name="local-offer"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Manage Tags
                 </Text>
               </TouchableOpacity>
             </View>
@@ -215,6 +235,8 @@ const DrawerContentInner = observer(() => {
           </ScaleDecorator>
         )}
       />
+
+      <TagManagerSheet ref={tagManagerSheetRef} />
     </View>
   );
 });
