@@ -26,6 +26,7 @@ const TagManagerSheet = observer(
     const [editingTag, setEditingTag] = useState<string | null>(null);
     const [editedValue, setEditedValue] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+    const [updatingTag, setUpdatingTag] = useState<string | null>(null);
 
     // Snap points for the bottom sheet - same as settings sheet
     const snapPoints = useMemo(() => ['82%'], []);
@@ -88,6 +89,7 @@ const TagManagerSheet = observer(
       }
 
       setIsUpdating(true);
+      setUpdatingTag(oldTag);
 
       try {
         // Check if the new tag already exists
@@ -99,27 +101,38 @@ const TagManagerSheet = observer(
             'Merge Tags',
             `The tag "${newTag}" already exists. All items with "${oldTag}" will be updated to use "${newTag}". Continue?`,
             [
-              { text: 'Cancel', style: 'cancel', onPress: () => setIsUpdating(false) },
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  setIsUpdating(false);
+                  setUpdatingTag(null);
+                }
+              },
               {
                 text: 'Merge',
                 onPress: async () => {
                   await mergeTag(oldTag, newTag);
                   handleCancelEdit();
                   setIsUpdating(false);
+                  setUpdatingTag(null);
                 },
               },
-            ]
+            ],
+            { cancelable: false }
           );
         } else {
           // Simple rename: Just replace oldTag with newTag
           await renameTag(oldTag, newTag);
           handleCancelEdit();
           setIsUpdating(false);
+          setUpdatingTag(null);
         }
       } catch (error) {
         console.error('Error saving tag edit:', error);
         Alert.alert('Error', 'Failed to update tag. Please try again.');
         setIsUpdating(false);
+        setUpdatingTag(null);
       }
     };
 
@@ -166,6 +179,7 @@ const TagManagerSheet = observer(
             style: 'destructive',
             onPress: async () => {
               setIsUpdating(true);
+              setUpdatingTag(tag);
               try {
                 await deleteTag(tag);
               } catch (error) {
@@ -173,10 +187,12 @@ const TagManagerSheet = observer(
                 Alert.alert('Error', 'Failed to delete tag. Please try again.');
               } finally {
                 setIsUpdating(false);
+                setUpdatingTag(null);
               }
             },
           },
-        ]
+        ],
+        { cancelable: false }
       );
     };
 
@@ -256,89 +272,121 @@ const TagManagerSheet = observer(
             </View>
           ) : (
             <View style={styles.section}>
-              {tagStats.map(({ tag, count }) => (
-                <View key={tag} style={styles.tagRow}>
-                  {editingTag === tag ? (
-                    // Edit mode
-                    <>
-                      <MaterialIcons
-                        name="label"
-                        size={24}
-                        color={isDarkMode ? '#FFFFFF' : '#333333'}
-                      />
-                      <TextInput
-                        style={[
-                          styles.tagInput,
-                          isDarkMode && styles.tagInputDark,
-                        ]}
-                        value={editedValue}
-                        onChangeText={setEditedValue}
-                        autoFocus
-                        selectTextOnFocus
-                        returnKeyType="done"
-                        onSubmitEditing={() => handleSaveEdit(tag)}
-                      />
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => handleSaveEdit(tag)}
-                      >
+              {tagStats.map(({ tag, count }) => {
+                const isThisTagUpdating = updatingTag === tag;
+                const isAnyTagUpdating = isUpdating;
+
+                return (
+                  <View
+                    key={tag}
+                    style={[
+                      styles.tagRow,
+                      isAnyTagUpdating && !isThisTagUpdating && styles.tagRowDisabled,
+                    ]}
+                  >
+                    {editingTag === tag ? (
+                      // Edit mode
+                      <>
                         <MaterialIcons
-                          name="check"
+                          name="label"
                           size={24}
-                          color="#34C759"
+                          color={isDarkMode ? '#FFFFFF' : '#333333'}
                         />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={handleCancelEdit}
-                      >
+                        <TextInput
+                          style={[
+                            styles.tagInput,
+                            isDarkMode && styles.tagInputDark,
+                          ]}
+                          value={editedValue}
+                          onChangeText={setEditedValue}
+                          autoFocus
+                          selectTextOnFocus
+                          returnKeyType="done"
+                          onSubmitEditing={() => handleSaveEdit(tag)}
+                          editable={!isAnyTagUpdating}
+                        />
+                        {isThisTagUpdating ? (
+                          <View style={styles.iconButton}>
+                            <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
+                          </View>
+                        ) : (
+                          <>
+                            <TouchableOpacity
+                              style={styles.iconButton}
+                              onPress={() => handleSaveEdit(tag)}
+                              disabled={isAnyTagUpdating}
+                            >
+                              <MaterialIcons
+                                name="check"
+                                size={24}
+                                color="#34C759"
+                              />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.iconButton}
+                              onPress={handleCancelEdit}
+                              disabled={isAnyTagUpdating}
+                            >
+                              <MaterialIcons
+                                name="close"
+                                size={24}
+                                color={isDarkMode ? '#999' : '#666'}
+                              />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      // View mode
+                      <>
                         <MaterialIcons
-                          name="close"
+                          name="label"
                           size={24}
-                          color={isDarkMode ? '#999' : '#666'}
+                          color={isDarkMode ? '#FFFFFF' : '#333333'}
                         />
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    // View mode
-                    <>
-                      <MaterialIcons
-                        name="label"
-                        size={24}
-                        color={isDarkMode ? '#FFFFFF' : '#333333'}
-                      />
-                      <View style={styles.tagContent}>
-                        <Text style={[styles.tagName, isDarkMode && styles.tagNameDark]}>
-                          {tag}
-                        </Text>
-                        <Text style={[styles.tagCount, isDarkMode && styles.tagCountDark]}>
-                          {count} {count === 1 ? 'item' : 'items'}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => handleEditTag(tag)}
-                      >
-                        <MaterialIcons
-                          name="edit"
-                          size={20}
-                          color={isDarkMode ? '#0A84FF' : '#007AFF'}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => handleDeleteTag(tag)}
-                      >
-                        <MaterialIcons
-                          name="delete"
-                          size={20}
-                          color="#FF3B30"
-                        />
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              ))}
+                        <View style={styles.tagContent}>
+                          <Text style={[styles.tagName, isDarkMode && styles.tagNameDark]}>
+                            {tag}
+                          </Text>
+                          <Text style={[styles.tagCount, isDarkMode && styles.tagCountDark]}>
+                            {count} {count === 1 ? 'item' : 'items'}
+                          </Text>
+                        </View>
+                        {isThisTagUpdating ? (
+                          <View style={styles.iconButton}>
+                            <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
+                          </View>
+                        ) : (
+                          <>
+                            <TouchableOpacity
+                              style={styles.iconButton}
+                              onPress={() => handleEditTag(tag)}
+                              disabled={isAnyTagUpdating}
+                            >
+                              <MaterialIcons
+                                name="edit"
+                                size={20}
+                                color={isAnyTagUpdating ? '#999' : (isDarkMode ? '#0A84FF' : '#007AFF')}
+                              />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.iconButton}
+                              onPress={() => handleDeleteTag(tag)}
+                              disabled={isAnyTagUpdating}
+                            >
+                              <MaterialIcons
+                                name="delete"
+                                size={20}
+                                color={isAnyTagUpdating ? '#999' : '#FF3B30'}
+                              />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           )}
         </BottomSheetScrollView>
@@ -396,6 +444,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5E7',
+  },
+  tagRowDisabled: {
+    opacity: 0.5,
   },
   tagContent: {
     flex: 1,

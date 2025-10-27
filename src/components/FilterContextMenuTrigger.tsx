@@ -18,6 +18,19 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
   const selectedTags = filterStore.selectedTags.get();
   const allItems = itemsStore.items.get();
 
+  const contentTypeStats = useMemo(() => {
+    const counts: Record<ContentType, number> = {} as Record<ContentType, number>;
+    const activeItems = allItems.filter(item => !item.is_deleted && !item.is_archived);
+
+    activeItems.forEach(item => {
+      if (item.content_type) {
+        counts[item.content_type] = (counts[item.content_type] || 0) + 1;
+      }
+    });
+
+    return counts;
+  }, [allItems]);
+
   const tagStats = useMemo(() => {
     // Only show tags from items matching the current content type filter
     const filteredItems = filterComputed.getItemsFilteredByContentType(allItems);
@@ -60,12 +73,14 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
             {(Object.keys(CONTENT_TYPES) as ContentType[]).map((contentType) => {
               const isSelected = selectedContentType === contentType;
               const config = CONTENT_TYPES[contentType];
+              const count = contentTypeStats[contentType] || 0;
+              const label = count > 0 ? `${config.label} (${count})` : config.label;
               return (
                 <Button
                   key={contentType}
                   onPress={() => filterActions.selectContentType(contentType)}
                 >
-                  {isSelected ? `✓ ${config.label}` : config.label}
+                  {isSelected ? `✓ ${label}` : label}
                 </Button>
               );
             })}
