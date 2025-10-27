@@ -42,6 +42,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   // Expanded item is controlled at the TabLayout overlay via expandedItemUI store
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
+  const isInitialMount = useRef(true);
 
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
@@ -76,6 +77,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     // Update previous count
     previousItemCount.current = currentItemCount;
   }, [allItems.length, insets.top]);
+
+  // Scroll to top when filters change (but not on initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    listRef.current?.scrollToOffset({ offset: -insets.top, animated: true });
+  }, [selectedContentType, selectedTags, sortOrder, insets.top]);
 
   // Filter items based on filters and sort order
   const displayItems = useMemo(() => {
