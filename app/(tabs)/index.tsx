@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResponder, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
-import { filterStore, filterActions } from '../../src/stores/filter';
+import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
@@ -236,8 +236,40 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     </View>
   );
 
-  const EmptyState = () => {
-    const emptyMessage = getEmptyStateMessage('home');
+  const EmptyState = ({ spaceId }: { spaceId?: string }) => {
+    const hasActiveFilters = filterComputed.hasActiveFilters();
+
+    // Determine if there are items that COULD be shown (before filtering)
+    let unfilteredItems = allItems.filter(item => !item.is_deleted && !item.is_archived);
+    if (spaceId) {
+      unfilteredItems = unfilteredItems.filter(item => item.space_id === spaceId);
+    }
+    const hasAnyItems = unfilteredItems.length > 0;
+
+    // If there are active filters and there ARE items (but they're being filtered out)
+    if (hasActiveFilters && hasAnyItems) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, isDarkMode && styles.emptyTitleDark]}>
+            No items match your filters
+          </Text>
+          <Text style={[styles.emptySubtitle, isDarkMode && styles.emptySubtitleDark]}>
+            Your active filters are hiding all items in this view.
+          </Text>
+          <TouchableOpacity
+            style={[styles.clearFiltersButton, isDarkMode && styles.clearFiltersButtonDark]}
+            onPress={() => filterActions.clearAll()}
+          >
+            <Text style={[styles.clearFiltersButtonText, isDarkMode && styles.clearFiltersButtonTextDark]}>
+              Clear Filters
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Default empty state (no items at all)
+    const emptyMessage = getEmptyStateMessage(spaceId ? 'space' : 'home');
     return (
       <View style={styles.emptyContainer}>
         <Text style={[styles.emptyTitle, isDarkMode && styles.emptyTitleDark]}>
@@ -336,7 +368,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
               contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
               showsVerticalScrollIndicator={false}
               scrollEnabled={!shouldDisableScroll}
-              ListEmptyComponent={EmptyState}
+              ListEmptyComponent={() => <EmptyState spaceId={space.id} />}
               contentInsetAdjustmentBehavior="automatic"
               refreshControl={
                 <RefreshControl
@@ -394,6 +426,24 @@ const styles = StyleSheet.create({
   },
   emptySubtitleDark: {
     color: '#999',
+  },
+  clearFiltersButton: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  clearFiltersButtonDark: {
+    backgroundColor: '#0A84FF',
+  },
+  clearFiltersButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  clearFiltersButtonTextDark: {
+    color: '#FFFFFF',
   },
   fab: {
     position: 'absolute',
