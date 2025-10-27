@@ -86,11 +86,11 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       filtered = filtered.filter(item => item.content_type === selectedContentType);
     }
 
-    // Apply tag filter (multiple selection)
+    // Apply tag filter (multiple selection - requires ALL selected tags)
     if (selectedTags.length > 0) {
       filtered = filtered.filter(item => {
-        // Check if item has any of the selected tags
-        return item.tags?.some(tag => selectedTags.includes(tag)) ?? false;
+        // Check if item has all of the selected tags
+        return selectedTags.every(selectedTag => item.tags?.includes(selectedTag));
       });
     }
 
