@@ -11,6 +11,7 @@ import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
+import TagManagerSheet from '../../src/components/TagManagerSheet';
 import AddItemSheet, { AddItemSheetHandle } from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
@@ -34,6 +35,7 @@ const TabLayout = observer(() => {
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
 
@@ -41,7 +43,7 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { registerSettingsHandler, registerTagManagerHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
   // Register create space handler
   const handleCreateSpacePress = useCallback(() => {
     console.log('➕ [TabLayout] handleCreateSpacePress called');
@@ -91,6 +93,7 @@ const TabLayout = observer(() => {
 
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
+  const tagManagerSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<AddItemSheetHandle>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
@@ -177,6 +180,32 @@ const TabLayout = observer(() => {
     registerSettingsHandler(handleSettingsPress);
   }, [registerSettingsHandler, handleSettingsPress]);
 
+  const handleTagManagerPress = useCallback(() => {
+    console.log('🏷️ [TabLayout] handleTagManagerPress called');
+    if (isTagManagerOpen) {
+      tagManagerSheetRef.current?.close();
+      setIsTagManagerOpen(false);
+    } else {
+      // Close other sheets if open before opening tag manager
+      if (isAddSheetOpen) {
+        addItemSheetRef.current?.close();
+        createSpaceSheetRef.current?.close();
+        setIsAddSheetOpen(false);
+      }
+      if (isSettingsOpen) {
+        settingsSheetRef.current?.close();
+        setIsSettingsOpen(false);
+      }
+      tagManagerSheetRef.current?.expand();
+      setIsTagManagerOpen(true);
+    }
+  }, [isTagManagerOpen, isAddSheetOpen, isSettingsOpen]);
+
+  useEffect(() => {
+    console.log('🏷️ [TabLayout] Registering tag manager handler with DrawerContext');
+    registerTagManagerHandler(handleTagManagerPress);
+  }, [registerTagManagerHandler, handleTagManagerPress]);
+
   const handleAddPress = () => {
     console.log('🏠🏠🏠 handleAddPress called');
     if (isAddSheetOpen) {
@@ -185,10 +214,14 @@ const TabLayout = observer(() => {
       createSpaceSheetRef.current?.close();
       setIsAddSheetOpen(false);
     } else {
-      // Close settings sheet if open before opening add sheets
+      // Close settings or tag manager sheet if open before opening add sheets
       if (isSettingsOpen) {
         settingsSheetRef.current?.close();
         setIsSettingsOpen(false);
+      }
+      if (isTagManagerOpen) {
+        tagManagerSheetRef.current?.close();
+        setIsTagManagerOpen(false);
       }
       // Show different sheet based on current view
       if (currentView === 'spaces' && !currentSpaceId) {
@@ -220,6 +253,10 @@ const TabLayout = observer(() => {
     if (isSettingsOpen) {
       settingsSheetRef.current?.close();
       setIsSettingsOpen(false);
+    }
+    if (isTagManagerOpen) {
+      tagManagerSheetRef.current?.close();
+      setIsTagManagerOpen(false);
     }
 
     // Animate the slide based on the view
@@ -381,6 +418,11 @@ const TabLayout = observer(() => {
           ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
           onClose={() => setIsSettingsOpen(false)}
+        />
+        <TagManagerSheet
+          ref={tagManagerSheetRef}
+          onOpen={() => setIsTagManagerOpen(true)}
+          onClose={() => setIsTagManagerOpen(false)}
         />
         <AddItemSheet
           ref={addItemSheetRef}

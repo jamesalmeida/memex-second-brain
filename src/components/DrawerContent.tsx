@@ -18,6 +18,7 @@ const DrawerContentInner = observer(() => {
   const spaces = spacesComputed.activeSpaces();
   const {
     onSettingsPress,
+    onTagManagerPress,
     onCreateSpacePress,
     onEditSpacePress,
     onNavigateToSpace,
@@ -170,6 +171,20 @@ const DrawerContentInner = observer(() => {
                 />
                 <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
                   Settings
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuItem, { marginTop: 12 }]}
+                onPress={onTagManagerPress}
+              >
+                <MaterialIcons
+                  name="label"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Manage Tags
                 </Text>
               </TouchableOpacity>
             </View>

@@ -1,6 +1,6 @@
 import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ContentType } from '../types';
+import { ContentType, Item } from '../types';
 import { STORAGE_KEYS } from '../constants';
 
 export type SortOrder = 'recent' | 'oldest';
@@ -28,6 +28,23 @@ export const filterComputed = {
     const type = filterStore.selectedContentType.get();
     const tags = filterStore.selectedTags.get();
     return type !== null || tags.length > 0;
+  },
+  /**
+   * Filter items based on content type only (not tags).
+   * This is useful for showing only relevant tags in the filter UI.
+   */
+  getItemsFilteredByContentType: (items: Item[]) => {
+    const selectedContentType = filterStore.selectedContentType.get();
+
+    // Filter out deleted and archived items
+    let filtered = items.filter(item => !item.is_deleted && !item.is_archived);
+
+    // Apply content type filter if active
+    if (selectedContentType !== null) {
+      filtered = filtered.filter(item => item.content_type === selectedContentType);
+    }
+
+    return filtered;
   },
 };
 

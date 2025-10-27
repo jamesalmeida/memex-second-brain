@@ -223,7 +223,7 @@ const SpaceDetailScreen = observer(() => {
 
     // Get items for this space only
     const spaceItems = allItems.filter(item =>
-      item.space_id === space.id && !item.is_deleted
+      item.space_id === space.id && !item.is_deleted && !item.is_archived
     );
 
     // Apply search filter

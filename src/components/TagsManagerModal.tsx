@@ -18,6 +18,7 @@ import { observer } from '@legendapp/state/react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { itemsStore } from '../stores/items';
+import { Item } from '../types';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -34,6 +35,11 @@ interface TagsManagerModalProps {
   onDone: (tags: string[]) => void | Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  /**
+   * Optional: If provided, only tags from these items will be shown.
+   * Useful for filtering tags based on active content type filters.
+   */
+  filteredItems?: Item[];
 }
 
 const TagsManagerModal = observer(({
@@ -42,9 +48,13 @@ const TagsManagerModal = observer(({
   onDone,
   onCancel,
   isSubmitting = false,
+  filteredItems,
 }: TagsManagerModalProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const allItems = itemsStore.items.get();
+
+  // Use filtered items if provided, otherwise use all items
+  const itemsToUse = filteredItems || allItems;
 
   const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
   const [query, setQuery] = useState('');
@@ -100,7 +110,7 @@ const TagsManagerModal = observer(({
 
   const allTags = useMemo(() => {
     const unique = new Map<string, string>();
-    allItems.forEach((item) => {
+    itemsToUse.forEach((item) => {
       item.tags?.forEach((tag) => {
         if (!tag) return;
         const trimmed = tag.trim();
@@ -112,12 +122,12 @@ const TagsManagerModal = observer(({
       });
     });
     return Array.from(unique.values()).sort((a, b) => a.localeCompare(b));
-  }, [allItems]);
+  }, [itemsToUse]);
 
   const recentTags = useMemo(() => {
     const seen = new Set<string>();
     const ordered: string[] = [];
-    const itemsByRecency = [...allItems].sort((a, b) => {
+    const itemsByRecency = [...itemsToUse].sort((a, b) => {
       const aDate = new Date(a.updated_at || a.created_at || 0).getTime();
       const bDate = new Date(b.updated_at || b.created_at || 0).getTime();
       return bDate - aDate;
@@ -137,7 +147,7 @@ const TagsManagerModal = observer(({
       }
     }
     return ordered;
-  }, [allItems]);
+  }, [itemsToUse]);
 
   const normalizedSelectedKeys = useMemo(
     () => selectedTags.map(tag => tag.toLowerCase()),
