@@ -12,6 +12,7 @@ import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { themeStore, themeActions } from '../stores/theme';
 import { useAuth } from '../hooks/useAuth';
 import { router } from 'expo-router';
@@ -608,7 +609,7 @@ const SettingsSheet = observer(
                   Version
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  1.0.0
+                  {Constants.expoConfig?.version || 'Unknown'} ({Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || 'Unknown'})
                 </Text>
               </View>
             </View>
