@@ -118,8 +118,27 @@
 - **Space Assignment on Creation**: Items created via AddItemSheet include `space_id` in the initial item object, which is uploaded to Supabase via `syncOperations.uploadItem()` to ensure the space assignment persists across devices from the moment of creation.
 
 ### 2.5 Search & Filtering
-- Fuzzy search on title, desc, tags, and metadata (client-side via Fuse.js, using Legend-State cache offline).  
-- Filter by content type (dynamically generated from unique item types).  
+- Fuzzy search on title, desc, tags, and metadata (client-side via Fuse.js, using Legend-State cache offline).
+- Filter by content type (single selection - dynamically generated from unique item types).
+- Filter by tags (multi-select - user can select multiple tags to filter items).
+- **Filter Pills UI**: Active filters are displayed as dismissible pills above the item grid (below HeaderBar):
+  - Content type filter shown as a pill with the type name
+  - Each selected tag shown as an individual pill
+  - Each pill has an X button to remove that specific filter
+  - Pills are horizontally scrollable if they exceed screen width
+  - Pills only appear when filters are active
+  - Styled consistently with theme (light/dark mode support)
+- **Tag Management**: Users can manage all tags via Tag Manager bottom sheet:
+  - Access via "Manage Tags" button in drawer (below Settings button)
+  - View all tags with item counts
+  - Edit tag names (inline editing with save/cancel)
+  - Delete tags (removes from all items after confirmation)
+  - **Tag Merging**: When editing a tag to a name that already exists, user is prompted to merge:
+    - All items with old tag are updated to use the existing tag
+    - Duplicate tags are automatically removed from items
+    - Confirmation alert before merge operation
+  - Bottom sheet uses same 82% height as Settings sheet
+  - Covers bottom navigation when open
 - Offline: Search/filter cached items only.
 
 ### 2.6 Chat/Intelligence
@@ -223,7 +242,27 @@
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
 - **Components**:
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
-  - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+  - **FilterPills**: Displays active filters as dismissible pills above the item grid. Features:
+    - Positioned between HeaderBar and grid content
+    - Shows content type filter and selected tags as individual pills
+    - Each pill has an X button to remove that specific filter
+    - Horizontal ScrollView for overflow handling
+    - Only renders when filters are active
+    - Integrates with filterStore for reactive updates
+    - Full theme support (light/dark mode)
+  - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+  - **TagManagerSheet**: Bottom sheet for managing all tags. Features:
+    - Accessible via "Manage Tags" button in drawer (below Settings)
+    - Lists all tags with item counts sorted alphabetically
+    - Inline editing: tap edit icon to modify tag name
+    - Delete functionality: tap delete icon, confirm via alert
+    - Tag merging: editing a tag to an existing name triggers merge confirmation
+    - Updates sync to all items immediately via itemsActions.updateItemWithSync
+    - 82% screen height (matches SettingsSheet)
+    - Covers bottom navigation when open
+    - Empty state for no tags
+    - Loading overlay during tag operations
+    - Full theme support (light/dark mode)
   - **SpaceSelectorModal**: Modal-based UI for selecting item's space. Features:
     - Single-select with radio buttons (one space per item)
     - "Everything (No Space)" option at top
