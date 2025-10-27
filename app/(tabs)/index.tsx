@@ -136,7 +136,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   ], [spaces]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
-    return displayItems.filter(item => item.space_id === spaceId);
+    return displayItems.filter(item => item.space_id === spaceId && !item.is_archived);
   }, [displayItems]);
 
   const scrollToPage = useCallback((index: number, animated = true) => {
