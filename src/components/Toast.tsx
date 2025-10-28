@@ -39,12 +39,12 @@ const Toast: React.FC<ToastProps> = ({
     });
     opacity.value = withTiming(1, { duration: 200 });
 
-    // Auto dismiss
-    const timer = setTimeout(() => {
-      dismiss();
-    }, duration);
+    // Auto dismiss - TEMPORARILY DISABLED FOR STYLING
+    // const timer = setTimeout(() => {
+    //   dismiss();
+    // }, duration);
 
-    return () => clearTimeout(timer);
+    // return () => clearTimeout(timer);
   }, []);
 
   const dismiss = () => {
@@ -142,6 +142,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
     zIndex: 9999,
+    marginTop: 32,
   },
   content: {
     flexDirection: 'row',

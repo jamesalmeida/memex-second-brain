@@ -11,7 +11,9 @@ interface ToastOptions {
 }
 
 interface ToastContextType {
-  showToast: (options: ToastOptions) => void;
+  showToast: (options: ToastOptions) => string; // Returns toast ID
+  dismissToast: (id: string) => void;
+  dismissAllToasts: () => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -41,10 +43,20 @@ export const ToastProvider = observer(({ children }: { children: ReactNode }) =>
 
     setToasts((prev) => [...prev, newToast]);
 
-    // Auto-remove after duration + animation time
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, (options.duration || 2500) + 500); // Add 500ms buffer for exit animation
+    // Auto-remove after duration + animation time - TEMPORARILY DISABLED FOR STYLING
+    // setTimeout(() => {
+    //   setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    // }, (options.duration || 2500) + 500); // Add 500ms buffer for exit animation
+
+    return id; // Return the ID so callers can dismiss it later
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
+  const dismissAllToasts = useCallback(() => {
+    setToasts([]);
   }, []);
 
   const handleDismiss = useCallback((id: string) => {
@@ -52,7 +64,7 @@ export const ToastProvider = observer(({ children }: { children: ReactNode }) =>
   }, []);
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, dismissToast, dismissAllToasts }}>
       {children}
       <View style={styles.toastContainer} pointerEvents="box-none">
         {toasts.map((toast, index) => (
