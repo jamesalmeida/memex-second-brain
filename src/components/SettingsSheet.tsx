@@ -462,9 +462,10 @@ const SettingsSheet = observer(
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.row}
               onPress={async () => {
+                if (isSyncing) return;
                 Alert.alert(
                   'Clean Orphaned Data',
                   'This will remove local metadata and relationships for items that no longer exist in the cloud. This is safe and helps fix sync issues.',
@@ -477,7 +478,7 @@ const SettingsSheet = observer(
                           const result = await syncService.cleanupOrphanedData();
                           if (result.cleaned > 0) {
                             Alert.alert(
-                              'Cleanup Complete', 
+                              'Cleanup Complete',
                               `Removed ${result.cleaned} orphaned records:\n\n${result.details.join('\n')}`
                             );
                           } else {
@@ -491,14 +492,15 @@ const SettingsSheet = observer(
                   ]
                 );
               }}
+              disabled={isSyncing}
             >
               <MaterialIcons
                 name="cleaning-services"
                 size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
+                color={isSyncing ? '#999' : (isDarkMode ? '#FFFFFF' : '#333333')}
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark, isSyncing && styles.rowDisabled]}>
                   Clean Orphaned Data
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
@@ -512,9 +514,10 @@ const SettingsSheet = observer(
               />
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.row}
               onPress={() => {
+                if (isSyncing) return;
                 Alert.alert(
                   'Clear Local Data',
                   'This will delete all locally stored items and spaces. Data in the cloud will remain. Are you sure?',
@@ -532,7 +535,7 @@ const SettingsSheet = observer(
                           await AsyncStorage.removeItem(STORAGE_KEYS.ITEM_METADATA);
                           await AsyncStorage.removeItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
                           await AsyncStorage.removeItem(STORAGE_KEYS.OFFLINE_QUEUE);
-                          
+
                           // Then clear all stores in memory
                           itemsActions.clearAll();
                           spacesActions.clearAll();
@@ -540,7 +543,7 @@ const SettingsSheet = observer(
                           itemMetadataActions.reset();
                           itemTypeMetadataActions.reset();
                           offlineQueueActions.reset();
-                          
+
                           Alert.alert('Success', 'All local data has been cleared. You can sync from cloud to restore.');
                         } catch (error: any) {
                           console.error('Error clearing local data:', error);
@@ -551,14 +554,15 @@ const SettingsSheet = observer(
                   ]
                 );
               }}
+              disabled={isSyncing}
             >
               <MaterialIcons
                 name="delete-sweep"
                 size={24}
-                color="#FF3B30"
+                color={isSyncing ? '#999' : '#FF3B30'}
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: '#FF3B30' }]}>
+                <Text style={[styles.rowTitle, { color: isSyncing ? '#999' : '#FF3B30' }, isSyncing && styles.rowDisabled]}>
                   Clear All Local Data
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
