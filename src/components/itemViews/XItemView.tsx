@@ -76,6 +76,7 @@ interface XItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
+  onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
@@ -85,6 +86,7 @@ const XItemView = observer(({
   item,
   onChat,
   onArchive,
+  onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
@@ -1128,6 +1130,7 @@ const XItemView = observer(({
           onRefresh={handleRefreshMetadata}
           onShare={() => onShare?.(itemToDisplay!)}
           onArchive={() => onArchive?.(itemToDisplay!)}
+          onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
           isRefreshing={isRefreshingMetadata}
           isDarkMode={isDarkMode}

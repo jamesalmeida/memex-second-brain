@@ -387,6 +387,16 @@ const TabLayout = observer(() => {
             }
             expandedItemUIActions.closeExpandedItem();
           }}
+          onUnarchive={async (item) => {
+            console.log('📤 [TabLayout] Unarchive item:', item.title);
+            try {
+              await itemsActions.unarchiveItemWithSync(item.id);
+              console.log('📤 [TabLayout] Successfully unarchived item:', item.id);
+            } catch (error) {
+              console.error('📤 [TabLayout] Error unarchiving item:', error);
+            }
+            expandedItemUIActions.closeExpandedItem();
+          }}
           onDelete={async (item) => {
             console.log('🗑️ [TabLayout] Delete item:', item.title);
             try {

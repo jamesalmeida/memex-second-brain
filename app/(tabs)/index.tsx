@@ -18,6 +18,7 @@ import HeaderBar, { HeaderTabConfig } from '../../src/components/HeaderBar';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 import { DrawerContentBody } from '../../src/components/DrawerContent';
 import FilterPills from '../../src/components/FilterPills';
+import { SPECIAL_SPACES } from '../../src/constants';
 
 const { width: screenWidth } = Dimensions.get('window');
 const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
@@ -87,9 +88,35 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     listRef.current?.scrollToOffset({ offset: -insets.top, animated: true });
   }, [selectedContentType, selectedTags, sortOrder, insets.top]);
 
+  // Spaces and pager state
+  const spaces = spacesComputed.activeSpaces();
+  const [selectedPage, setSelectedPage] = useState(1); // 0 = Drawer, 1 = Everything, 2..n = spaces
+  const pagerRef = useRef<ScrollView>(null);
+  const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
+
+  // Shared value for scroll position to animate header underline
+  const scrollOffsetX = useSharedValue(screenWidth); // Start at page 1 (Everything)
+
+  const tabs: HeaderTabConfig[] = useMemo(() => [
+    { key: 'drawer', icon: 'hamburger' },
+    { key: 'everything', label: 'Everything' },
+    ...spaces.map(space => ({
+      key: `space-${space.id}`,
+      label: space.name,
+    })),
+    { key: 'archive', label: 'Archive', icon: 'archive', isArchive: true },
+  ], [spaces]);
+
+  // Check if Archive space is selected
+  const isArchiveView = selectedPage === tabs.length - 1 && tabs[tabs.length - 1]?.key === 'archive';
+
   // Filter items based on filters and sort order
   const displayItems = useMemo(() => {
-    let filtered = allItems.filter(item => !item.is_deleted && !item.is_archived);
+    // For Archive view, show only archived items
+    // For normal views, exclude archived items
+    let filtered = isArchiveView
+      ? allItems.filter(item => !item.is_deleted && item.is_archived)
+      : allItems.filter(item => !item.is_deleted && !item.is_archived);
 
     // Apply content type filter (single selection)
     if (selectedContentType !== null) {
@@ -115,25 +142,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, selectedContentType, selectedTags, sortOrder]);
-
-  // Spaces and pager state
-  const spaces = spacesComputed.activeSpaces();
-  const [selectedPage, setSelectedPage] = useState(1); // 0 = Drawer, 1 = Everything, 2..n = spaces
-  const pagerRef = useRef<ScrollView>(null);
-  const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
-
-  // Shared value for scroll position to animate header underline
-  const scrollOffsetX = useSharedValue(screenWidth); // Start at page 1 (Everything)
-
-  const tabs: HeaderTabConfig[] = useMemo(() => [
-    { key: 'drawer', icon: 'hamburger' },
-    { key: 'everything', label: 'Everything' },
-    ...spaces.map(space => ({
-      key: `space-${space.id}`,
-      label: space.name,
-    })),
-  ], [spaces]);
+  }, [allItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
     return displayItems.filter(item => item.space_id === spaceId && !item.is_archived);
@@ -176,12 +185,19 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   // Handler for navigating to a specific space by ID
   const handleNavigateToSpace = useCallback((spaceId: string) => {
+    // Check if it's the Archive space
+    if (spaceId === SPECIAL_SPACES.ARCHIVE_ID) {
+      // Archive is the last tab
+      scrollToPage(tabs.length - 1);
+      return;
+    }
+
     const spaceIndex = spaces.findIndex(s => s.id === spaceId);
     if (spaceIndex !== -1) {
       // +2 because index 0 is Drawer, 1 is Everything
       scrollToPage(spaceIndex + 2);
     }
-  }, [spaces, scrollToPage]);
+  }, [spaces, scrollToPage, tabs.length]);
 
   // Register the navigate to space handler
   useEffect(() => {
@@ -246,8 +262,22 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     </View>
   );
 
-  const EmptyState = ({ spaceId }: { spaceId?: string }) => {
+  const EmptyState = ({ spaceId, isArchive }: { spaceId?: string; isArchive?: boolean }) => {
     const hasActiveFilters = filterComputed.hasActiveFilters();
+
+    // Special case for Archive view
+    if (isArchive) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, isDarkMode && styles.emptyTitleDark]}>
+            No archived items
+          </Text>
+          <Text style={[styles.emptySubtitle, isDarkMode && styles.emptySubtitleDark]}>
+            Items you archive will appear here
+          </Text>
+        </View>
+      );
+    }
 
     // Determine if there are items that COULD be shown (before filtering)
     let unfilteredItems = allItems.filter(item => !item.is_deleted && !item.is_archived);
@@ -390,6 +420,30 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             />
           </View>
         ))}
+
+        {/* Page n+1: Archive */}
+        <View style={{ width: screenWidth }}>
+          <FlashList
+            data={displayItems}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            masonry
+            numColumns={2}
+            estimatedItemSize={200}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!shouldDisableScroll}
+            ListEmptyComponent={() => <EmptyState isArchive={true} />}
+            contentInsetAdjustmentBehavior="automatic"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
+            }
+          />
+        </View>
       </ScrollView>
 
       {/* Expanded Item View moved to TabLayout overlay */}

@@ -18,6 +18,7 @@ interface ExpandedItemViewProps {
   onChat?: (item: Item) => void;
   onEdit?: (item: Item) => void;
   onArchive?: (item: Item) => void;
+  onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   onSpaceChange?: (item: Item, spaceId: string | null) => void;
@@ -32,6 +33,7 @@ const ExpandedItemView = observer(
   onChat,
   onEdit,
   onArchive,
+  onUnarchive,
   onDelete,
   onShare,
   onSpaceChange,
@@ -76,6 +78,7 @@ const ExpandedItemView = observer(
             onChat={onChat}
             onEdit={onEdit}
             onArchive={onArchive}
+            onUnarchive={onUnarchive}
             onDelete={onDelete}
             onShare={onShare}
             currentSpaceId={currentSpaceId}
@@ -88,6 +91,7 @@ const ExpandedItemView = observer(
             onChat={onChat}
             onEdit={onEdit}
             onArchive={onArchive}
+            onUnarchive={onUnarchive}
             onDelete={onDelete}
             onShare={onShare}
             currentSpaceId={currentSpaceId}
@@ -102,6 +106,7 @@ const ExpandedItemView = observer(
             onChat={onChat}
             onEdit={onEdit}
             onArchive={onArchive}
+            onUnarchive={onUnarchive}
             onDelete={onDelete}
             onShare={onShare}
             currentSpaceId={currentSpaceId}
@@ -115,6 +120,7 @@ const ExpandedItemView = observer(
             onChat={onChat}
             onEdit={onEdit}
             onArchive={onArchive}
+            onUnarchive={onUnarchive}
             onDelete={onDelete}
             onShare={onShare}
             currentSpaceId={currentSpaceId}
@@ -129,6 +135,7 @@ const ExpandedItemView = observer(
             onChat={onChat}
             onEdit={onEdit}
             onArchive={onArchive}
+            onUnarchive={onUnarchive}
             onDelete={onDelete}
             onShare={onShare}
             currentSpaceId={currentSpaceId}
@@ -142,6 +149,7 @@ const ExpandedItemView = observer(
             onChat={onChat}
             onEdit={onEdit}
             onArchive={onArchive}
+            onUnarchive={onUnarchive}
             onDelete={onDelete}
             onShare={onShare}
             currentSpaceId={currentSpaceId}

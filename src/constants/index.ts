@@ -112,6 +112,11 @@ export const STORAGE_KEYS = {
   USER_SETTINGS: '@memex_user_settings', // Cloud-synced user settings
 };
 
+// Special spaces
+export const SPECIAL_SPACES = {
+  ARCHIVE_ID: '__archive__',
+};
+
 // Share extension
 export const SHARE_EXTENSION = {
   GROUP_IDENTIFIER: 'group.com.jamesalmeida.memex',
