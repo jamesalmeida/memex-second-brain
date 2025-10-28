@@ -512,33 +512,19 @@ const RedditItemView = observer(({
       {(() => {
         const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
         const hasMultipleImages = imageUrls && imageUrls.length > 1;
+        const hasSingleImage = imageUrls && imageUrls.length === 1;
 
-        if (itemToDisplay?.thumbnail_url) {
-          return (
-            <View style={styles.heroContainer}>
-              <View style={{ position: 'relative' }}>
-                <ImageWithActions
-                  source={{ uri: itemToDisplay.thumbnail_url }}
-                  imageUrl={itemToDisplay.thumbnail_url}
-                  style={styles.heroMedia}
-                  contentFit="contain"
-                  canReplace
-                  canRemove={!!itemToDisplay.thumbnail_url}
-                  onImageReplace={() => imageUploadModalRef.current?.open()}
-                  onImageRemove={handleHeroImageRemove}
-                />
-                {redditMetadata?.video_duration && (
-                  <View style={styles.durationOverlay}>
-                    <Text style={styles.durationText}>
-                      ⏱️ {formatDuration(redditMetadata.video_duration)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        }
+        // Debug logging
+        console.log('🖼️ [RedditItemView] Hero Media Debug:', {
+          itemId: itemToDisplay?.id,
+          thumbnail_url: itemToDisplay?.thumbnail_url,
+          imageUrls,
+          imageUrlsCount: imageUrls?.length || 0,
+          hasMultipleImages,
+          hasSingleImage,
+        });
 
+        // Prioritize carousel images from metadata over thumbnail_url
         if (hasMultipleImages) {
           return (
             <View style={styles.heroContainer}>
@@ -569,8 +555,6 @@ const RedditItemView = observer(({
                         backgroundColor: '#000000'
                       }}
                       contentFit="contain"
-                      canReplace
-                      onImageReplace={() => imageUploadModalRef.current?.open()}
                     />
                   ))}
                 </ScrollView>
@@ -590,7 +574,8 @@ const RedditItemView = observer(({
           );
         }
 
-        if (imageUrls && imageUrls.length === 1) {
+        // Prioritize single image from metadata over thumbnail_url
+        if (hasSingleImage) {
           return (
             <View style={styles.heroContainer}>
               <ImageWithActions
@@ -601,6 +586,32 @@ const RedditItemView = observer(({
                 canReplace
                 onImageReplace={() => imageUploadModalRef.current?.open()}
               />
+            </View>
+          );
+        }
+
+        if (itemToDisplay?.thumbnail_url) {
+          return (
+            <View style={styles.heroContainer}>
+              <View style={{ position: 'relative' }}>
+                <ImageWithActions
+                  source={{ uri: itemToDisplay.thumbnail_url }}
+                  imageUrl={itemToDisplay.thumbnail_url}
+                  style={styles.heroMedia}
+                  contentFit="contain"
+                  canReplace
+                  canRemove={!!itemToDisplay.thumbnail_url}
+                  onImageReplace={() => imageUploadModalRef.current?.open()}
+                  onImageRemove={handleHeroImageRemove}
+                />
+                {redditMetadata?.video_duration && (
+                  <View style={styles.durationOverlay}>
+                    <Text style={styles.durationText}>
+                      ⏱️ {formatDuration(redditMetadata.video_duration)}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           );
         }
