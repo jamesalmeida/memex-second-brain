@@ -42,6 +42,8 @@ export interface Item {
   thumbnail_url?: string;
   raw_text?: string;
   tags?: string[];
+  tldr?: string; // AI-generated summary of item content
+  notes?: string; // User's personal notes and annotations
   created_at: string;
   updated_at: string;
   space_id?: string | null; // Single space per item (replaces item_spaces many-to-many)

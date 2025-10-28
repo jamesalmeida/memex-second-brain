@@ -58,6 +58,8 @@
 ### 2.3 Item Management
 - **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.
 - **Item Data**: See [Data Models](#3-data-models-supabase-schema) for details.
+  - **TLDR**: AI-generated summary of item content using full context (description, transcript, images, metadata). Generated via OpenAI on demand and stored in `Items.tldr` field.
+  - **Notes**: User's personal notes and annotations about the item. Stored in `Items.notes` field as free-form text.
 - **Space Assignment**: Each item belongs to exactly ONE space (or none). Managed via `Items.space_id` field.
   - Users select space via modal UI (SpaceSelectorModal component)
   - "Everything (No Space)" option available for unassigned items
@@ -170,8 +172,10 @@
   - Managed by Supabase auth.  
   - Fields: `id` (UUID, PK), `email` (text).  
 - **Items**:
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `title` (text), `url` (text, nullable), `content_type` (enum: bookmark, youtube, youtube_short, x, github, instagram, facebook, threads, tiktok, reddit, amazon, linkedin, image, pdf, video, audio, podcast, note, article, product, book, course, movie, tv_show), `content` (text, nullable), `desc` (text, nullable), `thumbnail_url` (text, nullable), `raw_text` (text, nullable), `tags` (text[], nullable), `space_id` (UUID, nullable, FK to Spaces), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `auto_archived` (boolean, default false), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `title` (text), `url` (text, nullable), `content_type` (enum: bookmark, youtube, youtube_short, x, github, instagram, facebook, threads, tiktok, reddit, amazon, linkedin, image, pdf, video, audio, podcast, note, article, product, book, course, movie, tv_show), `content` (text, nullable), `desc` (text, nullable), `thumbnail_url` (text, nullable), `raw_text` (text, nullable), `tags` (text[], nullable), `tldr` (text, nullable), `notes` (text, nullable), `space_id` (UUID, nullable, FK to Spaces), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `auto_archived` (boolean, default false), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
   - Note: `tags` field is a TEXT array for categorization and search with GIN index for efficient array operations.
+  - Note: `tldr` field stores AI-generated summary of item content (description, transcript, images, metadata) generated on-demand via OpenAI `summarizeContent()` using full context from `buildItemContext()`.
+  - Note: `notes` field stores user's personal notes and annotations about the item as free-form text.
   - Note: `space_id` replaces the many-to-many `Item_Spaces` relationship - each item now belongs to exactly ONE space (or none if null).
   - Note: `auto_archived` tracks if an item was automatically archived when its parent space was archived, enabling selective restoration.  
 - **Item_Metadata**:  
@@ -229,6 +233,7 @@
   - `20251024_add_soft_delete_to_spaces.sql` - Adds soft-delete fields to spaces table
   - `20251024_add_archive_and_simplify_spaces.sql` - Adds archive fields to items/spaces, migrates to one-space-per-item, adds `Items.space_id`
   - `20251024_enable_realtime.sql` - Enables Supabase real-time replication for items and spaces tables
+  - `20251027_add_tldr_and_notes_to_items.sql` - Adds `tldr` and `notes` fields to items table for AI summaries and user annotations
 
 ## 4. UI/UX Requirements
 - **Navigation**:  

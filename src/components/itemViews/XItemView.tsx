@@ -40,6 +40,8 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getXVideoTranscript } from '../../services/twitter';
 import { itemMetadataComputed } from '../../stores/itemMetadata';
+import TldrSection from '../TldrSection';
+import NotesSection from '../NotesSection';
 import { extractUsername } from '../../utils/itemCardHelpers';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
@@ -841,6 +843,15 @@ const XItemView = observer(({
           )}
         </View>
 
+        {/* TLDR Section */}
+        <TldrSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onTldrChange={(newTldr) => {
+            setDisplayItem({ ...itemToDisplay, tldr: newTldr });
+          }}
+        />
+
         {/* Tags Section */}
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
@@ -869,6 +880,15 @@ const XItemView = observer(({
             buttonLabel="✨ Generate Tags"
           />
         </View>
+
+        {/* Notes Section */}
+        <NotesSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* Space Selector */}
         <View style={styles.spaceSection}>

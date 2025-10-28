@@ -38,6 +38,8 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { getXVideoTranscript } from '../../services/twitter';
+import TldrSection from '../TldrSection';
+import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { ImageWithActions } from '../ImageWithActions';
@@ -1048,6 +1050,15 @@ const DefaultItemView = observer(({
           />
         </View>
 
+        {/* TLDR Section */}
+        <TldrSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onTldrChange={(newTldr) => {
+            setDisplayItem({ ...itemToDisplay, tldr: newTldr });
+          }}
+        />
+
         {/* Tags Section */}
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
@@ -1077,6 +1088,15 @@ const DefaultItemView = observer(({
             buttonLabel="✨ Generate Tags"
           />
         </View>
+
+        {/* Notes Section */}
+        <NotesSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* Full Content */}
         {/* {itemToDisplay?.content && (
