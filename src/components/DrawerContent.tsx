@@ -247,7 +247,7 @@ const DrawerContentInner = observer(() => {
                   name="archive"
                   size={18}
                   color={isDarkMode ? '#AAAAAA' : '#666666'}
-                  style={{ marginRight: 12 }}
+                  style={{ marginRight: 12, marginLeft: 27 }}
                 />
                 <Text
                   style={[styles.spaceText, isDarkMode && styles.spaceTextDark, styles.archiveText]}
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   archiveSpaceContainer: {
-    marginTop: 12,
+    // marginTop: 12,
   },
   archiveSpace: {
     opacity: 0.8,
