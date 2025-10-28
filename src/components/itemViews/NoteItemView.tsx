@@ -8,6 +8,8 @@ import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
+import TldrSection from '../TldrSection';
+import NotesSection from '../NotesSection';
 import * as Clipboard from 'expo-clipboard';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
@@ -194,6 +196,15 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
           />
         </View>
 
+        {/* TLDR Section */}
+        <TldrSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onTldrChange={(newTldr) => {
+            setDisplayItem({ ...itemToDisplay, tldr: newTldr });
+          }}
+        />
+
         {/* Tags */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>TAGS</Text>
@@ -210,6 +221,15 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
             buttonLabel="✨ Generate Tags"
           />
         </View>
+
+        {/* Notes Section */}
+        <NotesSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* Space Selector */}
         <View style={styles.spaceSection}>

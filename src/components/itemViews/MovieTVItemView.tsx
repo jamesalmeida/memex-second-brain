@@ -19,6 +19,8 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
+import TldrSection from '../TldrSection';
+import NotesSection from '../NotesSection';
 import ItemViewFooter from '../ItemViewFooter';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
@@ -463,6 +465,12 @@ const MovieTVItemView = observer(({
         </View>
       )} */}
 
+      {/* TLDR Section */}
+      <TldrSection
+        item={itemToDisplay}
+        isDarkMode={isDarkMode}
+      />
+
       {/* Tags Section */}
       <View style={styles.section}>
         <View style={styles.tagsHeader}>
@@ -487,6 +495,12 @@ const MovieTVItemView = observer(({
           buttonLabel="✨ Generate Tags"
         />
       </View>
+
+      {/* Notes Section */}
+      <NotesSection
+        item={itemToDisplay}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Spaces Section */}
       <View style={styles.section}>

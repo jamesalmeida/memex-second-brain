@@ -33,6 +33,8 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
+import TldrSection from '../TldrSection';
+import NotesSection from '../NotesSection';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 import ItemViewFooter from '../ItemViewFooter';
@@ -707,6 +709,15 @@ const RedditItemView = observer(({
           />
         </View>
 
+        {/* TLDR Section */}
+        <TldrSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onTldrChange={(newTldr) => {
+            setDisplayItem({ ...itemToDisplay, tldr: newTldr });
+          }}
+        />
+
         {/* Tags Section */}
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
@@ -735,6 +746,15 @@ const RedditItemView = observer(({
             buttonLabel="✨ Generate Tags"
           />
         </View>
+
+        {/* Notes Section */}
+        <NotesSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* Full Content */}
         {/* {itemToDisplay?.content && (

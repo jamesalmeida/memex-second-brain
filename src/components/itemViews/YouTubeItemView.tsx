@@ -34,6 +34,8 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
+import TldrSection from '../TldrSection';
+import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
@@ -545,6 +547,15 @@ const YouTubeItemView = observer(({
           />
         </View>
 
+        {/* TLDR Section */}
+        <TldrSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onTldrChange={(newTldr) => {
+            setDisplayItem({ ...itemToDisplay, tldr: newTldr });
+          }}
+        />
+
         {/* Tags Section */}
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
@@ -573,6 +584,15 @@ const YouTubeItemView = observer(({
             buttonLabel="✨ Generate Tags"
           />
         </View>
+
+        {/* Notes Section */}
+        <NotesSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* Space Selector */}
         <View style={styles.spaceSection}>
