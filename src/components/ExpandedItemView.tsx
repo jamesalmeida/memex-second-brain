@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback, forwardRef } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
@@ -23,6 +23,8 @@ interface ExpandedItemViewProps {
   onShare?: (item: Item) => void;
   onSpaceChange?: (item: Item, spaceId: string | null) => void;
   currentSpaceId?: string | null;
+  isUnarchiving?: boolean;
+  isArchiving?: boolean;
 }
 
 const ExpandedItemView = observer(
@@ -38,6 +40,8 @@ const ExpandedItemView = observer(
   onShare,
   onSpaceChange,
   currentSpaceId,
+  isUnarchiving = false,
+  isArchiving = false,
 }, ref) => {
   const isDarkMode = themeStore.isDarkMode.get();
 
@@ -76,7 +80,6 @@ const ExpandedItemView = observer(
           <NoteItemView
             item={item}
             onChat={onChat}
-            onEdit={onEdit}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
@@ -89,7 +92,6 @@ const ExpandedItemView = observer(
           <RedditItemView
             item={item}
             onChat={onChat}
-            onEdit={onEdit}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
@@ -104,7 +106,6 @@ const ExpandedItemView = observer(
           <YouTubeItemView
             item={item}
             onChat={onChat}
-            onEdit={onEdit}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
@@ -118,7 +119,6 @@ const ExpandedItemView = observer(
           <XItemView
             item={item}
             onChat={onChat}
-            onEdit={onEdit}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
@@ -133,7 +133,6 @@ const ExpandedItemView = observer(
           <MovieTVItemView
             item={item}
             onChat={onChat}
-            onEdit={onEdit}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
@@ -147,7 +146,6 @@ const ExpandedItemView = observer(
           <DefaultItemView
             item={item}
             onChat={onChat}
-            onEdit={onEdit}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
@@ -191,6 +189,18 @@ const ExpandedItemView = observer(
       >
         {renderItemView()}
       </BottomSheetScrollView>
+
+      {/* Loading Overlay for Archiving/Unarchiving */}
+      {(isUnarchiving || isArchiving) && (
+        <View style={[styles.loadingOverlay, isDarkMode && styles.loadingOverlayDark]}>
+          <View style={[styles.loadingContent, isDarkMode && styles.loadingContentDark]}>
+            <ActivityIndicator size="large" color={isDarkMode ? '#FFFFFF' : '#007AFF'} />
+            <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>
+              {isArchiving ? 'Archiving...' : 'Unarchiving...'}
+            </Text>
+          </View>
+        </View>
+      )}
     </BottomSheet>
   );
 }));
@@ -213,5 +223,43 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingOverlayDark: {
+    backgroundColor: 'rgba(28, 28, 30, 0.95)',
+  },
+  loadingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  loadingContentDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  loadingTextDark: {
+    color: '#FFFFFF',
   },
 });
