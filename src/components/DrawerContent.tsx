@@ -18,6 +18,7 @@ const DrawerContentInner = observer(() => {
   const spaces = spacesComputed.activeSpaces();
   const {
     onSettingsPress,
+    onAdminPress,
     onTagManagerPress,
     onCreateSpacePress,
     onEditSpacePress,
@@ -236,24 +237,43 @@ const DrawerContentInner = observer(() => {
           </View>
         )}
         ListFooterComponent={(
-          <View style={styles.archiveSpaceContainer}>
-            <View style={[styles.spaceItem, isDarkMode && styles.spaceItemDark, styles.archiveSpace]}>
+          <View>
+            <View style={styles.archiveSpaceContainer}>
+              <View style={[styles.spaceItem, isDarkMode && styles.spaceItemDark, styles.archiveSpace]}>
+                <TouchableOpacity
+                  style={[styles.spaceItemContent, { paddingVertical: 6, paddingLeft: 8 }]}
+                  onPress={() => navigateToSpace(SPECIAL_SPACES.ARCHIVE_ID)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name="archive"
+                    size={18}
+                    color={isDarkMode ? '#AAAAAA' : '#666666'}
+                    style={{ marginRight: 12, marginLeft: 27 }}
+                  />
+                  <Text
+                    style={[styles.spaceText, isDarkMode && styles.spaceTextDark, styles.archiveText]}
+                    numberOfLines={1}
+                  >
+                    Archive
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Admin button */}
+            <View style={styles.section}>
               <TouchableOpacity
-                style={[styles.spaceItemContent, { paddingVertical: 6, paddingLeft: 8 }]}
-                onPress={() => navigateToSpace(SPECIAL_SPACES.ARCHIVE_ID)}
-                activeOpacity={0.7}
+                style={[styles.menuItem, { marginTop: 12 }]}
+                onPress={onAdminPress}
               >
                 <MaterialIcons
-                  name="archive"
-                  size={18}
-                  color={isDarkMode ? '#AAAAAA' : '#666666'}
-                  style={{ marginRight: 12, marginLeft: 27 }}
+                  name="build"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
                 />
-                <Text
-                  style={[styles.spaceText, isDarkMode && styles.spaceTextDark, styles.archiveText]}
-                  numberOfLines={1}
-                >
-                  Archive
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Admin
                 </Text>
               </TouchableOpacity>
             </View>

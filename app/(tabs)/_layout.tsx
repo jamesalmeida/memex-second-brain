@@ -11,6 +11,7 @@ import { chatUIStore, chatUIActions } from '../../src/stores/chatUI';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
+import AdminSheet from '../../src/components/AdminSheet';
 import TagManagerSheet from '../../src/components/TagManagerSheet';
 import AddItemSheet, { AddItemSheetHandle } from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
@@ -37,6 +38,7 @@ const TabLayout = observer(() => {
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
@@ -47,7 +49,7 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, registerTagManagerHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { registerSettingsHandler, registerAdminHandler, registerTagManagerHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
   // Register create space handler
   const handleCreateSpacePress = useCallback(() => {
     console.log('➕ [TabLayout] handleCreateSpacePress called');
@@ -97,6 +99,7 @@ const TabLayout = observer(() => {
 
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
+  const adminSheetRef = useRef<BottomSheet>(null);
   const tagManagerSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<AddItemSheetHandle>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
@@ -184,6 +187,36 @@ const TabLayout = observer(() => {
     registerSettingsHandler(handleSettingsPress);
   }, [registerSettingsHandler, handleSettingsPress]);
 
+  const handleAdminPress = useCallback(() => {
+    console.log('🔧 [TabLayout] handleAdminPress called');
+    if (isAdminOpen) {
+      adminSheetRef.current?.close();
+      setIsAdminOpen(false);
+    } else {
+      // Close other sheets if open before opening admin
+      if (isAddSheetOpen) {
+        addItemSheetRef.current?.close();
+        createSpaceSheetRef.current?.close();
+        setIsAddSheetOpen(false);
+      }
+      if (isSettingsOpen) {
+        settingsSheetRef.current?.close();
+        setIsSettingsOpen(false);
+      }
+      if (isTagManagerOpen) {
+        tagManagerSheetRef.current?.close();
+        setIsTagManagerOpen(false);
+      }
+      adminSheetRef.current?.expand();
+      setIsAdminOpen(true);
+    }
+  }, [isAdminOpen, isAddSheetOpen, isSettingsOpen, isTagManagerOpen]);
+
+  useEffect(() => {
+    console.log('🔧 [TabLayout] Registering admin handler with DrawerContext');
+    registerAdminHandler(handleAdminPress);
+  }, [registerAdminHandler, handleAdminPress]);
+
   const handleTagManagerPress = useCallback(() => {
     console.log('🏷️ [TabLayout] handleTagManagerPress called');
     if (isTagManagerOpen) {
@@ -257,6 +290,10 @@ const TabLayout = observer(() => {
     if (isSettingsOpen) {
       settingsSheetRef.current?.close();
       setIsSettingsOpen(false);
+    }
+    if (isAdminOpen) {
+      adminSheetRef.current?.close();
+      setIsAdminOpen(false);
     }
     if (isTagManagerOpen) {
       tagManagerSheetRef.current?.close();
@@ -460,6 +497,11 @@ const TabLayout = observer(() => {
           ref={settingsSheetRef}
           onOpen={() => setIsSettingsOpen(true)}
           onClose={() => setIsSettingsOpen(false)}
+        />
+        <AdminSheet
+          ref={adminSheetRef}
+          onOpen={() => setIsAdminOpen(true)}
+          onClose={() => setIsAdminOpen(false)}
         />
         <TagManagerSheet
           ref={tagManagerSheetRef}
