@@ -25,6 +25,7 @@ import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 import { spacesComputed } from '../../src/stores/spaces';
+import { useToast } from '../../src/contexts/ToastContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,12 +33,15 @@ const TabLayout = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const { showToast } = useToast();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
+  const [isUnarchiving, setIsUnarchiving] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // Get radial menu state to disable swipe gesture
   const { shouldDisableScroll } = useRadialMenu();
@@ -368,6 +372,8 @@ const TabLayout = observer(() => {
         <ExpandedItemView
           ref={expandedItemSheetRef}
           item={expandedItemUIStore.currentItem.get()}
+          isUnarchiving={isUnarchiving}
+          isArchiving={isArchiving}
           onOpen={() => setIsExpandedItemOpen(true)}
           onClose={() => {
             expandedItemUIActions.closeExpandedItem();
@@ -379,13 +385,49 @@ const TabLayout = observer(() => {
           onEdit={(item) => console.log('Edit item:', item.title)}
           onArchive={async (item) => {
             console.log('📦 [TabLayout] Archive item:', item.title);
+            setIsArchiving(true);
             try {
               await itemsActions.archiveItemWithSync(item.id);
               console.log('📦 [TabLayout] Successfully archived item:', item.id);
+              expandedItemUIActions.closeExpandedItem();
+              showToast({
+                message: 'Item archived successfully',
+                type: 'success',
+                duration: 2500,
+              });
             } catch (error) {
               console.error('📦 [TabLayout] Error archiving item:', error);
+              showToast({
+                message: 'Failed to archive item',
+                type: 'error',
+                duration: 2500,
+              });
+            } finally {
+              setIsArchiving(false);
             }
-            expandedItemUIActions.closeExpandedItem();
+          }}
+          onUnarchive={async (item) => {
+            console.log('📤 [TabLayout] Unarchive item:', item.title);
+            setIsUnarchiving(true);
+            try {
+              await itemsActions.unarchiveItemWithSync(item.id);
+              console.log('📤 [TabLayout] Successfully unarchived item:', item.id);
+              expandedItemUIActions.closeExpandedItem();
+              showToast({
+                message: 'Item unarchived successfully',
+                type: 'success',
+                duration: 2500,
+              });
+            } catch (error) {
+              console.error('📤 [TabLayout] Error unarchiving item:', error);
+              showToast({
+                message: 'Failed to unarchive item',
+                type: 'error',
+                duration: 2500,
+              });
+            } finally {
+              setIsUnarchiving(false);
+            }
           }}
           onDelete={async (item) => {
             console.log('🗑️ [TabLayout] Delete item:', item.title);

@@ -8,7 +8,7 @@ import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatli
 import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
-import { COLORS } from '../constants';
+import { COLORS, SPECIAL_SPACES } from '../constants';
 
 const DrawerContentInner = observer(() => {
   console.log('🎨 [DrawerContent] Body rendered');
@@ -230,6 +230,30 @@ const DrawerContentInner = observer(() => {
                 />
                 <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
                   New Space
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        ListFooterComponent={(
+          <View style={styles.archiveSpaceContainer}>
+            <View style={[styles.spaceItem, isDarkMode && styles.spaceItemDark, styles.archiveSpace]}>
+              <TouchableOpacity
+                style={[styles.spaceItemContent, { paddingVertical: 6, paddingLeft: 8 }]}
+                onPress={() => navigateToSpace(SPECIAL_SPACES.ARCHIVE_ID)}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons
+                  name="archive"
+                  size={18}
+                  color={isDarkMode ? '#AAAAAA' : '#666666'}
+                  style={{ marginRight: 12, marginLeft: 27 }}
+                />
+                <Text
+                  style={[styles.spaceText, isDarkMode && styles.spaceTextDark, styles.archiveText]}
+                  numberOfLines={1}
+                >
+                  Archive
                 </Text>
               </TouchableOpacity>
             </View>
@@ -463,5 +487,15 @@ const styles = StyleSheet.create({
   },
   dividerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  archiveSpaceContainer: {
+    // marginTop: 12,
+  },
+  archiveSpace: {
+    opacity: 0.8,
+  },
+  archiveText: {
+    fontWeight: '500',
+    opacity: 0.9,
   },
 });

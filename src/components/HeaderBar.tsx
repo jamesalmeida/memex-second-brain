@@ -3,6 +3,7 @@ import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions } from
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, withTiming, interpolate, Extrapolate, SharedValue, useSharedValue } from 'react-native-reanimated';
+import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -10,7 +11,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export interface HeaderTabConfig {
   key: string;
   label?: string;
-  icon?: 'hamburger';
+  icon?: 'hamburger' | 'archive';
+  isArchive?: boolean; // Special flag for archive tab styling
 }
 
 interface HeaderBarProps {
@@ -101,6 +103,7 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, scrollOffset, onH
     const isSelected = index === selectedIndex;
     const displayColor = isSelected ? textColor : inactiveColor;
 
+  
     return (
       <TouchableOpacity
         key={tab.key ?? `${index}`}
@@ -114,7 +117,11 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, scrollOffset, onH
           }
         }}
         onLayout={e => handleLayout(index, isSticky ? 0 : e.nativeEvent.layout.x, e.nativeEvent.layout.width)}
-        style={[styles.tabButton, isSticky && styles.stickyTabButton]}
+        style={[
+          styles.tabButton,
+          isSticky && styles.stickyTabButton,
+          tab.isArchive && styles.archiveTab,
+        ]}
       >
         <View style={styles.tabContent}>
           {tab.icon === 'hamburger' ? (
@@ -122,6 +129,11 @@ const HeaderBar = observer(({ tabs, selectedIndex, onTabPress, scrollOffset, onH
               <Animated.View style={[styles.hamburgerLine, { backgroundColor: displayColor }, topLineAnimatedStyle]} />
               <Animated.View style={[styles.hamburgerLine, { backgroundColor: displayColor, marginTop: 4 }, hamburgerAnimatedStyle]} />
               <Animated.View style={[styles.hamburgerLine, { backgroundColor: displayColor, marginTop: 4 }, bottomLineAnimatedStyle]} />
+            </View>
+          ) : tab.icon === 'archive' ? (
+            <View style={styles.archiveIconContainer}>
+              <MaterialIcons name="archive" size={18} color={displayColor} />
+              <Text style={[styles.archiveText, { color: displayColor }]}>{tab.label}</Text>
             </View>
           ) : (
             <Text style={[styles.tabText, { color: displayColor }]}>{tab.label ?? ''}</Text>
@@ -308,5 +320,20 @@ const styles = StyleSheet.create({
     width: 20,
     height: 2,
     borderRadius: 1,
+  },
+  archiveTab: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    marginHorizontal: 6,
+  },
+  archiveIconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  archiveText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
