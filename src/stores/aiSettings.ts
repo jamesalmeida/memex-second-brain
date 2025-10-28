@@ -79,6 +79,11 @@ export const aiSettingsActions = {
   setSelectedModel: async (modelId: string) => {
     aiSettingsStore.selectedModel.set(modelId);
     try {
+      // Save to cloud-synced user settings
+      const { userSettingsActions } = require('./userSettings');
+      await userSettingsActions.updateSetting('ai_chat_model', modelId);
+
+      // Also save to legacy AsyncStorage for backward compatibility
       const settings = {
         selectedModel: modelId,
         metadataModel: aiSettingsStore.metadataModel.get(),
@@ -95,6 +100,11 @@ export const aiSettingsActions = {
   setMetadataModel: async (modelId: string) => {
     aiSettingsStore.metadataModel.set(modelId);
     try {
+      // Save to cloud-synced user settings
+      const { userSettingsActions } = require('./userSettings');
+      await userSettingsActions.updateSetting('ai_metadata_model', modelId);
+
+      // Also save to legacy AsyncStorage for backward compatibility
       const settings = {
         selectedModel: aiSettingsStore.selectedModel.get(),
         metadataModel: modelId,
@@ -111,6 +121,11 @@ export const aiSettingsActions = {
   setAutoGenerateTranscripts: async (enabled: boolean) => {
     aiSettingsStore.autoGenerateTranscripts.set(enabled);
     try {
+      // Save to cloud-synced user settings
+      const { userSettingsActions } = require('./userSettings');
+      await userSettingsActions.updateSetting('ai_auto_transcripts', enabled);
+
+      // Also save to legacy AsyncStorage for backward compatibility
       const settings = {
         selectedModel: aiSettingsStore.selectedModel.get(),
         metadataModel: aiSettingsStore.metadataModel.get(),
@@ -127,6 +142,11 @@ export const aiSettingsActions = {
   setAutoGenerateImageDescriptions: async (enabled: boolean) => {
     aiSettingsStore.autoGenerateImageDescriptions.set(enabled);
     try {
+      // Save to cloud-synced user settings
+      const { userSettingsActions } = require('./userSettings');
+      await userSettingsActions.updateSetting('ai_auto_image_descriptions', enabled);
+
+      // Also save to legacy AsyncStorage for backward compatibility
       const settings = {
         selectedModel: aiSettingsStore.selectedModel.get(),
         metadataModel: aiSettingsStore.metadataModel.get(),
@@ -221,20 +241,42 @@ export const aiSettingsActions = {
 
   loadSettings: async () => {
     try {
-      // Load AI settings
+      // First try to load from userSettings (cloud-synced)
+      const { userSettingsComputed } = require('./userSettings');
+
+      const chatModel = userSettingsComputed.chatModel();
+      const metadataModel = userSettingsComputed.metadataModel();
+      const autoTranscripts = userSettingsComputed.autoTranscripts();
+      const autoImageDescriptions = userSettingsComputed.autoImageDescriptions();
+
+      if (chatModel) {
+        aiSettingsStore.selectedModel.set(chatModel);
+      }
+      if (metadataModel) {
+        aiSettingsStore.metadataModel.set(metadataModel);
+      }
+      if (typeof autoTranscripts === 'boolean') {
+        aiSettingsStore.autoGenerateTranscripts.set(autoTranscripts);
+      }
+      if (typeof autoImageDescriptions === 'boolean') {
+        aiSettingsStore.autoGenerateImageDescriptions.set(autoImageDescriptions);
+      }
+
+      // Fall back to legacy AsyncStorage if userSettings not available
       const saved = await AsyncStorage.getItem(STORAGE_KEYS.AI_SETTINGS);
       if (saved) {
         const settings = JSON.parse(saved);
-        if (settings.selectedModel) {
+        // Only use legacy settings if not already set from userSettings
+        if (!chatModel && settings.selectedModel) {
           aiSettingsStore.selectedModel.set(settings.selectedModel);
         }
-        if (settings.metadataModel) {
+        if (!metadataModel && settings.metadataModel) {
           aiSettingsStore.metadataModel.set(settings.metadataModel);
         }
-        if (typeof settings.autoGenerateTranscripts === 'boolean') {
+        if (autoTranscripts === undefined && typeof settings.autoGenerateTranscripts === 'boolean') {
           aiSettingsStore.autoGenerateTranscripts.set(settings.autoGenerateTranscripts);
         }
-        if (typeof settings.autoGenerateImageDescriptions === 'boolean') {
+        if (autoImageDescriptions === undefined && typeof settings.autoGenerateImageDescriptions === 'boolean') {
           aiSettingsStore.autoGenerateImageDescriptions.set(settings.autoGenerateImageDescriptions);
         }
       }

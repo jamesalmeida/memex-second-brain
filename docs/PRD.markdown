@@ -202,6 +202,17 @@
   - Note: `order_index` is the **single source of truth** for space ordering across all devices. When spaces are manually reordered via drag-and-drop, the new `order_index` values are synced to Supabase and propagated to other devices via real-time updates. The UI always displays spaces sorted by their `order_index` value.
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
+- **User_Settings**:
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `created_at` (timestamp), `updated_at` (timestamp).
+  - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
+  - One settings row per user (enforced by unique constraint on `user_id`).
+  - Settings categories:
+    - Theme: `theme_dark_mode` - Light/dark mode preference
+    - AI: `ai_chat_model`, `ai_metadata_model`, `ai_auto_transcripts`, `ai_auto_image_descriptions` - AI model selection and automation preferences
+    - UI: `ui_x_video_muted`, `ui_autoplay_x_videos` - Video playback preferences
+  - Synced on app launch, login, and during manual sync operations.
+  - Changes are optimistically updated locally then synced to Supabase.
+  - Falls back to legacy AsyncStorage if cloud sync unavailable (offline mode).
 - **Item_Spaces** (DEPRECATED):
   - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).
   - **Status**: Deprecated in favor of `Items.space_id`. This table is no longer used for new data but remains for historical records.
@@ -224,6 +235,7 @@
 - **Performance Indexes**:
   - Items: `idx_items_user_id`, `idx_items_content_type`, `idx_items_created_at`, `idx_items_is_archived`, `idx_items_is_deleted`, `idx_items_space_id`, `idx_items_tags` (GIN on tags array).
   - Spaces: `idx_spaces_user_id`, `idx_spaces_user_order` (user_id, order_index), `idx_spaces_is_deleted`, `idx_spaces_is_archived`.
+  - User_Settings: `idx_user_settings_user_id` (unique).
   - Item_Spaces (deprecated): `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.
   - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).
   - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.
@@ -234,6 +246,7 @@
   - `20251024_add_archive_and_simplify_spaces.sql` - Adds archive fields to items/spaces, migrates to one-space-per-item, adds `Items.space_id`
   - `20251024_enable_realtime.sql` - Enables Supabase real-time replication for items and spaces tables
   - `20251027_add_tldr_and_notes_to_items.sql` - Adds `tldr` and `notes` fields to items table for AI summaries and user annotations
+  - `20251028_create_user_settings.sql` - Creates `user_settings` table for cloud-synced user preferences (theme, AI models, UI preferences)
 
 ## 4. UI/UX Requirements
 - **Navigation**:  

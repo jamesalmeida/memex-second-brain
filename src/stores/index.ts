@@ -9,6 +9,7 @@ export { offlineQueueStore, offlineQueueActions, offlineQueueComputed } from './
 export { themeStore, themeActions } from './theme';
 export { syncStatusStore, syncStatusActions, syncStatusComputed } from './syncStatus';
 export { filterStore, filterActions, filterComputed } from './filter';
+export { userSettingsStore, userSettingsActions, userSettingsComputed } from './userSettings';
 
 // Re-export types for convenience
-export type { User, Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, SearchFilters } from '../types';
+export type { User, Item, Space, ItemSpace, ItemMetadata, ItemTypeMetadata, SearchFilters, UserSettings } from '../types';

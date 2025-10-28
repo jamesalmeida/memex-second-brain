@@ -109,6 +109,7 @@ export const STORAGE_KEYS = {
   ITEM_CHATS: '@memex_item_chats',
   CHAT_MESSAGES: '@memex_chat_messages',
   FILTERS: '@memex_filters',
+  USER_SETTINGS: '@memex_user_settings', // Cloud-synced user settings
 };
 
 // Share extension

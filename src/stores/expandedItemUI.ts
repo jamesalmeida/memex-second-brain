@@ -47,6 +47,12 @@ export const expandedItemUIActions = {
 
       console.log('🔇 [xVideoMuted] Setting mute preference:', currentValue, '->', muted);
       expandedItemUIStore.xVideoMuted.set(muted);
+
+      // Save to cloud-synced user settings
+      const { userSettingsActions } = require('./userSettings');
+      await userSettingsActions.updateSetting('ui_x_video_muted', muted);
+
+      // Also save to legacy AsyncStorage for backward compatibility
       await AsyncStorage.setItem(STORAGE_KEY_MUTED, JSON.stringify(muted));
       console.log('🔇 [xVideoMuted] Saved to AsyncStorage');
     } catch (error) {
@@ -59,13 +65,23 @@ export const expandedItemUIActions = {
    */
   loadXVideoMutedPreference: async () => {
     try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY_MUTED);
-      if (saved !== null) {
-        const value = JSON.parse(saved);
-        console.log('🔇 [xVideoMuted] Loaded from AsyncStorage:', value);
-        expandedItemUIStore.xVideoMuted.set(value);
+      // First try to load from userSettings (cloud-synced)
+      const { userSettingsComputed } = require('./userSettings');
+      const mutedFromSettings = userSettingsComputed.xVideoMuted();
+
+      if (mutedFromSettings !== undefined) {
+        console.log('🔇 [xVideoMuted] Loaded from userSettings:', mutedFromSettings);
+        expandedItemUIStore.xVideoMuted.set(mutedFromSettings);
       } else {
-        console.log('🔇 [xVideoMuted] No saved preference, using default: true');
+        // Fall back to legacy AsyncStorage
+        const saved = await AsyncStorage.getItem(STORAGE_KEY_MUTED);
+        if (saved !== null) {
+          const value = JSON.parse(saved);
+          console.log('🔇 [xVideoMuted] Loaded from AsyncStorage:', value);
+          expandedItemUIStore.xVideoMuted.set(value);
+        } else {
+          console.log('🔇 [xVideoMuted] No saved preference, using default: true');
+        }
       }
     } catch (error) {
       console.error('Error loading X video mute preference:', error);
@@ -83,6 +99,12 @@ export const expandedItemUIActions = {
       }
 
       expandedItemUIStore.autoplayXVideos.set(autoplay);
+
+      // Save to cloud-synced user settings
+      const { userSettingsActions } = require('./userSettings');
+      await userSettingsActions.updateSetting('ui_autoplay_x_videos', autoplay);
+
+      // Also save to legacy AsyncStorage for backward compatibility
       await AsyncStorage.setItem(STORAGE_KEY_AUTOPLAY, JSON.stringify(autoplay));
     } catch (error) {
       console.error('Error saving X video autoplay preference:', error);
@@ -94,10 +116,19 @@ export const expandedItemUIActions = {
    */
   loadAutoplayPreference: async () => {
     try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY_AUTOPLAY);
-      if (saved !== null) {
-        const value = JSON.parse(saved);
-        expandedItemUIStore.autoplayXVideos.set(value);
+      // First try to load from userSettings (cloud-synced)
+      const { userSettingsComputed } = require('./userSettings');
+      const autoplayFromSettings = userSettingsComputed.autoplayXVideos();
+
+      if (autoplayFromSettings !== undefined) {
+        expandedItemUIStore.autoplayXVideos.set(autoplayFromSettings);
+      } else {
+        // Fall back to legacy AsyncStorage
+        const saved = await AsyncStorage.getItem(STORAGE_KEY_AUTOPLAY);
+        if (saved !== null) {
+          const value = JSON.parse(saved);
+          expandedItemUIStore.autoplayXVideos.set(value);
+        }
       }
     } catch (error) {
       console.error('Error loading X video autoplay preference:', error);
