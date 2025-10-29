@@ -52,7 +52,7 @@ ${contextLines.length > 0 ? contextLines.join('\n') : ''}
 Available types:
 - product: E-commerce product pages (Amazon, Walmart, Etsy, Target, eBay, Shopify stores, etc.)
 - article: Blog posts, news articles, written content (Medium, blogs, news sites, etc.)
-- video: Video content (not YouTube - we handle that separately)
+- video: Video content (Vimeo, Dailymotion, Wistia, etc. - NOT YouTube, we handle that separately)
 - image: Image galleries or standalone images
 - podcast: Podcast episodes or shows
 - course: Online courses or educational content
@@ -60,11 +60,16 @@ Available types:
 - bookmark: None of the above - generic web page
 
 Rules:
-1. If it's clearly a product for sale → product
-2. If it's an article, blog post, or news → article
-3. If it's educational course content → course
-4. If it's a book or about books → book
-5. If none of the above apply → bookmark
+1. NEVER classify YouTube URLs (youtube.com, youtu.be, m.youtube.com, music.youtube.com) as 'video' → return 'bookmark' instead
+2. NEVER classify Twitter/X URLs (twitter.com, x.com) as 'video' → return 'bookmark' instead
+3. If it's clearly a product for sale → product
+4. If it's an article, blog post, or news → article
+5. If it's a non-YouTube video platform (Vimeo, Dailymotion, etc.) → video
+6. If it's educational course content → course
+7. If it's a book or about books → book
+8. If none of the above apply → bookmark
+
+CRITICAL: If the URL contains youtube.com, youtu.be, twitter.com, or x.com, you MUST return 'bookmark' (not 'video').
 
 Return ONLY the content type, nothing else.`;
 
