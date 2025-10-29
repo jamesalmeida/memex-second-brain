@@ -37,6 +37,7 @@ interface HeroMediaSectionProps {
   containerStyle?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
   placeholderStyle?: StyleProp<ViewStyle>;
+  videoStyle?: StyleProp<ViewStyle>;
 
   // Special behavior flags
   skipForTextOnlyXPosts?: boolean; // Skip rendering hero section for X posts without media
@@ -58,6 +59,7 @@ const HeroMediaSection = observer(({
   containerStyle,
   imageStyle,
   placeholderStyle,
+  videoStyle,
   skipForTextOnlyXPosts = false,
 }: HeroMediaSectionProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -95,7 +97,7 @@ const HeroMediaSection = observer(({
             player={videoPlayer}
             style={[
               styles.heroMedia,
-              { height: CONTENT_WIDTH / (16/9) } // Set aspect ratio for videos
+              videoStyle || { height: CONTENT_WIDTH / (16/9) } // Default 16:9, or use provided style
             ]}
             contentFit="contain"
             fullscreenOptions={{ enable: true }}
