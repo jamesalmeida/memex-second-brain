@@ -17,6 +17,8 @@ export interface ImageWithActionsProps {
   canReplace?: boolean;
   canRemove?: boolean;
   onImageRemove?: () => void;
+  canAddAnother?: boolean;
+  onImageAdd?: () => void;
   imageUrl?: string; // For cases where source is a number (local asset)
   children?: ReactNode;
   enableFullScreenOnPress?: boolean;
@@ -31,6 +33,8 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
   canReplace = false,
   canRemove = false,
   onImageRemove,
+  canAddAnother = false,
+  onImageAdd,
   imageUrl,
   children,
   enableFullScreenOnPress = true,
@@ -165,6 +169,12 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
     });
   }, [scale]);
 
+  const handleAddAnother = () => {
+    if (onImageAdd) {
+      onImageAdd();
+    }
+  };
+
   const availableActions = useMemo(() => {
     const actions: Array<{
       title: string;
@@ -182,12 +192,16 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
       actions.push({ title: 'Replace Image', onPress: handleReplace });
     }
 
+    if ((canAddAnother || onImageAdd) && onImageAdd) {
+      actions.push({ title: 'Add Another Image', onPress: handleAddAnother });
+    }
+
     if ((canRemove || onImageRemove) && onImageRemove) {
       actions.push({ title: 'Remove Image', onPress: handleRemove, style: 'destructive' });
     }
 
     return actions;
-  }, [url, canReplace, canRemove, onImageReplace, onImageRemove]);
+  }, [url, canReplace, canRemove, canAddAnother, onImageReplace, onImageRemove, onImageAdd]);
 
   const openActionSheet = () => {
     if (availableActions.length === 0) {

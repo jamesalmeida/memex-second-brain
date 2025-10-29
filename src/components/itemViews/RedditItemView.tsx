@@ -14,8 +14,8 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useToast } from '../../contexts/ToastContext';
-import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
+import HeroMediaSection from '../HeroMediaSection';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { ImageDescription } from '../../types';
 import Animated, {
@@ -92,8 +92,7 @@ const RedditItemView = observer(({
 
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'reddit');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [expandedDescription, setExpandedDescription] = useState(false);
 
@@ -125,8 +124,7 @@ const RedditItemView = observer(({
       // Initialize selected space from item.space_id
       setSelectedSpaceId(latestItem.space_id || null);
 
-      // Reset carousel index when opening a new item
-      setCurrentImageIndex(0);
+      // Note: carousel index is now handled by HeroMediaSection
 
       // Initialize tags
       setTags(latestItem.tags || []);
@@ -202,6 +200,32 @@ const RedditItemView = observer(({
     try {
       await itemsActions.removeItemImage(itemToDisplay.id);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      showToast({ message: 'Image removed successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
+  const handleMetadataImageAdd = async (imageUrl: string, storagePath?: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+      showToast({ message: 'Image added successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error adding image:', error);
+      Alert.alert('Error', 'Failed to add image');
+    }
+  };
+
+  const handleMetadataImageRemove = async (imageUrl: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.removeImageUrl(itemToDisplay.id, imageUrl);
       showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
@@ -511,128 +535,27 @@ const RedditItemView = observer(({
       </View>
 
       {/* Hero Image/Carousel */}
-      {(() => {
-        const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
-        const hasMultipleImages = imageUrls && imageUrls.length > 1;
-        const hasSingleImage = imageUrls && imageUrls.length === 1;
-
-        // Debug logging
-        console.log('🖼️ [RedditItemView] Hero Media Debug:', {
-          itemId: itemToDisplay?.id,
-          thumbnail_url: itemToDisplay?.thumbnail_url,
-          imageUrls,
-          imageUrlsCount: imageUrls?.length || 0,
-          hasMultipleImages,
-          hasSingleImage,
-        });
-
-        // Prioritize carousel images from metadata over thumbnail_url
-        if (hasMultipleImages) {
-          return (
-            <View style={styles.heroContainer}>
-              <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
-                <ScrollView
-                  ref={scrollViewRef}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  nestedScrollEnabled={true}
-                  directionalLockEnabled={true}
-                  onMomentumScrollEnd={(event) => {
-                    const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
-                    setCurrentImageIndex(newIndex);
-                  }}
-                  scrollEventThrottle={16}
-                  style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
-                  contentContainerStyle={{ height: CONTENT_WIDTH }}
-                >
-                  {imageUrls!.map((imageUrl, index) => (
-                    <ImageWithActions
-                      key={index}
-                      source={{ uri: imageUrl }}
-                      imageUrl={imageUrl}
-                      style={{
-                        width: CONTENT_WIDTH,
-                        height: CONTENT_WIDTH,
-                        backgroundColor: '#000000'
-                      }}
-                      contentFit="contain"
-                    />
-                  ))}
-                </ScrollView>
-                <View style={styles.dotsContainer}>
-                  {imageUrls!.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        index === currentImageIndex && styles.activeDot
-                      ]}
-                    />
-                  ))}
-                </View>
+      <HeroMediaSection
+        item={itemToDisplay!}
+        isDarkMode={isDarkMode}
+        contentTypeIcon="👽"
+        onImageAdd={() => imageUploadModalRef.current?.open()}
+        onImageRemove={handleMetadataImageRemove}
+        onThumbnailRemove={handleHeroImageRemove}
+        renderOverlay={(imageUrl) => {
+          // Show duration overlay for Reddit videos
+          if (redditMetadata?.video_duration) {
+            return (
+              <View style={styles.durationOverlay}>
+                <Text style={styles.durationText}>
+                  ⏱️ {formatDuration(redditMetadata.video_duration)}
+                </Text>
               </View>
-            </View>
-          );
-        }
-
-        // Prioritize single image from metadata over thumbnail_url
-        if (hasSingleImage) {
-          return (
-            <View style={styles.heroContainer}>
-              <ImageWithActions
-                source={{ uri: imageUrls[0] }}
-                imageUrl={imageUrls[0]}
-                style={styles.heroMedia}
-                contentFit="contain"
-                canReplace
-                onImageReplace={() => imageUploadModalRef.current?.open()}
-              />
-            </View>
-          );
-        }
-
-        if (itemToDisplay?.thumbnail_url) {
-          return (
-            <View style={styles.heroContainer}>
-              <View style={{ position: 'relative' }}>
-                <ImageWithActions
-                  source={{ uri: itemToDisplay.thumbnail_url }}
-                  imageUrl={itemToDisplay.thumbnail_url}
-                  style={styles.heroMedia}
-                  contentFit="contain"
-                  canReplace
-                  canRemove={!!itemToDisplay.thumbnail_url}
-                  onImageReplace={() => imageUploadModalRef.current?.open()}
-                  onImageRemove={handleHeroImageRemove}
-                />
-                {redditMetadata?.video_duration && (
-                  <View style={styles.durationOverlay}>
-                    <Text style={styles.durationText}>
-                      ⏱️ {formatDuration(redditMetadata.video_duration)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        }
-
-        return (
-          <View style={styles.heroContainer}>
-            <TouchableOpacity
-              style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-              onPress={() => imageUploadModalRef.current?.open()}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.placeholderIcon}>🖼️</Text>
-              <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
-                Tap to add image
-              </Text>
-            </TouchableOpacity>
-          </View>
-        );
-      })()}
+            );
+          }
+          return null;
+        }}
+      />
 
       {/* Content */}
       <View style={styles.content}>
@@ -961,7 +884,7 @@ const RedditItemView = observer(({
 
       <ImageUploadModal
         ref={imageUploadModalRef}
-        onImageSelected={handleHeroImageSelected}
+        onImageSelected={handleMetadataImageAdd}
       />
 
       {/* Space Selector Modal */}

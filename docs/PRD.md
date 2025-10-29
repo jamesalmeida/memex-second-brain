@@ -49,16 +49,11 @@
   - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)  
   - Download media (if applicable) or open external URL  
   - Offline: View cached details; queue edits/deletes  
-- **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, legal information, and more options.
+- **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
-- **Empty States**: Custom UI for no items or no search results, with context-aware messaging:
-  - **Syncing state**: When user signs in and sync is in progress with no local items yet, displays "Syncing from database - Please standby while we load your items..." to provide feedback during initial data sync.
-  - **No items**: When sync is complete and no items exist, displays "No items yet - Start saving bookmarks, notes, and content to build your second brain!"
-  - **No search results**: "No results found - Try adjusting your search or filters"
-  - **Offline**: Shows "No cached items" when offline and no local data available
-  - **Active filters**: "No items match your filters - Your active filters are hiding all items in this view" with clear filters button
+- **Empty States**: Custom UI for no items or no search results, with offline messaging (e.g., “No cached items”).
 
 ### 2.3 Item Management
 - **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.
@@ -99,6 +94,19 @@
   - Display images/videos in cards (Expo AV for video playback).
   - Show transcripts for videos (if cached).
   - Download media via Expo FileSystem (store locally for offline access).
+  - **Multi-Image Support**: Items can have multiple images stored in `Item_Type_Metadata.data.image_urls[]` array:
+    - Display as horizontal carousel with pagination dots when 2+ images exist
+    - Carousel supports swipe gesture to navigate between images
+    - Long-press context menu on any image provides:
+      - "View Full Screen" - Opens image in full-screen viewer
+      - "Copy Image URL" - Copies image URL to clipboard
+      - "Save to Device" - Downloads image to device photo library
+      - "Add Another Image" - Opens ImageUploadModal to add additional image
+      - "Remove Image" - Deletes the currently displayed image from carousel
+    - Delete removes only the current image being viewed (tracked by carousel index)
+    - Single image displays with add/remove options via long-press menu
+    - Implemented in: YouTubeItemView, NoteItemView, DefaultItemView, XItemView, RedditItemView, MovieTVItemView
+    - Images managed via `itemTypeMetadataActions.addImageUrl()` and `itemTypeMetadataActions.removeImageUrl()`
 
 ### 2.4 Capture/Save
 - **Quick Capture**:
@@ -149,25 +157,18 @@
 - Offline: Search/filter cached items only.
 
 ### 2.6 Chat/Intelligence
-- **Item/Space Chat**:
-  - Initiate from item detail or space detail via bottom sheet UI (using `@gorhom/bottom-sheet`).
-  - Bottom sheet covers prior UI (item detail or space grid); swipe down to dismiss and return to previous view.
-  - Context: Item content or all space items passed to OpenAI API (abstracted for future models like Grok or Llama).
-  - Save chat messages (role: user/system/assistant, content) in Supabase and Legend-State.
-  - Mobile: Handle keyboard dismissal (auto-adjust view) and scrollable chat history.
-  - Offline: Disable chat (requires API); show cached chat history.
-  - **Chat Context Menu**: Three-dot menu button in the top-right of ChatSheet header provides quick access to chat actions:
-    - **Export Chat**: Copies the entire conversation to clipboard in a formatted, readable text format including chat title, date, model used, and all messages with timestamps
-    - **Share Chat**: Uses native share sheet (iOS/Android) to share the conversation as a text file. Falls back to clipboard copy if sharing is unavailable
-    - **Clear Chat**: Deletes all messages in the current chat after confirmation dialog. Shows success/error toast feedback
-    - Menu displayed in a modal overlay with proper light/dark theme support
-    - All actions provide haptic feedback and toast notifications for user feedback
-    - Context menu dismisses automatically after action completion or when tapping outside
-- **AI Integration**:
-  - OpenAI API for tags, summaries (e.g., TL;DR for transcripts), and chat responses.
-  - Abstract API calls via configuration to support future models.
-  - Endpoints: `POST /api/chat/initiate` (start session), `POST /api/chat/save` (add message).
-- **UX**: Clear context indication (e.g., "Chatting about [item title/space name]") in bottom sheet header.
+- **Item/Space Chat**:  
+  - Initiate from item detail or space detail via bottom sheet UI (using `@gorhom/bottom-sheet`).  
+  - Bottom sheet covers prior UI (item detail or space grid); swipe down to dismiss and return to previous view.  
+  - Context: Item content or all space items passed to OpenAI API (abstracted for future models like Grok or Llama).  
+  - Save chat messages (role: user/system/assistant, content) in Supabase and Legend-State.  
+  - Mobile: Handle keyboard dismissal (auto-adjust view) and scrollable chat history.  
+  - Offline: Disable chat (requires API); show cached chat history.  
+- **AI Integration**:  
+  - OpenAI API for tags, summaries (e.g., TL;DR for transcripts), and chat responses.  
+  - Abstract API calls via configuration to support future models.  
+  - Endpoints: `POST /api/chat/initiate` (start session), `POST /api/chat/save` (add message).  
+- **UX**: Clear context indication (e.g., “Chatting about [item title/space name]”) in bottom sheet header.
 
 ### 2.7 Integrations & Tools
 - **X/Twitter API**: Extract metadata (tweets, videos); handle rate limits with Legend-State persistence.  

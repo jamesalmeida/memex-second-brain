@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -26,6 +26,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
 
   // Get video URL and image URLs from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -56,6 +57,34 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
       }
     }
   }, [autoplayEnabled, player, videoUrl]);
+
+  // Listen to video player status to get actual video dimensions
+  useEffect(() => {
+    if (player && videoUrl) {
+      const subscription = player.addListener('statusChange', (status) => {
+        if (status.videoSize) {
+          setVideoDimensions({
+            width: status.videoSize.width,
+            height: status.videoSize.height
+          });
+        }
+      });
+      return () => subscription.remove();
+    } else {
+      // Reset video dimensions if no video
+      setVideoDimensions(null);
+    }
+  }, [player, videoUrl]);
+
+  // Calculate video height based on actual aspect ratio
+  const videoHeight = useMemo(() => {
+    if (videoDimensions) {
+      const aspectRatio = videoDimensions.height / videoDimensions.width;
+      return mediaWidth * aspectRatio;
+    }
+    // Fallback while dimensions are loading
+    return 200;
+  }, [videoDimensions, mediaWidth]);
 
   const hasMultipleImages = imageUrls && imageUrls.length > 1;
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
@@ -97,7 +126,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
           <View style={styles.mediaContainer}>
             <VideoView
               player={player}
-              style={[styles.media, { height: imageHeight || 200 }]}
+              style={[styles.media, { height: videoHeight }]}
               contentFit="cover"
               nativeControls={false}
               fullscreenOptions={{ enabled: false }}

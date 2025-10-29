@@ -12,8 +12,8 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as Clipboard from 'expo-clipboard';
-import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
+import HeroMediaSection from '../HeroMediaSection';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ItemViewFooter from '../ItemViewFooter';
 
@@ -39,6 +39,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
+  // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
 
   useEffect(() => {
     if (item) {
@@ -72,19 +73,44 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
 
   const handleImageSelected = async (imageUrl: string, storagePath?: string) => {
     try {
-      await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
-      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
-      showToast({ message: 'Image updated successfully', type: 'success' });
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      const { itemTypeMetadataComputed } = await import('../../stores/itemTypeMetadata');
+
+      // Check if images already exist
+      const existingImages = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
+
+      if (existingImages && existingImages.length > 0) {
+        // Add to existing images array
+        await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+        showToast({ message: 'Image added successfully', type: 'success' });
+      } else {
+        // First image - also update thumbnail_url for backwards compatibility
+        await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
+        await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+        setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
+        showToast({ message: 'Image added successfully', type: 'success' });
+      }
     } catch (error) {
-      console.error('Error updating image:', error);
-      Alert.alert('Error', 'Failed to update image');
+      console.error('Error adding image:', error);
+      Alert.alert('Error', 'Failed to add image');
     }
   };
 
-  const handleImageRemove = async () => {
+  const handleImageRemove = async (imageUrl: string) => {
     try {
-      await itemsActions.removeItemImage(itemToDisplay.id);
-      setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      const { itemTypeMetadataComputed } = await import('../../stores/itemTypeMetadata');
+
+      await itemTypeMetadataActions.removeImageUrl(itemToDisplay.id, imageUrl);
+
+      // Check if this was the last image
+      const remainingImages = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
+      if (!remainingImages || remainingImages.length === 0) {
+        // Also remove thumbnail_url if no images left
+        await itemsActions.removeItemImage(itemToDisplay.id);
+        setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      }
+
       showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
@@ -119,31 +145,16 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
         </Text>
       </View> */}
 
-      {/* Hero Image */}
+      {/* Hero Image / Images Carousel */}
       <View style={styles.heroWrapper}>
-        {itemToDisplay.thumbnail_url ? (
-          <ImageWithActions
-            source={{ uri: itemToDisplay.thumbnail_url }}
-            imageUrl={itemToDisplay.thumbnail_url}
-            style={styles.heroImage}
-            contentFit="contain"
-            canReplace
-            canRemove
-            onImageReplace={() => imageUploadModalRef.current?.open()}
-            onImageRemove={handleImageRemove}
-          />
-        ) : (
-          <TouchableOpacity
-            style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-            onPress={() => imageUploadModalRef.current?.open()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.placeholderIcon}>🖼️</Text>
-            <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
-              Tap to add image
-            </Text>
-          </TouchableOpacity>
-        )}
+        <HeroMediaSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          contentTypeIcon="📝"
+          onImageAdd={() => imageUploadModalRef.current?.open()}
+          onImageRemove={handleImageRemove}
+          onThumbnailRemove={() => handleImageRemove(itemToDisplay.thumbnail_url || '')}
+        />
       </View>
 
       <View style={styles.content}>
@@ -511,5 +522,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });
