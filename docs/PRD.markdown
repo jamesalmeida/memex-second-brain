@@ -94,6 +94,19 @@
   - Display images/videos in cards (Expo AV for video playback).
   - Show transcripts for videos (if cached).
   - Download media via Expo FileSystem (store locally for offline access).
+  - **Multi-Image Support**: Items can have multiple images stored in `Item_Type_Metadata.data.image_urls[]` array:
+    - Display as horizontal carousel with pagination dots when 2+ images exist
+    - Carousel supports swipe gesture to navigate between images
+    - Long-press context menu on any image provides:
+      - "View Full Screen" - Opens image in full-screen viewer
+      - "Copy Image URL" - Copies image URL to clipboard
+      - "Save to Device" - Downloads image to device photo library
+      - "Add Another Image" - Opens ImageUploadModal to add additional image
+      - "Remove Image" - Deletes the currently displayed image from carousel
+    - Delete removes only the current image being viewed (tracked by carousel index)
+    - Single image displays with add/remove options via long-press menu
+    - Implemented in: YouTubeItemView, NoteItemView, DefaultItemView, XItemView, RedditItemView, MovieTVItemView
+    - Images managed via `itemTypeMetadataActions.addImageUrl()` and `itemTypeMetadataActions.removeImageUrl()`
 
 ### 2.4 Capture/Save
 - **Quick Capture**:
