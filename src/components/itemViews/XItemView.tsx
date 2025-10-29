@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import { ImageWithActions } from '../ImageWithActions';
@@ -76,6 +77,7 @@ interface XItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
+  onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
@@ -85,11 +87,13 @@ const XItemView = observer(({
   item,
   onChat,
   onArchive,
+  onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
 }: XItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
@@ -288,7 +292,7 @@ const XItemView = observer(({
     try {
       await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
-      Alert.alert('Success', 'Image updated successfully');
+      showToast({ message: 'Image updated successfully', type: 'success' });
     } catch (error) {
       console.error('Error updating image:', error);
       Alert.alert('Error', 'Failed to update image');
@@ -301,7 +305,7 @@ const XItemView = observer(({
     try {
       await itemsActions.removeItemImage(itemToDisplay.id);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
-      Alert.alert('Success', 'Image removed successfully');
+      showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
       Alert.alert('Error', 'Failed to remove image');
@@ -594,7 +598,7 @@ const XItemView = observer(({
     try {
       const success = await itemsActions.refreshMetadata(itemToDisplay.id);
       if (success) {
-        Alert.alert('Success', 'Metadata refreshed successfully');
+        showToast({ message: 'Metadata refreshed successfully', type: 'success' });
         const updatedItem = itemsStore.items.get().find(i => i.id === itemToDisplay.id);
         if (updatedItem) {
           setDisplayItem(updatedItem);
@@ -1128,6 +1132,7 @@ const XItemView = observer(({
           onRefresh={handleRefreshMetadata}
           onShare={() => onShare?.(itemToDisplay!)}
           onArchive={() => onArchive?.(itemToDisplay!)}
+          onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
           isRefreshing={isRefreshingMetadata}
           isDarkMode={isDarkMode}

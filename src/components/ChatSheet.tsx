@@ -7,11 +7,14 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -33,6 +36,7 @@ import { buildItemContext, formatContextMetadata } from '../services/contextBuil
 import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
+import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
 import uuid from 'react-native-uuid';
@@ -47,6 +51,7 @@ const ChatSheet = observer(
     const isDarkMode = themeStore.isDarkMode.get();
     const insets = useSafeAreaInsets();
     const item = chatUIStore.currentItem.get();
+    const { showToast } = useToast();
 
     console.log('🎨 [ChatSheet] Render - item:', item?.id, item?.title);
 
@@ -420,6 +425,185 @@ const ChatSheet = observer(
       );
     };
 
+    const handleCopyMessage = async (content: string) => {
+      try {
+        await Clipboard.setStringAsync(content);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        showToast({
+          message: 'Message copied',
+          type: 'success',
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('Error copying message:', error);
+        showToast({
+          message: 'Failed to copy message',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
+    // Get context-aware suggestion pills based on content type
+    const getSuggestionPills = useCallback(() => {
+      if (!item) return [];
+
+      const basePills = [
+        { label: 'TL;DR', prompt: 'Give me a concise TL;DR summary of this content.' },
+        { label: 'Key Takeaways', prompt: 'What are the key takeaways from this content?' },
+        { label: 'Questions I Should Ask', prompt: 'What questions should I ask to better understand this content?' },
+      ];
+
+      const videoAudioTypes = ['youtube', 'youtube_short', 'podcast', 'audio', 'video'];
+      const socialMediaTypes = ['x', 'reddit', 'threads', 'instagram', 'facebook'];
+      const educationalTypes = ['article', 'course', 'book', 'pdf'];
+      const productTypes = ['amazon', 'product'];
+
+      let contextPills: typeof basePills = [];
+
+      // Video/Audio content
+      if (videoAudioTypes.includes(item.content_type) ||
+          (item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id))) {
+        contextPills = [
+          { label: 'Main Points', prompt: 'What are the main points discussed in this video/audio?' },
+          { label: 'Timestamps', prompt: 'Can you organize the key topics by timestamp?' },
+        ];
+      }
+      // Social Media content
+      else if (socialMediaTypes.includes(item.content_type)) {
+        contextPills = [
+          { label: 'Main Arguments', prompt: 'What are the main arguments being made?' },
+          { label: 'Counterarguments', prompt: 'What are potential counterarguments to these points?' },
+        ];
+      }
+      // Educational content
+      else if (educationalTypes.includes(item.content_type)) {
+        contextPills = [
+          { label: 'ELI5', prompt: 'Explain this like I\'m 5 years old.' },
+          { label: 'Related Concepts', prompt: 'What related concepts should I explore to understand this better?' },
+        ];
+      }
+      // Product content
+      else if (productTypes.includes(item.content_type)) {
+        contextPills = [
+          { label: 'Pros & Cons', prompt: 'What are the pros and cons of this product?' },
+          { label: 'Alternatives', prompt: 'What are some alternative products I should consider?' },
+        ];
+      }
+      // Note content
+      else if (item.content_type === 'note') {
+        contextPills = [
+          { label: 'Action Items', prompt: 'Extract any action items or tasks from these notes.' },
+          { label: 'Organize This', prompt: 'Help me organize these notes into a clear structure.' },
+        ];
+      }
+
+      return [...basePills, ...contextPills];
+    }, [item]);
+
+    const handlePillPress = async (prompt: string) => {
+      if (!chat || isTyping) return;
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setInputText(prompt);
+      setIsTyping(true);
+
+      try {
+        // Add user message optimistically
+        const userMsg = await chatMessagesActions.addMessageOptimistic(
+          chat.id,
+          'item',
+          'user',
+          prompt
+        );
+        setMessages(prev => [...prev, userMsg]);
+
+        // Build context from item
+        const { contextString, metadata } = buildItemContext(item!);
+
+        // Get previous messages for conversation history
+        const previousMessages = messages
+          .filter(m => m.role !== 'system')
+          .map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }));
+
+        // Call OpenAI API
+        const completion = await openai.chatWithContextEnhanced(
+          contextString,
+          prompt,
+          previousMessages,
+          {
+            model: selectedModel,
+            temperature: 0.7,
+            max_tokens: 1500,
+          }
+        );
+
+        if (completion && completion.choices[0]) {
+          // Check if model was auto-switched (only show banner the first time)
+          if (completion.wasAutoSwitched && completion.autoSwitchReason && !hasShownModelSwitchBanner) {
+            setShowModelSwitchBanner(true);
+            setModelSwitchMessage(completion.autoSwitchReason);
+            setHasShownModelSwitchBanner(true);
+            // Auto-hide banner after 10 seconds
+            setTimeout(() => {
+              setShowModelSwitchBanner(false);
+            }, 10000);
+          }
+
+          // Always update the actual model used (for header display)
+          if (completion.model) {
+            setActualModelUsed(completion.model);
+          }
+
+          const assistantMessage = completion.choices[0].message.content;
+          const messageMetadata = {
+            model: completion.model,
+            tokens: {
+              prompt: completion.usage.prompt_tokens,
+              completion: completion.usage.completion_tokens,
+              total: completion.usage.total_tokens,
+            },
+            timestamp: new Date().toISOString(),
+            context_version: '1.0',
+          };
+
+          // Add assistant message
+          const assistantMsg = await chatMessagesActions.addMessageOptimistic(
+            chat.id,
+            'item',
+            'assistant',
+            assistantMessage,
+            messageMetadata
+          );
+          setMessages(prev => [...prev, assistantMsg]);
+        } else {
+          // Show error message
+          const errorMsg = await chatMessagesActions.addMessageOptimistic(
+            chat.id,
+            'item',
+            'assistant',
+            'I apologize, but I could not generate a response at this time. Please try again.'
+          );
+          setMessages(prev => [...prev, errorMsg]);
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        const errorMsg = await chatMessagesActions.addMessageOptimistic(
+          chat.id,
+          'item',
+          'assistant',
+          'An error occurred. Please check your API key and try again.'
+        );
+        setMessages(prev => [...prev, errorMsg]);
+      } finally {
+        setIsTyping(false);
+        setInputText('');
+      }
+    };
+
     const renderTypingIndicator = () => {
       return <TypingIndicator isDarkMode={isDarkMode} />;
     };
@@ -438,34 +622,15 @@ const ChatSheet = observer(
       const modelName = message.metadata?.model;
 
       return (
-        <View
+        <MessageBubble
           key={message.id}
-          style={[
-            styles.messageContainer,
-            isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
-          ]}
-        >
-          <View
-            style={[
-              styles.messageBubble,
-              isUser
-                ? styles.userBubble
-                : [styles.assistantBubble, isDarkMode && styles.assistantBubbleDark],
-            ]}
-          >
-            <Text style={[
-              styles.messageText,
-              isUser && styles.userMessageText,
-              !isUser && isDarkMode && styles.assistantMessageTextDark
-            ]}>
-              {message.content}
-            </Text>
-          </View>
-          <Text style={[styles.messageTime, isDarkMode && styles.messageTimeDark]}>
-            {modelName && !isUser && `${modelName} • `}
-            {time}
-          </Text>
-        </View>
+          message={message}
+          isUser={isUser}
+          isDarkMode={isDarkMode}
+          time={time}
+          modelName={modelName}
+          onCopy={handleCopyMessage}
+        />
       );
     };
 
@@ -588,39 +753,132 @@ const ChatSheet = observer(
               { paddingBottom: insets.bottom || 10 },
             ]}
           >
-            <BottomSheetTextInput
-              style={[
-                styles.input,
-                isDarkMode && styles.inputDark,
-              ]}
-              placeholder="Ask a question..."
-              placeholderTextColor={isDarkMode ? '#666' : '#999'}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={1000}
-              editable={!isTyping}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                ((!inputText.trim() || isTyping || !chat) && styles.sendButtonDisabled),
-              ]}
-              onPress={handleSend}
-              disabled={!inputText.trim() || isTyping || !chat}
-            >
-              {isTyping ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <MaterialIcons name="send" size={20} color="#fff" />
-              )}
-            </TouchableOpacity>
+            {/* Suggestion Pills */}
+            {messages.length === 0 && !isTyping && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillsContainer}
+                style={styles.pillsScrollView}
+              >
+                {getSuggestionPills().map((pill, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.suggestionPill,
+                      isDarkMode && styles.suggestionPillDark,
+                    ]}
+                    onPress={() => handlePillPress(pill.prompt)}
+                    disabled={isTyping}
+                  >
+                    <Text style={[
+                      styles.suggestionPillText,
+                      isDarkMode && styles.suggestionPillTextDark,
+                    ]}>
+                      {pill.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            <View style={styles.inputRow}>
+              <BottomSheetTextInput
+                style={[
+                  styles.input,
+                  isDarkMode && styles.inputDark,
+                ]}
+                placeholder="Ask a question..."
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={1000}
+                editable={!isTyping}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  ((!inputText.trim() || isTyping || !chat) && styles.sendButtonDisabled),
+                ]}
+                onPress={handleSend}
+                disabled={!inputText.trim() || isTyping || !chat}
+              >
+                {isTyping ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialIcons name="send" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </BottomSheet>
     );
   })
 );
+
+// Message Bubble Component with Long Press Animation
+interface MessageBubbleProps {
+  message: ChatMessage;
+  isUser: boolean;
+  isDarkMode: boolean;
+  time: string;
+  modelName?: string;
+  onCopy: (content: string) => void;
+}
+
+const MessageBubble = observer(({ message, isUser, isDarkMode, time, modelName, onCopy }: MessageBubbleProps) => {
+  const scale = useSharedValue(1);
+
+  const handleLongPress = () => {
+    // Animate scale: grow to 1.05, then back to 1.0
+    scale.value = withSequence(
+      withTiming(1.05, { duration: 100 }),
+      withTiming(1.0, { duration: 100 })
+    );
+    onCopy(message.content);
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <View
+      style={[
+        styles.messageContainer,
+        isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
+      ]}
+    >
+      <Pressable onLongPress={handleLongPress} delayLongPress={400}>
+        <Animated.View
+          style={[
+            styles.messageBubble,
+            isUser
+              ? styles.userBubble
+              : [styles.assistantBubble, isDarkMode && styles.assistantBubbleDark],
+            animatedStyle,
+          ]}
+        >
+          <Text
+            style={[
+              styles.messageText,
+              isUser && styles.userMessageText,
+              !isUser && isDarkMode && styles.assistantMessageTextDark,
+            ]}
+          >
+            {message.content}
+          </Text>
+        </Animated.View>
+      </Pressable>
+      <Text style={[styles.messageTime, isDarkMode && styles.messageTimeDark]}>
+        {modelName && !isUser && `${modelName} • `}
+        {time}
+      </Text>
+    </View>
+  );
+});
 
 // Typing Indicator Component
 const TypingIndicator = observer(({ isDarkMode }: { isDarkMode: boolean }) => {
@@ -629,7 +887,7 @@ const TypingIndicator = observer(({ isDarkMode }: { isDarkMode: boolean }) => {
   const dot3 = useSharedValue(0);
 
   useEffect(() => {
-    const animateDot = (dot: Animated.SharedValue<number>, delay: number) => {
+    const animateDot = (dot: any, delay: number) => {
       dot.value = withDelay(
         delay,
         withRepeat(
@@ -841,8 +1099,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#999999',
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingTop: 12,
     backgroundColor: '#FFFFFF',
@@ -852,6 +1108,38 @@ const styles = StyleSheet.create({
   inputContainerDark: {
     backgroundColor: '#1C1C1E',
     borderTopColor: '#38383A',
+  },
+  pillsScrollView: {
+    marginBottom: 12,
+  },
+  pillsContainer: {
+    paddingRight: 16,
+    gap: 8,
+  },
+  suggestionPill: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E7',
+  },
+  suggestionPillDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#38383A',
+  },
+  suggestionPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  suggestionPillTextDark: {
+    color: COLORS.primary,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
   },
   input: {
     flex: 1,

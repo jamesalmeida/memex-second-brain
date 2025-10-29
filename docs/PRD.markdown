@@ -202,6 +202,17 @@
   - Note: `order_index` is the **single source of truth** for space ordering across all devices. When spaces are manually reordered via drag-and-drop, the new `order_index` values are synced to Supabase and propagated to other devices via real-time updates. The UI always displays spaces sorted by their `order_index` value.
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
+- **User_Settings**:
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `created_at` (timestamp), `updated_at` (timestamp).
+  - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
+  - One settings row per user (enforced by unique constraint on `user_id`).
+  - Settings categories:
+    - Theme: `theme_dark_mode` - Light/dark mode preference
+    - AI: `ai_chat_model`, `ai_metadata_model`, `ai_auto_transcripts`, `ai_auto_image_descriptions` - AI model selection and automation preferences
+    - UI: `ui_x_video_muted`, `ui_autoplay_x_videos` - Video playback preferences
+  - Synced on app launch, login, and during manual sync operations.
+  - Changes are optimistically updated locally then synced to Supabase.
+  - Falls back to legacy AsyncStorage if cloud sync unavailable (offline mode).
 - **Item_Spaces** (DEPRECATED):
   - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).
   - **Status**: Deprecated in favor of `Items.space_id`. This table is no longer used for new data but remains for historical records.
@@ -224,6 +235,7 @@
 - **Performance Indexes**:
   - Items: `idx_items_user_id`, `idx_items_content_type`, `idx_items_created_at`, `idx_items_is_archived`, `idx_items_is_deleted`, `idx_items_space_id`, `idx_items_tags` (GIN on tags array).
   - Spaces: `idx_spaces_user_id`, `idx_spaces_user_order` (user_id, order_index), `idx_spaces_is_deleted`, `idx_spaces_is_archived`.
+  - User_Settings: `idx_user_settings_user_id` (unique).
   - Item_Spaces (deprecated): `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.
   - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).
   - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.
@@ -234,16 +246,29 @@
   - `20251024_add_archive_and_simplify_spaces.sql` - Adds archive fields to items/spaces, migrates to one-space-per-item, adds `Items.space_id`
   - `20251024_enable_realtime.sql` - Enables Supabase real-time replication for items and spaces tables
   - `20251027_add_tldr_and_notes_to_items.sql` - Adds `tldr` and `notes` fields to items table for AI summaries and user annotations
+  - `20251028_create_user_settings.sql` - Creates `user_settings` table for cloud-synced user preferences (theme, AI models, UI preferences)
+  - Note: Archive functionality requires `is_archived`, `archived_at`, and `auto_archived` fields added in `20251024_add_archive_and_simplify_spaces.sql`
 
 ## 4. UI/UX Requirements
-- **Navigation**:  
-  - Expo Router for file-based navigation.  
+- **Navigation**:
+  - Expo Router for file-based navigation.
   - HeaderBar horizontally scrolls Space names to let user tap or swipe to change Everything Grid to specific Space grids
-  - Bottom tab navigator: Home (Everything), Chats.  
-  - Stack navigator for Capture (modal), and Chat (bottom sheet).  
+  - **Archive Space Tab**: Special tab always positioned at the end of HeaderBar (after all active spaces):
+    - Pill-shaped design with rounded corners (borderRadius: 20)
+    - Muted background (light: rgba(245,245,245,0.8), dark: rgba(55,55,55,0.5))
+    - Archive icon from MaterialIcons instead of space color
+    - Non-scrollable - always visible at end of tab list
+    - Tapping navigates to Archive view showing all archived items
+  - Bottom tab navigator: Home (Everything), Chats.
+  - Stack navigator for Capture (modal), and Chat (bottom sheet).
   - Item Detail uses expanding card animation (not modal) with hero transitions.
-- **Layouts**:  
-  - Mobile: Filter Button; Bottom tab bar; FAB for capture; bottom sheet for item details, new item captures, item chats, settings; ContextMenu for Filter; Drawer for organizing Spaces and opening settings.   
+- **Layouts**:
+  - Mobile: Filter Button; Bottom tab bar; FAB for capture; bottom sheet for item details, new item captures, item chats, settings; ContextMenu for Filter; Drawer for organizing Spaces and opening settings.
+  - **DrawerContent**: Displays active spaces with Archive space at bottom:
+    - Archive space shown below all active spaces with archive icon (non-draggable)
+    - Archive space has no 3-dot menu (cannot be edited/deleted)
+    - Slightly muted opacity (0.8) to distinguish from regular spaces
+    - Tapping navigates to Archive view
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
 - **Components**:
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
@@ -284,7 +309,35 @@
     - Dark mode support
     - Used in: DefaultItemView, YouTubeItemView, XItemView, RedditItemView
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.
-  - **ItemView Components**: All item detail views (DefaultItemView, YouTubeItemView, XItemView, NoteItemView, RedditItemView) are reactive to store updates and automatically refresh when item data changes on other devices.  
+  - **ItemView Components**: All item detail views (DefaultItemView, YouTubeItemView, XItemView, NoteItemView, RedditItemView) are reactive to store updates and automatically refresh when item data changes on other devices.
+  - **Archive View**: Special view for managing archived items. Features:
+    - Accessed via Archive tab in HeaderBar or Archive space in DrawerContent
+    - Shows all archived items (both manually archived and auto-archived) in flat grid
+    - Empty state: "No archived items - Items you archive will appear here"
+    - Items display archived date in expanded view footer: "Archived on [date]" or "Auto-archived on [date]"
+    - Unarchive button replaces Archive button in expanded item view (MaterialIcons "unarchive" icon)
+    - Long-press context menu includes "Unarchive" option
+    - Full-screen loading overlay during archive/unarchive operations with "Archiving..." or "Unarchiving..." message
+    - Success toast notification: "Item archived successfully" or "Item unarchived successfully"
+    - Error toast on failure: "Failed to archive item" or "Failed to unarchive item"
+    - Items disappear from Archive view immediately after unarchiving
+    - Supports all filtering options (content type, tags, sort order)
+  - **Toast System** (`src/contexts/ToastContext.tsx` and `src/components/Toast.tsx`): Global toast notification system for non-blocking user feedback:
+    - **Context Provider**: `ToastProvider` wraps the app to provide global toast access via `useToast()` hook
+    - **Toast Types**: `success` (green), `error` (red), `warning` (orange), `info` (blue)
+    - **Auto-dismiss**: Toasts automatically dismiss after 2.5 seconds (configurable)
+    - **Stacking**: Multiple toasts stack vertically with 70px spacing
+    - **Animation**: Spring-based slide-in from top with fade
+    - **Theme Support**: Adapts colors for light/dark mode
+    - **Usage Examples**:
+      - Archive/unarchive operations: "Item archived successfully"
+      - Image operations: "Image saved to your photo library", "Image updated successfully"
+      - Clipboard operations: "URL copied to clipboard", "Note copied to clipboard"
+      - Metadata refresh: "Metadata refreshed successfully"
+      - Sync operations: "Synced X items successfully"
+      - AI operations: "Generated X new tags", "Loaded X models"
+    - **Implementation**: Success/info messages use toasts; errors, confirmations, and destructive actions still use Alert dialogs
+    - **Files Using Toasts**: ItemViewFooter, all ItemView components (YouTube, Default, Reddit, X, Note, MovieTV), ImageWithActions, SettingsSheet, ChatSheet
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
     - Save directly (no space).  
@@ -457,7 +510,14 @@ The app uses an **offline-first architecture** with automatic sync and real-time
     - Items synced to Supabase individually with all archive fields
     - Space synced with `is_archived=true` and `archived_at` via `syncOperations.updateSpace()`
   - **Space Unarchive**: `spacesActions.unarchiveSpaceWithSync(spaceId)` - Unarchives space and selectively restores auto-archived items
+  - **Item Unarchive**: `itemsActions.unarchiveItemWithSync(itemId)` - Restores archived item to active state
+    - Sets `is_archived=false`, clears `archived_at` and `auto_archived`
+    - Syncs to Supabase via `syncOperations.updateItem()`
+    - Triggers real-time update to remove from Archive view on all devices
   - **UI Filtering**: All views use `spacesComputed.activeSpaces()` to exclude archived/deleted spaces; items filtered with `!item.is_archived && !item.is_deleted`
+  - **Archive View**: Special filter shows `item.is_archived === true` items; accessible via `SPECIAL_SPACES.ARCHIVE_ID` constant from `src/constants/index.ts`
+  - **Loading States**: Archive/unarchive operations show full-screen overlay with "Archiving..." or "Unarchiving..." message to prevent interaction during sync
+  - **Toast Notifications**: Success/error toasts displayed after archive/unarchive operations via global `ToastContext`
 
 - **Offline Queue** (`src/stores/offlineQueue.ts`):
   - Queues all write operations when offline
@@ -555,12 +615,14 @@ The app implements **instant cross-device synchronization** using Supabase real-
   - Manual testing for Sharesheet/Intent, offline scenarios, and accessibility.
 
 ## 7. Later Nice-to-Have To-Dos
-- **Export/Import Data**:  
-  - **Export**: Provide two CSV export options:  
-    - Lean: URLs, titles, and space (blank if unassigned).  
-    - Comprehensive: Full metadata for all items.  
-  - **Import**: Accept CSV files (lean or comprehensive) to reconstruct items in Supabase, with validation to prevent duplicates or errors.  
-  - Implementation: Use libraries like `papaparse` for CSV handling; defer to post-MVP due to complexity.  
-- **iOS Sharesheet Space Creation**: Add option to create new space (text input for name, color picker) in `expo-share-extension` UI.  
-- **Additional AI Models**: Integrate other LLMs (e.g., Grok, Llama) alongside OpenAI, leveraging abstracted API layer.  
+- **Export/Import Data**:
+  - **Export**: Provide two CSV export options:
+    - Lean: URLs, titles, and space (blank if unassigned).
+    - Comprehensive: Full metadata for all items.
+  - **Import**: Accept CSV files (lean or comprehensive) to reconstruct items in Supabase, with validation to prevent duplicates or errors.
+  - Implementation: Use libraries like `papaparse` for CSV handling; defer to post-MVP due to complexity.
+- **iOS Sharesheet Space Creation**: Add option to create new space (text input for name, color picker) in `expo-share-extension` UI.
+- **Additional AI Models**: Integrate other LLMs (e.g., Grok, Llama) alongside OpenAI, leveraging abstracted API layer.
 - **Sentry Analytics**: Integrate `@sentry/react-native` for crash reporting, screen views, and user interaction tracking.
+- **Archived Spaces View**: Add dedicated view to manage archived spaces (currently only items are shown in Archive view).
+

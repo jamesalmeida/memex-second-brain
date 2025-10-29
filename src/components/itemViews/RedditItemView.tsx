@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useToast } from '../../contexts/ToastContext';
 import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
@@ -68,6 +69,7 @@ interface RedditItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
+  onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
@@ -77,11 +79,13 @@ const RedditItemView = observer(({
   item,
   onChat,
   onArchive,
+  onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
 }: RedditItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
@@ -185,7 +189,7 @@ const RedditItemView = observer(({
     try {
       await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
-      Alert.alert('Success', 'Image updated successfully');
+      showToast({ message: 'Image updated successfully', type: 'success' });
     } catch (error) {
       console.error('Error updating image:', error);
       Alert.alert('Error', 'Failed to update image');
@@ -198,7 +202,7 @@ const RedditItemView = observer(({
     try {
       await itemsActions.removeItemImage(itemToDisplay.id);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
-      Alert.alert('Success', 'Image removed successfully');
+      showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
       Alert.alert('Error', 'Failed to remove image');
@@ -433,7 +437,7 @@ const RedditItemView = observer(({
     try {
       const success = await itemsActions.refreshMetadata(itemToDisplay.id);
       if (success) {
-        Alert.alert('Success', 'Metadata refreshed successfully');
+        showToast({ message: 'Metadata refreshed successfully', type: 'success' });
         // Force re-render by updating displayItem with latest from store
         const updatedItem = itemsStore.items.get().find(i => i.id === itemToDisplay.id);
         if (updatedItem) {
@@ -510,33 +514,19 @@ const RedditItemView = observer(({
       {(() => {
         const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
         const hasMultipleImages = imageUrls && imageUrls.length > 1;
+        const hasSingleImage = imageUrls && imageUrls.length === 1;
 
-        if (itemToDisplay?.thumbnail_url) {
-          return (
-            <View style={styles.heroContainer}>
-              <View style={{ position: 'relative' }}>
-                <ImageWithActions
-                  source={{ uri: itemToDisplay.thumbnail_url }}
-                  imageUrl={itemToDisplay.thumbnail_url}
-                  style={styles.heroMedia}
-                  contentFit="contain"
-                  canReplace
-                  canRemove={!!itemToDisplay.thumbnail_url}
-                  onImageReplace={() => imageUploadModalRef.current?.open()}
-                  onImageRemove={handleHeroImageRemove}
-                />
-                {redditMetadata?.video_duration && (
-                  <View style={styles.durationOverlay}>
-                    <Text style={styles.durationText}>
-                      ⏱️ {formatDuration(redditMetadata.video_duration)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        }
+        // Debug logging
+        console.log('🖼️ [RedditItemView] Hero Media Debug:', {
+          itemId: itemToDisplay?.id,
+          thumbnail_url: itemToDisplay?.thumbnail_url,
+          imageUrls,
+          imageUrlsCount: imageUrls?.length || 0,
+          hasMultipleImages,
+          hasSingleImage,
+        });
 
+        // Prioritize carousel images from metadata over thumbnail_url
         if (hasMultipleImages) {
           return (
             <View style={styles.heroContainer}>
@@ -567,8 +557,6 @@ const RedditItemView = observer(({
                         backgroundColor: '#000000'
                       }}
                       contentFit="contain"
-                      canReplace
-                      onImageReplace={() => imageUploadModalRef.current?.open()}
                     />
                   ))}
                 </ScrollView>
@@ -588,7 +576,8 @@ const RedditItemView = observer(({
           );
         }
 
-        if (imageUrls && imageUrls.length === 1) {
+        // Prioritize single image from metadata over thumbnail_url
+        if (hasSingleImage) {
           return (
             <View style={styles.heroContainer}>
               <ImageWithActions
@@ -599,6 +588,32 @@ const RedditItemView = observer(({
                 canReplace
                 onImageReplace={() => imageUploadModalRef.current?.open()}
               />
+            </View>
+          );
+        }
+
+        if (itemToDisplay?.thumbnail_url) {
+          return (
+            <View style={styles.heroContainer}>
+              <View style={{ position: 'relative' }}>
+                <ImageWithActions
+                  source={{ uri: itemToDisplay.thumbnail_url }}
+                  imageUrl={itemToDisplay.thumbnail_url}
+                  style={styles.heroMedia}
+                  contentFit="contain"
+                  canReplace
+                  canRemove={!!itemToDisplay.thumbnail_url}
+                  onImageReplace={() => imageUploadModalRef.current?.open()}
+                  onImageRemove={handleHeroImageRemove}
+                />
+                {redditMetadata?.video_duration && (
+                  <View style={styles.durationOverlay}>
+                    <Text style={styles.durationText}>
+                      ⏱️ {formatDuration(redditMetadata.video_duration)}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           );
         }
@@ -937,6 +952,7 @@ const RedditItemView = observer(({
           onRefresh={handleRefreshMetadata}
           onShare={() => onShare?.(itemToDisplay!)}
           onArchive={() => onArchive?.(itemToDisplay!)}
+          onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
           isRefreshing={isRefreshingMetadata}
           isDarkMode={isDarkMode}

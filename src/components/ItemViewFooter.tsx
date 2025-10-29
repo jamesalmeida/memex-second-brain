@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Item } from '../types';
 import { formatDate } from '../utils/itemCardHelpers';
+import { useToast } from '../contexts/ToastContext';
 
 interface ItemViewFooterProps {
   item: Item;
   onRefresh?: () => void;
   onShare?: () => void;
   onArchive?: () => void;
+  onUnarchive?: () => void;
   onDelete?: () => void;
   isRefreshing?: boolean;
   isDarkMode: boolean;
@@ -20,10 +22,13 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
   onRefresh,
   onShare,
   onArchive,
+  onUnarchive,
   onDelete,
   isRefreshing = false,
   isDarkMode,
 }) => {
+  const { showToast } = useToast();
+
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en', {
@@ -38,7 +43,7 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
   const handleCopyUrl = async () => {
     if (item.url) {
       await Clipboard.setStringAsync(item.url);
-      Alert.alert('Copied', 'URL copied to clipboard');
+      showToast({ message: 'URL copied to clipboard', type: 'success' });
     }
   };
 
@@ -93,7 +98,19 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
           </TouchableOpacity>
         )}
 
-        {onArchive && (
+        {item.is_archived && onUnarchive ? (
+          <TouchableOpacity
+            style={[styles.iconButton, isDarkMode && styles.iconButtonDark]}
+            onPress={onUnarchive}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="unarchive"
+              size={24}
+              color={isDarkMode ? '#FFFFFF' : '#000000'}
+            />
+          </TouchableOpacity>
+        ) : onArchive && !item.is_archived ? (
           <TouchableOpacity
             style={[styles.iconButton, isDarkMode && styles.iconButtonDark]}
             onPress={onArchive}
@@ -105,7 +122,7 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
               color={isDarkMode ? '#FFFFFF' : '#000000'}
             />
           </TouchableOpacity>
-        )}
+        ) : null}
 
         {onDelete && (
           <TouchableOpacity
@@ -127,6 +144,11 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
         <Text style={[styles.timestampText, isDarkMode && styles.timestampTextDark]}>
           This was saved {formatTimestamp(item.created_at)}
         </Text>
+        {item.is_archived && item.archived_at && (
+          <Text style={[styles.archivedText, isDarkMode && styles.archivedTextDark]}>
+            {item.auto_archived ? 'Auto-archived' : 'Archived'} {formatTimestamp(item.archived_at)}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -179,6 +201,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   timestampTextDark: {
+    color: '#98989F',
+  },
+  archivedText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  archivedTextDark: {
     color: '#98989F',
   },
 });

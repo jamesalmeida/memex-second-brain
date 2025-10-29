@@ -16,6 +16,7 @@ import { itemChatsActions } from '../stores/itemChats';
 import { chatMessagesActions } from '../stores/chatMessages';
 import { aiSettingsActions } from '../stores/aiSettings';
 import { filterActions } from '../stores/filter';
+import { userSettingsActions } from '../stores/userSettings';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -60,6 +61,12 @@ export function useAuth() {
             email: session.user.email || '',
           });
           authActions.setSession(session);
+
+          // Load user settings from cloud
+          console.log('⚙️ Loading user settings from cloud...');
+          userSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load user settings:', error);
+          });
 
           // Trigger sync for existing session
           console.log('🔄 Starting sync for existing session...');
@@ -107,6 +114,12 @@ export function useAuth() {
           authActions.setSession(session);
           authActions.setLoading(false);
 
+          // Load user settings from cloud
+          console.log('⚙️ Loading user settings from cloud...');
+          userSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load user settings:', error);
+          });
+
           // Trigger sync with Supabase after sign in
           console.log('🔄 Starting sync after sign in...');
           syncService.forceSync().catch(error => {
@@ -147,6 +160,7 @@ export function useAuth() {
               STORAGE_KEYS.AI_SETTINGS,
               STORAGE_KEYS.AI_MODELS,
               STORAGE_KEYS.FILTERS,
+              STORAGE_KEYS.USER_SETTINGS,
             ]);
             console.log('✅ Cleared all user data from storage');
           } catch (error) {
@@ -164,6 +178,7 @@ export function useAuth() {
           await chatMessagesActions.clearAll();
           await aiSettingsActions.clearAll();
           await filterActions.clearAll();
+          await userSettingsActions.clearSettings();
 
           // Reset auth store
           authActions.reset();
@@ -252,6 +267,7 @@ export function useAuth() {
           STORAGE_KEYS.AI_SETTINGS,
           STORAGE_KEYS.AI_MODELS,
           STORAGE_KEYS.FILTERS,
+          STORAGE_KEYS.USER_SETTINGS,
         ]);
       } catch (err) {
         // swallow
@@ -267,6 +283,7 @@ export function useAuth() {
       await chatMessagesActions.clearAll();
       await aiSettingsActions.clearAll();
       await filterActions.clearAll();
+      await userSettingsActions.clearSettings();
 
       authActions.reset();
       authActions.setLoading(false);

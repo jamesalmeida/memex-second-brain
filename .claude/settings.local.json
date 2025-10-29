@@ -21,7 +21,11 @@
       "Bash(xargs ls:*)",
       "Bash(curl -s \"https://www.amazon.com/ADZERD-Rechargeable-Automatic-Shuffler-Electric/dp/B0FJFB2NSH\" -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36\")",
       "Bash(find:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(for file in RedditItemView.tsx MovieTVItemView.tsx NoteItemView.tsx)",
+      "Bash(do echo \"=== $file ===\" echo \"Interface:\" grep -A 2 \"onArchive?: (item: Item) => void;\" \"$file\")",
+      "Bash(head -3 echo \"Observer params:\" grep -A 2 \"onArchive,$\" \"$file\")",
+      "Bash(head -3 echo \"ItemViewFooter:\" grep -A 2 \"onArchive={() => onArchive?.(itemToDisplay!)}\" \"$file\")"
     ],
     "deny": [],
     "ask": []

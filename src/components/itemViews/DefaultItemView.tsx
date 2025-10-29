@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
@@ -77,6 +78,7 @@ interface DefaultItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
+  onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
@@ -86,11 +88,13 @@ const DefaultItemView = observer(({
   item,
   onChat,
   onArchive,
+  onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
 }: DefaultItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
@@ -641,7 +645,7 @@ const DefaultItemView = observer(({
       const asset = await MediaLibrary.createAssetAsync(result.uri);
       await MediaLibrary.createAlbumAsync('Memex', asset, false);
 
-      Alert.alert('Success', 'Thumbnail saved to your photo library');
+      showToast({ message: 'Thumbnail saved to your photo library', type: 'success' });
     } catch (error) {
       console.error('Download error:', error);
       Alert.alert('Error', 'Failed to download thumbnail');
@@ -740,7 +744,7 @@ const DefaultItemView = observer(({
     try {
       const success = await itemsActions.refreshMetadata(itemToDisplay.id);
       if (success) {
-        Alert.alert('Success', 'Metadata refreshed successfully');
+        showToast({ message: 'Metadata refreshed successfully', type: 'success' });
         // Force re-render by updating displayItem with latest from store
         const updatedItem = itemsStore.items.get().find(i => i.id === itemToDisplay.id);
         if (updatedItem) {
@@ -790,7 +794,7 @@ const DefaultItemView = observer(({
       // Update local displayItem
       setDisplayItem({ ...itemToDisplay, thumbnail_url: imageUrl });
 
-      Alert.alert('Success', 'Image updated successfully');
+      showToast({ message: 'Image updated successfully', type: 'success' });
     } catch (error) {
       console.error('Error updating image:', error);
       Alert.alert('Error', 'Failed to update image');
@@ -807,7 +811,7 @@ const DefaultItemView = observer(({
       // Update local displayItem
       setDisplayItem({ ...itemToDisplay, thumbnail_url: null });
 
-      Alert.alert('Success', 'Image removed successfully');
+      showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
       Alert.alert('Error', 'Failed to remove image');
@@ -1398,6 +1402,7 @@ const DefaultItemView = observer(({
           onRefresh={handleRefreshMetadata}
           onShare={() => onShare?.(itemToDisplay!)}
           onArchive={() => onArchive?.(itemToDisplay!)}
+          onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
           isRefreshing={isRefreshingMetadata}
           isDarkMode={isDarkMode}

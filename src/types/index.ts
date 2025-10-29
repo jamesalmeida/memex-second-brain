@@ -206,3 +206,21 @@ export interface SearchFilters {
   spaceId?: string;
   isArchived?: boolean;
 }
+
+export interface UserSettings {
+  id: string;
+  user_id: string;
+  // Theme settings
+  theme_dark_mode: boolean;
+  // AI settings
+  ai_chat_model: string;
+  ai_metadata_model: string;
+  ai_auto_transcripts: boolean;
+  ai_auto_image_descriptions: boolean;
+  // UI preferences
+  ui_x_video_muted: boolean;
+  ui_autoplay_x_videos: boolean;
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}

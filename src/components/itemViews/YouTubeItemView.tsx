@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useToast } from '../../contexts/ToastContext';
 import { WebView } from 'react-native-webview';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
@@ -74,6 +75,7 @@ interface YouTubeItemViewProps {
   item: Item | null;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
+  onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
@@ -83,11 +85,13 @@ const YouTubeItemView = observer(({
   item,
   onChat,
   onArchive,
+  onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
 }: YouTubeItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
@@ -321,7 +325,7 @@ const YouTubeItemView = observer(({
       const asset = await MediaLibrary.createAssetAsync(result.uri);
       await MediaLibrary.createAlbumAsync('Memex', asset, false);
 
-      Alert.alert('Success', 'Thumbnail saved to your photo library');
+      showToast({ message: 'Thumbnail saved to your photo library', type: 'success' });
     } catch (error) {
       console.error('Download error:', error);
       Alert.alert('Error', 'Failed to download thumbnail');
@@ -416,7 +420,7 @@ const YouTubeItemView = observer(({
     try {
       const success = await itemsActions.refreshMetadata(itemToDisplay.id);
       if (success) {
-        Alert.alert('Success', 'Metadata refreshed successfully');
+        showToast({ message: 'Metadata refreshed successfully', type: 'success' });
         const updatedItem = itemsStore.items.get().find(i => i.id === itemToDisplay.id);
         if (updatedItem) {
           setDisplayItem(updatedItem);
@@ -792,6 +796,7 @@ const YouTubeItemView = observer(({
           onRefresh={handleRefreshMetadata}
           onShare={() => onShare?.(itemToDisplay!)}
           onArchive={() => onArchive?.(itemToDisplay!)}
+          onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
           isRefreshing={isRefreshingMetadata}
           isDarkMode={isDarkMode}

@@ -14,6 +14,7 @@ import { observer } from '@legendapp/state/react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { themeStore, themeActions } from '../stores/theme';
+import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { router } from 'expo-router';
 import { COLORS, UI, APP, STORAGE_KEYS } from '../constants';
@@ -38,6 +39,7 @@ const SettingsSheet = observer(
   forwardRef<BottomSheet, SettingsSheetProps>(({ onOpen, onClose }, ref) => {
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
+    const { showToast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
     const [isRefreshingModels, setIsRefreshingModels] = useState(false);
     const modelPickerSheetRef = useRef<BottomSheet>(null);
@@ -298,7 +300,7 @@ const SettingsSheet = observer(
                 setIsRefreshingModels(true);
                 try {
                   await aiSettingsActions.fetchModels(true);
-                  Alert.alert('Success', `Loaded ${availableModels.length} models`);
+                  showToast({ message: `Loaded ${availableModels.length} models`, type: 'success' });
                 } catch (error: any) {
                   Alert.alert('Error', error.message || 'Failed to refresh models');
                 } finally {
@@ -426,7 +428,7 @@ const SettingsSheet = observer(
                   console.log('🔄 Starting manual sync...');
                   const result = await syncService.forceSync();
                   if (result.success) {
-                    Alert.alert('Success', `Synced ${result.itemsSynced} items successfully`);
+                    showToast({ message: `Synced ${result.itemsSynced} items successfully`, type: 'success' });
                   } else {
                     Alert.alert('Sync Failed', result.errors.join('\n'));
                   }
@@ -462,9 +464,10 @@ const SettingsSheet = observer(
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.row}
               onPress={async () => {
+                if (isSyncing) return;
                 Alert.alert(
                   'Clean Orphaned Data',
                   'This will remove local metadata and relationships for items that no longer exist in the cloud. This is safe and helps fix sync issues.',
@@ -477,11 +480,11 @@ const SettingsSheet = observer(
                           const result = await syncService.cleanupOrphanedData();
                           if (result.cleaned > 0) {
                             Alert.alert(
-                              'Cleanup Complete', 
+                              'Cleanup Complete',
                               `Removed ${result.cleaned} orphaned records:\n\n${result.details.join('\n')}`
                             );
                           } else {
-                            Alert.alert('No Orphaned Data', 'Your local data is clean - no orphaned records found.');
+                            showToast({ message: 'Your local data is clean - no orphaned records found', type: 'info' });
                           }
                         } catch (error) {
                           Alert.alert('Error', 'Failed to clean orphaned data. Please try again.');
@@ -491,14 +494,15 @@ const SettingsSheet = observer(
                   ]
                 );
               }}
+              disabled={isSyncing}
             >
               <MaterialIcons
                 name="cleaning-services"
                 size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
+                color={isSyncing ? '#999' : (isDarkMode ? '#FFFFFF' : '#333333')}
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark, isSyncing && styles.rowDisabled]}>
                   Clean Orphaned Data
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
@@ -512,9 +516,10 @@ const SettingsSheet = observer(
               />
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.row}
               onPress={() => {
+                if (isSyncing) return;
                 Alert.alert(
                   'Clear Local Data',
                   'This will delete all locally stored items and spaces. Data in the cloud will remain. Are you sure?',
@@ -532,7 +537,7 @@ const SettingsSheet = observer(
                           await AsyncStorage.removeItem(STORAGE_KEYS.ITEM_METADATA);
                           await AsyncStorage.removeItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
                           await AsyncStorage.removeItem(STORAGE_KEYS.OFFLINE_QUEUE);
-                          
+
                           // Then clear all stores in memory
                           itemsActions.clearAll();
                           spacesActions.clearAll();
@@ -540,7 +545,7 @@ const SettingsSheet = observer(
                           itemMetadataActions.reset();
                           itemTypeMetadataActions.reset();
                           offlineQueueActions.reset();
-                          
+
                           Alert.alert('Success', 'All local data has been cleared. You can sync from cloud to restore.');
                         } catch (error: any) {
                           console.error('Error clearing local data:', error);
@@ -551,14 +556,15 @@ const SettingsSheet = observer(
                   ]
                 );
               }}
+              disabled={isSyncing}
             >
               <MaterialIcons
                 name="delete-sweep"
                 size={24}
-                color="#FF3B30"
+                color={isSyncing ? '#999' : '#FF3B30'}
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: '#FF3B30' }]}>
+                <Text style={[styles.rowTitle, { color: isSyncing ? '#999' : '#FF3B30' }, isSyncing && styles.rowDisabled]}>
                   Clear All Local Data
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>

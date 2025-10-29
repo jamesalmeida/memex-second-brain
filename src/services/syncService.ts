@@ -11,6 +11,7 @@ import { itemSpacesActions } from '../stores/itemSpaces';
 import { itemMetadataActions } from '../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
 import { videoTranscriptsActions } from '../stores/videoTranscripts';
+import { userSettingsActions } from '../stores/userSettings';
 
 interface SyncResult {
   success: boolean;
@@ -101,7 +102,7 @@ class SyncService {
 
       // Sync all tables in order
       console.log('🔄 Starting full sync...');
-      
+
       // DIAGNOSTIC: Log local data counts
       const localItemsData = await AsyncStorage.getItem(STORAGE_KEYS.ITEMS);
       const localItems = localItemsData ? JSON.parse(localItemsData) : [];
@@ -115,27 +116,31 @@ class SyncService {
       const localTypeMetadataData = await AsyncStorage.getItem(STORAGE_KEYS.ITEM_TYPE_METADATA);
       const localTypeMetadata = localTypeMetadataData ? JSON.parse(localTypeMetadataData) : [];
 
+      // 0. Sync user settings first (global preferences)
+      console.log('⚙️ Syncing user settings...');
+      await userSettingsActions.syncFromCloud();
+
       // 1. Sync spaces first (items depend on spaces)
       console.log('📦 Syncing spaces...');
       await this.syncSpaces(user.id);
-      
+
       // 2. Sync items
       console.log('📝 Syncing items...');
       const itemsSynced = await this.syncItems(user.id);
       result.itemsSynced += itemsSynced;
-      
+
       // 3. Sync item_spaces relationships
       console.log('🔗 Syncing item-space relationships...');
       await this.syncItemSpaces(user.id);
-      
+
       // 4. Sync item metadata
       console.log('📊 Syncing item metadata...');
       await this.syncItemMetadata(user.id);
-      
+
       // 5. Sync item type metadata
       console.log('🎨 Syncing item type metadata...');
       await this.syncItemTypeMetadata(user.id);
-      
+
       // 6. Sync video transcripts
       console.log('📝 Syncing video transcripts...');
       await this.syncVideoTranscripts(user.id);
@@ -942,9 +947,14 @@ class SyncService {
       thumbnail_url: remoteItem.thumbnail_url,
       tags: remoteItem.tags || null,
       content_type: remoteItem.content_type as ContentType,
+      space_id: remoteItem.space_id || null,
       is_archived: remoteItem.is_archived || false,
+      archived_at: remoteItem.archived_at || null,
+      auto_archived: remoteItem.auto_archived || false,
       is_deleted: remoteItem.is_deleted || false,
       deleted_at: remoteItem.deleted_at || null,
+      tldr: remoteItem.tldr || null,
+      notes: remoteItem.notes || null,
       raw_text: remoteItem.raw_text,
       created_at: remoteItem.created_at,
       updated_at: remoteItem.updated_at,

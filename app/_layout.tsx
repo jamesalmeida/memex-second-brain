@@ -12,6 +12,7 @@ import { authStore, themeStore } from '../src/stores';
 import { useAuth } from '../src/hooks/useAuth';
 import { RadialMenuProvider } from '../src/contexts/RadialMenuContext';
 import { DrawerProvider, useDrawer } from '../src/contexts/DrawerContext';
+import { ToastProvider } from '../src/contexts/ToastContext';
 import DrawerContentView from '../src/components/DrawerContent';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -166,11 +167,13 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <DrawerProvider>
-          <RadialMenuProvider>
-            <RootLayoutContent />
-          </RadialMenuProvider>
-        </DrawerProvider>
+        <ToastProvider>
+          <DrawerProvider>
+            <RadialMenuProvider>
+              <RootLayoutContent />
+            </RadialMenuProvider>
+          </DrawerProvider>
+        </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
