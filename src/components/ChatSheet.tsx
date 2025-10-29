@@ -7,12 +7,11 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Pressable,
-  Modal,
   Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
@@ -70,7 +69,6 @@ const ChatSheet = observer(
     const [modelSwitchMessage, setModelSwitchMessage] = useState('');
     const [actualModelUsed, setActualModelUsed] = useState<string | null>(null);
     const [hasShownModelSwitchBanner, setHasShownModelSwitchBanner] = useState(false);
-    const [showContextMenu, setShowContextMenu] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -412,7 +410,6 @@ const ChatSheet = observer(
               try {
                 await chatMessagesActions.deleteMessagesByChat(chat.id);
                 setMessages([]);
-                setShowContextMenu(false);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 showToast({
                   message: 'Chat cleared successfully',
@@ -460,7 +457,6 @@ const ChatSheet = observer(
 
         // Copy to clipboard
         await Clipboard.setStringAsync(exportText);
-        setShowContextMenu(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showToast({
           message: 'Chat exported to clipboard',
@@ -512,7 +508,6 @@ const ChatSheet = observer(
             type: 'success',
             duration: 3000,
           });
-          setShowContextMenu(false);
           return;
         }
 
@@ -522,7 +517,6 @@ const ChatSheet = observer(
         await FileSystem.writeAsStringAsync(fileUri, shareText);
         await Sharing.shareAsync(fileUri);
 
-        setShowContextMenu(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (error) {
         console.error('Error sharing chat:', error);
@@ -812,19 +806,35 @@ const ChatSheet = observer(
                   Powered by {actualModelUsed || selectedModel}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowContextMenu(true);
-                }}
-              >
-                <MaterialIcons
-                  name="more-vert"
-                  size={24}
-                  color={isDarkMode ? '#FFFFFF' : '#000000'}
-                />
-              </TouchableOpacity>
+              <Host>
+                <ContextMenu>
+                  <ContextMenu.Trigger>
+                    <TouchableOpacity
+                      style={styles.menuButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <MaterialIcons
+                        name="more-vert"
+                        size={24}
+                        color={isDarkMode ? '#FFFFFF' : '#000000'}
+                      />
+                    </TouchableOpacity>
+                  </ContextMenu.Trigger>
+                  <ContextMenu.Items>
+                    <Button onPress={handleExportChat}>
+                      Export Chat
+                    </Button>
+                    <Button onPress={handleShareChat}>
+                      Share Chat
+                    </Button>
+                    <Button onPress={handleClearChat} role="destructive">
+                      Clear Chat
+                    </Button>
+                  </ContextMenu.Items>
+                </ContextMenu>
+              </Host>
             </View>
           </View>
 
@@ -970,86 +980,6 @@ const ChatSheet = observer(
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Context Menu Modal */}
-          <Modal
-            visible={showContextMenu}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowContextMenu(false)}
-          >
-            <Pressable
-              style={styles.modalOverlay}
-              onPress={() => setShowContextMenu(false)}
-            >
-              <View
-                style={[
-                  styles.contextMenu,
-                  isDarkMode && styles.contextMenuDark,
-                ]}
-              >
-                <TouchableOpacity
-                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
-                  onPress={handleExportChat}
-                >
-                  <MaterialIcons
-                    name="file-download"
-                    size={22}
-                    color={isDarkMode ? '#FFFFFF' : '#000000'}
-                  />
-                  <Text style={[styles.menuItemText, isDarkMode && styles.menuItemTextDark]}>
-                    Export Chat
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
-                  onPress={handleShareChat}
-                >
-                  <MaterialIcons
-                    name="share"
-                    size={22}
-                    color={isDarkMode ? '#FFFFFF' : '#000000'}
-                  />
-                  <Text style={[styles.menuItemText, isDarkMode && styles.menuItemTextDark]}>
-                    Share Chat
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.menuDivider, isDarkMode && styles.menuDividerDark]} />
-
-                <TouchableOpacity
-                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
-                  onPress={handleClearChat}
-                >
-                  <MaterialIcons
-                    name="delete-outline"
-                    size={22}
-                    color={COLORS.danger}
-                  />
-                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>
-                    Clear Chat
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.menuDivider, isDarkMode && styles.menuDividerDark]} />
-
-                <TouchableOpacity
-                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
-                  onPress={() => setShowContextMenu(false)}
-                >
-                  <MaterialIcons
-                    name="close"
-                    size={22}
-                    color={isDarkMode ? '#999' : '#666'}
-                  />
-                  <Text style={[styles.menuItemText, isDarkMode && styles.menuItemTextDark]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </Modal>
         </View>
       </BottomSheet>
     );
@@ -1204,8 +1134,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuButton: {
-    padding: 4,
-    marginLeft: 12,
+    padding: 8,
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,
@@ -1446,57 +1380,6 @@ const styles = StyleSheet.create({
   },
   generateButtonTextDark: {
     color: COLORS.primary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  contextMenu: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 8,
-    minWidth: 250,
-    maxWidth: 300,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  contextMenuDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  menuItemDark: {
-    backgroundColor: 'transparent',
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: '#000000',
-    flex: 1,
-  },
-  menuItemTextDark: {
-    color: '#FFFFFF',
-  },
-  menuItemTextDanger: {
-    color: '#FF3B30',
-  },
-  menuDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E5E7',
-    marginVertical: 4,
-  },
-  menuDividerDark: {
-    backgroundColor: '#38383A',
   },
 });
 
