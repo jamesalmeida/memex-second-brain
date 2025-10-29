@@ -30,6 +30,7 @@ import { aiSettingsStore, aiSettingsActions, aiSettingsComputed } from '../store
 import { expandedItemUIStore, expandedItemUIActions } from '../stores/expandedItemUI';
 import ModelPickerSheet from './ModelPickerSheet';
 import { useState } from 'react';
+import { ReactNativeLegal } from 'react-native-legal';
 
 interface SettingsSheetProps {
   // Additional props can be added here
@@ -619,6 +620,37 @@ const SettingsSheet = observer(
                 </Text>
               </View>
             </View>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                try {
+                  ReactNativeLegal.launchLicenseListScreen('Open Source Licenses');
+                } catch (error) {
+                  console.error('Error opening legal info:', error);
+                  Alert.alert('Error', 'Unable to open legal information');
+                }
+              }}
+            >
+              <MaterialIcons
+                name="gavel"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Legal & Licenses
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  View open source licenses
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
           </View>
 
           {/* Account Section */}
