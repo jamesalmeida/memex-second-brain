@@ -534,6 +534,49 @@ const ChatSheet = observer(
       }
     };
 
+    const handleCopyToClipboard = async () => {
+      if (!chat || !item || messages.length === 0) {
+        showToast({
+          message: 'No messages to copy',
+          type: 'error',
+          duration: 2000,
+        });
+        return;
+      }
+
+      try {
+        // Format the conversation
+        let copyText = `Chat about: ${item.title}\n`;
+        copyText += `Date: ${new Date().toLocaleDateString()}\n`;
+        copyText += `Model: ${actualModelUsed || selectedModel}\n`;
+        copyText += `\n${'='.repeat(50)}\n\n`;
+
+        messages.forEach((msg) => {
+          if (msg.role !== 'system') {
+            const timestamp = new Date(msg.created_at).toLocaleTimeString();
+            const sender = msg.role === 'user' ? 'You' : 'AI';
+            copyText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+          }
+        });
+
+        // Copy to clipboard
+        await Clipboard.setStringAsync(copyText);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast({
+          message: 'Chat copied to clipboard',
+          type: 'success',
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('Error copying chat:', error);
+        showToast({
+          message: 'Failed to copy chat',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
     const renderBackdrop = useCallback(
       (props: any) => (
         <BottomSheetBackdrop
@@ -829,11 +872,14 @@ const ChatSheet = observer(
                     </TouchableOpacity>
                   </ContextMenu.Trigger>
                   <ContextMenu.Items>
+                    <Button onPress={handleShareChat}>
+                      Share Chat
+                    </Button>
                     <Button onPress={handleExportChat}>
                       Export Chat
                     </Button>
-                    <Button onPress={handleShareChat}>
-                      Share Chat
+                    <Button onPress={handleCopyToClipboard}>
+                      Copy to Clipboard
                     </Button>
                     <Button onPress={handleClearChat} role="destructive">
                       Clear Chat
