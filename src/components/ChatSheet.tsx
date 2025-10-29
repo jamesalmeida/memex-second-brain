@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  Share,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -456,14 +458,29 @@ const ChatSheet = observer(
           }
         });
 
-        // Copy to clipboard
-        await Clipboard.setStringAsync(exportText);
+        // Check if sharing is available
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          // Fallback to copying to clipboard
+          await Clipboard.setStringAsync(exportText);
+          showToast({
+            message: 'Sharing not available. Copied to clipboard instead.',
+            type: 'success',
+            duration: 3000,
+          });
+          return;
+        }
+
+        // Create a temporary file and share it
+        const file = new File(Paths.document, 'chat-export.txt');
+        if (file.exists) {
+          file.delete();
+        }
+        file.create();
+        file.write(exportText);
+        await Sharing.shareAsync(file.uri);
+
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showToast({
-          message: 'Chat exported to clipboard',
-          type: 'success',
-          duration: 2000,
-        });
       } catch (error) {
         console.error('Error exporting chat:', error);
         showToast({
@@ -499,26 +516,14 @@ const ChatSheet = observer(
           }
         });
 
-        // Check if sharing is available
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (!isAvailable) {
-          // Fallback to copying to clipboard
-          await Clipboard.setStringAsync(shareText);
-          showToast({
-            message: 'Sharing not available. Copied to clipboard instead.',
-            type: 'success',
-            duration: 3000,
-          });
-          return;
+        // Share text using iOS share sheet
+        const result = await Share.share({
+          message: shareText,
+        });
+
+        if (result.action === Share.sharedAction) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-
-        // Create a temporary file and share it
-        const FileSystem = require('expo-file-system');
-        const fileUri = FileSystem.documentDirectory + 'chat-export.txt';
-        await FileSystem.writeAsStringAsync(fileUri, shareText);
-        await Sharing.shareAsync(fileUri);
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (error) {
         console.error('Error sharing chat:', error);
         showToast({
