@@ -14,6 +14,7 @@ import { observer } from '@legendapp/state/react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { themeStore, themeActions } from '../stores/theme';
+import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { router } from 'expo-router';
 import { COLORS, UI, APP, STORAGE_KEYS } from '../constants';
@@ -38,6 +39,7 @@ const SettingsSheet = observer(
   forwardRef<BottomSheet, SettingsSheetProps>(({ onOpen, onClose }, ref) => {
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
+    const { showToast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
     const [isRefreshingModels, setIsRefreshingModels] = useState(false);
     const modelPickerSheetRef = useRef<BottomSheet>(null);
@@ -298,7 +300,7 @@ const SettingsSheet = observer(
                 setIsRefreshingModels(true);
                 try {
                   await aiSettingsActions.fetchModels(true);
-                  Alert.alert('Success', `Loaded ${availableModels.length} models`);
+                  showToast({ message: `Loaded ${availableModels.length} models`, type: 'success' });
                 } catch (error: any) {
                   Alert.alert('Error', error.message || 'Failed to refresh models');
                 } finally {
@@ -426,7 +428,7 @@ const SettingsSheet = observer(
                   console.log('🔄 Starting manual sync...');
                   const result = await syncService.forceSync();
                   if (result.success) {
-                    Alert.alert('Success', `Synced ${result.itemsSynced} items successfully`);
+                    showToast({ message: `Synced ${result.itemsSynced} items successfully`, type: 'success' });
                   } else {
                     Alert.alert('Sync Failed', result.errors.join('\n'));
                   }
@@ -482,7 +484,7 @@ const SettingsSheet = observer(
                               `Removed ${result.cleaned} orphaned records:\n\n${result.details.join('\n')}`
                             );
                           } else {
-                            Alert.alert('No Orphaned Data', 'Your local data is clean - no orphaned records found.');
+                            showToast({ message: 'Your local data is clean - no orphaned records found', type: 'info' });
                           }
                         } catch (error) {
                           Alert.alert('Error', 'Failed to clean orphaned data. Please try again.');

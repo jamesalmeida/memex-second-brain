@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
+import { useToast } from '../../contexts/ToastContext';
 import { itemsStore, itemsActions } from '../../stores/items';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { Item, ContentType } from '../../types';
@@ -32,6 +33,7 @@ interface NoteItemViewProps {
 
 const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, currentSpaceId }: NoteItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { showToast } = useToast();
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [showSpaceModal, setShowSpaceModal] = useState(false);
@@ -72,7 +74,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
     try {
       await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: imageUrl } : prev));
-      Alert.alert('Success', 'Image updated successfully');
+      showToast({ message: 'Image updated successfully', type: 'success' });
     } catch (error) {
       console.error('Error updating image:', error);
       Alert.alert('Error', 'Failed to update image');
@@ -83,7 +85,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
     try {
       await itemsActions.removeItemImage(itemToDisplay.id);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
-      Alert.alert('Success', 'Image removed successfully');
+      showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
       Alert.alert('Error', 'Failed to remove image');
@@ -169,7 +171,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
               style={styles.copyButton}
               onPress={async () => {
                 await Clipboard.setStringAsync(itemToDisplay.content || '');
-                Alert.alert('Copied', 'Note copied to clipboard');
+                showToast({ message: 'Note copied to clipboard', type: 'success' });
               }}
               activeOpacity={0.7}
             >

@@ -39,13 +39,13 @@ const Toast: React.FC<ToastProps> = ({
     });
     opacity.value = withTiming(1, { duration: 200 });
 
-    // Auto dismiss - TEMPORARILY DISABLED FOR STYLING
-    // const timer = setTimeout(() => {
-    //   dismiss();
-    // }, duration);
+    // Auto dismiss
+    const timer = setTimeout(() => {
+      dismiss();
+    }, duration);
 
-    // return () => clearTimeout(timer);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [duration]);
 
   const dismiss = () => {
     translateY.value = withTiming(-100, { duration: 250 });

@@ -321,7 +321,23 @@
     - Success toast notification: "Item archived successfully" or "Item unarchived successfully"
     - Error toast on failure: "Failed to archive item" or "Failed to unarchive item"
     - Items disappear from Archive view immediately after unarchiving
-    - Supports all filtering options (content type, tags, sort order)  
+    - Supports all filtering options (content type, tags, sort order)
+  - **Toast System** (`src/contexts/ToastContext.tsx` and `src/components/Toast.tsx`): Global toast notification system for non-blocking user feedback:
+    - **Context Provider**: `ToastProvider` wraps the app to provide global toast access via `useToast()` hook
+    - **Toast Types**: `success` (green), `error` (red), `warning` (orange), `info` (blue)
+    - **Auto-dismiss**: Toasts automatically dismiss after 2.5 seconds (configurable)
+    - **Stacking**: Multiple toasts stack vertically with 70px spacing
+    - **Animation**: Spring-based slide-in from top with fade
+    - **Theme Support**: Adapts colors for light/dark mode
+    - **Usage Examples**:
+      - Archive/unarchive operations: "Item archived successfully"
+      - Image operations: "Image saved to your photo library", "Image updated successfully"
+      - Clipboard operations: "URL copied to clipboard", "Note copied to clipboard"
+      - Metadata refresh: "Metadata refreshed successfully"
+      - Sync operations: "Synced X items successfully"
+      - AI operations: "Generated X new tags", "Loaded X models"
+    - **Implementation**: Success/info messages use toasts; errors, confirmations, and destructive actions still use Alert dialogs
+    - **Files Using Toasts**: ItemViewFooter, all ItemView components (YouTube, Default, Reddit, X, Note, MovieTV), ImageWithActions, SettingsSheet, ChatSheet
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
     - Save directly (no space).  

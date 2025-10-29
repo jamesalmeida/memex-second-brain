@@ -6,6 +6,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import ImageView from 'react-native-image-viewing';
 import * as Haptics from 'expo-haptics';
+import { useToast } from '../contexts/ToastContext';
 
 export interface ImageWithActionsProps {
   source: { uri: string } | number;
@@ -38,6 +39,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
   const scale = useRef(new Animated.Value(1)).current;
   const isRaisedRef = useRef(false);
   const [isRaised, setIsRaised] = useState(false);
+  const { showToast } = useToast();
 
   // Get the actual URL from source
   const getImageUrl = (): string | null => {
@@ -72,7 +74,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
 
     try {
       await Clipboard.setStringAsync(url);
-      Alert.alert('Copied', 'Image URL copied to clipboard');
+      showToast({ message: 'Image URL copied to clipboard', type: 'success' });
     } catch (error) {
       console.error('Error copying URL:', error);
       Alert.alert('Error', 'Failed to copy image URL');
@@ -101,7 +103,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
       // Save to media library
       await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
 
-      Alert.alert('Saved', 'Image saved to your photo library');
+      showToast({ message: 'Image saved to your photo library', type: 'success' });
 
       // Clean up cache
       await FileSystem.deleteAsync(fileUri, { idempotent: true });

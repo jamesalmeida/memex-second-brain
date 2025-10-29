@@ -9,6 +9,7 @@ import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
+import { useToast } from '../../contexts/ToastContext';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { aiSettingsComputed } from '../../stores/aiSettings';
@@ -46,6 +47,7 @@ const MovieTVItemView = observer(({
   currentSpaceId,
 }: MovieTVItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { showToast } = useToast();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
@@ -87,7 +89,7 @@ const MovieTVItemView = observer(({
   const handleCopyUrl = async () => {
     if (itemToDisplay.url) {
       await Clipboard.setStringAsync(itemToDisplay.url);
-      Alert.alert('Copied', 'URL copied to clipboard');
+      showToast({ message: 'URL copied to clipboard', type: 'success' });
     }
   };
 
@@ -125,7 +127,7 @@ const MovieTVItemView = observer(({
     try {
       const success = await itemsActions.refreshMetadata(itemToDisplay.id);
       if (success) {
-        Alert.alert('Success', 'Metadata refreshed successfully');
+        showToast({ message: 'Metadata refreshed successfully', type: 'success' });
       } else {
         Alert.alert('Error', 'Failed to refresh metadata');
       }
@@ -141,7 +143,7 @@ const MovieTVItemView = observer(({
     try {
       await itemsActions.updateItemImage(itemToDisplay.id, imageUrl, storagePath);
       setThumbnailUrl(imageUrl);
-      Alert.alert('Success', 'Image updated successfully');
+      showToast({ message: 'Image updated successfully', type: 'success' });
     } catch (error) {
       console.error('Error updating image:', error);
       Alert.alert('Error', 'Failed to update image');
@@ -152,7 +154,7 @@ const MovieTVItemView = observer(({
     try {
       await itemsActions.removeItemImage(itemToDisplay.id);
       setThumbnailUrl(null);
-      Alert.alert('Success', 'Image removed successfully');
+      showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
       Alert.alert('Error', 'Failed to remove image');
@@ -238,7 +240,7 @@ const MovieTVItemView = observer(({
 
       await itemsActions.updateItem(itemToDisplay.id, { tags: newTags });
 
-      Alert.alert('Success', `Generated ${generatedTags.length} new tags`);
+      showToast({ message: `Generated ${generatedTags.length} new tags`, type: 'success' });
     } catch (error) {
       console.error('Error generating tags:', error);
       Alert.alert('Error', 'Failed to generate tags');

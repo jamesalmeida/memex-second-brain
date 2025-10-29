@@ -43,10 +43,10 @@ export const ToastProvider = observer(({ children }: { children: ReactNode }) =>
 
     setToasts((prev) => [...prev, newToast]);
 
-    // Auto-remove after duration + animation time - TEMPORARILY DISABLED FOR STYLING
-    // setTimeout(() => {
-    //   setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    // }, (options.duration || 2500) + 500); // Add 500ms buffer for exit animation
+    // Auto-remove after duration + animation time
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, (options.duration || 2500) + 500); // Add 500ms buffer for exit animation
 
     return id; // Return the ID so callers can dismiss it later
   }, []);

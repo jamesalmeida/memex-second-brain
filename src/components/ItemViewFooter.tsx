@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Item } from '../types';
 import { formatDate } from '../utils/itemCardHelpers';
+import { useToast } from '../contexts/ToastContext';
 
 interface ItemViewFooterProps {
   item: Item;
@@ -26,6 +27,8 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
   isRefreshing = false,
   isDarkMode,
 }) => {
+  const { showToast } = useToast();
+
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en', {
@@ -40,7 +43,7 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
   const handleCopyUrl = async () => {
     if (item.url) {
       await Clipboard.setStringAsync(item.url);
-      Alert.alert('Copied', 'URL copied to clipboard');
+      showToast({ message: 'URL copied to clipboard', type: 'success' });
     }
   };
 
