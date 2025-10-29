@@ -30,7 +30,7 @@ import { aiSettingsStore, aiSettingsActions, aiSettingsComputed } from '../store
 import { expandedItemUIStore, expandedItemUIActions } from '../stores/expandedItemUI';
 import ModelPickerSheet from './ModelPickerSheet';
 import { useState } from 'react';
-import { openSettings } from 'react-native-legal';
+import { ReactNativeLegal } from 'react-native-legal';
 
 interface SettingsSheetProps {
   // Additional props can be added here
@@ -625,7 +625,7 @@ const SettingsSheet = observer(
               style={styles.row}
               onPress={() => {
                 try {
-                  openSettings();
+                  ReactNativeLegal.launchLicenseListScreen('Open Source Licenses');
                 } catch (error) {
                   console.error('Error opening legal info:', error);
                   Alert.alert('Error', 'Unable to open legal information');
