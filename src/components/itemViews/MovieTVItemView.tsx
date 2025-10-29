@@ -2,8 +2,8 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Share, Dimensions, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
+import HeroMediaSection from '../HeroMediaSection';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -48,8 +48,7 @@ const MovieTVItemView = observer(({
 }: MovieTVItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isGeneratingImageDescriptions, setIsGeneratingImageDescriptions] = useState(false);
   const [showDescriptions, setShowDescriptions] = useState(false);
@@ -161,6 +160,28 @@ const MovieTVItemView = observer(({
     }
   };
 
+  const handleMetadataImageAdd = async (imageUrl: string, storagePath?: string) => {
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+      showToast({ message: 'Image added successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error adding image:', error);
+      Alert.alert('Error', 'Failed to add image');
+    }
+  };
+
+  const handleMetadataImageRemove = async (imageUrl: string) => {
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.removeImageUrl(itemToDisplay.id, imageUrl);
+      showToast({ message: 'Image removed successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
   // Generate AI descriptions for all images
   const generateImageDescriptions = async () => {
     if (!itemToDisplay) return;
@@ -264,91 +285,20 @@ const MovieTVItemView = observer(({
       />
 
       {/* Media Section */}
-      {videoUrl && player ? (
-        <View style={styles.videoContainer}>
-          <VideoView
-            player={player}
-            style={styles.video}
-            contentFit="cover"
-            fullscreenOptions={{ enable: false }}
-            showsTimecodes={false}
-            muted={true}
-          />
-          <View style={styles.playButtonOverlay} pointerEvents="none">
-            <View style={styles.playButton}>
-              <Text style={styles.playButtonIcon}>▶</Text>
-            </View>
-          </View>
-        </View>
-      ) : hasMultipleImages ? (
-        <View style={styles.mediaSection}>
-          <View style={styles.carouselContainer}>
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
-                setCurrentImageIndex(newIndex);
-              }}
-              scrollEventThrottle={16}
-            >
-              {imageUrls!.map((imageUrl, index) => (
-                <View key={index} style={{ width: screenWidth }}>
-                  <ImageWithActions
-                    source={{ uri: imageUrl }}
-                    imageUrl={imageUrl}
-                    style={styles.carouselImage}
-                    contentFit="contain"
-                    canReplace
-                    onImageReplace={() => imageUploadModalRef.current?.open()}
-                  />
-                </View>
-              ))}
-            </ScrollView>
+      <View style={styles.mediaSection}>
+        <HeroMediaSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          contentTypeIcon="🎬"
+          videoUrl={videoUrl}
+          videoPlayer={player}
+          onImageAdd={() => imageUploadModalRef.current?.open()}
+          onImageRemove={handleMetadataImageRemove}
+          onThumbnailRemove={handleHeroImageRemove}
+        />
 
-            {/* Dots indicator */}
-            <View style={styles.dotsContainer} pointerEvents="none">
-              {imageUrls!.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.dot,
-                    index === currentImageIndex && styles.activeDot
-                  ]}
-                />
-              ))}
-            </View>
-
-            {/* Image Actions */}
-            <View style={styles.imageActions}>
-              <TouchableOpacity
-                style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
-                onPress={generateImageDescriptions}
-                disabled={isGeneratingImageDescriptions || isGeneratingFromStore}
-              >
-                {isGeneratingImageDescriptions || isGeneratingFromStore ? (
-                  <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
-                ) : (
-                  <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Generate Poster Description</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      ) : imageUrls && imageUrls.length === 1 ? (
-        <View style={styles.mediaSection}>
-          <ImageWithActions
-            source={{ uri: imageUrls[0] }}
-            imageUrl={imageUrls[0]}
-            style={styles.singleImage}
-            contentFit="contain"
-            canReplace
-            onImageReplace={() => imageUploadModalRef.current?.open()}
-          />
-
-          {/* Image Actions */}
+        {/* Image Actions - Generate Poster Description */}
+        {(imageUrls || thumbnailUrl) && (
           <View style={styles.imageActions}>
             <TouchableOpacity
               style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
@@ -362,49 +312,8 @@ const MovieTVItemView = observer(({
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      ) : thumbnailUrl ? (
-        <View style={styles.mediaSection}>
-          <ImageWithActions
-            source={{ uri: thumbnailUrl }}
-            imageUrl={thumbnailUrl}
-            style={styles.singleImage}
-            contentFit="contain"
-            canReplace
-            canRemove
-            onImageReplace={() => imageUploadModalRef.current?.open()}
-            onImageRemove={handleHeroImageRemove}
-          />
-
-          {/* Image Actions */}
-          <View style={styles.imageActions}>
-            <TouchableOpacity
-              style={[styles.imageActionButton, isDarkMode && styles.imageActionButtonDark]}
-              onPress={generateImageDescriptions}
-              disabled={isGeneratingImageDescriptions || isGeneratingFromStore}
-            >
-              {isGeneratingImageDescriptions || isGeneratingFromStore ? (
-                <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
-              ) : (
-                <Text style={[styles.imageActionText, isDarkMode && styles.imageActionTextDark]}>✨ Generate Poster Description</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.mediaSection}>
-          <TouchableOpacity
-            style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-            onPress={() => imageUploadModalRef.current?.open()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.placeholderIcon}>🎬</Text>
-            <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
-              Tap to add image
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Image Descriptions Section */}
       {imageDescriptions && imageDescriptions.length > 0 && (
@@ -578,7 +487,7 @@ const MovieTVItemView = observer(({
 
       <ImageUploadModal
         ref={imageUploadModalRef}
-        onImageSelected={handleHeroImageSelected}
+        onImageSelected={handleMetadataImageAdd}
       />
 
       {/* Content Type Selector Modal */}

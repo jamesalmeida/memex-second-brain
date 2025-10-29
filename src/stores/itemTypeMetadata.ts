@@ -115,6 +115,57 @@ export const itemTypeMetadataActions = {
   reset: () => {
     itemTypeMetadataStore.set(initialState);
   },
+
+  // Add an image URL to an item's image_urls array
+  addImageUrl: async (itemId: string, imageUrl: string, contentType: string) => {
+    const metadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
+
+    if (metadata) {
+      // Update existing metadata
+      const currentImageUrls = metadata.data?.image_urls || [];
+      const updatedMetadata: ItemTypeMetadata = {
+        ...metadata,
+        data: {
+          ...metadata.data,
+          image_urls: [...currentImageUrls, imageUrl],
+        },
+        updated_at: new Date().toISOString(),
+      };
+      await itemTypeMetadataActions.upsertTypeMetadata(updatedMetadata);
+    } else {
+      // Create new metadata
+      const newMetadata: ItemTypeMetadata = {
+        item_id: itemId,
+        content_type: contentType as any,
+        data: {
+          image_urls: [imageUrl],
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await itemTypeMetadataActions.upsertTypeMetadata(newMetadata);
+    }
+  },
+
+  // Remove an image URL from an item's image_urls array
+  removeImageUrl: async (itemId: string, imageUrl: string) => {
+    const metadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
+
+    if (metadata && metadata.data?.image_urls) {
+      const currentImageUrls = metadata.data.image_urls;
+      const updatedImageUrls = currentImageUrls.filter(url => url !== imageUrl);
+
+      const updatedMetadata: ItemTypeMetadata = {
+        ...metadata,
+        data: {
+          ...metadata.data,
+          image_urls: updatedImageUrls.length > 0 ? updatedImageUrls : undefined,
+        },
+        updated_at: new Date().toISOString(),
+      };
+      await itemTypeMetadataActions.upsertTypeMetadata(updatedMetadata);
+    }
+  },
 };
 
 // Load type metadata on app start

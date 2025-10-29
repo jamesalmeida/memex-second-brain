@@ -43,11 +43,11 @@ import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import { ImageWithActions } from '../ImageWithActions';
 import ItemViewFooter from '../ItemViewFooter';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
+import HeroMediaSection from '../HeroMediaSection';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -101,9 +101,7 @@ const DefaultItemView = observer(({
 
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'bookmark');
-  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Note: imageAspectRatio, currentImageIndex, and scrollViewRef are now handled by HeroMediaSection
   const [showThumbnail, setShowThumbnail] = useState(false);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -249,8 +247,7 @@ const DefaultItemView = observer(({
       // Initialize selected space from item.space_id
       setSelectedSpaceId(latestItem.space_id || null);
 
-      // Reset carousel index when opening a new item
-      setCurrentImageIndex(0);
+      // Note: carousel index is now handled by HeroMediaSection
 
       // Check if this is a different item or the same item being reopened
       const isDifferentItem = currentItemId.current !== item.id;
@@ -818,24 +815,40 @@ const DefaultItemView = observer(({
     }
   };
 
+  // Handle metadata image add (for multi-image support)
+  const handleMetadataImageAdd = async (imageUrl: string, storagePath?: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+      showToast({ message: 'Image added successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error adding image:', error);
+      Alert.alert('Error', 'Failed to add image');
+    }
+  };
+
+  // Handle metadata image remove (for multi-image support)
+  const handleMetadataImageRemove = async (imageUrl: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.removeImageUrl(itemToDisplay.id, imageUrl);
+      showToast({ message: 'Image removed successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Hero Image/Video - Skip for X posts without media */}
-      {(() => {
-        // Check if this is an X post without media
-        const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
-        const isXPostWithoutMedia = itemToDisplay?.content_type === 'x' &&
-                                     !videoUrl &&
-                                     (!imageUrls || imageUrls.length === 0);
-
-        if (isXPostWithoutMedia) {
-          return null; // Skip hero section for text-only X posts
-        }
-
-        return (
-          <View style={styles.heroContainer}>
-        {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && getYouTubeVideoId(itemToDisplay?.url) ? (
-          // YouTube video embed (different aspect ratios for regular vs shorts)
+      {/* Hero Media Section */}
+      {/* Special case: YouTube embed (use WebView) */}
+      {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && getYouTubeVideoId(itemToDisplay?.url) ? (
+        <View style={styles.heroContainer}>
           <View style={itemToDisplay?.content_type === 'youtube_short' ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
             <WebView
               source={{
@@ -860,151 +873,29 @@ const DefaultItemView = observer(({
               }}
             />
           </View>
-        ) : videoUrl && videoPlayer ? (
-          // Show video player for Twitter/X videos
-          <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
-            <VideoView
-              player={videoPlayer}
-              style={[
-                styles.heroMedia,
-                { height: CONTENT_WIDTH / (16/9) } // Set aspect ratio for videos
-              ]}
-              contentFit="contain"
-              fullscreenOptions={{ enable: true }}
-              showsTimecodes={true}
-              nativeControls={true}
-            />
-            {/* Play button overlay for X posts - only show before video starts playing */}
-            {itemToDisplay?.content_type === 'x' && !isVideoPlaying && (
-              <TouchableOpacity
-                style={styles.videoPlayButtonOverlay}
-                onPress={() => {
-                  if (videoPlayer) {
-                    videoPlayer.play();
-                    setIsVideoPlaying(true);
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.videoPlayButton}>
-                  <Text style={styles.videoPlayButtonIcon}>▶</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (() => {
-          const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
-          const hasMultipleImages = imageUrls && imageUrls.length > 1;
-
-          if (hasMultipleImages) {
-            return (
-              // Show carousel for multiple images
-              <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
-                <ScrollView
-                  ref={scrollViewRef}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  nestedScrollEnabled={true}
-                  directionalLockEnabled={true}
-                  onMomentumScrollEnd={(event) => {
-                    const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
-                    setCurrentImageIndex(newIndex);
-                  }}
-                  scrollEventThrottle={16}
-                  style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
-                  contentContainerStyle={{ height: CONTENT_WIDTH }}
-                >
-                  {imageUrls!.map((imageUrl, index) => (
-                    <ImageWithActions
-                      key={index}
-                      source={{ uri: imageUrl }}
-                      imageUrl={imageUrl}
-                      style={{
-                        width: CONTENT_WIDTH,
-                        height: CONTENT_WIDTH,
-                        backgroundColor: '#000000'
-                      }}
-                      contentFit="contain"
-                    />
-                  ))}
-                </ScrollView>
-                {/* Dots indicator */}
-                <View style={styles.dotsContainer}>
-                  {imageUrls!.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        index === currentImageIndex && styles.activeDot
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-            );
-          } else if (imageUrls && imageUrls.length === 1) {
-            // Single image from X post
-            return (
-              <ImageWithActions
-                source={{ uri: imageUrls[0] }}
-                imageUrl={imageUrls[0]}
-                style={[
-                  styles.heroMedia,
-                  imageAspectRatio ? {
-                    width: CONTENT_WIDTH,
-                    height: CONTENT_WIDTH / imageAspectRatio,
-                    maxHeight: SCREEN_HEIGHT * 0.6,
-                    borderRadius: 12
-                  } : {}
-                ]}
-                contentFit="contain"
-              />
-            );
-          }
-          return null;
-        })() || (itemToDisplay?.thumbnail_url && itemToDisplay?.content_type !== 'x' ? (
-          // Show image for non-video, non-X items
-          <ImageWithActions
-            source={{ uri: itemToDisplay.thumbnail_url }}
-            imageUrl={itemToDisplay.thumbnail_url}
-            style={[
-              styles.heroMedia,
-              imageAspectRatio ? {
-                width: CONTENT_WIDTH,
-                height: CONTENT_WIDTH / imageAspectRatio,
-                maxHeight: SCREEN_HEIGHT * 0.6,
-                borderRadius: 12
-              } : {}
-            ]}
-            contentFit="contain"
-            canReplace={true}
-            canRemove={true}
-            onImageReplace={() => imageUploadModalRef.current?.open()}
-            onImageRemove={handleImageRemove}
-          />
-        ) : itemToDisplay?.content_type !== 'x' ? (
-          // Placeholder when no media (but not for X posts). Hide if a site icon exists (icon-only card)
-          (() => {
-            const hasSiteIcon = itemTypeMetadataComputed.getSiteIconUrl(itemToDisplay?.id || '');
-            if (hasSiteIcon) return null;
-            return (
-              <TouchableOpacity
-                style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-                onPress={() => imageUploadModalRef.current?.open()}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.placeholderIcon}>{getContentTypeIcon()}</Text>
-                <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
-                  Tap to add image
-                </Text>
-              </TouchableOpacity>
-            );
-          })()
-        ) : null)}
-      </View>
-        );
-      })()}
+        </View>
+      ) : (
+        /* All other content types use HeroMediaSection */
+        <HeroMediaSection
+          item={itemToDisplay!}
+          isDarkMode={isDarkMode}
+          contentTypeIcon={getContentTypeIcon()}
+          videoUrl={videoUrl}
+          videoPlayer={videoPlayer}
+          isVideoPlaying={isVideoPlaying}
+          onVideoPlay={() => {
+            if (videoPlayer) {
+              videoPlayer.play();
+              setIsVideoPlaying(true);
+            }
+          }}
+          showPlayButton={itemToDisplay?.content_type === 'x'}
+          onImageAdd={() => imageUploadModalRef.current?.open()}
+          onImageRemove={handleMetadataImageRemove}
+          onThumbnailRemove={handleImageRemove}
+          skipForTextOnlyXPosts={true}
+        />
+      )}
 
       {/* Content */}
       <View style={styles.content}>
@@ -1412,7 +1303,7 @@ const DefaultItemView = observer(({
       {/* Image Upload Modal */}
       <ImageUploadModal
         ref={imageUploadModalRef}
-        onImageSelected={handleImageSelected}
+        onImageSelected={handleMetadataImageAdd}
       />
 
       {/* Space Selector Modal */}

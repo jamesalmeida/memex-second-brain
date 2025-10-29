@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a React Native Expo application called "Memex: Second Brain" - a knowledge management app that allows users to save and organize various types of content (bookmarks, notes, images, etc.) into spaces/projects so they can utilize AI to organize and absorb their saved items more efficiently and better filter out the noise from the content thats actually worth reading, watching, or listening to. 
 
 ## PRD Document
-Refer to the PRD document found in `./docs/PRD.markdown` and update it as needed when we add, change, or remove something mentioned inside of the PRD.
+Refer to the PRD document found in `./docs/PRD.md` and update it as needed when we add, change, or remove something mentioned inside of the PRD.
 
 **Key PRD Sections:**
 - **Section 3**: Complete data models and Supabase schema

@@ -94,6 +94,19 @@
   - Display images/videos in cards (Expo AV for video playback).
   - Show transcripts for videos (if cached).
   - Download media via Expo FileSystem (store locally for offline access).
+  - **Multi-Image Support**: Items can have multiple images stored in `Item_Type_Metadata.data.image_urls[]` array:
+    - Display as horizontal carousel with pagination dots when 2+ images exist
+    - Carousel supports swipe gesture to navigate between images
+    - Long-press context menu on any image provides:
+      - "View Full Screen" - Opens image in full-screen viewer
+      - "Copy Image URL" - Copies image URL to clipboard
+      - "Save to Device" - Downloads image to device photo library
+      - "Add Another Image" - Opens ImageUploadModal to add additional image
+      - "Remove Image" - Deletes the currently displayed image from carousel
+    - Delete removes only the current image being viewed (tracked by carousel index)
+    - Single image displays with add/remove options via long-press menu
+    - Implemented in: YouTubeItemView, NoteItemView, DefaultItemView, XItemView, RedditItemView, MovieTVItemView
+    - Images managed via `itemTypeMetadataActions.addImageUrl()` and `itemTypeMetadataActions.removeImageUrl()`
 
 ### 2.4 Capture/Save
 - **Quick Capture**:
@@ -271,6 +284,11 @@
     - Tapping navigates to Archive view
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
 - **Components**:
+  - **Context Menus**: All three-dot context menus in the app use `ContextMenu` from `@expo/ui/swift-ui` for consistent native behavior and styling:
+    - Implementation pattern: Wrap trigger button in `Host` component, use `ContextMenu.Trigger` and `ContextMenu.Items` with `Button` components
+    - Reference implementation: [DrawerContent.tsx:325-348](src/components/DrawerContent.tsx#L325-L348)
+    - Used in: DrawerContent (space menu), ChatSheet (chat actions menu)
+    - Provides native iOS/Android menu animations, better accessibility, and consistent UX
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
   - **FilterPills**: Displays active filters as dismissible pills above the item grid. Features:
     - Positioned between HeaderBar and grid content
@@ -281,6 +299,13 @@
     - Integrates with filterStore for reactive updates
     - Full theme support (light/dark mode)
   - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+  - **ChatSheet**: Bottom sheet for item/space AI chat with three-dot context menu in header:
+    - Header displays "AI Chat" title, model name, and three-dot menu button
+    - Context menu uses native `ContextMenu` from `@expo/ui/swift-ui` (same as DrawerContent)
+    - Menu options: Export Chat, Share Chat, Clear Chat (destructive role)
+    - All menu actions provide haptic feedback and toast notifications
+    - Full light/dark theme support with proper contrast ratios
+    - Clear Chat requires confirmation dialog before deleting messages
   - **TagManagerSheet**: Bottom sheet for managing all tags. Features:
     - Accessible via "Manage Tags" button in drawer (below Settings)
     - Lists all tags with item counts sorted alphabetically
@@ -338,6 +363,14 @@
       - AI operations: "Generated X new tags", "Loaded X models"
     - **Implementation**: Success/info messages use toasts; errors, confirmations, and destructive actions still use Alert dialogs
     - **Files Using Toasts**: ItemViewFooter, all ItemView components (YouTube, Default, Reddit, X, Note, MovieTV), ImageWithActions, SettingsSheet, ChatSheet
+  - **Legal & Licenses** (`react-native-legal`): Integrated package for displaying open source license information:
+    - **Location**: Accessible via "Legal & Licenses" row in Settings sheet's About section
+    - **Icon**: MaterialIcons "gavel" icon for visual consistency
+    - **Functionality**: Opens native screen showing all npm package licenses used in the app
+    - **Implementation**: Uses `openSettings()` from `react-native-legal` package
+    - **Theme Support**: Row adapts to light/dark mode like other settings rows
+    - **Error Handling**: Catches and displays error alert if unable to open legal screen
+    - **Package**: [`react-native-legal`](https://github.com/callstackincubator/react-native-legal) from Callstack Incubator
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
     - Save directly (no space).  
@@ -518,6 +551,16 @@ The app uses an **offline-first architecture** with automatic sync and real-time
   - **Archive View**: Special filter shows `item.is_archived === true` items; accessible via `SPECIAL_SPACES.ARCHIVE_ID` constant from `src/constants/index.ts`
   - **Loading States**: Archive/unarchive operations show full-screen overlay with "Archiving..." or "Unarchiving..." message to prevent interaction during sync
   - **Toast Notifications**: Success/error toasts displayed after archive/unarchive operations via global `ToastContext`
+
+- **Sync Status Tracking** (`src/stores/syncStatus.ts`):
+  - Tracks sync state via `isSyncing` flag in syncStatusStore
+  - Updated by syncService listeners throughout sync operations
+  - **Initial Sync UI Feedback**: When user signs in and sync is in progress:
+    - EmptyState component checks `syncStatusStore.isSyncing.get()`
+    - If syncing with no local items, displays "Syncing from database - Please standby while we load your items..."
+    - Provides user feedback during initial data load from Supabase
+    - Automatically switches to standard empty state once sync completes
+  - Status exposed to UI via reactive Legend-State observers
 
 - **Offline Queue** (`src/stores/offlineQueue.ts`):
   - Queues all write operations when offline

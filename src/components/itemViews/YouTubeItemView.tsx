@@ -42,6 +42,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import InlineEditableText from '../InlineEditableText';
 import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 import ItemViewFooter from '../ItemViewFooter';
@@ -116,6 +117,9 @@ const YouTubeItemView = observer(({
   const [showTagInput, setShowTagInput] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
 
   const isShort = displayItem?.content_type === 'youtube_short';
 
@@ -465,6 +469,28 @@ const YouTubeItemView = observer(({
     }
   };
 
+  const handleImageSelected = async (imageUrl: string, storagePath?: string) => {
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+      showToast({ message: 'Image added successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error adding image:', error);
+      Alert.alert('Error', 'Failed to add image');
+    }
+  };
+
+  const handleImageRemove = async (imageUrl: string) => {
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.removeImageUrl(itemToDisplay.id, imageUrl);
+      showToast({ message: 'Image removed successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* YouTube Video Embed */}
@@ -685,37 +711,120 @@ const YouTubeItemView = observer(({
           </TouchableOpacity>
         </View>
 
-        {/* Thumbnail Section */}
-        {itemToDisplay?.thumbnail_url && (
-          <View style={styles.thumbnailSection}>
-            <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
-              THUMBNAIL
-            </Text>
-            <TouchableOpacity
-              style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
-              onPress={() => setShowThumbnail(!showThumbnail)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.thumbnailSelectorText, isDarkMode && styles.thumbnailSelectorTextDark]}>
-                {showThumbnail ? 'Hide Thumbnail' : 'View Thumbnail'}
-              </Text>
-              <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                {showThumbnail ? '▲' : '▼'}
-              </Text>
-            </TouchableOpacity>
+        {/* Thumbnail / Images Section */}
+        {(() => {
+          const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
+          const hasMultipleImages = imageUrls && imageUrls.length > 1;
+          const hasSingleImage = imageUrls && imageUrls.length === 1;
 
-            {showThumbnail && (
-              <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
+          // Prioritize metadata images over thumbnail_url
+          if (hasMultipleImages) {
+            return (
+              <View style={styles.thumbnailSection}>
+                <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
+                  IMAGES ({imageUrls!.length})
+                </Text>
+                <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
+                  <ScrollView
+                    ref={scrollViewRef}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    nestedScrollEnabled={true}
+                    directionalLockEnabled={true}
+                    onMomentumScrollEnd={(event) => {
+                      const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
+                      setCurrentImageIndex(newIndex);
+                    }}
+                    scrollEventThrottle={16}
+                    style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
+                    contentContainerStyle={{ height: CONTENT_WIDTH }}
+                  >
+                    {imageUrls!.map((imageUrl, index) => (
+                      <ImageWithActions
+                        key={index}
+                        source={{ uri: imageUrl }}
+                        imageUrl={imageUrl}
+                        style={{
+                          width: CONTENT_WIDTH,
+                          height: CONTENT_WIDTH,
+                          backgroundColor: '#000000'
+                        }}
+                        contentFit="contain"
+                        canAddAnother
+                        canRemove
+                        onImageAdd={() => imageUploadModalRef.current?.open()}
+                        onImageRemove={() => handleImageRemove(imageUrl)}
+                      />
+                    ))}
+                  </ScrollView>
+                  {/* Pagination dots indicator */}
+                  <View style={styles.dotsContainer}>
+                    {imageUrls!.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.dot,
+                          index === currentImageIndex && styles.activeDot
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+            );
+          } else if (hasSingleImage) {
+            return (
+              <View style={styles.thumbnailSection}>
+                <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
+                  IMAGE
+                </Text>
                 <ImageWithActions
-                  source={{ uri: itemToDisplay.thumbnail_url }}
-                  imageUrl={itemToDisplay.thumbnail_url}
+                  source={{ uri: imageUrls![0] }}
+                  imageUrl={imageUrls![0]}
                   style={styles.thumbnailImage}
-                  contentFit="cover"
+                  contentFit="contain"
+                  canAddAnother
+                  canRemove
+                  onImageAdd={() => imageUploadModalRef.current?.open()}
+                  onImageRemove={() => handleImageRemove(imageUrls![0])}
                 />
               </View>
-            )}
-          </View>
-        )}
+            );
+          } else if (itemToDisplay?.thumbnail_url) {
+            return (
+              <View style={styles.thumbnailSection}>
+                <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
+                  THUMBNAIL
+                </Text>
+                <TouchableOpacity
+                  style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
+                  onPress={() => setShowThumbnail(!showThumbnail)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.thumbnailSelectorText, isDarkMode && styles.thumbnailSelectorTextDark]}>
+                    {showThumbnail ? 'Hide Thumbnail' : 'View Thumbnail'}
+                  </Text>
+                  <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
+                    {showThumbnail ? '▲' : '▼'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showThumbnail && (
+                  <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
+                    <ImageWithActions
+                      source={{ uri: itemToDisplay.thumbnail_url }}
+                      imageUrl={itemToDisplay.thumbnail_url}
+                      style={styles.thumbnailImage}
+                      contentFit="cover"
+                    />
+                  </View>
+                )}
+              </View>
+            );
+          }
+          return null;
+        })()}
 
         {/* Transcript Section */}
         <View style={styles.transcriptSection}>
@@ -818,6 +927,12 @@ const YouTubeItemView = observer(({
         currentType={selectedType}
         onClose={() => setShowTypeModal(false)}
         onTypeChange={(type) => setSelectedType(type)}
+      />
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        ref={imageUploadModalRef}
+        onImageSelected={handleImageSelected}
       />
     </View>
   );
@@ -1340,4 +1455,26 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   // Removed local tag styles in favor of shared TagsEditor styles
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
 });

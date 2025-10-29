@@ -20,7 +20,7 @@
       },
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
-      "buildNumber": "8",
+      "buildNumber": "10",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "This app needs local network access to connect to the Metro development server.",
         "ITSAppUsesNonExemptEncryption": false,
@@ -52,7 +52,8 @@
           "photosPermission": "This app needs access to your photo library to let you choose images for your items.",
           "savePhotosPermission": "This app needs permission to save images to your photo library."
         }
-      ]
+      ],
+      "react-native-legal"
     ]
   }
 }
