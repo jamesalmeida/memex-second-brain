@@ -8,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Pressable,
+  Modal,
+  Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,6 +17,7 @@ import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import * as Sharing from 'expo-sharing';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -67,6 +70,7 @@ const ChatSheet = observer(
     const [modelSwitchMessage, setModelSwitchMessage] = useState('');
     const [actualModelUsed, setActualModelUsed] = useState<string | null>(null);
     const [hasShownModelSwitchBanner, setHasShownModelSwitchBanner] = useState(false);
+    const [showContextMenu, setShowContextMenu] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -393,6 +397,143 @@ const ChatSheet = observer(
       }
     };
 
+    const handleClearChat = async () => {
+      if (!chat) return;
+
+      Alert.alert(
+        'Clear Chat',
+        'Are you sure you want to delete all messages in this chat? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Clear',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await chatMessagesActions.deleteMessagesByChat(chat.id);
+                setMessages([]);
+                setShowContextMenu(false);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                showToast({
+                  message: 'Chat cleared successfully',
+                  type: 'success',
+                  duration: 2000,
+                });
+              } catch (error) {
+                console.error('Error clearing chat:', error);
+                showToast({
+                  message: 'Failed to clear chat',
+                  type: 'error',
+                  duration: 2000,
+                });
+              }
+            },
+          },
+        ]
+      );
+    };
+
+    const handleExportChat = async () => {
+      if (!chat || !item || messages.length === 0) {
+        showToast({
+          message: 'No messages to export',
+          type: 'error',
+          duration: 2000,
+        });
+        return;
+      }
+
+      try {
+        // Format the conversation
+        let exportText = `Chat about: ${item.title}\n`;
+        exportText += `Date: ${new Date().toLocaleDateString()}\n`;
+        exportText += `Model: ${actualModelUsed || selectedModel}\n`;
+        exportText += `\n${'='.repeat(50)}\n\n`;
+
+        messages.forEach((msg) => {
+          if (msg.role !== 'system') {
+            const timestamp = new Date(msg.created_at).toLocaleTimeString();
+            const sender = msg.role === 'user' ? 'You' : 'AI';
+            exportText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+          }
+        });
+
+        // Copy to clipboard
+        await Clipboard.setStringAsync(exportText);
+        setShowContextMenu(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast({
+          message: 'Chat exported to clipboard',
+          type: 'success',
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('Error exporting chat:', error);
+        showToast({
+          message: 'Failed to export chat',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
+    const handleShareChat = async () => {
+      if (!chat || !item || messages.length === 0) {
+        showToast({
+          message: 'No messages to share',
+          type: 'error',
+          duration: 2000,
+        });
+        return;
+      }
+
+      try {
+        // Format the conversation
+        let shareText = `Chat about: ${item.title}\n`;
+        shareText += `Date: ${new Date().toLocaleDateString()}\n`;
+        shareText += `Model: ${actualModelUsed || selectedModel}\n`;
+        shareText += `\n${'='.repeat(50)}\n\n`;
+
+        messages.forEach((msg) => {
+          if (msg.role !== 'system') {
+            const timestamp = new Date(msg.created_at).toLocaleTimeString();
+            const sender = msg.role === 'user' ? 'You' : 'AI';
+            shareText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+          }
+        });
+
+        // Check if sharing is available
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          // Fallback to copying to clipboard
+          await Clipboard.setStringAsync(shareText);
+          showToast({
+            message: 'Sharing not available. Copied to clipboard instead.',
+            type: 'success',
+            duration: 3000,
+          });
+          setShowContextMenu(false);
+          return;
+        }
+
+        // Create a temporary file and share it
+        const FileSystem = require('expo-file-system');
+        const fileUri = FileSystem.documentDirectory + 'chat-export.txt';
+        await FileSystem.writeAsStringAsync(fileUri, shareText);
+        await Sharing.shareAsync(fileUri);
+
+        setShowContextMenu(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (error) {
+        console.error('Error sharing chat:', error);
+        showToast({
+          message: 'Failed to share chat',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
     const renderBackdrop = useCallback(
       (props: any) => (
         <BottomSheetBackdrop
@@ -664,10 +805,27 @@ const ChatSheet = observer(
         <View style={styles.container}>
           {/* Header */}
           <View style={[styles.header, isDarkMode && styles.headerDark]}>
-            <Text style={[styles.title, isDarkMode && styles.titleDark]}>AI Chat</Text>
-            <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-              Powered by {actualModelUsed || selectedModel}
-            </Text>
+            <View style={styles.headerContent}>
+              <View style={styles.headerTextContainer}>
+                <Text style={[styles.title, isDarkMode && styles.titleDark]}>AI Chat</Text>
+                <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
+                  Powered by {actualModelUsed || selectedModel}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowContextMenu(true);
+                }}
+              >
+                <MaterialIcons
+                  name="more-vert"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Model Switch Banner */}
@@ -812,6 +970,86 @@ const ChatSheet = observer(
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Context Menu Modal */}
+          <Modal
+            visible={showContextMenu}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowContextMenu(false)}
+          >
+            <Pressable
+              style={styles.modalOverlay}
+              onPress={() => setShowContextMenu(false)}
+            >
+              <View
+                style={[
+                  styles.contextMenu,
+                  isDarkMode && styles.contextMenuDark,
+                ]}
+              >
+                <TouchableOpacity
+                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
+                  onPress={handleExportChat}
+                >
+                  <MaterialIcons
+                    name="file-download"
+                    size={22}
+                    color={isDarkMode ? '#FFFFFF' : '#000000'}
+                  />
+                  <Text style={[styles.menuItemText, isDarkMode && styles.menuItemTextDark]}>
+                    Export Chat
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
+                  onPress={handleShareChat}
+                >
+                  <MaterialIcons
+                    name="share"
+                    size={22}
+                    color={isDarkMode ? '#FFFFFF' : '#000000'}
+                  />
+                  <Text style={[styles.menuItemText, isDarkMode && styles.menuItemTextDark]}>
+                    Share Chat
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.menuDivider, isDarkMode && styles.menuDividerDark]} />
+
+                <TouchableOpacity
+                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
+                  onPress={handleClearChat}
+                >
+                  <MaterialIcons
+                    name="delete-outline"
+                    size={22}
+                    color={COLORS.danger}
+                  />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>
+                    Clear Chat
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.menuDivider, isDarkMode && styles.menuDividerDark]} />
+
+                <TouchableOpacity
+                  style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
+                  onPress={() => setShowContextMenu(false)}
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={22}
+                    color={isDarkMode ? '#999' : '#666'}
+                  />
+                  <Text style={[styles.menuItemText, isDarkMode && styles.menuItemTextDark]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Modal>
         </View>
       </BottomSheet>
     );
@@ -956,6 +1194,18 @@ const styles = StyleSheet.create({
   },
   headerDark: {
     borderBottomColor: '#38383A',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  menuButton: {
+    padding: 4,
+    marginLeft: 12,
   },
   title: {
     fontSize: 20,
@@ -1196,6 +1446,57 @@ const styles = StyleSheet.create({
   },
   generateButtonTextDark: {
     color: COLORS.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  contextMenu: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 8,
+    minWidth: 250,
+    maxWidth: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  contextMenuDark: {
+    backgroundColor: '#2C2C2E',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  menuItemDark: {
+    backgroundColor: 'transparent',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#000000',
+    flex: 1,
+  },
+  menuItemTextDark: {
+    color: '#FFFFFF',
+  },
+  menuItemTextDanger: {
+    color: '#FF3B30',
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E5E7',
+    marginVertical: 4,
+  },
+  menuDividerDark: {
+    backgroundColor: '#38383A',
   },
 });
 

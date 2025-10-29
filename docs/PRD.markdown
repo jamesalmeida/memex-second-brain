@@ -144,18 +144,25 @@
 - Offline: Search/filter cached items only.
 
 ### 2.6 Chat/Intelligence
-- **Item/Space Chat**:  
-  - Initiate from item detail or space detail via bottom sheet UI (using `@gorhom/bottom-sheet`).  
-  - Bottom sheet covers prior UI (item detail or space grid); swipe down to dismiss and return to previous view.  
-  - Context: Item content or all space items passed to OpenAI API (abstracted for future models like Grok or Llama).  
-  - Save chat messages (role: user/system/assistant, content) in Supabase and Legend-State.  
-  - Mobile: Handle keyboard dismissal (auto-adjust view) and scrollable chat history.  
-  - Offline: Disable chat (requires API); show cached chat history.  
-- **AI Integration**:  
-  - OpenAI API for tags, summaries (e.g., TL;DR for transcripts), and chat responses.  
-  - Abstract API calls via configuration to support future models.  
-  - Endpoints: `POST /api/chat/initiate` (start session), `POST /api/chat/save` (add message).  
-- **UX**: Clear context indication (e.g., “Chatting about [item title/space name]”) in bottom sheet header.
+- **Item/Space Chat**:
+  - Initiate from item detail or space detail via bottom sheet UI (using `@gorhom/bottom-sheet`).
+  - Bottom sheet covers prior UI (item detail or space grid); swipe down to dismiss and return to previous view.
+  - Context: Item content or all space items passed to OpenAI API (abstracted for future models like Grok or Llama).
+  - Save chat messages (role: user/system/assistant, content) in Supabase and Legend-State.
+  - Mobile: Handle keyboard dismissal (auto-adjust view) and scrollable chat history.
+  - Offline: Disable chat (requires API); show cached chat history.
+  - **Chat Context Menu**: Three-dot menu button in the top-right of ChatSheet header provides quick access to chat actions:
+    - **Export Chat**: Copies the entire conversation to clipboard in a formatted, readable text format including chat title, date, model used, and all messages with timestamps
+    - **Share Chat**: Uses native share sheet (iOS/Android) to share the conversation as a text file. Falls back to clipboard copy if sharing is unavailable
+    - **Clear Chat**: Deletes all messages in the current chat after confirmation dialog. Shows success/error toast feedback
+    - Menu displayed in a modal overlay with proper light/dark theme support
+    - All actions provide haptic feedback and toast notifications for user feedback
+    - Context menu dismisses automatically after action completion or when tapping outside
+- **AI Integration**:
+  - OpenAI API for tags, summaries (e.g., TL;DR for transcripts), and chat responses.
+  - Abstract API calls via configuration to support future models.
+  - Endpoints: `POST /api/chat/initiate` (start session), `POST /api/chat/save` (add message).
+- **UX**: Clear context indication (e.g., "Chatting about [item title/space name]") in bottom sheet header.
 
 ### 2.7 Integrations & Tools
 - **X/Twitter API**: Extract metadata (tweets, videos); handle rate limits with Legend-State persistence.  
@@ -281,6 +288,13 @@
     - Integrates with filterStore for reactive updates
     - Full theme support (light/dark mode)
   - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+  - **ChatSheet**: Bottom sheet for item/space AI chat with three-dot context menu in header:
+    - Header displays "AI Chat" title, model name, and three-dot menu button
+    - Context menu modal appears centered with backdrop overlay
+    - Menu options: Export Chat, Share Chat, Clear Chat (destructive), and Cancel
+    - All menu actions provide haptic feedback and toast notifications
+    - Full light/dark theme support with proper contrast ratios
+    - Clear Chat requires confirmation dialog before deleting messages
   - **TagManagerSheet**: Bottom sheet for managing all tags. Features:
     - Accessible via "Manage Tags" button in drawer (below Settings)
     - Lists all tags with item counts sorted alphabetically
