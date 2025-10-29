@@ -99,14 +99,18 @@
     - Carousel supports swipe gesture to navigate between images
     - Long-press context menu on any image provides:
       - "View Full Screen" - Opens image in full-screen viewer
+      - "Copy Image" - Copies the actual image to device clipboard/pasteboard (not just URL)
       - "Copy Image URL" - Copies image URL to clipboard
+      - "Share Image" - Opens native share sheet to share the actual image file to other apps
       - "Save to Device" - Downloads image to device photo library
       - "Add Another Image" - Opens ImageUploadModal to add additional image
       - "Remove Image" - Deletes the currently displayed image from carousel
     - Delete removes only the current image being viewed (tracked by carousel index)
     - Single image displays with add/remove options via long-press menu
+    - **YouTube Thumbnail Actions**: YouTube item thumbnails also support the full set of image actions including copy/share image directly
     - Implemented in: YouTubeItemView, NoteItemView, DefaultItemView, XItemView, RedditItemView, MovieTVItemView
     - Images managed via `itemTypeMetadataActions.addImageUrl()` and `itemTypeMetadataActions.removeImageUrl()`
+    - Copy/Share functionality downloads image to cache, performs operation, then cleans up cached file automatically
 
 ### 2.4 Capture/Save
 - **Quick Capture**:

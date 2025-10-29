@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import ImageView from 'react-native-image-viewing';
 import * as Haptics from 'expo-haptics';
 import { useToast } from '../contexts/ToastContext';
@@ -82,6 +83,60 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
     } catch (error) {
       console.error('Error copying URL:', error);
       Alert.alert('Error', 'Failed to copy image URL');
+    }
+  };
+
+  const handleCopyImage = async () => {
+    if (!url) return;
+
+    try {
+      // Download image to cache
+      const fileUri = `${FileSystem.cacheDirectory}${Date.now()}.jpg`;
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Failed to download image');
+      }
+
+      // Copy image to clipboard
+      await Clipboard.setImageAsync(downloadResult.uri);
+      showToast({ message: 'Image copied to clipboard', type: 'success' });
+
+      // Clean up cache
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    } catch (error) {
+      console.error('Error copying image:', error);
+      Alert.alert('Error', 'Failed to copy image');
+    }
+  };
+
+  const handleShareImage = async () => {
+    if (!url) return;
+
+    try {
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Unavailable', 'Sharing is not available on this device');
+        return;
+      }
+
+      // Download image to cache
+      const fileUri = `${FileSystem.cacheDirectory}${Date.now()}.jpg`;
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Failed to download image');
+      }
+
+      // Share the image
+      await Sharing.shareAsync(downloadResult.uri);
+
+      // Clean up cache after sharing
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    } catch (error) {
+      console.error('Error sharing image:', error);
+      Alert.alert('Error', 'Failed to share image');
     }
   };
 
@@ -184,7 +239,9 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
 
     if (url) {
       actions.push({ title: 'View Full Screen', onPress: handleViewFullScreen });
+      actions.push({ title: 'Copy Image', onPress: handleCopyImage });
       actions.push({ title: 'Copy Image URL', onPress: handleCopyUrl });
+      actions.push({ title: 'Share Image', onPress: handleShareImage });
       actions.push({ title: 'Save to Device', onPress: handleSaveToDevice });
     }
 
