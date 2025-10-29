@@ -49,7 +49,7 @@
   - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)  
   - Download media (if applicable) or open external URL  
   - Offline: View cached details; queue edits/deletes  
-- **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
+- **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, legal information, and more options.
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
@@ -338,6 +338,14 @@
       - AI operations: "Generated X new tags", "Loaded X models"
     - **Implementation**: Success/info messages use toasts; errors, confirmations, and destructive actions still use Alert dialogs
     - **Files Using Toasts**: ItemViewFooter, all ItemView components (YouTube, Default, Reddit, X, Note, MovieTV), ImageWithActions, SettingsSheet, ChatSheet
+  - **Legal & Licenses** (`react-native-legal`): Integrated package for displaying open source license information:
+    - **Location**: Accessible via "Legal & Licenses" row in Settings sheet's About section
+    - **Icon**: MaterialIcons "gavel" icon for visual consistency
+    - **Functionality**: Opens native screen showing all npm package licenses used in the app
+    - **Implementation**: Uses `openSettings()` from `react-native-legal` package
+    - **Theme Support**: Row adapts to light/dark mode like other settings rows
+    - **Error Handling**: Catches and displays error alert if unable to open legal screen
+    - **Package**: [`react-native-legal`](https://github.com/callstackincubator/react-native-legal) from Callstack Incubator
 - **iOS Sharesheet** (via `expo-share-extension`):  
   - Custom UI with buttons/dropdown for:  
     - Save directly (no space).  
