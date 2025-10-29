@@ -12,8 +12,8 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as Clipboard from 'expo-clipboard';
-import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
+import HeroMediaSection from '../HeroMediaSection';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ItemViewFooter from '../ItemViewFooter';
 
@@ -39,8 +39,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
 
   useEffect(() => {
     if (item) {
@@ -148,104 +147,14 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
 
       {/* Hero Image / Images Carousel */}
       <View style={styles.heroWrapper}>
-        {(() => {
-          const { itemTypeMetadataComputed } = require('../../stores/itemTypeMetadata');
-          const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');
-          const hasMultipleImages = imageUrls && imageUrls.length > 1;
-          const hasSingleImage = imageUrls && imageUrls.length === 1;
-
-          // Prioritize metadata images over thumbnail_url
-          if (hasMultipleImages) {
-            return (
-              <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH * 0.6, borderRadius: 12, overflow: 'hidden' }}>
-                <ScrollView
-                  ref={scrollViewRef}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  nestedScrollEnabled={true}
-                  directionalLockEnabled={true}
-                  onMomentumScrollEnd={(event) => {
-                    const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
-                    setCurrentImageIndex(newIndex);
-                  }}
-                  scrollEventThrottle={16}
-                  style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH * 0.6 }}
-                  contentContainerStyle={{ height: CONTENT_WIDTH * 0.6 }}
-                >
-                  {imageUrls!.map((imageUrl, index) => (
-                    <ImageWithActions
-                      key={index}
-                      source={{ uri: imageUrl }}
-                      imageUrl={imageUrl}
-                      style={{
-                        width: CONTENT_WIDTH,
-                        height: CONTENT_WIDTH * 0.6,
-                        backgroundColor: '#000000'
-                      }}
-                      contentFit="contain"
-                      canAddAnother
-                      canRemove
-                      onImageAdd={() => imageUploadModalRef.current?.open()}
-                      onImageRemove={() => handleImageRemove(imageUrl)}
-                    />
-                  ))}
-                </ScrollView>
-                {/* Pagination dots indicator */}
-                <View style={styles.dotsContainer}>
-                  {imageUrls!.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        index === currentImageIndex && styles.activeDot
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-            );
-          } else if (hasSingleImage) {
-            return (
-              <ImageWithActions
-                source={{ uri: imageUrls![0] }}
-                imageUrl={imageUrls![0]}
-                style={styles.heroImage}
-                contentFit="contain"
-                canAddAnother
-                canRemove
-                onImageAdd={() => imageUploadModalRef.current?.open()}
-                onImageRemove={() => handleImageRemove(imageUrls![0])}
-              />
-            );
-          } else if (itemToDisplay.thumbnail_url) {
-            return (
-              <ImageWithActions
-                source={{ uri: itemToDisplay.thumbnail_url }}
-                imageUrl={itemToDisplay.thumbnail_url}
-                style={styles.heroImage}
-                contentFit="contain"
-                canAddAnother
-                canRemove
-                onImageAdd={() => imageUploadModalRef.current?.open()}
-                onImageRemove={() => handleImageRemove(itemToDisplay.thumbnail_url)}
-              />
-            );
-          } else {
-            return (
-              <TouchableOpacity
-                style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-                onPress={() => imageUploadModalRef.current?.open()}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.placeholderIcon}>🖼️</Text>
-                <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
-                  Tap to add image
-                </Text>
-              </TouchableOpacity>
-            );
-          }
-        })()}
+        <HeroMediaSection
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+          contentTypeIcon="📝"
+          onImageAdd={() => imageUploadModalRef.current?.open()}
+          onImageRemove={handleImageRemove}
+          onThumbnailRemove={() => handleImageRemove(itemToDisplay.thumbnail_url || '')}
+        />
       </View>
 
       <View style={styles.content}>

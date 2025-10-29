@@ -42,6 +42,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import InlineEditableText from '../InlineEditableText';
 import { ImageWithActions } from '../ImageWithActions';
+import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 import ItemViewFooter from '../ItemViewFooter';
@@ -118,6 +119,7 @@ const YouTubeItemView = observer(({
   const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
 
   const isShort = displayItem?.content_type === 'youtube_short';
 

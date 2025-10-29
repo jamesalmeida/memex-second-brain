@@ -16,8 +16,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
-import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
+import HeroMediaSection from '../HeroMediaSection';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { VideoTranscript, ImageDescription } from '../../types';
@@ -100,8 +100,7 @@ const XItemView = observer(({
 
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(item?.content_type || 'x');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [transcript, setTranscript] = useState<string>('');
@@ -190,7 +189,7 @@ const XItemView = observer(({
       setSelectedType(latestItem.content_type);
       setSelectedSpaceId(latestItem.space_id || null);
 
-      setCurrentImageIndex(0);
+      // Note: carousel index is now handled by HeroMediaSection
 
       const isDifferentItem = currentItemId.current !== latestItem.id;
       currentItemId.current = latestItem.id;
@@ -305,6 +304,32 @@ const XItemView = observer(({
     try {
       await itemsActions.removeItemImage(itemToDisplay.id);
       setDisplayItem(prev => (prev ? { ...prev, thumbnail_url: null } : prev));
+      showToast({ message: 'Image removed successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
+
+  const handleMetadataImageAdd = async (imageUrl: string, storagePath?: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.addImageUrl(itemToDisplay.id, imageUrl, itemToDisplay.content_type);
+      showToast({ message: 'Image added successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error adding image:', error);
+      Alert.alert('Error', 'Failed to add image');
+    }
+  };
+
+  const handleMetadataImageRemove = async (imageUrl: string) => {
+    if (!itemToDisplay) return;
+
+    try {
+      const { itemTypeMetadataActions } = await import('../../stores/itemTypeMetadata');
+      await itemTypeMetadataActions.removeImageUrl(itemToDisplay.id, imageUrl);
       showToast({ message: 'Image removed successfully', type: 'success' });
     } catch (error) {
       console.error('Error removing image:', error);
@@ -678,150 +703,25 @@ const XItemView = observer(({
       </View>
 
       {/* Hero Media - Video or Images */}
-      {(() => {
-        const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '') || [];
-        const hasVideo = videoUrl && videoPlayer;
-        const hasMultipleImages = imageUrls.length > 1;
-        const hasSingleImage = imageUrls.length === 1;
-        const isCustomThumbnail = Boolean(
-          itemToDisplay?.thumbnail_url &&
-          !imageUrls.includes(itemToDisplay.thumbnail_url)
-        );
-
-        if (hasVideo) {
-          return (
-            <View style={styles.mediaContainer}>
-              <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
-                <VideoView
-                  player={videoPlayer}
-                  style={[
-                    styles.heroMedia,
-                    { height: CONTENT_WIDTH / (16/9) }
-                  ]}
-                  contentFit="contain"
-                  fullscreenOptions={{ enable: true }}
-                  showsTimecodes={true}
-                  nativeControls={true}
-                />
-                {!isVideoPlaying && (
-                  <TouchableOpacity
-                    style={styles.videoPlayButtonOverlay}
-                    onPress={() => {
-                      if (videoPlayer) {
-                        videoPlayer.play();
-                        setIsVideoPlaying(true);
-                      }
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.videoPlayButton}>
-                      <Text style={styles.videoPlayButtonIcon}>▶</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          );
-        }
-
-        if (hasMultipleImages && !isCustomThumbnail) {
-          return (
-            <View style={styles.mediaContainer}>
-              <View style={{ position: 'relative', width: CONTENT_WIDTH, height: CONTENT_WIDTH, borderRadius: 12, overflow: 'hidden' }}>
-                <ScrollView
-                  ref={scrollViewRef}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  nestedScrollEnabled={true}
-                  directionalLockEnabled={true}
-                  onMomentumScrollEnd={(event) => {
-                    const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
-                    setCurrentImageIndex(newIndex);
-                  }}
-                  scrollEventThrottle={16}
-                  style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
-                  contentContainerStyle={{ height: CONTENT_WIDTH }}
-                >
-                  {imageUrls.map((imageUrl, index) => (
-                    <ImageWithActions
-                      key={index}
-                      source={{ uri: imageUrl }}
-                      imageUrl={imageUrl}
-                      style={{
-                        width: CONTENT_WIDTH,
-                        height: CONTENT_WIDTH,
-                        backgroundColor: '#000000'
-                      }}
-                      contentFit="contain"
-                      canReplace
-                      onImageReplace={() => imageUploadModalRef.current?.open()}
-                    />
-                  ))}
-                </ScrollView>
-                <View style={styles.dotsContainer}>
-                  {imageUrls.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        index === currentImageIndex && styles.activeDot
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-            </View>
-          );
-        }
-
-        if (hasSingleImage && !isCustomThumbnail) {
-          return (
-            <View style={styles.mediaContainer}>
-              <ImageWithActions
-                source={{ uri: imageUrls[0] }}
-                imageUrl={imageUrls[0]}
-                style={styles.heroMedia}
-                contentFit="contain"
-                canReplace
-                onImageReplace={() => imageUploadModalRef.current?.open()}
-              />
-            </View>
-          );
-        }
-
-        if (itemToDisplay?.thumbnail_url) {
-          return (
-            <View style={styles.mediaContainer}>
-              <ImageWithActions
-                source={{ uri: itemToDisplay.thumbnail_url }}
-                imageUrl={itemToDisplay.thumbnail_url}
-                style={styles.heroMedia}
-                contentFit="contain"
-                canReplace
-                canRemove
-                onImageReplace={() => imageUploadModalRef.current?.open()}
-                onImageRemove={handleHeroImageRemove}
-              />
-            </View>
-          );
-        }
-
-        return (
-          <View style={styles.mediaContainer}>
-            <TouchableOpacity
-              style={[styles.placeholderHero, isDarkMode && styles.placeholderHeroDark]}
-              onPress={() => imageUploadModalRef.current?.open()}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.placeholderIcon}>🖼️</Text>
-              <Text style={[styles.placeholderText, isDarkMode && styles.placeholderTextDark]}>
-                Tap to add image
-              </Text>
-            </TouchableOpacity>
-          </View>
-        );
-      })()}
+      <HeroMediaSection
+        item={itemToDisplay!}
+        isDarkMode={isDarkMode}
+        contentTypeIcon="𝕏"
+        videoUrl={videoUrl}
+        videoPlayer={videoPlayer}
+        isVideoPlaying={isVideoPlaying}
+        onVideoPlay={() => {
+          if (videoPlayer) {
+            videoPlayer.play();
+            setIsVideoPlaying(true);
+          }
+        }}
+        showPlayButton={true}
+        onImageAdd={() => imageUploadModalRef.current?.open()}
+        onImageRemove={handleMetadataImageRemove}
+        onThumbnailRemove={handleHeroImageRemove}
+        containerStyle={styles.mediaContainer}
+      />
 
       {/* Content */}
       <View style={styles.content}>
@@ -1141,7 +1041,7 @@ const XItemView = observer(({
 
       <ImageUploadModal
         ref={imageUploadModalRef}
-        onImageSelected={handleHeroImageSelected}
+        onImageSelected={handleMetadataImageAdd}
       />
 
       {/* Space Selector Modal */}
