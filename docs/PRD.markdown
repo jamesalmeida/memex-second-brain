@@ -53,7 +53,12 @@
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
-- **Empty States**: Custom UI for no items or no search results, with offline messaging (e.g., “No cached items”).
+- **Empty States**: Custom UI for no items or no search results, with context-aware messaging:
+  - **Syncing state**: When user signs in and sync is in progress with no local items yet, displays "Syncing from database - Please standby while we load your items..." to provide feedback during initial data sync.
+  - **No items**: When sync is complete and no items exist, displays "No items yet - Start saving bookmarks, notes, and content to build your second brain!"
+  - **No search results**: "No results found - Try adjusting your search or filters"
+  - **Offline**: Shows "No cached items" when offline and no local data available
+  - **Active filters**: "No items match your filters - Your active filters are hiding all items in this view" with clear filters button
 
 ### 2.3 Item Management
 - **Item Types**: Bookmark, YouTube, X (Twitter), GitHub, Instagram, TikTok, Reddit, Amazon, LinkedIn, image, PDF, video, audio, note, article, product, book, course. Auto-detected via URL patterns or metadata.
@@ -518,6 +523,16 @@ The app uses an **offline-first architecture** with automatic sync and real-time
   - **Archive View**: Special filter shows `item.is_archived === true` items; accessible via `SPECIAL_SPACES.ARCHIVE_ID` constant from `src/constants/index.ts`
   - **Loading States**: Archive/unarchive operations show full-screen overlay with "Archiving..." or "Unarchiving..." message to prevent interaction during sync
   - **Toast Notifications**: Success/error toasts displayed after archive/unarchive operations via global `ToastContext`
+
+- **Sync Status Tracking** (`src/stores/syncStatus.ts`):
+  - Tracks sync state via `isSyncing` flag in syncStatusStore
+  - Updated by syncService listeners throughout sync operations
+  - **Initial Sync UI Feedback**: When user signs in and sync is in progress:
+    - EmptyState component checks `syncStatusStore.isSyncing.get()`
+    - If syncing with no local items, displays "Syncing from database - Please standby while we load your items..."
+    - Provides user feedback during initial data load from Supabase
+    - Automatically switches to standard empty state once sync completes
+  - Status exposed to UI via reactive Legend-State observers
 
 - **Offline Queue** (`src/stores/offlineQueue.ts`):
   - Queues all write operations when offline
