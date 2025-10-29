@@ -7,14 +7,19 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
   Pressable,
+  Share,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -393,6 +398,185 @@ const ChatSheet = observer(
       }
     };
 
+    const handleClearChat = async () => {
+      if (!chat) return;
+
+      Alert.alert(
+        'Clear Chat',
+        'Are you sure you want to delete all messages in this chat? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Clear',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await chatMessagesActions.deleteMessagesByChat(chat.id);
+                setMessages([]);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                showToast({
+                  message: 'Chat cleared successfully',
+                  type: 'success',
+                  duration: 2000,
+                });
+              } catch (error) {
+                console.error('Error clearing chat:', error);
+                showToast({
+                  message: 'Failed to clear chat',
+                  type: 'error',
+                  duration: 2000,
+                });
+              }
+            },
+          },
+        ]
+      );
+    };
+
+    const handleExportChat = async () => {
+      if (!chat || !item || messages.length === 0) {
+        showToast({
+          message: 'No messages to export',
+          type: 'error',
+          duration: 2000,
+        });
+        return;
+      }
+
+      try {
+        // Format the conversation
+        let exportText = `Chat about: ${item.title}\n`;
+        exportText += `Date: ${new Date().toLocaleDateString()}\n`;
+        exportText += `Model: ${actualModelUsed || selectedModel}\n`;
+        exportText += `\n${'='.repeat(50)}\n\n`;
+
+        messages.forEach((msg) => {
+          if (msg.role !== 'system') {
+            const timestamp = new Date(msg.created_at).toLocaleTimeString();
+            const sender = msg.role === 'user' ? 'You' : 'AI';
+            exportText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+          }
+        });
+
+        // Check if sharing is available
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          // Fallback to copying to clipboard
+          await Clipboard.setStringAsync(exportText);
+          showToast({
+            message: 'Sharing not available. Copied to clipboard instead.',
+            type: 'success',
+            duration: 3000,
+          });
+          return;
+        }
+
+        // Create a temporary file and share it
+        const file = new File(Paths.document, 'chat-export.txt');
+        if (file.exists) {
+          file.delete();
+        }
+        file.create();
+        file.write(exportText);
+        await Sharing.shareAsync(file.uri);
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (error) {
+        console.error('Error exporting chat:', error);
+        showToast({
+          message: 'Failed to export chat',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
+    const handleShareChat = async () => {
+      if (!chat || !item || messages.length === 0) {
+        showToast({
+          message: 'No messages to share',
+          type: 'error',
+          duration: 2000,
+        });
+        return;
+      }
+
+      try {
+        // Format the conversation
+        let shareText = `Chat about: ${item.title}\n`;
+        shareText += `Date: ${new Date().toLocaleDateString()}\n`;
+        shareText += `Model: ${actualModelUsed || selectedModel}\n`;
+        shareText += `\n${'='.repeat(50)}\n\n`;
+
+        messages.forEach((msg) => {
+          if (msg.role !== 'system') {
+            const timestamp = new Date(msg.created_at).toLocaleTimeString();
+            const sender = msg.role === 'user' ? 'You' : 'AI';
+            shareText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+          }
+        });
+
+        // Share text using iOS share sheet
+        const result = await Share.share({
+          message: shareText,
+        });
+
+        if (result.action === Share.sharedAction) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch (error) {
+        console.error('Error sharing chat:', error);
+        showToast({
+          message: 'Failed to share chat',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
+    const handleCopyToClipboard = async () => {
+      if (!chat || !item || messages.length === 0) {
+        showToast({
+          message: 'No messages to copy',
+          type: 'error',
+          duration: 2000,
+        });
+        return;
+      }
+
+      try {
+        // Format the conversation
+        let copyText = `Chat about: ${item.title}\n`;
+        copyText += `Date: ${new Date().toLocaleDateString()}\n`;
+        copyText += `Model: ${actualModelUsed || selectedModel}\n`;
+        copyText += `\n${'='.repeat(50)}\n\n`;
+
+        messages.forEach((msg) => {
+          if (msg.role !== 'system') {
+            const timestamp = new Date(msg.created_at).toLocaleTimeString();
+            const sender = msg.role === 'user' ? 'You' : 'AI';
+            copyText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+          }
+        });
+
+        // Copy to clipboard
+        await Clipboard.setStringAsync(copyText);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast({
+          message: 'Chat copied to clipboard',
+          type: 'success',
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('Error copying chat:', error);
+        showToast({
+          message: 'Failed to copy chat',
+          type: 'error',
+          duration: 2000,
+        });
+      }
+    };
+
     const renderBackdrop = useCallback(
       (props: any) => (
         <BottomSheetBackdrop
@@ -664,10 +848,46 @@ const ChatSheet = observer(
         <View style={styles.container}>
           {/* Header */}
           <View style={[styles.header, isDarkMode && styles.headerDark]}>
-            <Text style={[styles.title, isDarkMode && styles.titleDark]}>AI Chat</Text>
-            <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-              Powered by {actualModelUsed || selectedModel}
-            </Text>
+            <View style={styles.headerContent}>
+              <View style={styles.headerTextContainer}>
+                <Text style={[styles.title, isDarkMode && styles.titleDark]}>AI Chat</Text>
+                <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
+                  Powered by {actualModelUsed || selectedModel}
+                </Text>
+              </View>
+              <Host>
+                <ContextMenu>
+                  <ContextMenu.Trigger>
+                    <TouchableOpacity
+                      style={styles.menuButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <MaterialIcons
+                        name="more-vert"
+                        size={24}
+                        color={isDarkMode ? '#FFFFFF' : '#000000'}
+                      />
+                    </TouchableOpacity>
+                  </ContextMenu.Trigger>
+                  <ContextMenu.Items>
+                    <Button onPress={handleShareChat}>
+                      Share Chat
+                    </Button>
+                    <Button onPress={handleExportChat}>
+                      Export Chat
+                    </Button>
+                    <Button onPress={handleCopyToClipboard}>
+                      Copy to Clipboard
+                    </Button>
+                    <Button onPress={handleClearChat} role="destructive">
+                      Clear Chat
+                    </Button>
+                  </ContextMenu.Items>
+                </ContextMenu>
+              </Host>
+            </View>
           </View>
 
           {/* Model Switch Banner */}
@@ -956,6 +1176,22 @@ const styles = StyleSheet.create({
   },
   headerDark: {
     borderBottomColor: '#38383A',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  menuButton: {
+    padding: 8,
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,

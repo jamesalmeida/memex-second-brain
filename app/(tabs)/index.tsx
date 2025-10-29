@@ -8,6 +8,7 @@ import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
+import { syncStatusStore } from '../../src/stores/syncStatus';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
@@ -264,6 +265,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const EmptyState = ({ spaceId, isArchive }: { spaceId?: string; isArchive?: boolean }) => {
     const hasActiveFilters = filterComputed.hasActiveFilters();
+    const isSyncing = syncStatusStore.isSyncing.get();
 
     // Special case for Archive view
     if (isArchive) {
@@ -304,6 +306,21 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
               Clear Filters
             </Text>
           </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // If syncing and no items yet, show syncing message
+    if (isSyncing && !hasAnyItems) {
+      const syncMessage = getEmptyStateMessage('syncing');
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, isDarkMode && styles.emptyTitleDark]}>
+            {syncMessage.title}
+          </Text>
+          <Text style={[styles.emptySubtitle, isDarkMode && styles.emptySubtitleDark]}>
+            {syncMessage.subtitle}
+          </Text>
         </View>
       );
     }

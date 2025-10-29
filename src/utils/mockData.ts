@@ -1,5 +1,5 @@
 // Generate empty state messages
-export const getEmptyStateMessage = (context: 'home' | 'space' | 'search') => {
+export const getEmptyStateMessage = (context: 'home' | 'space' | 'search' | 'syncing') => {
   const messages = {
     home: {
       title: 'No items yet',
@@ -12,6 +12,10 @@ export const getEmptyStateMessage = (context: 'home' | 'space' | 'search') => {
     search: {
       title: 'No results found',
       subtitle: 'Try adjusting your search or filters.',
+    },
+    syncing: {
+      title: 'Syncing from database',
+      subtitle: 'Please standby while we load your items...',
     },
   };
 
