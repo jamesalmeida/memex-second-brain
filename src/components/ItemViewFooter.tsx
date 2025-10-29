@@ -14,6 +14,7 @@ interface ItemViewFooterProps {
   onUnarchive?: () => void;
   onDelete?: () => void;
   isRefreshing?: boolean;
+  isDeleting?: boolean;
   isDarkMode: boolean;
 }
 
@@ -25,6 +26,7 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
   onUnarchive,
   onDelete,
   isRefreshing = false,
+  isDeleting = false,
   isDarkMode,
 }) => {
   const { showToast } = useToast();
@@ -128,13 +130,18 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
           <TouchableOpacity
             style={[styles.iconButton, styles.deleteButton, isDarkMode && styles.deleteButtonDark]}
             onPress={onDelete}
+            disabled={isDeleting}
             activeOpacity={0.7}
           >
-            <MaterialIcons
-              name="delete-forever"
-              size={24}
-              color="#FF3B30"
-            />
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#FF3B30" />
+            ) : (
+              <MaterialIcons
+                name="delete-forever"
+                size={24}
+                color="#FF3B30"
+              />
+            )}
           </TouchableOpacity>
         )}
       </View>

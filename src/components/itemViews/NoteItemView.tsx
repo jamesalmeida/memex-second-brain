@@ -29,9 +29,11 @@ interface NoteItemViewProps {
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
-const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, currentSpaceId }: NoteItemViewProps) => {
+const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, currentSpaceId, isDeleting = false, isRefreshing = false }: NoteItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
@@ -298,6 +300,8 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
           onShare={() => onShare?.(itemToDisplay)}
           onArchive={() => onArchive?.(itemToDisplay)}
           onDelete={() => onDelete?.(itemToDisplay)}
+          isRefreshing={isRefreshing}
+          isDeleting={isDeleting}
           isDarkMode={isDarkMode}
         />
       </View>

@@ -35,6 +35,8 @@ interface MovieTVItemViewProps {
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
 const MovieTVItemView = observer(({
@@ -45,6 +47,8 @@ const MovieTVItemView = observer(({
   onDelete,
   onShare,
   currentSpaceId,
+  isDeleting = false,
+  isRefreshing = false,
 }: MovieTVItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
@@ -481,7 +485,8 @@ const MovieTVItemView = observer(({
         onShare={() => onShare?.(itemToDisplay)}
         onArchive={() => onArchive?.(itemToDisplay)}
         onDelete={() => onDelete?.(itemToDisplay)}
-        isRefreshing={isRefreshingMetadata}
+        isRefreshing={isRefreshingMetadata || isRefreshing}
+        isDeleting={isDeleting}
         isDarkMode={isDarkMode}
       />
 
