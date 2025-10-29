@@ -15,7 +15,9 @@ import { themeStore } from '../stores/theme';
 import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
 import { expandedItemUIActions } from '../stores/expandedItemUI';
-import { Item, ContentType } from '../types';
+import { userSettingsComputed } from '../stores/userSettings';
+import { Item, ContentType, RadialActionId } from '../types';
+import SpaceSelectorModal from '../components/SpaceSelectorModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -186,6 +188,7 @@ interface RadialMenuOverlayProps {
   hoveredButtonId: string | null;
   onHide: () => void;
   onExecuteAction: () => void;
+  onShowMoveToSpaceModal: (item: Item) => void;
 }
 
 const RadialMenuOverlay = observer(({
@@ -196,18 +199,19 @@ const RadialMenuOverlay = observer(({
   cardLayout,
   hoveredButtonId,
   onHide,
+  onShowMoveToSpaceModal,
 }: RadialMenuOverlayProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const overlayOpacity = useSharedValue(visible ? 1 : 0);
+  const configuredActionIds = userSettingsComputed.radialActions();
 
   React.useEffect(() => {
     overlayOpacity.value = withTiming(visible && !isClosing ? 1 : 0, { duration: 250 });
   }, [visible, isClosing]);
 
-  // TODO: Add settings feature to let users choose which 3 buttons to show
-  // Currently showing 3 buttons max to prevent finger from covering one during interaction
-  const actionButtons: ActionButton[] = [
-    {
+  // Define all available actions
+  const allActions: Record<RadialActionId, ActionButton> = {
+    chat: {
       id: 'chat',
       label: 'Chat',
       icon: 'chatbubble-outline',
@@ -218,7 +222,7 @@ const RadialMenuOverlay = observer(({
         chatUIActions.openChat(item);
       },
     },
-    {
+    share: {
       id: 'share',
       label: 'Share',
       icon: 'share-outline',
@@ -242,25 +246,31 @@ const RadialMenuOverlay = observer(({
         }, 300);
       },
     },
-    // {
-    //   id: 'move',
-    //   label: 'Move',
-    //   icon: 'folder-outline',
-    //   color: '#AF52DE',
-    //   action: (item: Item) => {
-    //     console.log('📁 MOVE button pressed for item:', item.title);
-    //   },
-    // },
-    // {
-    //   id: 'archive',
-    //   label: 'Archive',
-    //   icon: 'archive-outline',
-    //   color: '#FF9500',
-    //   action: (item: Item) => {
-    //     console.log('📦 ARCHIVE button pressed for item:', item.title);
-    //   },
-    // },
-    {
+    move: {
+      id: 'move',
+      label: 'Move',
+      icon: 'folder-outline',
+      color: '#AF52DE',
+      action: (item: Item) => {
+        console.log('📁 MOVE button pressed for item:', item.title);
+        onShowMoveToSpaceModal(item);
+      },
+    },
+    archive: {
+      id: 'archive',
+      label: 'Archive',
+      icon: 'archive-outline',
+      color: '#FF9500',
+      action: async (item: Item) => {
+        console.log('📦 ARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.archiveItemWithSync(item.id);
+        } catch (error) {
+          console.error('📦 Error archiving item from radial menu:', error);
+        }
+      },
+    },
+    delete: {
       id: 'delete',
       label: 'Delete',
       icon: 'trash-outline',
@@ -274,7 +284,10 @@ const RadialMenuOverlay = observer(({
         }
       },
     },
-  ];
+  };
+
+  // Filter actions based on user configuration
+  const actionButtons: ActionButton[] = configuredActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
@@ -408,11 +421,14 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [hoveredButtonId, setHoveredButtonId] = useState<string | null>(null);
   const [shouldDisableScroll, setShouldDisableScroll] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [moveToSpaceModalVisible, setMoveToSpaceModalVisible] = useState(false);
+  const [itemForMoveToSpace, setItemForMoveToSpace] = useState<Item | null>(null);
 
-  // TODO: Add settings feature to let users choose which 3 buttons to show
-  // Currently showing 3 buttons max to prevent finger from covering one during interaction
-  const actionButtons: ActionButton[] = [
-    {
+  const configuredActionIds = userSettingsComputed.radialActions();
+
+  // Define all available actions
+  const allActions: Record<RadialActionId, ActionButton> = {
+    chat: {
       id: 'chat',
       label: 'Chat',
       icon: 'chatbubble-outline',
@@ -423,7 +439,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         chatUIActions.openChat(item);
       },
     },
-    {
+    share: {
       id: 'share',
       label: 'Share',
       icon: 'share-outline',
@@ -447,25 +463,32 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }, 300);
       },
     },
-    // {
-    //   id: 'move',
-    //   label: 'Move',
-    //   icon: 'folder-outline',
-    //   color: '#AF52DE',
-    //   action: (item: Item) => {
-    //     console.log('📁 MOVE button pressed for item:', item.title);
-    //   },
-    // },
-    // {
-    //   id: 'archive',
-    //   label: 'Archive',
-    //   icon: 'archive-outline',
-    //   color: '#FF9500',
-    //   action: (item: Item) => {
-    //     console.log('📦 ARCHIVE button pressed for item:', item.title);
-    //   },
-    // },
-    {
+    move: {
+      id: 'move',
+      label: 'Move',
+      icon: 'folder-outline',
+      color: '#AF52DE',
+      action: (item: Item) => {
+        console.log('📁 MOVE button pressed for item:', item.title);
+        setItemForMoveToSpace(item);
+        setMoveToSpaceModalVisible(true);
+      },
+    },
+    archive: {
+      id: 'archive',
+      label: 'Archive',
+      icon: 'archive-outline',
+      color: '#FF9500',
+      action: async (item: Item) => {
+        console.log('📦 ARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.archiveItemWithSync(item.id);
+        } catch (error) {
+          console.error('📦 Error archiving item from radial menu:', error);
+        }
+      },
+    },
+    delete: {
       id: 'delete',
       label: 'Delete',
       icon: 'trash-outline',
@@ -479,7 +502,10 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       },
     },
-  ];
+  };
+
+  // Filter actions based on user configuration
+  const actionButtons: ActionButton[] = configuredActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
@@ -562,6 +588,16 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [visible, hoveredButtonId, getHoveredButton]);
 
+  const handleShowMoveToSpaceModal = useCallback((item: Item) => {
+    setItemForMoveToSpace(item);
+    setMoveToSpaceModalVisible(true);
+  }, []);
+
+  const handleCloseMoveToSpaceModal = useCallback(() => {
+    setMoveToSpaceModalVisible(false);
+    setItemForMoveToSpace(null);
+  }, []);
+
   const executeAction = useCallback(() => {
     console.log('🚀 Execute action - hoveredButtonId:', hoveredButtonId, 'item:', item?.title);
     if (hoveredButtonId && item) {
@@ -576,7 +612,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       console.log('ℹ️ No action to execute - no button hovered');
     }
-  }, [hoveredButtonId, item]);
+  }, [hoveredButtonId, item, actionButtons]);
 
   const value: RadialMenuContextType = {
     showMenu,
@@ -600,7 +636,16 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         hoveredButtonId={hoveredButtonId}
         onHide={hideMenu}
         onExecuteAction={executeAction}
+        onShowMoveToSpaceModal={handleShowMoveToSpaceModal}
       />
+      {itemForMoveToSpace && (
+        <SpaceSelectorModal
+          visible={moveToSpaceModalVisible}
+          itemId={itemForMoveToSpace.id}
+          currentSpaceId={itemForMoveToSpace.space_id || null}
+          onClose={handleCloseMoveToSpaceModal}
+        />
+      )}
     </RadialMenuContext.Provider>
   );
 };

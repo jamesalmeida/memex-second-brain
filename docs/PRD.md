@@ -41,14 +41,49 @@
   - Swiping from Everything Grid scrolls into Space grid while also updating the HeaderBar to show selected Space. Scrolling the HeaderBar and tapping a Space auto scrolls to that Space.
   - To initiate AI chat with space content as context the user can use NativeTab in the BottomNavigation to slide over to Chat-mode with that space.  
   - Offline: Cached space items; queue edits.  
-- **Item Detail Expanded Card**: Full-screen expanding card animation for item details (title, content, metadata, media). Features:  
-  - Expands from grid position to full screen with hero animation (like iOS App Store)  
-  - Smooth reverse animation back to original grid position on close  
-  - Swipe-down to dismiss  
-  - Actions: Edit title/desc/metadata, archive, delete, move to another space  
-  - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)  
-  - Download media (if applicable) or open external URL  
-  - Offline: View cached details; queue edits/deletes  
+- **Item Detail Expanded Card**: Full-screen expanding card animation for item details (title, content, metadata, media). Features:
+  - Expands from grid position to full screen with hero animation (like iOS App Store)
+  - Smooth reverse animation back to original grid position on close
+  - Swipe-down to dismiss
+  - Actions: Edit title/desc/metadata, archive, delete, move to another space
+  - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)
+  - Download media (if applicable) or open external URL
+  - Offline: View cached details; queue edits/deletes
+- **Radial Action Menu**: Quick access to item actions via long-press gesture on item cards. Features:
+  - **Activation**: Long-press (200ms) on any item card in grid view
+  - **Visual Feedback**:
+    - Card scales to 1.05x and rotates 2° during long-press
+    - Radial menu buttons animate outward from touch point
+    - Full-screen dark overlay appears behind menu
+    - Floating clone of item card appears at original position with glow effect
+  - **Interaction**:
+    - User drags finger to desired action button (without lifting)
+    - Hovered button scales to 1.3x and changes color for immediate visual feedback
+    - Release finger to execute hovered action
+    - Cancel by releasing without hovering any button
+  - **Available Actions**:
+    - **Chat**: Opens AI chat with item as context (expands item card + opens chat sheet)
+    - **Share**: Opens native share sheet with item URL and title
+    - **Archive**: Moves item to archive (soft archive with `is_archived=true`)
+    - **Delete**: Soft-deletes item (tombstone pattern with `is_deleted=true`)
+    - **Move to Space**: Opens SpaceSelectorModal to reassign item to different space
+  - **Configuration**:
+    - Users can customize which 3 actions appear in menu via "Configure Action Button" in drawer
+    - Default actions: Chat, Share, Archive
+    - Selection range: 1-3 actions (enforced by ActionMenuConfigModal)
+    - Configuration stored in `User_Settings.ui_radial_actions` and syncs across devices
+    - ActionMenuConfigModal displays all 5 available actions with descriptions, icons, and selection indicators
+  - **Implementation**:
+    - Context: `RadialMenuContext` manages menu state, touch tracking, and action execution
+    - Wrapper: `RadialActionMenu` component wraps each item card with touch responders
+    - Overlay: `RadialMenuOverlay` renders full-screen modal with buttons and floating card clone
+    - Components: `src/contexts/RadialMenuContext.tsx`, `src/components/items/RadialActionMenu.tsx`, `src/components/ActionMenuConfigModal.tsx`
+  - **Performance**:
+    - Buttons positioned dynamically based on touch location (left/right side of screen)
+    - Arc angle: 110° centered 45° from touch point (upper-right if left side, upper-left if right side)
+    - Button radius: 80px from touch point
+    - Haptic feedback on menu open, button hover, and action execution
+  - **Offline**: All actions queue for sync when offline (archive, delete, move use sync service)  
 - **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
@@ -220,13 +255,20 @@
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
 - **User_Settings**:
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `created_at` (timestamp), `updated_at` (timestamp).
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (text[], default ['chat', 'share', 'archive']), `created_at` (timestamp), `updated_at` (timestamp).
   - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
   - One settings row per user (enforced by unique constraint on `user_id`).
   - Settings categories:
     - Theme: `theme_dark_mode` - Light/dark mode preference
     - AI: `ai_chat_model`, `ai_metadata_model`, `ai_auto_transcripts`, `ai_auto_image_descriptions` - AI model selection and automation preferences
-    - UI: `ui_x_video_muted`, `ui_autoplay_x_videos` - Video playback preferences
+    - UI: `ui_x_video_muted`, `ui_autoplay_x_videos`, `ui_radial_actions` - Video playback and quick action menu preferences
+  - Radial Action Menu Configuration:
+    - `ui_radial_actions` stores an ordered array of up to 3 action IDs that appear in the long-press radial menu
+    - Available actions: 'chat' (open AI chat), 'share' (share item URL), 'archive' (move to archive), 'delete' (soft delete item), 'move' (move to different space)
+    - Default actions: ['chat', 'share', 'archive']
+    - Users configure via "Configure Action Button" option in drawer menu
+    - Configuration modal (ActionMenuConfigModal) allows selecting 1-3 actions with visual ordering indicators
+    - Changes sync instantly across devices via Supabase real-time updates
   - Synced on app launch, login, and during manual sync operations.
   - Changes are optimistically updated locally then synced to Supabase.
   - Falls back to legacy AsyncStorage if cloud sync unavailable (offline mode).

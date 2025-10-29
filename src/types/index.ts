@@ -207,6 +207,8 @@ export interface SearchFilters {
   isArchived?: boolean;
 }
 
+export type RadialActionId = 'chat' | 'share' | 'archive' | 'delete' | 'move';
+
 export interface UserSettings {
   id: string;
   user_id: string;
@@ -220,6 +222,7 @@ export interface UserSettings {
   // UI preferences
   ui_x_video_muted: boolean;
   ui_autoplay_x_videos: boolean;
+  ui_radial_actions?: RadialActionId[]; // 3 action buttons for radial menu
   // Timestamps
   created_at: string;
   updated_at: string;
