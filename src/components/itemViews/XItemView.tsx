@@ -721,7 +721,6 @@ const XItemView = observer(({
         onImageRemove={handleMetadataImageRemove}
         onThumbnailRemove={handleHeroImageRemove}
         containerStyle={styles.mediaContainer}
-        videoStyle={styles.heroMedia}
       />
 
       {/* Content */}

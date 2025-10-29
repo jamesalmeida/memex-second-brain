@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, StyleProp, ViewStyle, ImageStyle } from 'react-native';
 import { VideoView } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
@@ -37,7 +37,6 @@ interface HeroMediaSectionProps {
   containerStyle?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
   placeholderStyle?: StyleProp<ViewStyle>;
-  videoStyle?: StyleProp<ViewStyle>;
 
   // Special behavior flags
   skipForTextOnlyXPosts?: boolean; // Skip rendering hero section for X posts without media
@@ -59,11 +58,36 @@ const HeroMediaSection = observer(({
   containerStyle,
   imageStyle,
   placeholderStyle,
-  videoStyle,
   skipForTextOnlyXPosts = false,
 }: HeroMediaSectionProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Listen to video player status to get actual video dimensions
+  useEffect(() => {
+    if (videoPlayer) {
+      const subscription = videoPlayer.addListener('statusChange', (status) => {
+        if (status.videoSize) {
+          setVideoDimensions({
+            width: status.videoSize.width,
+            height: status.videoSize.height
+          });
+        }
+      });
+      return () => subscription.remove();
+    }
+  }, [videoPlayer]);
+
+  // Calculate dynamic video height based on actual aspect ratio
+  const videoHeight = useMemo(() => {
+    if (videoDimensions) {
+      const aspectRatio = videoDimensions.height / videoDimensions.width;
+      return CONTENT_WIDTH * aspectRatio;
+    }
+    // Fallback to 16:9 while dimensions are loading
+    return CONTENT_WIDTH / (16/9);
+  }, [videoDimensions]);
 
   // Get image URLs from item type metadata
   const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
@@ -95,10 +119,12 @@ const HeroMediaSection = observer(({
         <View style={styles.videoContainer}>
           <VideoView
             player={videoPlayer}
-            style={[
-              styles.heroMedia,
-              videoStyle || { height: CONTENT_WIDTH / (16/9) } // Default 16:9, or use provided style
-            ]}
+            style={{
+              width: CONTENT_WIDTH,
+              height: videoHeight,
+              backgroundColor: '#000000',
+              borderRadius: 12,
+            }}
             contentFit="contain"
             fullscreenOptions={{ enable: true }}
             showsTimecodes={true}
