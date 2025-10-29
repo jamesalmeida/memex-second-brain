@@ -278,6 +278,11 @@
     - Tapping navigates to Archive view
   - Tablet: Optional Drawer stays open or hides. Grid defaults to being 4 columns rather than 2 like mobile.   
 - **Components**:
+  - **Context Menus**: All three-dot context menus in the app use `ContextMenu` from `@expo/ui/swift-ui` for consistent native behavior and styling:
+    - Implementation pattern: Wrap trigger button in `Host` component, use `ContextMenu.Trigger` and `ContextMenu.Items` with `Button` components
+    - Reference implementation: [DrawerContent.tsx:325-348](src/components/DrawerContent.tsx#L325-L348)
+    - Used in: DrawerContent (space menu), ChatSheet (chat actions menu)
+    - Provides native iOS/Android menu animations, better accessibility, and consistent UX
   - **ItemCard**: Type-specific UI (e.g., YouTube video overlay, X video player using Expo AV).
   - **FilterPills**: Displays active filters as dismissible pills above the item grid. Features:
     - Positioned between HeaderBar and grid content
@@ -290,8 +295,8 @@
   - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
   - **ChatSheet**: Bottom sheet for item/space AI chat with three-dot context menu in header:
     - Header displays "AI Chat" title, model name, and three-dot menu button
-    - Context menu modal appears centered with backdrop overlay
-    - Menu options: Export Chat, Share Chat, Clear Chat (destructive), and Cancel
+    - Context menu uses native `ContextMenu` from `@expo/ui/swift-ui` (same as DrawerContent)
+    - Menu options: Export Chat, Share Chat, Clear Chat (destructive role)
     - All menu actions provide haptic feedback and toast notifications
     - Full light/dark theme support with proper contrast ratios
     - Clear Chat requires confirmation dialog before deleting messages
