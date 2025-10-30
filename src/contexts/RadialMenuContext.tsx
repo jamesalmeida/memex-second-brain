@@ -16,6 +16,7 @@ import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
 import { expandedItemUIActions } from '../stores/expandedItemUI';
 import { userSettingsComputed } from '../stores/userSettings';
+import { spacesComputed } from '../stores/spaces';
 import { Item, ContentType, RadialActionId } from '../types';
 import SpaceSelectorModal from '../components/SpaceSelectorModal';
 import { useToast } from './ToastContext';
@@ -738,6 +739,18 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setItemForMoveToSpace(null);
   }, []);
 
+  const handleSpaceChange = useCallback((spaceId: string | null) => {
+    // Show toast confirmation when item is moved to a space
+    const spaceName = spaceId
+      ? spacesComputed.getSpaceById(spaceId)?.name || 'Space'
+      : 'Everything';
+
+    showToast({
+      message: `Item moved to ${spaceName}`,
+      type: 'success',
+    });
+  }, [showToast]);
+
   const executeAction = useCallback(() => {
     console.log('🚀 Execute action - hoveredButtonId:', hoveredButtonId, 'item:', item?.title);
     if (hoveredButtonId && item) {
@@ -784,6 +797,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           itemId={itemForMoveToSpace.id}
           currentSpaceId={itemForMoveToSpace.space_id || null}
           onClose={handleCloseMoveToSpaceModal}
+          onSpaceChange={handleSpaceChange}
         />
       )}
     </RadialMenuContext.Provider>
