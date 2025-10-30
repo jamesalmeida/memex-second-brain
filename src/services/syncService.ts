@@ -797,6 +797,7 @@ class SyncService {
           platform: localT.platform,
           language: localT.language,
           duration: localT.duration,
+          segments: localT.segments,
         });
         if (error) console.error('Error uploading video transcript:', error);
       }

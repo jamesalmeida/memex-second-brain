@@ -106,7 +106,10 @@ export const serpapi = {
     return this.search({ engine: 'youtube', search_query: url });
   },
 
-  async fetchYouTubeTranscript(url: string): Promise<{ transcript: string; language?: string } | SerpApiError> {
+  async fetchYouTubeTranscript(url: string): Promise<
+    { transcript: string; language?: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> }
+    | SerpApiError
+  > {
     const extractId = (u: string): string | null => {
       try {
         const clean = u.split('#')[0];
@@ -146,20 +149,32 @@ export const serpapi = {
           || (Array.isArray(data?.transcript?.segments) ? data.transcript.segments.map((s: any) => s.text || s.snippet).join('\n') : undefined)
           || data?.text;
         const lang = data?.transcript?.language || data?.language;
-        if (text) return { transcript: text, language: lang };
+        const segments: Array<{ startMs: number; endMs?: number; text: string }> | undefined =
+          Array.isArray(data?.transcript?.segments)
+            ? data.transcript.segments.map((s: any) => ({ startMs: s.start_ms ?? s.startMs ?? 0, endMs: s.end_ms ?? s.endMs, text: s.text ?? s.snippet ?? '' }))
+            : Array.isArray(data?.transcript)
+              ? data.transcript.map((s: any) => ({ startMs: s.start_ms ?? s.startMs ?? 0, endMs: s.end_ms ?? s.endMs, text: s.snippet ?? s.text ?? '' }))
+              : undefined;
+        if (text) return { transcript: text, language: lang, segments };
       } catch (e: any) {
         // fallthrough to engine approach
       }
     }
     // Fallback chain on youtube_video_transcript
-    const tryAsText = (payload: any): { transcript?: string; language?: string } => {
+    const tryAsText = (payload: any): { transcript?: string; language?: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> } => {
       if (!payload) return {};
       const lang = payload?.transcript?.language || payload?.language;
       const text = payload?.transcript?.text
         || (Array.isArray(payload?.transcript) ? payload.transcript.map((s: any) => s.snippet || s.text).join('\n') : undefined)
         || (Array.isArray(payload?.transcript?.segments) ? payload.transcript.segments.map((s: any) => s.text || s.snippet).join('\n') : undefined)
         || payload?.text;
-      return text ? { transcript: text, language: lang } : {};
+      const segments: Array<{ startMs: number; endMs?: number; text: string }> | undefined =
+        Array.isArray(payload?.transcript?.segments)
+          ? payload.transcript.segments.map((s: any) => ({ startMs: s.start_ms ?? s.startMs ?? 0, endMs: s.end_ms ?? s.endMs, text: s.text ?? s.snippet ?? '' }))
+          : Array.isArray(payload?.transcript)
+            ? payload.transcript.map((s: any) => ({ startMs: s.start_ms ?? s.startMs ?? 0, endMs: s.end_ms ?? s.endMs, text: s.snippet ?? s.text ?? '' }))
+            : undefined;
+      return text ? { transcript: text, language: lang, segments } : {};
     };
 
     // 1) type=asr (auto-generated) in English

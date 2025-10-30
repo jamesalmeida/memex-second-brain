@@ -113,6 +113,7 @@ export interface VideoTranscript {
   platform: VideoPlatform;
   language: string;
   duration?: number;
+  segments?: Array<{ startMs: number; endMs?: number; text: string }>; // For timestamped transcripts (SerpAPI)
   fetched_at: string;
   created_at: string;
   updated_at: string;

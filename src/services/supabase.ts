@@ -203,6 +203,7 @@ export const db = {
     platform: string;
     language: string;
     duration?: number;
+    segments?: Array<{ startMs: number; endMs?: number; text: string }>;
   }) => {
     const { data, error } = await supabase
       .from('video_transcripts')
