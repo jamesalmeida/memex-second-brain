@@ -17,7 +17,6 @@ import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { ImageDescription } from '../../types';
-import { WebView } from 'react-native-webview';
 import Animated, {
   useSharedValue,
   withTiming,
@@ -53,8 +52,6 @@ const CONTENT_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 const contentTypeOptions: { type: ContentType; label: string; icon: string }[] = [
   { type: 'bookmark', label: 'Bookmark', icon: '🔖' },
   { type: 'note', label: 'Note', icon: '📝' },
-  { type: 'youtube', label: 'YouTube', icon: '▶️' },
-  { type: 'youtube_short', label: 'YT Short', icon: '🎬' },
   { type: 'x', label: 'X/Twitter', icon: '𝕏' },
   { type: 'instagram', label: 'Instagram', icon: '📷' },
   { type: 'tiktok', label: 'TikTok', icon: '🎵' },
@@ -293,8 +290,6 @@ const DefaultItemView = observer(({
 
   const getContentTypeIcon = () => {
     switch (itemToDisplay?.content_type) {
-      case 'youtube':
-      case 'youtube_short': return '▶️';
       case 'x': return '𝕏';
       case 'instagram': return '📷';
       case 'podcast': return '🎙️';
@@ -316,32 +311,6 @@ const DefaultItemView = observer(({
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  // Extract YouTube video ID from URL
-  const getYouTubeVideoId = (url?: string) => {
-    if (!url) return null;
-
-    // Remove any trailing parameters or fragments
-    const cleanUrl = url.split('#')[0];
-
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-      /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-      /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-      /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-      /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = cleanUrl.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-
-    console.error('Failed to extract YouTube video ID from URL:', url);
-    return null;
   };
 
   // Transcript generation removed - handled in YouTubeItemView and XItemView
@@ -683,36 +652,6 @@ const DefaultItemView = observer(({
   return (
     <View style={styles.container}>
       {/* Hero Media Section */}
-      {/* Special case: YouTube embed (use WebView) */}
-      {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && getYouTubeVideoId(itemToDisplay?.url) ? (
-        <View style={styles.heroContainer}>
-          <View style={itemToDisplay?.content_type === 'youtube_short' ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
-            <WebView
-              source={{
-                uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
-              }}
-              style={styles.webView}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              mixedContentMode="compatibility"
-              originWhitelist={['*']}
-              userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
-              onError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('WebView error:', nativeEvent);
-              }}
-              onHttpError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('HTTP error:', nativeEvent.statusCode, nativeEvent.description);
-              }}
-            />
-          </View>
-        </View>
-      ) : (
-        /* All other content types use HeroMediaSection */
         <HeroMediaSection
           item={itemToDisplay!}
           isDarkMode={isDarkMode}
@@ -1006,46 +945,6 @@ const DefaultItemView = observer(({
           </View>
         )}
 
-        {/* Thumbnail Section (for YouTube and YouTube Shorts) */}
-        {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && itemToDisplay?.thumbnail_url && (
-          <View style={styles.thumbnailSection}>
-            <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
-              THUMBNAIL
-            </Text>
-            <TouchableOpacity
-              style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
-              onPress={() => setShowThumbnail(!showThumbnail)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.thumbnailSelectorText, isDarkMode && styles.thumbnailSelectorTextDark]}>
-                {showThumbnail ? 'Hide Thumbnail' : 'View Thumbnail'}
-              </Text>
-              <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                {showThumbnail ? '▲' : '▼'}
-              </Text>
-            </TouchableOpacity>
-
-            {showThumbnail && (
-              <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
-                <Image
-                  source={{ uri: itemToDisplay.thumbnail_url }}
-                  style={styles.thumbnailImage}
-                  resizeMode="cover"
-                />
-                <TouchableOpacity
-                  style={[styles.thumbnailDownloadButton, isDownloading && styles.thumbnailDownloadButtonDisabled]}
-                  onPress={downloadThumbnail}
-                  disabled={isDownloading}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.thumbnailDownloadButtonText}>
-                    {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
 
       {/* Transcript Section removed from DefaultItemView (handled in type-specific views) */}
 
@@ -1465,22 +1364,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-  // YouTube embed styles
-  youtubeEmbed: {
-    width: CONTENT_WIDTH,
-    height: CONTENT_WIDTH * (9/16), // 16:9 aspect ratio for regular videos
-    backgroundColor: '#000',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  youtubeShortEmbed: {
-    width: CONTENT_WIDTH,
-    height: CONTENT_WIDTH * (16/9), // 9:16 aspect ratio for YouTube Shorts (vertical)
-    backgroundColor: '#000',
-    maxHeight: SCREEN_HEIGHT * 0.8, // Limit max height to 70% of screen
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   webView: {
     flex: 1,

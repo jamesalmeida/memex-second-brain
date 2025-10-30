@@ -551,11 +551,14 @@ const YouTubeItemView = observer(({
     <View style={styles.container}>
       {/* YouTube Video Embed */}
       {getYouTubeVideoId(itemToDisplay?.url) && (
+        console.log('🔍 [YouTubeItemView] YouTube video ID:', getYouTubeVideoId(itemToDisplay.url)),
         <View style={styles.videoContainer}>
           <View style={isShort ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
             <WebView
               source={{
-                uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
+                // uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&referrerpolicy=strict-origin-when-cross-origin`
+                uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=http://localhost`
+
               }}
               style={styles.webView}
               allowsInlineMediaPlayback={true}
@@ -565,7 +568,7 @@ const YouTubeItemView = observer(({
               startInLoadingState={true}
               mixedContentMode="compatibility"
               originWhitelist={['*']}
-              userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+              // userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
             />
           </View>
         </View>
