@@ -18,6 +18,7 @@ import { expandedItemUIActions } from '../stores/expandedItemUI';
 import { userSettingsComputed } from '../stores/userSettings';
 import { Item, ContentType, RadialActionId } from '../types';
 import SpaceSelectorModal from '../components/SpaceSelectorModal';
+import { useToast } from './ToastContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -204,6 +205,7 @@ const RadialMenuOverlay = observer(({
   const isDarkMode = themeStore.isDarkMode.get();
   const overlayOpacity = useSharedValue(visible ? 1 : 0);
   const configuredActionIds = userSettingsComputed.radialActions();
+  const { showToast } = useToast();
 
   React.useEffect(() => {
     overlayOpacity.value = withTiming(visible && !isClosing ? 1 : 0, { duration: 250 });
@@ -265,8 +267,16 @@ const RadialMenuOverlay = observer(({
         console.log('📦 ARCHIVE button pressed for item:', item.title);
         try {
           await itemsActions.archiveItemWithSync(item.id);
+          showToast({
+            message: 'Item archived successfully',
+            type: 'success',
+          });
         } catch (error) {
           console.error('📦 Error archiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to archive item',
+            type: 'error',
+          });
         }
       },
     },
@@ -277,11 +287,37 @@ const RadialMenuOverlay = observer(({
       color: '#FF3B30',
       action: async (item: Item) => {
         console.log('🗑️ DELETE button pressed for item:', item.title);
-        try {
-          await itemsActions.removeItemWithSync(item.id);
-        } catch (error) {
-          console.error('🗑️ Error deleting item from radial menu:', error);
-        }
+        // Show confirmation alert
+        Alert.alert(
+          'Delete Item',
+          `Are you sure you want to delete "${item.title}"? This cannot be undone.`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await itemsActions.removeItemWithSync(item.id);
+                  showToast({
+                    message: 'Item deleted successfully',
+                    type: 'success',
+                  });
+                } catch (error) {
+                  console.error('🗑️ Error deleting item from radial menu:', error);
+                  showToast({
+                    message: 'Failed to delete item',
+                    type: 'error',
+                  });
+                }
+              },
+            },
+          ],
+          { cancelable: true }
+        );
       },
     },
   };
@@ -425,6 +461,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [itemForMoveToSpace, setItemForMoveToSpace] = useState<Item | null>(null);
 
   const configuredActionIds = userSettingsComputed.radialActions();
+  const { showToast } = useToast();
 
   // Define all available actions
   const allActions: Record<RadialActionId, ActionButton> = {
@@ -483,8 +520,16 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         console.log('📦 ARCHIVE button pressed for item:', item.title);
         try {
           await itemsActions.archiveItemWithSync(item.id);
+          showToast({
+            message: 'Item archived successfully',
+            type: 'success',
+          });
         } catch (error) {
           console.error('📦 Error archiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to archive item',
+            type: 'error',
+          });
         }
       },
     },
@@ -495,11 +540,37 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       color: '#FF3B30',
       action: async (item: Item) => {
         console.log('🗑️ DELETE button pressed for item:', item.title);
-        try {
-          await itemsActions.removeItemWithSync(item.id);
-        } catch (error) {
-          console.error('🗑️ Error deleting item from radial menu:', error);
-        }
+        // Show confirmation alert
+        Alert.alert(
+          'Delete Item',
+          `Are you sure you want to delete "${item.title}"? This cannot be undone.`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await itemsActions.removeItemWithSync(item.id);
+                  showToast({
+                    message: 'Item deleted successfully',
+                    type: 'success',
+                  });
+                } catch (error) {
+                  console.error('🗑️ Error deleting item from radial menu:', error);
+                  showToast({
+                    message: 'Failed to delete item',
+                    type: 'error',
+                  });
+                }
+              },
+            },
+          ],
+          { cancelable: true }
+        );
       },
     },
   };
