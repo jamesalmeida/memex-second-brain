@@ -44,6 +44,8 @@ const TabLayout = observer(() => {
   const [isExpandedItemOpen, setIsExpandedItemOpen] = useState(false);
   const [isUnarchiving, setIsUnarchiving] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get radial menu state to disable swipe gesture
   const { shouldDisableScroll } = useRadialMenu();
@@ -411,6 +413,8 @@ const TabLayout = observer(() => {
           item={expandedItemUIStore.currentItem.get()}
           isUnarchiving={isUnarchiving}
           isArchiving={isArchiving}
+          isDeleting={isDeleting}
+          isRefreshing={isRefreshing}
           onOpen={() => setIsExpandedItemOpen(true)}
           onClose={() => {
             expandedItemUIActions.closeExpandedItem();
@@ -422,11 +426,12 @@ const TabLayout = observer(() => {
           onEdit={(item) => console.log('Edit item:', item.title)}
           onArchive={async (item) => {
             console.log('📦 [TabLayout] Archive item:', item.title);
+            // Close sheet immediately
+            expandedItemUIActions.closeExpandedItem();
             setIsArchiving(true);
             try {
               await itemsActions.archiveItemWithSync(item.id);
               console.log('📦 [TabLayout] Successfully archived item:', item.id);
-              expandedItemUIActions.closeExpandedItem();
               showToast({
                 message: 'Item archived successfully',
                 type: 'success',
@@ -445,11 +450,12 @@ const TabLayout = observer(() => {
           }}
           onUnarchive={async (item) => {
             console.log('📤 [TabLayout] Unarchive item:', item.title);
+            // Close sheet immediately
+            expandedItemUIActions.closeExpandedItem();
             setIsUnarchiving(true);
             try {
               await itemsActions.unarchiveItemWithSync(item.id);
               console.log('📤 [TabLayout] Successfully unarchived item:', item.id);
-              expandedItemUIActions.closeExpandedItem();
               showToast({
                 message: 'Item unarchived successfully',
                 type: 'success',
@@ -468,13 +474,27 @@ const TabLayout = observer(() => {
           }}
           onDelete={async (item) => {
             console.log('🗑️ [TabLayout] Delete item:', item.title);
+            // Close sheet immediately
+            expandedItemUIActions.closeExpandedItem();
+            setIsDeleting(true);
             try {
               await itemsActions.removeItemWithSync(item.id);
               console.log('🗑️ [TabLayout] Successfully deleted item:', item.id);
+              showToast({
+                message: 'Item deleted successfully',
+                type: 'success',
+                duration: 2500,
+              });
             } catch (error) {
               console.error('🗑️ [TabLayout] Error deleting item:', error);
+              showToast({
+                message: 'Failed to delete item',
+                type: 'error',
+                duration: 2500,
+              });
+            } finally {
+              setIsDeleting(false);
             }
-            expandedItemUIActions.closeExpandedItem();
           }}
           onShare={async (item) => {
             if (item.url) {

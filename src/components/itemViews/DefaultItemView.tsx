@@ -82,6 +82,8 @@ interface DefaultItemViewProps {
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
 const DefaultItemView = observer(({
@@ -92,6 +94,8 @@ const DefaultItemView = observer(({
   onDelete,
   onShare,
   currentSpaceId,
+  isDeleting = false,
+  isRefreshing = false,
 }: DefaultItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
@@ -1295,7 +1299,8 @@ const DefaultItemView = observer(({
           onArchive={() => onArchive?.(itemToDisplay!)}
           onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
-          isRefreshing={isRefreshingMetadata}
+          isRefreshing={isRefreshingMetadata || isRefreshing}
+          isDeleting={isDeleting}
           isDarkMode={isDarkMode}
         />
       </View>

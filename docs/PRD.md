@@ -109,6 +109,7 @@
     - Auto-archive: Item automatically archived when parent space is archived (tracked via `auto_archived=true` flag)
     - Archive syncs to Supabase immediately, propagates to other devices via real-time subscriptions
     - Unarchive: Restore archived item to active state. Auto-archived items can be selectively restored when parent space is unarchived.
+    - **UX**: ItemView sheet closes immediately when user triggers archive/unarchive; LoadingModal displays in background during operation; toast notification confirms success/failure
   - **Space Archive**: Archive entire space and all items within it
     - User confirms via alert: "Archive [space name]? This will also archive all X item(s) inside."
     - All items in space marked with `is_archived=true`, `archived_at` timestamp, and `auto_archived=true`
@@ -119,6 +120,7 @@
     - Items marked as deleted are retained locally for cross-device sync reliability
     - Prevents "resurrection bug" where offline devices re-upload deleted items
     - UI filters out deleted items automatically
+    - **UX**: ItemView sheet closes immediately when user triggers delete; LoadingModal displays in background during operation; toast notification confirms success/failure
   - **Move**: Reassign to different space by updating `Items.space_id` field. Queue offline.
   - **Space Deletion**: When deleting a space with items, user chooses:
     - "Move to Everything" - Sets `space_id=null` for all items in space
@@ -385,6 +387,28 @@
     - Used in: DefaultItemView, YouTubeItemView, XItemView, RedditItemView
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.
   - **ItemView Components**: All item detail views (DefaultItemView, YouTubeItemView, XItemView, NoteItemView, RedditItemView) are reactive to store updates and automatically refresh when item data changes on other devices.
+  - **LoadingModal** (`src/components/LoadingModal.tsx`): Reusable loading overlay component for indicating ongoing operations:
+    - **Purpose**: Provides consistent loading feedback across the app for operations like archiving, deleting, refreshing metadata
+    - **Props**:
+      - `visible: boolean` - Controls modal visibility
+      - `text?: string` - Customizable loading text (default: "Loading...")
+      - `isDarkMode: boolean` - Theme support
+    - **Design**:
+      - Full-screen semi-transparent overlay (95% opacity)
+      - Centered card with ActivityIndicator and text
+      - Absolute positioning (zIndex: 1000) to overlay parent component
+      - Smooth animations for appearance/disappearance
+      - Shadow/elevation for depth
+    - **Usage**:
+      - ExpandedItemView: Shows during archive/unarchive/delete/refresh operations
+      - ItemViewFooter: Integrated for delete and refresh button feedback
+      - All ItemView components: Pass through `isDeleting` and `isRefreshing` props
+    - **Behavior**:
+      - ItemView sheet closes immediately when user triggers delete/archive action
+      - LoadingModal remains visible in background until operation completes
+      - Toast notification appears after successful operation
+      - Error toast shown if operation fails
+    - **User Experience**: Non-blocking - allows user to return to browsing immediately while operation completes in background
   - **Archive View**: Special view for managing archived items. Features:
     - Accessed via Archive tab in HeaderBar or Archive space in DrawerContent
     - Shows all archived items (both manually archived and auto-archived) in flat grid
@@ -392,7 +416,7 @@
     - Items display archived date in expanded view footer: "Archived on [date]" or "Auto-archived on [date]"
     - Unarchive button replaces Archive button in expanded item view (MaterialIcons "unarchive" icon)
     - Long-press context menu includes "Unarchive" option
-    - Full-screen loading overlay during archive/unarchive operations with "Archiving..." or "Unarchiving..." message
+    - Uses LoadingModal during archive/unarchive operations with appropriate text
     - Success toast notification: "Item archived successfully" or "Item unarchived successfully"
     - Error toast on failure: "Failed to archive item" or "Failed to unarchive item"
     - Items disappear from Archive view immediately after unarchiving

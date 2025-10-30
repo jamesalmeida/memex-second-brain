@@ -10,6 +10,7 @@ import XItemView from './itemViews/XItemView';
 import MovieTVItemView from './itemViews/MovieTVItemView';
 import DefaultItemView from './itemViews/DefaultItemView';
 import NoteItemView from './itemViews/NoteItemView';
+import LoadingModal from './LoadingModal';
 
 interface ExpandedItemViewProps {
   item: Item | null;
@@ -25,6 +26,8 @@ interface ExpandedItemViewProps {
   currentSpaceId?: string | null;
   isUnarchiving?: boolean;
   isArchiving?: boolean;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
 const ExpandedItemView = observer(
@@ -42,6 +45,8 @@ const ExpandedItemView = observer(
   currentSpaceId,
   isUnarchiving = false,
   isArchiving = false,
+  isDeleting = false,
+  isRefreshing = false,
 }, ref) => {
   const isDarkMode = themeStore.isDarkMode.get();
 
@@ -74,85 +79,33 @@ const ExpandedItemView = observer(
   const renderItemView = () => {
     if (!item) return null;
 
+    const commonProps = {
+      item,
+      onChat,
+      onArchive,
+      onUnarchive,
+      onDelete,
+      onShare,
+      currentSpaceId,
+      isDeleting,
+      isRefreshing,
+    };
+
     switch (item.content_type) {
       case 'note':
-        return (
-          <NoteItemView
-            item={item}
-            onChat={onChat}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-            onDelete={onDelete}
-            onShare={onShare}
-            currentSpaceId={currentSpaceId}
-          />
-        );
+        return <NoteItemView {...commonProps} />;
       case 'reddit':
-        return (
-          <RedditItemView
-            item={item}
-            onChat={onChat}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-            onDelete={onDelete}
-            onShare={onShare}
-            currentSpaceId={currentSpaceId}
-          />
-        );
-
+        return <RedditItemView {...commonProps} />;
       case 'youtube':
       case 'youtube_short':
-        return (
-          <YouTubeItemView
-            item={item}
-            onChat={onChat}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-            onDelete={onDelete}
-            onShare={onShare}
-            currentSpaceId={currentSpaceId}
-          />
-        );
-
+        return <YouTubeItemView {...commonProps} />;
       case 'x':
-        return (
-          <XItemView
-            item={item}
-            onChat={onChat}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-            onDelete={onDelete}
-            onShare={onShare}
-            currentSpaceId={currentSpaceId}
-          />
-        );
-
+        return <XItemView {...commonProps} />;
       case 'movie':
       case 'tv_show':
-        return (
-          <MovieTVItemView
-            item={item}
-            onChat={onChat}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-            onDelete={onDelete}
-            onShare={onShare}
-            currentSpaceId={currentSpaceId}
-          />
-        );
-
+        return <MovieTVItemView {...commonProps} />;
       default:
-        return (
-          <DefaultItemView
-            item={item}
-            onChat={onChat}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-            onDelete={onDelete}
-            onShare={onShare}
-            currentSpaceId={currentSpaceId}
-          />
-        );
+        return <DefaultItemView {...commonProps} />;
     }
   };
 
@@ -190,17 +143,18 @@ const ExpandedItemView = observer(
         {renderItemView()}
       </BottomSheetScrollView>
 
-      {/* Loading Overlay for Archiving/Unarchiving */}
-      {(isUnarchiving || isArchiving) && (
-        <View style={[styles.loadingOverlay, isDarkMode && styles.loadingOverlayDark]}>
-          <View style={[styles.loadingContent, isDarkMode && styles.loadingContentDark]}>
-            <ActivityIndicator size="large" color={isDarkMode ? '#FFFFFF' : '#007AFF'} />
-            <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>
-              {isArchiving ? 'Archiving...' : 'Unarchiving...'}
-            </Text>
-          </View>
-        </View>
-      )}
+      {/* Loading Modal for various operations */}
+      <LoadingModal
+        visible={isUnarchiving || isArchiving || isDeleting || isRefreshing}
+        text={
+          isArchiving ? 'Archiving...' :
+          isUnarchiving ? 'Unarchiving...' :
+          isDeleting ? 'Deleting...' :
+          isRefreshing ? 'Refreshing...' :
+          'Loading...'
+        }
+        isDarkMode={isDarkMode}
+      />
     </BottomSheet>
   );
 }));
@@ -223,43 +177,5 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  loadingOverlayDark: {
-    backgroundColor: 'rgba(28, 28, 30, 0.95)',
-  },
-  loadingContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  loadingContentDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  loadingTextDark: {
-    color: '#FFFFFF',
   },
 });
