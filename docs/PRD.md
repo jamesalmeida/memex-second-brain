@@ -564,6 +564,12 @@ All external API calls are made directly from the client (`src/services/` and `s
   - Configured for general URL content extraction
   - Fallback for unsupported content types
 
+- **SerpAPI** (`src/services/serpapi.ts`):
+  - Account API (free, does not count toward quota): `GET https://serpapi.com/account.json?api_key=...`
+  - Used to display API status in `AdminSheet` (`src/components/AdminSheet.tsx`): plan, this month usage/limit/left, hourly limit, credits left
+  - Environment variable: `EXPO_PUBLIC_SERPAI_API_KEY`
+  - Config entry in `src/config/api.ts` under `API_CONFIG.SERPAPI`
+
 ### 5.6 Client-side URL Parsing (Linkedom)
 - For basic saves on mobile, the app fetches the target URL directly on-device and parses HTML using `linkedom` (`src/services/linkedomParser.ts`).
 - Extracted fields:
