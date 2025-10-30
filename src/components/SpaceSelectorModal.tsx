@@ -10,7 +10,7 @@ import {
 import { observer } from '@legendapp/state/react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
-import { spacesStore } from '../stores/spaces';
+import { spacesComputed } from '../stores/spaces';
 import { itemsActions } from '../stores/items';
 
 interface SpaceSelectorModalProps {
@@ -30,7 +30,7 @@ const SpaceSelectorModal = observer(({
 }: SpaceSelectorModalProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId);
-  const allSpaces = spacesStore.spaces.get().filter(s => !s.is_deleted && !s.is_archived);
+  const allSpaces = spacesComputed.activeSpaces();
 
   // Sync internal state with prop when currentSpaceId changes
   useEffect(() => {
