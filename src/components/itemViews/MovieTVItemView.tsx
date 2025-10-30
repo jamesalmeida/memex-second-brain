@@ -484,6 +484,7 @@ const MovieTVItemView = observer(({
         onRefresh={handleRefreshMetadata}
         onShare={() => onShare?.(itemToDisplay)}
         onArchive={() => onArchive?.(itemToDisplay)}
+        onUnarchive={() => onUnarchive?.(itemToDisplay)}
         onDelete={() => onDelete?.(itemToDisplay)}
         isRefreshing={isRefreshingMetadata || isRefreshing}
         isDeleting={isDeleting}

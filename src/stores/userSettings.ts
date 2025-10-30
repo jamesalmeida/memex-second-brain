@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   ai_auto_image_descriptions: false,
   ui_x_video_muted: true,
   ui_autoplay_x_videos: true,
+  ui_radial_actions: ['chat', 'share', 'archive'] as const, // Default actions
 };
 
 const initialState: UserSettingsState = {
@@ -43,6 +44,7 @@ export const userSettingsComputed = {
   // UI
   xVideoMuted: () => userSettingsStore.settings.get()?.ui_x_video_muted ?? DEFAULT_SETTINGS.ui_x_video_muted,
   autoplayXVideos: () => userSettingsStore.settings.get()?.ui_autoplay_x_videos ?? DEFAULT_SETTINGS.ui_autoplay_x_videos,
+  radialActions: () => userSettingsStore.settings.get()?.ui_radial_actions ?? DEFAULT_SETTINGS.ui_radial_actions,
 
   isLoading: () => userSettingsStore.isLoading.get(),
 };

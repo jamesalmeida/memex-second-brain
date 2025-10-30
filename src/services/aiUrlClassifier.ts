@@ -52,19 +52,51 @@ ${contextLines.length > 0 ? contextLines.join('\n') : ''}
 Available types:
 - product: E-commerce product pages (Amazon, Walmart, Etsy, Target, eBay, Shopify stores, etc.)
 - article: Blog posts, news articles, written content (Medium, blogs, news sites, etc.)
-- video: Video content (not YouTube - we handle that separately)
+- video: Video content from non-YouTube platforms (Vimeo, Dailymotion, Wistia, etc.)
+- youtube: YouTube videos (youtube.com, youtu.be, m.youtube.com, music.youtube.com)
+- youtube_short: YouTube Shorts (youtube.com/shorts/...)
+- x: X (Twitter) posts or videos (x.com, twitter.com)
+- reddit: Reddit posts or comments (reddit.com)
+- github: GitHub repositories, issues, PRs, code files (github.com)
+- instagram: Instagram posts or reels (instagram.com)
+- tiktok: TikTok videos (tiktok.com)
+- linkedin: LinkedIn posts or articles (linkedin.com)
+- threads: Threads posts (threads.net)
+- facebook: Facebook posts or videos (facebook.com)
+- amazon: Amazon product pages (amazon.com)
 - image: Image galleries or standalone images
+- pdf: PDF documents
+- audio: Audio files or music pages
 - podcast: Podcast episodes or shows
 - course: Online courses or educational content
 - book: Book pages or book retailers
+- movie: Movie pages (IMDb, Letterboxd, etc.)
+- tv_show: TV show pages (IMDb, Rotten Tomatoes, etc.)
+- note: A user-authored note page (only if clearly a note editor)
 - bookmark: None of the above - generic web page
 
 Rules:
-1. If it's clearly a product for sale → product
-2. If it's an article, blog post, or news → article
-3. If it's educational course content → course
-4. If it's a book or about books → book
-5. If none of the above apply → bookmark
+1. YouTube (youtube.com, youtu.be, m.youtube.com, music.youtube.com):
+   - If it's a Shorts URL (path contains /shorts/) → 'youtube_short'
+   - Otherwise → 'youtube'
+2. X/Twitter (x.com, twitter.com) → 'x' (not 'video')
+3. Reddit (reddit.com) → 'reddit'
+4. GitHub (github.com) → 'github'
+5. Instagram (instagram.com) → 'instagram'
+6. TikTok (tiktok.com) → 'tiktok'
+7. LinkedIn (linkedin.com) → 'linkedin'
+8. Threads (threads.net) → 'threads'
+9. Facebook (facebook.com) → 'facebook'
+10. Amazon (amazon.com, smile.amazon.com) → 'amazon' if a product page
+11. If it's clearly a product for sale → product
+12. If it's an article, blog post, or news → article
+13. If it's a non-YouTube video platform (Vimeo, Dailymotion, etc.) → video
+14. If it's educational course content → course
+15. If it's a book or about books → book
+16. Only use 'note' if it unmistakably represents a user-authored note/editor page; otherwise do not use 'note'
+17. If none of the above apply → bookmark
+
+CRITICAL: If the URL contains youtube.com or youtu.be, you MUST return 'youtube'/'youtube_short' accordingly. If it contains x.com or twitter.com, you MUST return 'x'.
 
 Return ONLY the content type, nothing else.`;
 
@@ -88,14 +120,30 @@ Return ONLY the content type, nothing else.`;
 
     // Validate the response is a valid content type
     const validTypes: ContentType[] = [
-      'product',
-      'article',
-      'video',
-      'image',
-      'podcast',
-      'course',
-      'book',
       'bookmark',
+      'youtube',
+      'youtube_short',
+      'x',
+      'github',
+      'instagram',
+      'facebook',
+      'threads',
+      'tiktok',
+      'reddit',
+      'amazon',
+      'linkedin',
+      'image',
+      'pdf',
+      'video',
+      'audio',
+      'podcast',
+      'note',
+      'article',
+      'product',
+      'book',
+      'course',
+      'movie',
+      'tv_show',
     ];
 
     if (classification && validTypes.includes(classification as ContentType)) {
