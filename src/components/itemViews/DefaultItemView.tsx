@@ -15,10 +15,8 @@ import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
-import { VideoTranscript, ImageDescription } from '../../types';
-import uuid from 'react-native-uuid';
+import { ImageDescription } from '../../types';
 import { WebView } from 'react-native-webview';
 import Animated, {
   useSharedValue,
@@ -37,8 +35,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import { getYouTubeTranscript } from '../../services/youtube';
-import { getXVideoTranscript } from '../../services/twitter';
+ 
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -110,13 +107,7 @@ const DefaultItemView = observer(({
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
-  const [transcript, setTranscript] = useState<string>('');
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
-  const [transcriptExists, setTranscriptExists] = useState(false);
-  const [transcriptStats, setTranscriptStats] = useState({ chars: 0, words: 0, readTime: 0 });
-  const transcriptOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(1);
+  
 
   // Image descriptions state
   const [imageDescriptions, setImageDescriptions] = useState<ImageDescription[]>([]);
@@ -197,47 +188,9 @@ const DefaultItemView = observer(({
     }
   });
 
-  const calculateTranscriptStats = (text: string) => {
-    const chars = text.length;
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    const readTime = Math.ceil(words / 200); // Average reading speed: 200 words per minute
-    return { chars, words, readTime };
-  };
+  
 
-  const checkForExistingTranscript = async (itemId: string) => {
-    try {
-      console.log('Checking for existing transcript for item:', itemId);
-
-      // Check local store for transcript
-      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemId);
-
-      if (existingTranscript) {
-        console.log('Found transcript in local store, length:', existingTranscript.transcript?.length);
-        const transcriptText = existingTranscript.transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-        transcriptOpacity.value = 1;
-        buttonOpacity.value = 0;
-        return;
-      }
-
-      // No transcript found
-      console.log('No existing transcript found for item:', itemId);
-      setTranscript('');
-      setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
-      setTranscriptExists(false);
-      transcriptOpacity.value = 0;
-      buttonOpacity.value = 1;
-    } catch (error) {
-      console.error('Error checking for transcript:', error);
-      // Set default state on error
-      setTranscript('');
-      setTranscriptExists(false);
-      transcriptOpacity.value = 0;
-      buttonOpacity.value = 1;
-    }
-  };
+  
 
   useEffect(() => {
     console.log('📄 [DefaultItemView] useEffect - item changed:', item?.title || 'null');
@@ -283,10 +236,7 @@ const DefaultItemView = observer(({
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
 
-      // Check for existing transcript if YouTube video or short, or X video
-      if (item.content_type === 'youtube' || item.content_type === 'youtube_short' || (item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id))) {
-        checkForExistingTranscript(item.id);
-      }
+      
 
       // Check for existing image descriptions if item has images
       const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
@@ -333,33 +283,7 @@ const DefaultItemView = observer(({
     }
   }, [itemToDisplay?.id, imageDescriptionsComputed.descriptions()]);
 
-  // Watch for changes in video transcripts store to update UI state
-  useEffect(() => {
-    if (itemToDisplay) {
-      // Access the observable to establish reactivity
-      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemToDisplay.id);
-
-      if (existingTranscript && existingTranscript.transcript) {
-        console.log('📄 [DefaultItemView] Transcript detected in store, length:', existingTranscript.transcript.length);
-        const transcriptText = existingTranscript.transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-
-        // Animate transition from button to dropdown
-        buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
-          transcriptOpacity.value = withTiming(1, { duration: 150 });
-        });
-      } else {
-        // Reset to button state if transcript was removed
-        setTranscript('');
-        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
-        setTranscriptExists(false);
-        transcriptOpacity.value = 0;
-        buttonOpacity.value = 1;
-      }
-    }
-  }, [itemToDisplay?.id, videoTranscriptsComputed.transcripts()]);
+  
 
   // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
@@ -441,12 +365,28 @@ const DefaultItemView = observer(({
           throw new Error('Invalid YouTube URL');
         }
         const videoId = videoIdMatch[1];
-
-        // Fetch transcript from YouTube
-        const result = await getYouTubeTranscript(videoId);
-        fetchedTranscript = result.transcript;
-        language = result.language;
-        platform = 'youtube';
+        const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+        console.log('[Transcript] Source preference:', sourcePref);
+        if (sourcePref === 'serpapi') {
+          const result = await serpapi.fetchYouTubeTranscript(itemToDisplay.url!);
+          if ((result as any)?.error) {
+            console.warn('[Transcript] SerpAPI failed, falling back to youtubei.js:', (result as any).error);
+            const yt = await getYouTubeTranscript(videoId);
+            fetchedTranscript = yt.transcript;
+            language = yt.language;
+            platform = 'youtube';
+          } else {
+            fetchedTranscript = (result as any).transcript;
+            language = (result as any).language || 'en';
+            platform = 'youtube';
+          }
+        } else {
+          console.log('[Transcript] Using youtubei.js');
+          const result = await getYouTubeTranscript(videoId);
+          fetchedTranscript = result.transcript;
+          language = result.language;
+          platform = 'youtube';
+        }
       } else if (isXVideo) {
         // Get video URL from metadata for X posts
         const videoUrl = itemTypeMetadataComputed.getVideoUrl(itemToDisplay.id);
@@ -1214,73 +1154,7 @@ const DefaultItemView = observer(({
           </View>
         )}
 
-        {/* Transcript Section (for YouTube, YouTube Shorts, and X Videos) */}
-        {((itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') || (itemToDisplay?.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(itemToDisplay.id))) && (
-          <View style={styles.transcriptSection}>
-            <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
-              TRANSCRIPT
-            </Text>
-
-            {/* Show button or dropdown based on transcript existence */}
-            {!transcriptExists ? (
-              <Animated.View style={{ opacity: buttonOpacity }}>
-                <TouchableOpacity
-                  style={[
-                    styles.transcriptGenerateButton,
-                    (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) && styles.transcriptGenerateButtonDisabled,
-                    isDarkMode && styles.transcriptGenerateButtonDark
-                  ]}
-                  onPress={generateTranscript}
-                  disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.transcriptGenerateButtonText}>
-                    {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) ? '⏳ Processing...' : '⚡ Generate'}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-            ) : (
-              <Animated.View style={{ opacity: transcriptOpacity }}>
-                <TouchableOpacity
-                  style={[styles.transcriptSelector, isDarkMode && styles.transcriptSelectorDark]}
-                  onPress={() => setShowTranscript(!showTranscript)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
-                    {showTranscript ? 'Hide Transcript' : 'View Transcript'}
-                  </Text>
-                  <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                    {showTranscript ? '▲' : '▼'}
-                  </Text>
-                </TouchableOpacity>
-
-                {showTranscript && (
-                  <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
-                    <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
-                      <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
-                        {transcript}
-                      </Text>
-                    </ScrollView>
-                    <TouchableOpacity
-                      style={styles.transcriptCopyButton}
-                      onPress={copyTranscriptToClipboard}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.transcriptCopyButtonText}>📋</Text>
-                    </TouchableOpacity>
-
-                    {/* Sticky Footer with Stats */}
-                    <View style={[styles.transcriptFooter, isDarkMode && styles.transcriptFooterDark]}>
-                      <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
-                        {transcriptStats.chars.toLocaleString()} chars • {transcriptStats.words.toLocaleString()} words • ~{transcriptStats.readTime} min read
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </Animated.View>
-            )}
-          </View>
-        )}
+      {/* Transcript Section removed from DefaultItemView (handled in type-specific views) */}
 
         {/* Primary Action */}
         <TouchableOpacity

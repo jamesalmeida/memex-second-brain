@@ -177,6 +177,32 @@ const AdminSheet = observer(
             </View>
           </View>
 
+          {/* YouTube Transcript Source */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>YouTube Transcript Source</Text>
+            </View>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Source</Text>
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeTranscriptSource('youtubei')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeTranscriptSource.get() === 'youtubei' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeTranscriptSource.get() === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeTranscriptSource('serpapi')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeTranscriptSource.get() === 'serpapi' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeTranscriptSource.get() === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
           {/* SerpAPI Status Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>

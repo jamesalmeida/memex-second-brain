@@ -5,10 +5,12 @@ const STORAGE_KEY = 'admin_prefs_v1';
 
 interface AdminPrefsState {
   youtubeSource: 'youtubei' | 'serpapi';
+  youtubeTranscriptSource: 'youtubei' | 'serpapi';
 }
 
 const initialState: AdminPrefsState = {
   youtubeSource: 'youtubei',
+  youtubeTranscriptSource: 'youtubei',
 };
 
 export const adminPrefsStore = observable<AdminPrefsState>(initialState);
@@ -22,17 +24,27 @@ export const adminPrefsActions = {
         if (parsed.youtubeSource === 'youtubei' || parsed.youtubeSource === 'serpapi') {
           adminPrefsStore.youtubeSource.set(parsed.youtubeSource);
         }
+        if (parsed.youtubeTranscriptSource === 'youtubei' || parsed.youtubeTranscriptSource === 'serpapi') {
+          adminPrefsStore.youtubeTranscriptSource.set(parsed.youtubeTranscriptSource);
+        }
       }
     } catch {}
   },
   save: async () => {
     try {
-      const data = { youtubeSource: adminPrefsStore.youtubeSource.get() };
+      const data = {
+        youtubeSource: adminPrefsStore.youtubeSource.get(),
+        youtubeTranscriptSource: adminPrefsStore.youtubeTranscriptSource.get(),
+      };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch {}
   },
   setYouTubeSource: async (src: 'youtubei' | 'serpapi') => {
     adminPrefsStore.youtubeSource.set(src);
+    await adminPrefsActions.save();
+  },
+  setYouTubeTranscriptSource: async (src: 'youtubei' | 'serpapi') => {
+    adminPrefsStore.youtubeTranscriptSource.set(src);
     await adminPrefsActions.save();
   },
 };

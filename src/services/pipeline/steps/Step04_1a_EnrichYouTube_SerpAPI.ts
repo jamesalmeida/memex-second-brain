@@ -27,6 +27,19 @@ export const Step04_1a_EnrichYouTube_SerpAPI: Step = async ({ itemId, url, prefe
   if (!video) return;
 
   const thumbnail = video.thumbnails?.[0]?.url || video.thumbnail?.static || video.thumbnail?.rich || video.thumbnail || (video.thumbnail_url) || item.thumbnail_url;
+
+  const normalizeDate = (value: any): string | undefined => {
+    if (!value || typeof value !== 'string') return undefined;
+    // Strip common prefixes from YouTube/SerpAPI
+    const cleaned = value.replace(/^Premiered\s+/i, '').replace(/^Streamed\s+/i, '');
+    const d = new Date(cleaned);
+    if (isNaN(d.getTime())) return undefined;
+    // Return YYYY-MM-DD for Postgres date type compatibility
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
   await itemsActions.updateItemWithSync(itemId, {
     title: video.title || item.title,
     desc: video.description || video.snippet || item.desc,
@@ -36,7 +49,7 @@ export const Step04_1a_EnrichYouTube_SerpAPI: Step = async ({ itemId, url, prefe
   await itemMetadataActions.upsertMetadata({
     item_id: itemId,
     author: video.channel?.name || video.channel?.title || video.author,
-    published_date: video.upload_date || video.date || video.published_date || undefined,
+    published_date: normalizeDate(video.upload_date || video.date || video.published_date),
   });
 
   await itemTypeMetadataActions.upsertTypeMetadata({

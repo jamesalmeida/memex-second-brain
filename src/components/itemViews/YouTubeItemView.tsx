@@ -35,6 +35,8 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
+import { serpapi } from '../../services/serpapi';
+import { adminPrefsStore } from '../../stores/adminPrefs';
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -263,9 +265,27 @@ const YouTubeItemView = observer(({
       }
       const videoId = videoIdMatch[1];
 
-      const result = await getYouTubeTranscript(videoId);
-      const fetchedTranscript = result.transcript;
-      const language = result.language;
+      const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+      console.log('[YouTubeItemView][Transcript] Source preference:', sourcePref);
+      let fetchedTranscript: string;
+      let language: string;
+      if (sourcePref === 'serpapi') {
+        const res = await serpapi.fetchYouTubeTranscript(itemToDisplay.url!);
+        if ((res as any)?.error) {
+          console.warn('[YouTubeItemView][Transcript] SerpAPI failed, falling back to youtubei.js:', (res as any).error);
+          const yt = await getYouTubeTranscript(videoId);
+          fetchedTranscript = yt.transcript;
+          language = yt.language;
+        } else {
+          fetchedTranscript = (res as any).transcript;
+          language = (res as any).language || 'en';
+        }
+      } else {
+        console.log('[YouTubeItemView][Transcript] Using youtubei.js');
+        const yt = await getYouTubeTranscript(videoId);
+        fetchedTranscript = yt.transcript;
+        language = yt.language;
+      }
 
       const transcriptData: VideoTranscript = {
         id: uuid.v4() as string,
