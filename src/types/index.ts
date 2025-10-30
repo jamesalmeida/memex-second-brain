@@ -207,7 +207,7 @@ export interface SearchFilters {
   isArchived?: boolean;
 }
 
-export type RadialActionId = 'chat' | 'share' | 'archive' | 'delete' | 'move';
+export type RadialActionId = 'chat' | 'share' | 'archive' | 'unarchive' | 'delete' | 'move';
 
 export interface UserSettings {
   id: string;

@@ -10,7 +10,7 @@ import Animated, {
   Easing,
   interpolateColor,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
@@ -25,7 +25,8 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface ActionButton {
   id: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
+  iconLibrary?: 'ionicons' | 'material'; // Default: ionicons
   color: string;
   action: (item: Item) => void | Promise<void>;
 }
@@ -171,11 +172,19 @@ const RadialButton: React.FC<{
       ]}
       pointerEvents="none"
     >
-      <Ionicons
-        name={button.icon}
-        size={isHovered ? 30 : 24}
-        color={isHovered ? '#3A3A3C' : '#FFFFFF'}
-      />
+      {button.iconLibrary === 'material' ? (
+        <MaterialIcons
+          name={button.icon as any}
+          size={isHovered ? 30 : 24}
+          color={isHovered ? '#3A3A3C' : '#FFFFFF'}
+        />
+      ) : (
+        <Ionicons
+          name={button.icon as any}
+          size={isHovered ? 30 : 24}
+          color={isHovered ? '#3A3A3C' : '#FFFFFF'}
+        />
+      )}
     </Animated.View>
   );
 };
@@ -283,6 +292,29 @@ const RadialMenuOverlay = observer(({
         }
       },
     },
+    unarchive: {
+      id: 'unarchive',
+      label: 'Unarchive',
+      icon: 'unarchive',
+      iconLibrary: 'material',
+      color: '#34C759',
+      action: async (item: Item) => {
+        console.log('📂 UNARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.unarchiveItemWithSync(item.id);
+          showToast({
+            message: 'Item unarchived successfully',
+            type: 'success',
+          });
+        } catch (error) {
+          console.error('📂 Error unarchiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to unarchive item',
+            type: 'error',
+          });
+        }
+      },
+    },
     delete: {
       id: 'delete',
       label: 'Delete',
@@ -326,7 +358,11 @@ const RadialMenuOverlay = observer(({
   };
 
   // Filter actions based on user configuration
-  const actionButtons: ActionButton[] = configuredActionIds.map(id => allActions[id]);
+  // Replace 'archive' with 'unarchive' if item is archived (manually or auto-archived)
+  const adjustedActionIds = configuredActionIds.map(id =>
+    id === 'archive' && item?.is_archived ? 'unarchive' : id
+  );
+  const actionButtons: ActionButton[] = adjustedActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
@@ -539,6 +575,29 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       },
     },
+    unarchive: {
+      id: 'unarchive',
+      label: 'Unarchive',
+      icon: 'unarchive',
+      iconLibrary: 'material',
+      color: '#34C759',
+      action: async (item: Item) => {
+        console.log('📂 UNARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.unarchiveItemWithSync(item.id);
+          showToast({
+            message: 'Item unarchived successfully',
+            type: 'success',
+          });
+        } catch (error) {
+          console.error('📂 Error unarchiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to unarchive item',
+            type: 'error',
+          });
+        }
+      },
+    },
     delete: {
       id: 'delete',
       label: 'Delete',
@@ -582,7 +641,11 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Filter actions based on user configuration
-  const actionButtons: ActionButton[] = configuredActionIds.map(id => allActions[id]);
+  // Replace 'archive' with 'unarchive' if item is archived (manually or auto-archived)
+  const adjustedActionIds = configuredActionIds.map(id =>
+    id === 'archive' && item?.is_archived ? 'unarchive' : id
+  );
+  const actionButtons: ActionButton[] = adjustedActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];

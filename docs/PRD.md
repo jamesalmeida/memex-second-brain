@@ -64,15 +64,17 @@
   - **Available Actions**:
     - **Chat**: Opens AI chat with item as context (expands item card + opens chat sheet)
     - **Share**: Opens native share sheet with item URL and title
-    - **Archive**: Moves item to archive (soft archive with `is_archived=true`)
-    - **Delete**: Soft-deletes item (tombstone pattern with `is_deleted=true`)
+    - **Archive**: Moves item to archive (soft archive with `is_archived=true`). Dynamically becomes "Unarchive" when long-pressing an archived item.
+    - **Unarchive**: Restores archived item to active state (sets `is_archived=false`, `auto_archived=false`). Automatically replaces "Archive" button when item is archived (both manually archived and auto-archived from space archive).
+    - **Delete**: Soft-deletes item (tombstone pattern with `is_deleted=true`), requires confirmation alert
     - **Move to Space**: Opens SpaceSelectorModal to reassign item to different space
   - **Configuration**:
     - Users can customize which 3 actions appear in menu via "Configure Action Button" in drawer
     - Default actions: Chat, Share, Archive
     - Selection range: 1-3 actions (enforced by ActionMenuConfigModal)
     - Configuration stored in `User_Settings.ui_radial_actions` and syncs across devices
-    - ActionMenuConfigModal displays all 5 available actions with descriptions, icons, and selection indicators
+    - ActionMenuConfigModal displays all 5 configurable actions (Chat, Share, Archive/Unarchive, Delete, Move) with descriptions, icons, and selection indicators
+    - Note: Archive and Unarchive are treated as one configurable action that dynamically switches based on item state
   - **Implementation**:
     - Context: `RadialMenuContext` manages menu state, touch tracking, and action execution
     - Wrapper: `RadialActionMenu` component wraps each item card with touch responders
@@ -264,8 +266,9 @@
     - UI: `ui_x_video_muted`, `ui_autoplay_x_videos`, `ui_radial_actions` - Video playback and quick action menu preferences
   - Radial Action Menu Configuration:
     - `ui_radial_actions` stores an ordered array of up to 3 action IDs that appear in the long-press radial menu
-    - Available actions: 'chat' (open AI chat), 'share' (share item URL), 'archive' (move to archive), 'delete' (soft delete item), 'move' (move to different space)
+    - Available actions: 'chat' (open AI chat), 'share' (share item URL), 'archive' (move to archive / unarchive if already archived), 'delete' (soft delete item), 'move' (move to different space)
     - Default actions: ['chat', 'share', 'archive']
+    - Note: When user configures 'archive', the menu automatically shows 'unarchive' button when long-pressing an archived item (both `is_archived=true` and `auto_archived=true` cases)
     - Users configure via "Configure Action Button" option in drawer menu
     - Configuration modal (ActionMenuConfigModal) allows selecting 1-3 actions with visual ordering indicators
     - Changes sync instantly across devices via Supabase real-time updates
