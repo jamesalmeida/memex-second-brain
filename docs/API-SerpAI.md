@@ -1,3 +1,42 @@
+# Account API
+Account API allows you to check the number of searches you made in this month, your plan's monthly limit, your plan's monthly searches left, your account's hourly throughput limit, and if you have an account with no monthly plan then you can also check the remaining credits. Account API is free of charge, and using it will not be counted toward your monthly quota.
+
+You can query https://serpapi.com/account.json using a GET request with these parameters:
+
+## API Parameters
+api_key
+
+Required
+
+Parameter is your SerpApi private key. You should be able to retrieve it inside the 'Your Account' tab.
+
+## API Examples
+Account API example
+GET
+
+
+https://serpapi.com/account?api_key=SECRET_API_KEY
+                
+## JSON Example
+
+{
+  "account_id": "5ac54d6adefb2f1dba1663f5",
+  "api_key": "SECRET_API_KEY",
+  "account_email": "demo@serpapi.com",
+  "plan_id": "bigdata",
+  "plan_name": "Big Data Plan",
+  "plan_monthly_price": 250.0,
+  "searches_per_month": 30000,
+  "plan_searches_left": 5958,
+  "extra_credits": 0,
+  "total_searches_left": 5958,
+  "this_month_usage": 24042,
+  "last_hour_searches": 42,
+  "account_rate_limit_per_hour": 6000
+}
+
+
+
 ## YouTube Video API
 YouTube Video API allows scraping video details (description, view count, related videos, comments, replies, etc.).
 

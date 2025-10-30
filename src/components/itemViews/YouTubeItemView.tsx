@@ -37,6 +37,7 @@ import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { serpapi } from '../../services/serpapi';
 import { adminPrefsStore } from '../../stores/adminPrefs';
+import { trackApiUsage } from '../../services/apiUsageTracking';
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -288,6 +289,8 @@ const YouTubeItemView = observer(({
             fetchedTranscript = (res as any).transcript;
             language = (res as any).language || 'en';
             segments = (res as any).segments;
+            // Track API usage for successful transcript generation
+            await trackApiUsage('serpapi', 'youtube_transcript', itemToDisplay.id);
         }
       } else {
         console.log('[YouTubeItemView][Transcript] Using youtubei.js');

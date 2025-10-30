@@ -2,14 +2,24 @@ import { API_CONFIG } from '../config/api';
 
 export interface SerpApiAccount {
   account_id?: string;
-  email?: string;
+  account_email?: string;
+  api_key?: string;
+  plan_id?: string;
   plan_name?: string;
+  plan_monthly_price?: number;
+  searches_per_month?: number;
+  plan_searches_left?: number;
+  extra_credits?: number;
+  total_searches_left?: number;
   this_month_usage?: number;
+  last_hour_searches?: number;
+  account_rate_limit_per_hour?: number;
+  // Legacy fields for backwards compatibility
+  email?: string;
   this_month_limit?: number | null;
   this_month_left?: number | null;
   hourly_search_limit?: number | null;
   credits_left?: number | null;
-  api_key?: string;
 }
 
 export interface SerpApiError {

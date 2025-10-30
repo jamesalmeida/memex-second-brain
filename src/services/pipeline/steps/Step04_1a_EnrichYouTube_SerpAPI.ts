@@ -4,6 +4,7 @@ import { itemMetadataActions } from '../../../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
 import { serpapi } from '../../../services/serpapi';
 import { adminPrefsStore } from '../../../stores/adminPrefs';
+import { trackApiUsage } from '../../../services/apiUsageTracking';
 
 export const Step04_1a_EnrichYouTube_SerpAPI: Step = async ({ itemId, url, preferences }) => {
   const item = itemsStore.items.get().find(i => i.id === itemId);
@@ -17,6 +18,9 @@ export const Step04_1a_EnrichYouTube_SerpAPI: Step = async ({ itemId, url, prefe
     console.warn('[YouTube_SerpAPI] Skipping due to error:', (res as any).error);
     return;
   }
+
+  // Track API usage for successful enrichment
+  await trackApiUsage('serpapi', 'youtube_enrichment', itemId);
 
   // Map fields from youtube_video engine or fallback youtube search
   const video = ((): any => {

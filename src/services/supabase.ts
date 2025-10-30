@@ -257,6 +257,73 @@ export const db = {
     return { error };
   },
 
+  // API Usage Tracking
+  saveApiUsage: async (usage: {
+    api_name: string;
+    operation_type: string;
+    item_id?: string;
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: { message: 'User not authenticated' } };
+    }
+
+    const { data, error } = await supabase
+      .from('api_usage_tracking')
+      .insert({
+        user_id: user.id,
+        api_name: usage.api_name,
+        operation_type: usage.operation_type,
+        item_id: usage.item_id || null,
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  getApiUsageByMonth: async (apiName: string, year: number, month: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: { message: 'User not authenticated' } };
+    }
+
+    // Get start and end of month in UTC
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const { data, error } = await supabase
+      .from('api_usage_tracking')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('api_name', apiName)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString());
+
+    return { data: data || [], error, count: data?.length || 0 };
+  },
+
+  getCurrentMonthApiUsage: async (apiName: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: { message: 'User not authenticated' }, count: 0 };
+    }
+
+    const now = new Date();
+    const startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+    const endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
+
+    const { data, error } = await supabase
+      .from('api_usage_tracking')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('api_name', apiName)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString());
+
+    return { data: data || [], error, count: data?.length || 0 };
+  },
+
   // Spaces
   getSpaces: async (userId: string) => {
     const { data, error } = await supabase

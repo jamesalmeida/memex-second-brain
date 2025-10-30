@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo, useCallback, useState } from 'react';
+import React, { forwardRef, useMemo, useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,8 @@ const AdminSheet = observer(
       }
       setSerpLoading(true);
       setSerpError(null);
+      
+      // Fetch account status (doesn't count against limit)
       const res = await serpapi.fetchAccount();
       if ((res as SerpApiError).error) {
         setSerpError((res as SerpApiError).error);
@@ -52,8 +54,10 @@ const AdminSheet = observer(
         setSerpAccount(res as SerpApiAccount);
         setSerpLastUpdated(Date.now());
       }
+      
       setSerpLoading(false);
     }, []);
+
 
     // Snap points for the bottom sheet
     const snapPoints = useMemo(() => ['40%'], []);
@@ -92,6 +96,10 @@ const AdminSheet = observer(
             onClose?.();
           } else if (index >= 0) {
             onOpen?.();
+            // Automatically refresh SerpAPI status when sheet opens
+            if (isAPIConfigured.serpapi()) {
+              fetchSerpApiStatus();
+            }
           }
         }}
       >
@@ -233,26 +241,70 @@ const AdminSheet = observer(
               <Text style={[styles.errorText, isDarkMode && styles.errorTextDark]}>{serpError}</Text>
             ) : serpAccount ? (
               <View>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Plan</Text>
-                  <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.plan_name || '—'}</Text>
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>This month</Text>
-                  <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
-                    {serpAccount.this_month_usage ?? 0}/{serpAccount.this_month_limit ?? '∞'} used ({serpAccount.this_month_left ?? '∞'} left)
-                  </Text>
-                </View>
-                {typeof serpAccount.hourly_search_limit !== 'undefined' && serpAccount.hourly_search_limit !== null && (
+                {serpAccount.account_id && (
                   <View style={styles.rowBetween}>
-                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Hourly limit</Text>
-                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.hourly_search_limit}</Text>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Account ID</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.account_id}</Text>
                   </View>
                 )}
-                {typeof serpAccount.credits_left !== 'undefined' && serpAccount.credits_left !== null && (
+                {serpAccount.account_email && (
                   <View style={styles.rowBetween}>
-                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Credits left</Text>
-                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.credits_left}</Text>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Email</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.account_email}</Text>
+                  </View>
+                )}
+                {serpAccount.plan_name && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Plan</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.plan_name}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.plan_monthly_price !== 'undefined' && serpAccount.plan_monthly_price !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Monthly Price</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>${serpAccount.plan_monthly_price.toFixed(2)}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.searches_per_month !== 'undefined' && serpAccount.searches_per_month !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Monthly Limit</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.searches_per_month.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.this_month_usage !== 'undefined' && serpAccount.this_month_usage !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>This Month Usage</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.this_month_usage.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.total_searches_left !== 'undefined' && serpAccount.total_searches_left !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Searches Left</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.total_searches_left.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.plan_searches_left !== 'undefined' && serpAccount.plan_searches_left !== null && serpAccount.plan_searches_left !== serpAccount.total_searches_left && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Plan Searches Left</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.plan_searches_left.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.extra_credits !== 'undefined' && serpAccount.extra_credits !== null && serpAccount.extra_credits > 0 && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Extra Credits</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.extra_credits.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.last_hour_searches !== 'undefined' && serpAccount.last_hour_searches !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Last Hour Searches</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.last_hour_searches}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.account_rate_limit_per_hour !== 'undefined' && serpAccount.account_rate_limit_per_hour !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Hourly Rate Limit</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.account_rate_limit_per_hour.toLocaleString()}</Text>
                   </View>
                 )}
                 {serpLastUpdated && (

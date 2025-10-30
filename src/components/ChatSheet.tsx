@@ -43,6 +43,7 @@ import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
 import { serpapi } from '../services/serpapi';
 import { adminPrefsStore } from '../stores/adminPrefs';
+import { trackApiUsage } from '../services/apiUsageTracking';
 import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
@@ -228,6 +229,8 @@ const ChatSheet = observer(
               
               language = serpTranscript.language || 'en';
               platform = 'youtube';
+              // Track API usage for successful transcript generation
+              await trackApiUsage('serpapi', 'youtube_transcript', item.id);
             } catch (serpError) {
               // Fall back to youtubei.js
               console.log('[ChatSheet][Transcript] Falling back to youtubei.js');

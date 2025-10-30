@@ -15,6 +15,7 @@ import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
 import { serpapi } from '../services/serpapi';
 import { adminPrefsStore } from './adminPrefs';
+import { trackApiUsage } from '../services/apiUsageTracking';
 import uuid from 'react-native-uuid';
 
 interface ItemsState {
@@ -162,6 +163,8 @@ export const itemsActions = {
                 
                 language = serpTranscript.language || 'en';
                 platform = 'youtube';
+                // Track API usage for successful transcript generation
+                await trackApiUsage('serpapi', 'youtube_transcript', item.id);
               } catch (serpError) {
                 // Fall back to youtubei.js
                 console.log('[AutoGen][Transcript] Falling back to youtubei.js');
