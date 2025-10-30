@@ -255,7 +255,7 @@
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
 - **User_Settings**:
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (text[], default ['chat', 'share', 'archive']), `created_at` (timestamp), `updated_at` (timestamp).
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (jsonb, default '["chat", "share", "archive"]'::jsonb), `created_at` (timestamp), `updated_at` (timestamp).
   - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
   - One settings row per user (enforced by unique constraint on `user_id`).
   - Settings categories:
@@ -306,6 +306,7 @@
   - `20251024_enable_realtime.sql` - Enables Supabase real-time replication for items and spaces tables
   - `20251027_add_tldr_and_notes_to_items.sql` - Adds `tldr` and `notes` fields to items table for AI summaries and user annotations
   - `20251028_create_user_settings.sql` - Creates `user_settings` table for cloud-synced user preferences (theme, AI models, UI preferences)
+  - `20251030_add_ui_radial_actions.sql` - Adds `ui_radial_actions` column to `user_settings` table for configurable radial action menu
   - Note: Archive functionality requires `is_archived`, `archived_at`, and `auto_archived` fields added in `20251024_add_archive_and_simplify_spaces.sql`
 
 ## 4. UI/UX Requirements
