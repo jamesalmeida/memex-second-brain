@@ -15,6 +15,7 @@ import { COLORS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
 import { isAPIConfigured } from '../config/api';
+import { adminPrefsStore, adminPrefsActions } from '../stores/adminPrefs';
 
 interface AdminSheetProps {
   onOpen?: () => void;
@@ -147,6 +148,32 @@ const AdminSheet = observer(
                 trackColor={{ false: '#767577', true: COLORS.primary }}
                 thumbColor={showTestToast ? '#fff' : '#f4f3f4'}
               />
+            </View>
+          </View>
+
+          {/* YouTube Enrichment Source */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>YouTube Enrichment Source</Text>
+            </View>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Source</Text>
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeSource('youtubei')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeSource.get() === 'youtubei' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeSource.get() === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeSource('serpapi')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeSource.get() === 'serpapi' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeSource.get() === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -352,6 +379,24 @@ const styles = StyleSheet.create({
   },
   linkTextDark: {
     color: COLORS.primary,
+  },
+  segBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginLeft: 8,
+  },
+  segBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  segBtnText: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: '600',
+  },
+  segBtnTextActive: {
+    color: '#fff',
   },
 });
 

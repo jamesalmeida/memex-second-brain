@@ -3,10 +3,17 @@ import { itemsStore, itemsActions } from '../../../stores/items';
 import { extractYouTubeData } from '../../../services/youtube';
 import { itemMetadataActions } from '../../../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed } from '../../../stores/itemTypeMetadata';
+import { adminPrefsStore } from '../../../stores/adminPrefs';
 
 export const Step04_1_EnrichYouTube: Step = async ({ itemId, url }) => {
   const item = itemsStore.items.get().find(i => i.id === itemId);
   if (item?.content_type !== 'youtube' && item?.content_type !== 'youtube_short') return;
+  // If admin preference is SerpAPI and SerpAPI step enriched, skip youtubei fallback
+  if (adminPrefsStore.youtubeSource.get() === 'serpapi') {
+    const md = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
+    if (md && (md.data as any)?.serpapi_enriched) return;
+  }
   console.log('🎬 [Step04_1_EnrichYouTube] Enriching from YouTube API');
   const data = await extractYouTubeData(url);
   await itemsActions.updateItemWithSync(itemId, {

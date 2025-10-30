@@ -19,6 +19,9 @@ export const Step02_DetectType: Step = async ({ itemId, url }) => {
   else if (/instagram\.com/i.test(lower)) content_type = 'instagram';
   else if (/(tiktok\.com|vm\.tiktok\.com)/i.test(lower)) content_type = 'tiktok';
   else if (/(reddit\.com|redd\.it)/i.test(lower)) content_type = 'reddit';
+  else if (/ebay\.com/i.test(lower)) content_type = 'ebay';
+  else if (/yelp\.com/i.test(lower)) content_type = 'yelp';
+  else if (/apps\.apple\.com/i.test(lower)) content_type = 'app_store';
   else if (/(facebook\.com|fb\.com|fb\.watch)/i.test(lower)) content_type = 'facebook';
   else if (/imdb\.com\/title\//i.test(lower)) content_type = 'movie';
   else if (isAmazonUrl(url)) content_type = 'product';

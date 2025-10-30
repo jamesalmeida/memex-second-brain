@@ -569,6 +569,11 @@ All external API calls are made directly from the client (`src/services/` and `s
   - Used to display API status in `AdminSheet` (`src/components/AdminSheet.tsx`): plan, this month usage/limit/left, hourly limit, credits left
   - Environment variable: `EXPO_PUBLIC_SERPAI_API_KEY`
   - Config entry in `src/config/api.ts` under `API_CONFIG.SERPAPI`
+  - Pipeline enrichment:
+    - `Step04_1a_EnrichYouTube_SerpAPI` (conditional on user preference) enriches YouTube metadata via SerpAPI
+    - `Step04_4_EnrichSerpApiGeneric` enriches supported sites (e.g., eBay, Yelp, Apple App Store)
+    - Supported content types added: `ebay`, `yelp`, `app_store`
+  - User preference: In `AddItemSheet`, a toggle selects YouTube source: `youtubei.js` or `SerpAPI`. Preference is passed through pipeline context.
 
 ### 5.6 Client-side URL Parsing (Linkedom)
 - For basic saves on mobile, the app fetches the target URL directly on-device and parses HTML using `linkedom` (`src/services/linkedomParser.ts`).

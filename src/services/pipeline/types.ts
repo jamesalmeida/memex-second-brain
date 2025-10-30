@@ -3,6 +3,9 @@ import type { Item } from '../../types';
 export interface StepContext {
   itemId: string;
   url: string;
+  preferences?: {
+    youtubeSource?: 'youtubei' | 'serpapi';
+  };
 }
 
 export interface StepResult {
