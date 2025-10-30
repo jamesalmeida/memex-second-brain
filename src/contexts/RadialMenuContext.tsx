@@ -255,7 +255,10 @@ const RadialMenuOverlay = observer(({
       color: '#AF52DE',
       action: (item: Item) => {
         console.log('📁 MOVE button pressed for item:', item.title);
-        onShowMoveToSpaceModal(item);
+        // Delay to let the radial menu modal close first to avoid modal conflicts
+        setTimeout(() => {
+          onShowMoveToSpaceModal(item);
+        }, 300);
       },
     },
     archive: {
@@ -507,8 +510,11 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       color: '#AF52DE',
       action: (item: Item) => {
         console.log('📁 MOVE button pressed for item:', item.title);
-        setItemForMoveToSpace(item);
-        setMoveToSpaceModalVisible(true);
+        // Delay to let the radial menu modal close first to avoid modal conflicts
+        setTimeout(() => {
+          setItemForMoveToSpace(item);
+          setMoveToSpaceModalVisible(true);
+        }, 300);
       },
     },
     archive: {
