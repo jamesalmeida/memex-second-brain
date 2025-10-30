@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Item } from '../types';
 import { formatDate } from '../utils/itemCardHelpers';
@@ -61,8 +61,8 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             {isRefreshing ? (
               <ActivityIndicator size="small" color={isDarkMode ? '#FFFFFF' : '#000000'} />
             ) : (
-              <MaterialIcons
-                name="refresh"
+              <Ionicons
+                name="refresh-outline"
                 size={24}
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
               />
@@ -76,8 +76,8 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={handleCopyUrl}
             activeOpacity={0.7}
           >
-            <MaterialIcons
-              name="content-copy"
+            <Ionicons
+              name="copy-outline"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
             />
@@ -90,8 +90,8 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={onShare}
             activeOpacity={0.7}
           >
-            <MaterialIcons
-              name="share"
+            <Ionicons
+              name="share-outline"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
             />
@@ -116,8 +116,8 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={onArchive}
             activeOpacity={0.7}
           >
-            <MaterialIcons
-              name="archive"
+            <Ionicons
+              name="archive-outline"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
             />
@@ -130,8 +130,8 @@ const ItemViewFooter: React.FC<ItemViewFooterProps> = ({
             onPress={onDelete}
             activeOpacity={0.7}
           >
-            <MaterialIcons
-              name="delete-forever"
+            <Ionicons
+              name="trash-bin-outline"
               size={24}
               color="#FF3B30"
             />
