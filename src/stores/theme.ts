@@ -1,5 +1,6 @@
 import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Appearance } from 'react-native';
 import { STORAGE_KEYS } from '../constants';
 import { userSettingsActions, userSettingsComputed } from './userSettings';
 
@@ -26,6 +27,9 @@ export const themeActions = {
       console.log('🎨 Setting dark mode to:', isDark);
       themeStore.isDarkMode.set(isDark);
 
+      // Set system appearance for native screens (like Legal & Licenses)
+      Appearance.setColorScheme(isDark ? 'dark' : 'light');
+
       // Save to cloud-synced user settings
       await userSettingsActions.updateSetting('theme_dark_mode', isDark);
 
@@ -42,6 +46,8 @@ export const themeActions = {
       console.log('🎨 Clearing theme preference...');
       await AsyncStorage.removeItem(STORAGE_KEYS.THEME);
       themeStore.isDarkMode.set(false);
+      // Reset to system appearance
+      Appearance.setColorScheme(null);
       console.log('🎨 Theme cleared, reset to defaults');
     } catch (error) {
       console.error('Error clearing theme preference:', error);
@@ -62,6 +68,8 @@ export const themeActions = {
       if (isDarkMode !== undefined) {
         console.log('🎨 Loading theme from userSettings:', isDarkMode);
         themeStore.isDarkMode.set(isDarkMode);
+        // Set system appearance for native screens
+        Appearance.setColorScheme(isDarkMode ? 'dark' : 'light');
       } else {
         // Fall back to legacy AsyncStorage
         const saved = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
@@ -70,8 +78,12 @@ export const themeActions = {
           const settings = JSON.parse(saved);
           console.log('🎨 Setting dark mode to:', settings.isDarkMode);
           themeStore.isDarkMode.set(settings.isDarkMode);
+          // Set system appearance for native screens
+          Appearance.setColorScheme(settings.isDarkMode ? 'dark' : 'light');
         } else {
           console.log('🎨 No saved theme preference, using defaults');
+          // Use system appearance when no preference is set
+          Appearance.setColorScheme(null);
         }
       }
     } catch (error) {
