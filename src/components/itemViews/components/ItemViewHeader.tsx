@@ -1,0 +1,139 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextStyle, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
+import * as Haptics from 'expo-haptics';
+import InlineEditableText from '../../InlineEditableText';
+
+interface ItemViewHeaderProps {
+  value: string;
+  onSave: (newValue: string) => Promise<void>;
+  onClose: () => void;
+  isDarkMode: boolean;
+  placeholder?: string;
+  style?: TextStyle;
+}
+
+const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
+  value,
+  onSave,
+  onClose,
+  isDarkMode,
+  placeholder = 'Tap to add title',
+  style,
+}) => {
+  const handleMenuAction = (action: string) => {
+    // Placeholder for future menu actions
+    console.log('Menu action:', action);
+  };
+
+  return (
+    <View style={[styles.header, isDarkMode && styles.headerDark]}>
+      {/* Left: Close button */}
+      <TouchableOpacity
+        onPress={onClose}
+        style={styles.iconButton}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons
+          name="chevron-down"
+          size={28}
+          color={isDarkMode ? '#FFFFFF' : '#000000'}
+        />
+      </TouchableOpacity>
+
+      {/* Center: Editable title */}
+      <View style={styles.titleContainer}>
+        <InlineEditableText
+          value={value}
+          placeholder={placeholder}
+          onSave={onSave}
+          style={[styles.title, isDarkMode && styles.titleDark, style]}
+          isDarkMode={isDarkMode}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        />
+      </View>
+
+      {/* Right: Menu button */}
+      <Host>
+        <ContextMenu>
+          <ContextMenu.Trigger>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name="ellipsis-vertical"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#000000'}
+              />
+            </TouchableOpacity>
+          </ContextMenu.Trigger>
+          <ContextMenu.Items>
+            <Button onPress={() => handleMenuAction('action1')}>
+              Action 1
+            </Button>
+            <Button onPress={() => handleMenuAction('action2')}>
+              Action 2
+            </Button>
+            <Button onPress={() => handleMenuAction('action3')}>
+              Action 3
+            </Button>
+          </ContextMenu.Items>
+        </ContextMenu>
+      </Host>
+    </View>
+  );
+};
+
+export default ItemViewHeader;
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    // paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    // borderBottomWidth: 0,
+    // borderBottomColor: '#E5E5E5',
+    ...Platform.select({
+      ios: {
+        paddingTop: 0,
+      },
+      android: {
+        paddingTop: 0,
+      },
+    }),
+  },
+  headerDark: {
+    backgroundColor: '#1C1C1E',
+    borderBottomColor: '#2C2C2E',
+  },
+  iconButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 36,
+    height: 36,
+  },
+  titleContainer: {
+    flex: 1,
+    marginHorizontal: 8,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
+  },
+  titleDark: {
+    color: '#FFFFFF',
+  },
+});

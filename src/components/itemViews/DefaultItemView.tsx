@@ -34,7 +34,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
@@ -67,6 +67,7 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 
 interface DefaultItemViewProps {
   item: Item | null;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
@@ -79,6 +80,7 @@ interface DefaultItemViewProps {
 
 const DefaultItemView = observer(({
   item,
+  onClose,
   onChat,
   onArchive,
   onUnarchive,
@@ -648,6 +650,19 @@ const DefaultItemView = observer(({
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <ItemViewHeader
+        value={itemToDisplay?.title || ''}
+        onSave={async (newTitle) => {
+          if (!itemToDisplay) return;
+          await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+        }}
+        onClose={() => onClose?.()}
+        isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
+      />
+
       {/* Hero Media Section */}
       <HeroMediaSection
         item={itemToDisplay!}
@@ -671,18 +686,6 @@ const DefaultItemView = observer(({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata (inline editable title) */}
-        <InlineEditableText
-          value={itemToDisplay?.title || ''}
-          placeholder="Tap to add title"
-          onSave={async (newTitle) => {
-            if (!itemToDisplay) return;
-            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
-            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
-          }}
-          style={[styles.title, isDarkMode && styles.titleDark]}
-          isDarkMode={isDarkMode}
-        />
 
         <View style={styles.metadata}>
           {getDomain() && (

@@ -30,7 +30,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({ item, isDarkMode, onNotesCh
         onSave={handleSaveNotes}
         style={[styles.notesText, isDarkMode && styles.notesTextDark]}
         multiline
-        minLines={4}
+        maxLines={4}
         isDarkMode={isDarkMode}
       />
     </View>

@@ -38,7 +38,7 @@ import { getYouTubeTranscript } from '../../services/youtube';
 import { serpapi } from '../../services/serpapi';
 import { adminPrefsStore } from '../../stores/adminPrefs';
 import { trackApiUsage } from '../../services/apiUsageTracking';
-import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
@@ -75,6 +75,7 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 
 interface YouTubeItemViewProps {
   item: Item | null;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
@@ -87,6 +88,7 @@ interface YouTubeItemViewProps {
 
 const YouTubeItemView = observer(({
   item,
+  onClose,
   onChat,
   onArchive,
   onUnarchive,
@@ -550,6 +552,18 @@ const YouTubeItemView = observer(({
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <ItemViewHeader
+        value={itemToDisplay?.title || ''}
+        onSave={async (newTitle) => {
+          await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+        }}
+        onClose={() => onClose?.()}
+        isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
+      />
+
       {/* YouTube Video Embed */}
       {getYouTubeVideoId(itemToDisplay?.url) && (
         console.log('🔍 [YouTubeItemView] YouTube video ID:', getYouTubeVideoId(itemToDisplay.url)),
@@ -577,18 +591,7 @@ const YouTubeItemView = observer(({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata (inline editable) */}
-        <InlineEditableText
-          value={itemToDisplay?.title || ''}
-          placeholder="Tap to add title"
-          onSave={async (newTitle) => {
-            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
-            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
-          }}
-          style={[styles.title, isDarkMode && styles.titleDark]}
-          isDarkMode={isDarkMode}
-        />
-
+        {/* Metadata */}
         <View style={styles.metadata}>
           {getDomain() && (
             <View style={styles.metaItem}>

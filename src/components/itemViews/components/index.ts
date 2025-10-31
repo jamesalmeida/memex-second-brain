@@ -2,6 +2,7 @@
 // This file provides a centralized location to import all reusable ItemView components
 
 export { default as SectionHeader } from './SectionHeader';
+export { default as ItemViewHeader } from './ItemViewHeader';
 export { default as ItemViewTitle } from './ItemViewTitle';
 export { default as ItemViewDescription } from './ItemViewDescription';
 export { default as ItemViewTldr } from './ItemViewTldr';
