@@ -15,7 +15,6 @@ import { COLORS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
 import { isAPIConfigured } from '../config/api';
-import { adminPrefsStore, adminPrefsActions } from '../stores/adminPrefs';
 import { adminSettingsStore, adminSettingsActions } from '../stores/adminSettings';
 
 interface AdminSheetProps {

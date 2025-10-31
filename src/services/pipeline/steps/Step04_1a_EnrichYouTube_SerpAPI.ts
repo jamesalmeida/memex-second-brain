@@ -3,13 +3,13 @@ import { itemsStore, itemsActions } from '../../../stores/items';
 import { itemMetadataActions } from '../../../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
 import { serpapi } from '../../../services/serpapi';
-import { adminPrefsStore } from '../../../stores/adminPrefs';
+import { adminSettingsComputed } from '../../../stores/adminSettings';
 import { trackApiUsage } from '../../../services/apiUsageTracking';
 
 export const Step04_1a_EnrichYouTube_SerpAPI: Step = async ({ itemId, url, preferences }) => {
   const item = itemsStore.items.get().find(i => i.id === itemId);
   if (!item || (item.content_type !== 'youtube' && item.content_type !== 'youtube_short')) return;
-  const sourcePref = preferences?.youtubeSource || adminPrefsStore.youtubeSource.get();
+  const sourcePref = preferences?.youtubeSource || adminSettingsComputed.youtubeSource();
   if (sourcePref !== 'serpapi') return;
 
   console.log('🎬 [Step04_1a_EnrichYouTube_SerpAPI] Enriching YouTube via SerpAPI');

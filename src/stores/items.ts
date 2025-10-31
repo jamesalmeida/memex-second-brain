@@ -14,7 +14,6 @@ import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
 import { serpapi } from '../services/serpapi';
-import { adminPrefsStore } from './adminPrefs';
 import { adminSettingsComputed } from './adminSettings';
 import { trackApiUsage } from '../services/apiUsageTracking';
 import uuid from 'react-native-uuid';
@@ -129,7 +128,7 @@ export const itemsActions = {
             const videoId = videoIdMatch[1];
 
             // Check admin preference for transcript source
-            const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+            const sourcePref = adminSettingsComputed.youtubeTranscriptSource();
             console.log('[AutoGen][Transcript] Source preference:', sourcePref);
 
             if (sourcePref === 'serpapi') {

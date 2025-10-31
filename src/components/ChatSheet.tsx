@@ -42,7 +42,7 @@ import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
 import { serpapi } from '../services/serpapi';
-import { adminPrefsStore } from '../stores/adminPrefs';
+import { adminSettingsComputed } from '../stores/adminSettings';
 import { trackApiUsage } from '../services/apiUsageTracking';
 import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
@@ -173,7 +173,7 @@ const ChatSheet = observer(
           const videoId = videoIdMatch[1];
 
           // Check admin preference for transcript source
-          const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+          const sourcePref = adminSettingsComputed.youtubeTranscriptSource();
           console.log('[ChatSheet][Auto-Fetch] Transcript source preference:', sourcePref);
 
           if (sourcePref === 'serpapi') {
