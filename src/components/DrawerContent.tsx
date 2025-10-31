@@ -205,6 +205,22 @@ const DrawerContentInner = observer(() => {
                   Configure Action Button
                 </Text>
               </TouchableOpacity>
+
+              {/* Admin button */}
+              <TouchableOpacity
+                style={[styles.menuItem, { marginTop: 12 }]}
+                onPress={onAdminPress}
+              >
+                <MaterialIcons
+                  name="build"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Admin
+                </Text>
+              </TouchableOpacity>
+
             </View>
 
             {/* <View style={[styles.divider, isDarkMode && styles.dividerDark]} /> */}
@@ -278,22 +294,6 @@ const DrawerContentInner = observer(() => {
               </View>
             </View>
 
-            {/* Admin button */}
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={[styles.menuItem, { marginTop: 12 }]}
-                onPress={onAdminPress}
-              >
-                <MaterialIcons
-                  name="build"
-                  size={24}
-                  color={isDarkMode ? '#FFFFFF' : '#000000'}
-                />
-                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
-                  Admin
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
         )}
         onDragEnd={({ data }) => {

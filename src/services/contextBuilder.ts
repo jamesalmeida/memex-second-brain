@@ -143,9 +143,26 @@ export const buildItemContext = (item: Item): ContextResult => {
   const transcript = videoTranscriptsComputed.getTranscriptByItemId(item.id);
   if (transcript) {
     hasTranscript = true;
-    const transcriptWords = transcript.transcript.split(/\s+/).length;
+    // Prefer timestamped format from segments if available (enables LLM to reference timestamps)
+    // Otherwise, use stored transcript as-is (may have timestamps or be plain text)
+    let transcriptText: string;
+    if (transcript.segments && transcript.segments.length > 0) {
+      // Use timestamped format from segments (enables LLM to tell us where in video something was said)
+      transcriptText = transcript.segments
+        .map((s) => {
+          const mm = Math.floor(s.startMs / 60000);
+          const ss = Math.floor((s.startMs % 60000) / 1000);
+          const ts = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+          return `[${ts}] ${s.text}`;
+        })
+        .join('\n');
+    } else {
+      // Use stored transcript as-is (may have timestamps or be plain text)
+      transcriptText = transcript.transcript;
+    }
+    const transcriptWords = transcriptText.split(/\s+/).length;
     contextParts.push(`\n--- Video Transcript (${transcriptWords} words) ---`);
-    contextParts.push(transcript.transcript);
+    contextParts.push(transcriptText);
     contextParts.push('--- End Transcript ---\n');
     includedFields.push('transcript');
   }

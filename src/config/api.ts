@@ -42,6 +42,13 @@ export const API_CONFIG = {
     ACCESS_TOKEN: process.env.EXPO_PUBLIC_META_ACCESS_TOKEN || '',
     BASE_URL: 'https://graph.facebook.com/v22.0',
   },
+  
+  // SerpAPI (Account API and search endpoints)
+  SERPAPI: {
+    // Note: variable name per project setup
+    API_KEY: process.env.EXPO_PUBLIC_SERPAI_API_KEY || '',
+    BASE_URL: 'https://serpapi.com',
+  },
 };
 
 // Helper to check if APIs are configured
@@ -51,4 +58,5 @@ export const isAPIConfigured = {
   openai: () => !!API_CONFIG.OPENAI.API_KEY,
   assemblyai: () => !!API_CONFIG.ASSEMBLYAI.API_KEY,
   instagram: () => !!API_CONFIG.INSTAGRAM.ACCESS_TOKEN,
+  serpapi: () => !!API_CONFIG.SERPAPI.API_KEY,
 };

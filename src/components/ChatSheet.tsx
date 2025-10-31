@@ -41,6 +41,9 @@ import { buildItemContext, formatContextMetadata } from '../services/contextBuil
 import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
+import { serpapi } from '../services/serpapi';
+import { adminPrefsStore } from '../stores/adminPrefs';
+import { trackApiUsage } from '../services/apiUsageTracking';
 import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
@@ -181,6 +184,7 @@ const ChatSheet = observer(
         let fetchedTranscript: string;
         let language: string;
         let platform: 'youtube' | 'x';
+        let segments: Array<{ startMs: number; endMs?: number; text: string }> | undefined;
 
         if (isYouTube && item.url) {
           // Extract video ID from URL for YouTube
@@ -190,11 +194,61 @@ const ChatSheet = observer(
           }
           const videoId = videoIdMatch[1];
 
-          // Fetch transcript from YouTube
-          const result = await getYouTubeTranscript(videoId);
-          fetchedTranscript = result.transcript;
-          language = result.language;
-          platform = 'youtube';
+          // Check admin preference for transcript source
+          const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+          console.log('[ChatSheet][Transcript] Source preference:', sourcePref);
+
+          if (sourcePref === 'serpapi') {
+            // Try SerpAPI first (prefers timestamped version)
+            try {
+              const serpResult = await serpapi.fetchYouTubeTranscript(item.url);
+              if ((serpResult as any)?.error) {
+                console.warn('[ChatSheet][Transcript] SerpAPI failed, falling back to youtubei.js:', (serpResult as any).error);
+                throw new Error('SerpAPI failed');
+              }
+
+              const serpTranscript = serpResult as { transcript: string; language?: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> };
+              
+              // Prefer timestamped format if segments are available
+              if (serpTranscript.segments && serpTranscript.segments.length > 0) {
+                // Format segments with timestamps: [mm:ss] text
+                fetchedTranscript = serpTranscript.segments
+                  .map((s) => {
+                    const mm = Math.floor(s.startMs / 60000);
+                    const ss = Math.floor((s.startMs % 60000) / 1000);
+                    const ts = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+                    return `[${ts}] ${s.text}`;
+                  })
+                  .join('\n');
+                segments = serpTranscript.segments; // Store segments for DB sync
+              } else {
+                // Fall back to plain text
+                fetchedTranscript = serpTranscript.transcript;
+                segments = undefined;
+              }
+              
+              language = serpTranscript.language || 'en';
+              platform = 'youtube';
+              // Track API usage for successful transcript generation
+              await trackApiUsage('serpapi', 'youtube_transcript', item.id);
+            } catch (serpError) {
+              // Fall back to youtubei.js
+              console.log('[ChatSheet][Transcript] Falling back to youtubei.js');
+              const result = await getYouTubeTranscript(videoId);
+              fetchedTranscript = result.transcript;
+              language = result.language;
+              platform = 'youtube';
+              segments = undefined;
+            }
+          } else {
+            // Use youtubei.js
+            console.log('[ChatSheet][Transcript] Using youtubei.js');
+            const result = await getYouTubeTranscript(videoId);
+            fetchedTranscript = result.transcript;
+            language = result.language;
+            platform = 'youtube';
+            segments = undefined;
+          }
         } else if (isXVideo) {
           // Get video URL from metadata for X posts
           const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -221,6 +275,7 @@ const ChatSheet = observer(
           platform,
           language,
           duration: item.duration,
+          segments: segments, // Store segments for toggling between timestamped/plain text
           fetched_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

@@ -64,6 +64,9 @@ Available types:
 - threads: Threads posts (threads.net)
 - facebook: Facebook posts or videos (facebook.com)
 - amazon: Amazon product pages (amazon.com)
+- ebay: eBay product pages (ebay.com)
+- yelp: Yelp business pages (yelp.com)
+- app_store: Apple App Store apps (apps.apple.com)
 - image: Image galleries or standalone images
 - pdf: PDF documents
 - audio: Audio files or music pages
@@ -88,13 +91,16 @@ Rules:
 8. Threads (threads.net) → 'threads'
 9. Facebook (facebook.com) → 'facebook'
 10. Amazon (amazon.com, smile.amazon.com) → 'amazon' if a product page
-11. If it's clearly a product for sale → product
-12. If it's an article, blog post, or news → article
-13. If it's a non-YouTube video platform (Vimeo, Dailymotion, etc.) → video
-14. If it's educational course content → course
-15. If it's a book or about books → book
-16. Only use 'note' if it unmistakably represents a user-authored note/editor page; otherwise do not use 'note'
-17. If none of the above apply → bookmark
+11. eBay (ebay.com) → 'ebay'
+12. Yelp (yelp.com) → 'yelp'
+13. Apple App Store (apps.apple.com) → 'app_store'
+14. If it's clearly a product for sale → product
+15. If it's an article, blog post, or news → article
+16. If it's a non-YouTube video platform (Vimeo, Dailymotion, etc.) → video
+17. If it's educational course content → course
+18. If it's a book or about books → book
+19. Only use 'note' if it unmistakably represents a user-authored note/editor page; otherwise do not use 'note'
+20. If none of the above apply → bookmark
 
 CRITICAL: If the URL contains youtube.com or youtu.be, you MUST return 'youtube'/'youtube_short' accordingly. If it contains x.com or twitter.com, you MUST return 'x'.
 
@@ -131,6 +137,9 @@ Return ONLY the content type, nothing else.`;
       'tiktok',
       'reddit',
       'amazon',
+      'ebay',
+      'yelp',
+      'app_store',
       'linkedin',
       'image',
       'pdf',

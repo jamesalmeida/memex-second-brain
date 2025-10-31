@@ -15,11 +15,8 @@ import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
-import { VideoTranscript, ImageDescription } from '../../types';
-import uuid from 'react-native-uuid';
-import { WebView } from 'react-native-webview';
+import { ImageDescription } from '../../types';
 import Animated, {
   useSharedValue,
   withTiming,
@@ -37,8 +34,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import { getYouTubeTranscript } from '../../services/youtube';
-import { getXVideoTranscript } from '../../services/twitter';
+ 
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -56,8 +52,6 @@ const CONTENT_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 const contentTypeOptions: { type: ContentType; label: string; icon: string }[] = [
   { type: 'bookmark', label: 'Bookmark', icon: '🔖' },
   { type: 'note', label: 'Note', icon: '📝' },
-  { type: 'youtube', label: 'YouTube', icon: '▶️' },
-  { type: 'youtube_short', label: 'YT Short', icon: '🎬' },
   { type: 'x', label: 'X/Twitter', icon: '𝕏' },
   { type: 'instagram', label: 'Instagram', icon: '📷' },
   { type: 'tiktok', label: 'TikTok', icon: '🎵' },
@@ -110,13 +104,7 @@ const DefaultItemView = observer(({
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
-  const [transcript, setTranscript] = useState<string>('');
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
-  const [transcriptExists, setTranscriptExists] = useState(false);
-  const [transcriptStats, setTranscriptStats] = useState({ chars: 0, words: 0, readTime: 0 });
-  const transcriptOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(1);
+  
 
   // Image descriptions state
   const [imageDescriptions, setImageDescriptions] = useState<ImageDescription[]>([]);
@@ -197,47 +185,9 @@ const DefaultItemView = observer(({
     }
   });
 
-  const calculateTranscriptStats = (text: string) => {
-    const chars = text.length;
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    const readTime = Math.ceil(words / 200); // Average reading speed: 200 words per minute
-    return { chars, words, readTime };
-  };
+  
 
-  const checkForExistingTranscript = async (itemId: string) => {
-    try {
-      console.log('Checking for existing transcript for item:', itemId);
-
-      // Check local store for transcript
-      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemId);
-
-      if (existingTranscript) {
-        console.log('Found transcript in local store, length:', existingTranscript.transcript?.length);
-        const transcriptText = existingTranscript.transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-        transcriptOpacity.value = 1;
-        buttonOpacity.value = 0;
-        return;
-      }
-
-      // No transcript found
-      console.log('No existing transcript found for item:', itemId);
-      setTranscript('');
-      setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
-      setTranscriptExists(false);
-      transcriptOpacity.value = 0;
-      buttonOpacity.value = 1;
-    } catch (error) {
-      console.error('Error checking for transcript:', error);
-      // Set default state on error
-      setTranscript('');
-      setTranscriptExists(false);
-      transcriptOpacity.value = 0;
-      buttonOpacity.value = 1;
-    }
-  };
+  
 
   useEffect(() => {
     console.log('📄 [DefaultItemView] useEffect - item changed:', item?.title || 'null');
@@ -283,10 +233,7 @@ const DefaultItemView = observer(({
       setTags(item.tags || []);
       setShowAllTags(false); // Reset to collapsed state when opening a new item
 
-      // Check for existing transcript if YouTube video or short, or X video
-      if (item.content_type === 'youtube' || item.content_type === 'youtube_short' || (item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id))) {
-        checkForExistingTranscript(item.id);
-      }
+      
 
       // Check for existing image descriptions if item has images
       const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
@@ -333,33 +280,7 @@ const DefaultItemView = observer(({
     }
   }, [itemToDisplay?.id, imageDescriptionsComputed.descriptions()]);
 
-  // Watch for changes in video transcripts store to update UI state
-  useEffect(() => {
-    if (itemToDisplay) {
-      // Access the observable to establish reactivity
-      const existingTranscript = videoTranscriptsComputed.getTranscriptByItemId(itemToDisplay.id);
-
-      if (existingTranscript && existingTranscript.transcript) {
-        console.log('📄 [DefaultItemView] Transcript detected in store, length:', existingTranscript.transcript.length);
-        const transcriptText = existingTranscript.transcript;
-        setTranscript(transcriptText);
-        setTranscriptStats(calculateTranscriptStats(transcriptText));
-        setTranscriptExists(true);
-
-        // Animate transition from button to dropdown
-        buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
-          transcriptOpacity.value = withTiming(1, { duration: 150 });
-        });
-      } else {
-        // Reset to button state if transcript was removed
-        setTranscript('');
-        setTranscriptStats({ chars: 0, words: 0, readTime: 0 });
-        setTranscriptExists(false);
-        transcriptOpacity.value = 0;
-        buttonOpacity.value = 1;
-      }
-    }
-  }, [itemToDisplay?.id, videoTranscriptsComputed.transcripts()]);
+  
 
   // Use displayItem for rendering
   const itemToDisplay = displayItem || item;
@@ -369,8 +290,6 @@ const DefaultItemView = observer(({
 
   const getContentTypeIcon = () => {
     switch (itemToDisplay?.content_type) {
-      case 'youtube':
-      case 'youtube_short': return '▶️';
       case 'x': return '𝕏';
       case 'instagram': return '📷';
       case 'podcast': return '🎙️';
@@ -394,124 +313,7 @@ const DefaultItemView = observer(({
     });
   };
 
-  // Extract YouTube video ID from URL
-  const getYouTubeVideoId = (url?: string) => {
-    if (!url) return null;
-
-    // Remove any trailing parameters or fragments
-    const cleanUrl = url.split('#')[0];
-
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-      /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-      /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-      /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-      /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = cleanUrl.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-
-    console.error('Failed to extract YouTube video ID from URL:', url);
-    return null;
-  };
-
-  const generateTranscript = async () => {
-    const isYouTube = itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short';
-    const isXVideo = itemToDisplay?.content_type === 'x';
-
-    if (!itemToDisplay || (!isYouTube && !isXVideo) || (!itemToDisplay.url && !isXVideo)) return;
-
-    setIsGeneratingTranscript(true);
-    videoTranscriptsActions.setGenerating(itemToDisplay.id, true);
-
-    try {
-      let fetchedTranscript: string;
-      let language: string;
-      let platform: 'youtube' | 'x';
-
-      if (isYouTube) {
-        // Extract video ID from URL for YouTube
-        const videoIdMatch = itemToDisplay.url!.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
-        if (!videoIdMatch) {
-          throw new Error('Invalid YouTube URL');
-        }
-        const videoId = videoIdMatch[1];
-
-        // Fetch transcript from YouTube
-        const result = await getYouTubeTranscript(videoId);
-        fetchedTranscript = result.transcript;
-        language = result.language;
-        platform = 'youtube';
-      } else if (isXVideo) {
-        // Get video URL from metadata for X posts
-        const videoUrl = itemTypeMetadataComputed.getVideoUrl(itemToDisplay.id);
-        if (!videoUrl) {
-          throw new Error('No video found for this X post');
-        }
-
-        // Fetch transcript from AssemblyAI
-        const result = await getXVideoTranscript(videoUrl, (status) => {
-          console.log('Transcription status:', status);
-        });
-        fetchedTranscript = result.transcript;
-        language = result.language;
-        platform = 'x';
-      } else {
-        throw new Error('Unsupported content type for transcription');
-      }
-
-      // Create video transcript object
-      console.log('Creating video transcript for item:', itemToDisplay.id);
-      const transcriptData: VideoTranscript = {
-        id: uuid.v4() as string,
-        item_id: itemToDisplay.id,
-        transcript: fetchedTranscript,
-        platform,
-        language,
-        duration: itemToDisplay.duration,
-        fetched_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      // Save to local store and sync to Supabase
-      await videoTranscriptsActions.addTranscript(transcriptData);
-      console.log('Transcript saved to local store and queued for sync');
-
-      // Update local state
-      setTranscript(fetchedTranscript);
-      setTranscriptStats(calculateTranscriptStats(fetchedTranscript));
-      setTranscriptExists(true);
-
-      // Animate transition from button to dropdown
-      buttonOpacity.value = withTiming(0, { duration: 150 }, () => {
-        transcriptOpacity.value = withTiming(1, { duration: 150 });
-      });
-
-      // Auto-expand dropdown after generation
-      setTimeout(() => {
-        setShowTranscript(true);
-      }, 300);
-
-    } catch (error) {
-      console.error('Error generating transcript:', error);
-      alert('Failed to generate transcript. The video may not have captions available.');
-    } finally {
-      setIsGeneratingTranscript(false);
-      videoTranscriptsActions.setGenerating(itemToDisplay.id, false);
-    }
-  };
-
-  const copyTranscriptToClipboard = async () => {
-    if (transcript) {
-      await Clipboard.setStringAsync(transcript);
-    }
-  };
+  // Transcript generation removed - handled in YouTubeItemView and XItemView
 
   // Image description helper functions
   const checkForExistingImageDescriptions = async (itemId: string) => {
@@ -850,36 +652,6 @@ const DefaultItemView = observer(({
   return (
     <View style={styles.container}>
       {/* Hero Media Section */}
-      {/* Special case: YouTube embed (use WebView) */}
-      {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && getYouTubeVideoId(itemToDisplay?.url) ? (
-        <View style={styles.heroContainer}>
-          <View style={itemToDisplay?.content_type === 'youtube_short' ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
-            <WebView
-              source={{
-                uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
-              }}
-              style={styles.webView}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              mixedContentMode="compatibility"
-              originWhitelist={['*']}
-              userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
-              onError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('WebView error:', nativeEvent);
-              }}
-              onHttpError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('HTTP error:', nativeEvent.statusCode, nativeEvent.description);
-              }}
-            />
-          </View>
-        </View>
-      ) : (
-        /* All other content types use HeroMediaSection */
         <HeroMediaSection
           item={itemToDisplay!}
           isDarkMode={isDarkMode}
@@ -1173,114 +945,8 @@ const DefaultItemView = observer(({
           </View>
         )}
 
-        {/* Thumbnail Section (for YouTube and YouTube Shorts) */}
-        {(itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') && itemToDisplay?.thumbnail_url && (
-          <View style={styles.thumbnailSection}>
-            <Text style={[styles.thumbnailSectionLabel, isDarkMode && styles.thumbnailSectionLabelDark]}>
-              THUMBNAIL
-            </Text>
-            <TouchableOpacity
-              style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
-              onPress={() => setShowThumbnail(!showThumbnail)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.thumbnailSelectorText, isDarkMode && styles.thumbnailSelectorTextDark]}>
-                {showThumbnail ? 'Hide Thumbnail' : 'View Thumbnail'}
-              </Text>
-              <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                {showThumbnail ? '▲' : '▼'}
-              </Text>
-            </TouchableOpacity>
 
-            {showThumbnail && (
-              <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
-                <Image
-                  source={{ uri: itemToDisplay.thumbnail_url }}
-                  style={styles.thumbnailImage}
-                  resizeMode="cover"
-                />
-                <TouchableOpacity
-                  style={[styles.thumbnailDownloadButton, isDownloading && styles.thumbnailDownloadButtonDisabled]}
-                  onPress={downloadThumbnail}
-                  disabled={isDownloading}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.thumbnailDownloadButtonText}>
-                    {isDownloading ? '⏳ Downloading...' : '💾 Save to Device'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Transcript Section (for YouTube, YouTube Shorts, and X Videos) */}
-        {((itemToDisplay?.content_type === 'youtube' || itemToDisplay?.content_type === 'youtube_short') || (itemToDisplay?.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(itemToDisplay.id))) && (
-          <View style={styles.transcriptSection}>
-            <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
-              TRANSCRIPT
-            </Text>
-
-            {/* Show button or dropdown based on transcript existence */}
-            {!transcriptExists ? (
-              <Animated.View style={{ opacity: buttonOpacity }}>
-                <TouchableOpacity
-                  style={[
-                    styles.transcriptGenerateButton,
-                    (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) && styles.transcriptGenerateButtonDisabled,
-                    isDarkMode && styles.transcriptGenerateButtonDark
-                  ]}
-                  onPress={generateTranscript}
-                  disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.transcriptGenerateButtonText}>
-                    {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(itemToDisplay?.id || '')) ? '⏳ Processing...' : '⚡ Generate'}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-            ) : (
-              <Animated.View style={{ opacity: transcriptOpacity }}>
-                <TouchableOpacity
-                  style={[styles.transcriptSelector, isDarkMode && styles.transcriptSelectorDark]}
-                  onPress={() => setShowTranscript(!showTranscript)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
-                    {showTranscript ? 'Hide Transcript' : 'View Transcript'}
-                  </Text>
-                  <Text style={[styles.chevron, isDarkMode && styles.chevronDark]}>
-                    {showTranscript ? '▲' : '▼'}
-                  </Text>
-                </TouchableOpacity>
-
-                {showTranscript && (
-                  <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
-                    <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
-                      <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
-                        {transcript}
-                      </Text>
-                    </ScrollView>
-                    <TouchableOpacity
-                      style={styles.transcriptCopyButton}
-                      onPress={copyTranscriptToClipboard}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.transcriptCopyButtonText}>📋</Text>
-                    </TouchableOpacity>
-
-                    {/* Sticky Footer with Stats */}
-                    <View style={[styles.transcriptFooter, isDarkMode && styles.transcriptFooterDark]}>
-                      <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
-                        {transcriptStats.chars.toLocaleString()} chars • {transcriptStats.words.toLocaleString()} words • ~{transcriptStats.readTime} min read
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </Animated.View>
-            )}
-          </View>
-        )}
+      {/* Transcript Section removed from DefaultItemView (handled in type-specific views) */}
 
         {/* Primary Action */}
         <TouchableOpacity
@@ -1698,22 +1364,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-  // YouTube embed styles
-  youtubeEmbed: {
-    width: CONTENT_WIDTH,
-    height: CONTENT_WIDTH * (9/16), // 16:9 aspect ratio for regular videos
-    backgroundColor: '#000',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  youtubeShortEmbed: {
-    width: CONTENT_WIDTH,
-    height: CONTENT_WIDTH * (16/9), // 9:16 aspect ratio for YouTube Shorts (vertical)
-    backgroundColor: '#000',
-    maxHeight: SCREEN_HEIGHT * 0.8, // Limit max height to 70% of screen
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   webView: {
     flex: 1,

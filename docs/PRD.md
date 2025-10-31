@@ -87,6 +87,18 @@
     - Haptic feedback on menu open, button hover, and action execution
   - **Offline**: All actions queue for sync when offline (archive, delete, move use sync service)  
 - **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
+- **Admin Sheet** (`AdminSheet.tsx`): Developer/admin panel accessible via drawer menu. Features:
+  - **SerpAPI Status Section**: Displays comprehensive account information from SerpAPI Account API:
+    - Account ID, email, plan name, monthly price
+    - Monthly limit, current usage, searches left
+    - Extra credits, last hour searches, hourly rate limit
+    - Auto-refreshes when sheet opens for real-time data
+    - Manual refresh button for on-demand updates
+  - **YouTube Source Preferences**: Toggle between `youtubei.js` and `SerpAPI` for:
+    - YouTube enrichment (metadata extraction)
+    - YouTube transcripts (timestamped vs plain text)
+  - Preferences stored in `adminPrefsStore` and sync across devices
+  - UI Debug tools: Test toast notifications, etc.
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
@@ -132,6 +144,11 @@
 - **Media Handling**:
   - Display images/videos in cards (Expo AV for video playback).
   - Show transcripts for videos (if cached).
+  - **YouTube Transcript Display** (`YouTubeItemView.tsx`):
+    - Toggle between timestamped segments (from SerpAPI) and plain text views
+    - Timestamped view shows each segment with `[mm:ss]` prefix
+    - Plain text view extracts text from segments or displays stored transcript
+    - Copy transcript to clipboard and export as SRT format
   - Download media via Expo FileSystem (store locally for offline access).
   - **Multi-Image Support**: Items can have multiple images stored in `Item_Type_Metadata.data.image_urls[]` array:
     - Display as horizontal carousel with pagination dots when 2+ images exist
@@ -204,6 +221,7 @@
   - Initiate from item detail or space detail via bottom sheet UI (using `@gorhom/bottom-sheet`).  
   - Bottom sheet covers prior UI (item detail or space grid); swipe down to dismiss and return to previous view.  
   - Context: Item content or all space items passed to OpenAI API (abstracted for future models like Grok or Llama).  
+  - **Timestamped Transcripts**: For videos with SerpAPI transcripts, AI chat context prefers timestamped segments over plain text to enable LLM to reference specific timestamps (e.g., "at 3:45, the speaker mentions..."). Segments formatted as `[mm:ss] text` in context.
   - Save chat messages (role: user/system/assistant, content) in Supabase and Legend-State.  
   - Mobile: Handle keyboard dismissal (auto-adjust view) and scrollable chat history.  
   - Offline: Disable chat (requires API); show cached chat history.  
@@ -249,8 +267,9 @@
   - Purpose: Stores AI-generated descriptions of images to provide context for AI chat.  
   - Unique constraint on (`item_id`, `image_url`) - one description per image URL per item.  
 - **Video_Transcripts**:  
-  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `transcript` (text), `platform` (text: youtube, x, tiktok, instagram, reddit, etc.), `language` (text, default 'en'), `duration` (integer, seconds), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `transcript` (text), `platform` (text: youtube, x, tiktok, instagram, reddit, etc.), `language` (text, default 'en'), `duration` (integer, seconds), `segments` (JSONB, nullable), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
   - Purpose: Stores transcripts for videos from various platforms.  
+  - Note: `segments` field stores timestamped transcript data as JSONB array: `[{"startMs": number, "endMs": number, "text": string}]`. Used by SerpAPI for YouTube transcripts to enable toggle between timestamped and plain text views. Preferred by AI chat context for timestamp references.
   - Unique constraint on `item_id` - one transcript per video item.  
 - **Spaces**:
   - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `description` (text, nullable), `color` (text, default '#007AFF'), `item_count` (integer, default 0), `order_index` (integer, nullable), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
@@ -290,6 +309,11 @@
 - **Chat_Messages**:  
   - Fields: `id` (UUID, PK), `chat_id` (UUID, FK to Item_Chats or Space_Chats), `chat_type` (enum: item, space), `role` (enum: user, system, assistant), `content` (text), `metadata` (JSONB, default '{}'), `created_at` (timestamp).  
   - Purpose: Links to either `Item_Chats` or `Space_Chats` for clear relationships. `metadata` stores AI model info, token usage, and timestamps.  
+- **API_Usage_Tracking**:  
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `api_name` (text), `operation_type` (text), `item_id` (UUID, FK to Items, nullable), `created_at` (timestamp).  
+  - Purpose: Tracks API operations that count against monthly quotas (SerpAPI, etc.) for usage monitoring. Used by `apiUsageTracking` store and displayed in `AdminSheet`.  
+  - Constraints: `api_name` must be one of ('serpapi'), `operation_type` validated based on `api_name`.  
+  - Policies: Users can read/insert their own records only (append-only for data integrity).  
 - **Offline_Queue** (client-side, Legend-State, mirrored in Supabase):  
   - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `action_type` (enum: create_item, update_item, delete_item, create_capture), `payload` (JSONB), `created_at` (timestamp), `status` (enum: pending, synced, failed).  
   - JSONB `payload` examples:  
@@ -302,8 +326,9 @@
   - User_Settings: `idx_user_settings_user_id` (unique).
   - Item_Spaces (deprecated): `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.
   - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).
-  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.
+  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`, `idx_video_transcripts_segments` (GIN on JSONB, partial WHERE segments IS NOT NULL).
   - Image_Descriptions: `idx_image_descriptions_item_id`, `idx_image_descriptions_created_at`.
+  - API_Usage_Tracking: `idx_api_usage_user_id`, `idx_api_usage_api_name`, `idx_api_usage_created_at`, `idx_api_usage_user_api_date` (user_id, api_name, created_at), `idx_api_usage_item_id`.
   - Offline_Queue: `idx_offline_queue_user_id`, `idx_offline_queue_status`.
 - **Database Migrations**:
   - `20251024_add_soft_delete_to_spaces.sql` - Adds soft-delete fields to spaces table
@@ -312,6 +337,8 @@
   - `20251027_add_tldr_and_notes_to_items.sql` - Adds `tldr` and `notes` fields to items table for AI summaries and user annotations
   - `20251028_create_user_settings.sql` - Creates `user_settings` table for cloud-synced user preferences (theme, AI models, UI preferences)
   - `20251030_add_ui_radial_actions.sql` - Adds `ui_radial_actions` column to `user_settings` table for configurable radial action menu
+  - `20250131_add_segments_to_video_transcripts.sql` - Adds `segments` JSONB column to `video_transcripts` table for timestamped transcript data from SerpAPI
+  - `20250201_create_api_usage_tracking.sql` - Creates `api_usage_tracking` table for monitoring API quota usage (SerpAPI, etc.)
   - Note: Archive functionality requires `is_archived`, `archived_at`, and `auto_archived` fields added in `20251024_add_archive_and_simplify_spaces.sql`
 
 ## 4. UI/UX Requirements
@@ -563,6 +590,37 @@ All external API calls are made directly from the client (`src/services/` and `s
 - **Jina.ai URL Scraping** (`src/config/api.ts`):
   - Configured for general URL content extraction
   - Fallback for unsupported content types
+
+- **SerpAPI** (`src/services/serpapi.ts`):
+  - Account API (free, does not count toward quota): `GET https://serpapi.com/account.json?api_key=...`
+    - Returns: `account_id`, `account_email`, `plan_id`, `plan_name`, `plan_monthly_price`, `searches_per_month`, `plan_searches_left`, `extra_credits`, `total_searches_left`, `this_month_usage`, `last_hour_searches`, `account_rate_limit_per_hour`
+    - Auto-refreshes when opening `AdminSheet` to display real-time usage data
+    - Manual refresh button available in AdminSheet UI
+  - YouTube Video API (`GET https://serpapi.com/search?engine=youtube_video&v=VIDEO_ID`):
+    - Extracts video metadata (title, description, view count, duration, etc.)
+    - Used by `Step04_1a_EnrichYouTube_SerpAPI` for enrichment (conditional on user preference)
+  - YouTube Transcript API (`GET https://serpapi.com/search?engine=youtube_video_transcript&v=VIDEO_ID`):
+    - Returns **timestamped segments** with `start_ms`, `end_ms`, and `text`/`snippet`
+    - Also provides fallback plain text transcript
+    - Segments stored in `video_transcripts.segments` (JSONB array)
+    - Used for AI chat context (preferred over plain text when available) to enable timestamp references
+    - Toggle between timestamped and plain text views in `YouTubeItemView.tsx`
+  - Environment variable: `EXPO_PUBLIC_SERPAI_API_KEY`
+  - Config entry in `src/config/api.ts` under `API_CONFIG.SERPAPI`
+  - User preferences in `AdminSheet.tsx`:
+    - **YouTube Enrichment Source**: Toggle between `youtubei.js` or `SerpAPI`
+    - **YouTube Transcript Source**: Toggle between `youtubei.js` or `SerpAPI`
+    - Preferences stored in `adminPrefsStore` and passed through pipeline context
+  - Pipeline enrichment:
+    - `Step04_1a_EnrichYouTube_SerpAPI` (conditional on user preference) enriches YouTube metadata via SerpAPI
+    - `Step04_4_EnrichSerpApiGeneric` enriches supported sites (e.g., eBay, Yelp, Apple App Store)
+    - Supported content types: `ebay`, `yelp`, `app_store`
+  - API usage tracking (`src/services/apiUsageTracking.ts` and `src/stores/apiUsageTracking.ts`):
+    - Tracks all SerpAPI operations that count against quota (enrichment, transcripts)
+    - Stores records in `api_usage_tracking` table (PostgreSQL)
+    - Local caching in Legend-State for offline access
+    - Operations tracked: `youtube_enrichment`, `youtube_transcript`, `ebay_product`, `yelp_business`, `app_store`
+    - Note: Account API calls are free and not tracked
 
 ### 5.6 Client-side URL Parsing (Linkedom)
 - For basic saves on mobile, the app fetches the target URL directly on-device and parses HTML using `linkedom` (`src/services/linkedomParser.ts`).

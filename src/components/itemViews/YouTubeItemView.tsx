@@ -35,6 +35,9 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
+import { serpapi } from '../../services/serpapi';
+import { adminPrefsStore } from '../../stores/adminPrefs';
+import { trackApiUsage } from '../../services/apiUsageTracking';
 import TldrSection from '../TldrSection';
 import NotesSection from '../NotesSection';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -107,9 +110,11 @@ const YouTubeItemView = observer(({
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [transcript, setTranscript] = useState<string>('');
+  const [transcriptSegments, setTranscriptSegments] = useState<Array<{ startMs: number; endMs?: number; text: string }> | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [transcriptExists, setTranscriptExists] = useState(false);
+  const [showTimestamps, setShowTimestamps] = useState(false);
   const [transcriptStats, setTranscriptStats] = useState({ chars: 0, words: 0, readTime: 0 });
   const transcriptOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
@@ -168,6 +173,8 @@ const YouTubeItemView = observer(({
         console.log('📄 [YouTubeItemView] Transcript detected in store, length:', existingTranscript.transcript.length);
         const transcriptText = existingTranscript.transcript;
         setTranscript(transcriptText);
+        // Load segments if available (for toggling between timestamped/plain text)
+        setTranscriptSegments(existingTranscript.segments || null);
         setTranscriptStats(calculateTranscriptStats(transcriptText));
         setTranscriptExists(true);
 
@@ -205,6 +212,8 @@ const YouTubeItemView = observer(({
         console.log('Found transcript in local store, length:', existingTranscript.transcript?.length);
         const transcriptText = existingTranscript.transcript;
         setTranscript(transcriptText);
+        // Load segments if available (for toggling between timestamped/plain text)
+        setTranscriptSegments(existingTranscript.segments || null);
         setTranscriptStats(calculateTranscriptStats(transcriptText));
         setTranscriptExists(true);
         transcriptOpacity.value = 1;
@@ -263,17 +272,56 @@ const YouTubeItemView = observer(({
       }
       const videoId = videoIdMatch[1];
 
-      const result = await getYouTubeTranscript(videoId);
-      const fetchedTranscript = result.transcript;
-      const language = result.language;
+      const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+      console.log('[YouTubeItemView][Transcript] Source preference:', sourcePref);
+      let fetchedTranscript: string;
+      let language: string;
+      let segments: Array<{ startMs: number; endMs?: number; text: string }> | undefined;
+        if (sourcePref === 'serpapi') {
+          const res = await serpapi.fetchYouTubeTranscript(itemToDisplay.url!);
+        if ((res as any)?.error) {
+          console.warn('[YouTubeItemView][Transcript] SerpAPI failed, falling back to youtubei.js:', (res as any).error);
+          const yt = await getYouTubeTranscript(videoId);
+          fetchedTranscript = yt.transcript;
+          language = yt.language;
+            segments = undefined;
+        } else {
+            fetchedTranscript = (res as any).transcript;
+            language = (res as any).language || 'en';
+            segments = (res as any).segments;
+            // Track API usage for successful transcript generation
+            await trackApiUsage('serpapi', 'youtube_transcript', itemToDisplay.id);
+        }
+      } else {
+        console.log('[YouTubeItemView][Transcript] Using youtubei.js');
+        const yt = await getYouTubeTranscript(videoId);
+        fetchedTranscript = yt.transcript;
+        language = yt.language;
+          segments = undefined;
+      }
+
+      // Format transcript with timestamps if segments are available
+      let finalTranscript = fetchedTranscript;
+      if (segments && segments.length > 0) {
+        // Format segments with timestamps: [mm:ss] text
+        finalTranscript = segments
+          .map((s) => {
+            const mm = Math.floor(s.startMs / 60000);
+            const ss = Math.floor((s.startMs % 60000) / 1000);
+            const ts = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+            return `[${ts}] ${s.text}`;
+          })
+          .join('\n');
+      }
 
       const transcriptData: VideoTranscript = {
         id: uuid.v4() as string,
         item_id: itemToDisplay.id,
-        transcript: fetchedTranscript,
+        transcript: finalTranscript,
         platform: 'youtube',
         language,
         duration: itemToDisplay.duration,
+        segments: segments, // Store segments for toggling between timestamped/plain text
         fetched_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -282,7 +330,8 @@ const YouTubeItemView = observer(({
       await videoTranscriptsActions.addTranscript(transcriptData);
       console.log('Transcript saved to local store and queued for sync');
 
-      setTranscript(fetchedTranscript);
+      setTranscript(finalTranscript);
+      setTranscriptSegments(segments || null);
       setTranscriptStats(calculateTranscriptStats(fetchedTranscript));
       setTranscriptExists(true);
 
@@ -305,7 +354,13 @@ const YouTubeItemView = observer(({
 
   const copyTranscriptToClipboard = async () => {
     if (transcript) {
-      await Clipboard.setStringAsync(transcript);
+      // If segments exist and we're showing plain text (no timestamps), copy plain text from segments
+      // Otherwise copy the stored transcript (which may have timestamps)
+      const textToCopy = (transcriptSegments && transcriptSegments.length > 0 && !showTimestamps)
+        ? transcriptSegments.map(s => s.text).join(' ')
+        : transcript;
+      await Clipboard.setStringAsync(textToCopy);
+      showToast({ message: 'Transcript copied to clipboard', type: 'success' });
     }
   };
 
@@ -499,11 +554,14 @@ const YouTubeItemView = observer(({
     <View style={styles.container}>
       {/* YouTube Video Embed */}
       {getYouTubeVideoId(itemToDisplay?.url) && (
+        console.log('🔍 [YouTubeItemView] YouTube video ID:', getYouTubeVideoId(itemToDisplay.url)),
         <View style={styles.videoContainer}>
           <View style={isShort ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
             <WebView
               source={{
-                uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1`
+                // uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&referrerpolicy=strict-origin-when-cross-origin`
+                uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=http://localhost`
+
               }}
               style={styles.webView}
               allowsInlineMediaPlayback={true}
@@ -513,7 +571,7 @@ const YouTubeItemView = observer(({
               startInLoadingState={true}
               mixedContentMode="compatibility"
               originWhitelist={['*']}
-              userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+              // userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
             />
           </View>
         </View>
@@ -870,18 +928,68 @@ const YouTubeItemView = observer(({
 
               {showTranscript && (
                 <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
+                  <View style={styles.transcriptTopBar}>
+                    <TouchableOpacity onPress={() => setShowTimestamps(!showTimestamps)} activeOpacity={0.7}>
+                      <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
+                        {showTimestamps ? 'Show Plain Text' : 'Show Timestamps'}
+                      </Text>
+                    </TouchableOpacity>
+                    <View style={styles.transcriptTopBarRight}>
+                      <TouchableOpacity onPress={async () => {
+                        const srt = (transcriptSegments && transcriptSegments.length > 0)
+                        ? transcriptSegments.map((s, idx) => {
+                            const toTS = (ms: number) => {
+                              const total = Math.max(0, Math.floor(ms));
+                              const h = String(Math.floor(total / 3600000)).padStart(2, '0');
+                              const m = String(Math.floor((total % 3600000) / 60000)).padStart(2, '0');
+                              const sec = String(Math.floor((total % 60000) / 1000)).padStart(2, '0');
+                              const msRem = String(total % 1000).padStart(3, '0');
+                              return `${h}:${m}:${sec},${msRem}`;
+                            };
+                            const start = toTS(s.startMs);
+                            const end = toTS((s.endMs ?? (s.startMs + 2000)));
+                            return `${idx + 1}\n${start} --> ${end}\n${s.text}\n`;
+                          }).join('\n')
+                        : transcript;
+                      await Clipboard.setStringAsync(srt);
+                      showToast({ message: 'SRT copied to clipboard', type: 'success' });
+                    }} activeOpacity={0.7}>
+                        <Text style={[styles.transcriptSelectorText, { color: '#007AFF' }]}>Copy SRT</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.transcriptCopyButton}
+                        onPress={copyTranscriptToClipboard}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.transcriptCopyButtonText}>📋</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                   <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
-                    <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
-                      {transcript}
-                    </Text>
+                    {!showTimestamps || !transcriptSegments || transcriptSegments.length === 0 ? (
+                      <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
+                        {/* If segments exist but we want plain text, extract plain text from segments; otherwise show stored transcript */}
+                        {transcriptSegments && transcriptSegments.length > 0 && !showTimestamps
+                          ? transcriptSegments.map(s => s.text).join(' ')
+                          : transcript}
+                      </Text>
+                    ) : (
+                      <View>
+                        {transcriptSegments.map((s, i) => {
+                          const mm = Math.floor(s.startMs / 60000);
+                          const ss = Math.floor((s.startMs % 60000) / 1000);
+                          const ts = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+                          return (
+                            <View key={`${s.startMs}-${i}`} style={{ marginBottom: 8 }}>
+                              <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
+                                [{ts}] {s.text}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
                   </ScrollView>
-                  <TouchableOpacity
-                    style={styles.transcriptCopyButton}
-                    onPress={copyTranscriptToClipboard}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.transcriptCopyButtonText}>📋</Text>
-                  </TouchableOpacity>
 
                   <View style={[styles.transcriptFooter, isDarkMode && styles.transcriptFooterDark]}>
                     <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
@@ -1401,10 +1509,18 @@ const styles = StyleSheet.create({
   transcriptTextDark: {
     color: '#CCC',
   },
+  transcriptTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  transcriptTopBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   transcriptCopyButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
     width: 36,
     height: 36,
     borderRadius: 8,
