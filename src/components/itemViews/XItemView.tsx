@@ -956,7 +956,7 @@ const XItemView = observer(({
         )}
 
         {/* Transcript Section (for X Videos) */}
-        {videoUrl && (
+        {(videoUrl || transcriptExists) && (
           <View style={styles.transcriptSection}>
             <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
               TRANSCRIPT
