@@ -17,7 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { VideoTranscript, ImageDescription } from '../../types';

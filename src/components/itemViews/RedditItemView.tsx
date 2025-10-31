@@ -16,7 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useToast } from '../../contexts/ToastContext';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { ImageDescription } from '../../types';
 import Animated, {

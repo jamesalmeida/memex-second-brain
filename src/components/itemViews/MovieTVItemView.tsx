@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIn
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';

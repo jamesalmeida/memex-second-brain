@@ -12,7 +12,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as Clipboard from 'expo-clipboard';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

@@ -8,6 +8,7 @@ export { default as ItemViewDescription } from './ItemViewDescription';
 export { default as ItemViewTldr } from './ItemViewTldr';
 export { default as ItemViewNotes } from './ItemViewNotes';
 export { default as ItemViewFooter } from './ItemViewFooter';
+export { default as HeroMediaSection } from './HeroMediaSection';
 export { default as ActionButton } from './ActionButton';
 export { default as ExpandableContent } from './ExpandableContent';
 export { default as GenerateableContentSection } from './GenerateableContentSection';

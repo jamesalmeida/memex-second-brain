@@ -40,7 +40,7 @@ import * as MediaLibrary from 'expo-media-library';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
