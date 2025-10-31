@@ -107,7 +107,7 @@ export interface ItemSpace {
   created_at: string;
 }
 
-export type VideoPlatform = 'youtube' | 'x' | 'tiktok' | 'instagram' | 'reddit';
+export type VideoPlatform = 'youtube' | 'x' | 'tiktok' | 'instagram' | 'reddit' | 'podcast';
 
 export interface VideoTranscript {
   id: string;
