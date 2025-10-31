@@ -289,12 +289,12 @@
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
 - **User_Settings**:
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (jsonb, default '["chat", "share", "archive"]'::jsonb), `is_admin` (boolean, default false), `created_at` (timestamp), `updated_at` (timestamp).
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (jsonb, default '["chat", "share", "archive"]'::jsonb), `is_admin` (boolean, default false), `created_at` (timestamp), `updated_at` (timestamp).
   - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
   - One settings row per user (enforced by unique constraint on `user_id`).
   - Settings categories:
     - Theme: `theme_dark_mode` - Light/dark mode preference
-    - AI: `ai_chat_model`, `ai_metadata_model`, `ai_auto_transcripts`, `ai_auto_image_descriptions` - AI model selection and automation preferences
+    - AI: `ai_chat_model`, `ai_metadata_model` - AI model selection for chat and metadata extraction (Note: AI automation preferences like auto-transcripts and auto-image-descriptions are now global admin settings in the admin_settings table)
     - UI: `ui_x_video_muted`, `ui_autoplay_x_videos`, `ui_radial_actions` - Video playback and quick action menu preferences
     - Admin: `is_admin` - Admin flag for accessing admin panel (set manually via Supabase Dashboard)
   - Radial Action Menu Configuration:

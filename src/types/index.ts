@@ -224,8 +224,7 @@ export interface UserSettings {
   // AI settings
   ai_chat_model: string;
   ai_metadata_model: string;
-  ai_auto_transcripts: boolean;
-  ai_auto_image_descriptions: boolean;
+  // Note: ai_auto_transcripts and ai_auto_image_descriptions moved to admin_settings table (global settings)
   // UI preferences
   ui_x_video_muted: boolean;
   ui_autoplay_x_videos: boolean;
