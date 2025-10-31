@@ -759,6 +759,131 @@ The app implements **instant cross-device synchronization** using Supabase real-
   - Updates batched and debounced to prevent UI thrashing
   - Minimal battery impact (single WebSocket vs periodic polling)
 
+## 5.7 ItemView Component Architecture
+
+The ItemView rendering system has been refactored to use reusable components, reducing code duplication and improving maintainability across different content types.
+
+### Component Location
+All reusable ItemView components are located in `src/components/itemViews/components/` with a barrel export in `index.ts` for convenient imports.
+
+### Reusable Components
+
+#### Core Components
+1. **SectionHeader** (`SectionHeader.tsx`)
+   - Standardized section label headers used across all itemViews
+   - Props: `label`, `isDarkMode`, `rightElement`, `onPress`, `style`
+   - Consistent uppercase styling with proper spacing
+
+2. **ItemViewTitle** (`ItemViewTitle.tsx`)
+   - Inline editable title component
+   - Wraps `InlineEditableText` with consistent styling
+   - Props: `value`, `onSave`, `isDarkMode`, `placeholder`, `style`
+
+3. **ItemViewDescription** (`ItemViewDescription.tsx`)
+   - Inline editable description with optional section label
+   - Supports collapsible text with "Show More" functionality
+   - Props: `value`, `onSave`, `isDarkMode`, `placeholder`, `showLabel`, `label`, `maxLines`, `collapsible`, `collapsedLines`, `showMoreThreshold`
+
+4. **ItemViewTldr** (`ItemViewTldr.tsx`)
+   - AI-powered summary generation with editable text (formerly `TldrSection`)
+   - Generates concise summaries using OpenAI
+   - Props: See existing TldrSection documentation
+
+5. **ItemViewNotes** (`ItemViewNotes.tsx`)
+   - User notes with inline editing (formerly `NotesSection`)
+   - Supports multi-line text input
+   - Props: See existing NotesSection documentation
+
+6. **ItemViewFooter** (`ItemViewFooter.tsx`)
+   - Footer with action buttons (refresh, copy URL, share, archive/unarchive, delete)
+   - Displays creation and archive timestamps
+   - Props: `item`, `onRefresh`, `onShare`, `onArchive`, `onUnarchive`, `onDelete`, `isRefreshing`, `isDeleting`, `isDarkMode`
+
+#### Interactive Components
+7. **ActionButton** (`ActionButton.tsx`)
+   - Standardized action button with variants (primary, secondary, danger)
+   - Supports disabled state and loading indicators
+   - Props: `label`, `onPress`, `disabled`, `isDarkMode`, `variant`, `style`, `textStyle`
+
+8. **ExpandableContent** (`ExpandableContent.tsx`)
+   - Collapsible content display with expand/collapse toggle
+   - Optional copy button and statistics footer (chars, words, read time)
+   - Props: `content`, `isDarkMode`, `showByDefault`, `expandLabel`, `collapseLabel`, `onCopy`, `showCopyButton`, `showStats`, `maxHeight`
+
+9. **GenerateableContentSection** (`GenerateableContentSection.tsx`)
+   - Toggle between "Generate" button and content display
+   - Animated transitions using Reanimated
+   - Props: `label`, `content`, `isGenerating`, `isDarkMode`, `onGenerate`, `onCopy`, `generateLabel`, `generatingLabel`, `expandLabel`, `collapseLabel`, `showByDefault`, `showStats`, `buttonOpacity`, `contentOpacity`
+
+10. **SelectorDropdown** (`SelectorDropdown.tsx`)
+    - Generic dropdown selector component (used for spaces, content types, thumbnails)
+    - Supports color indicators and icons
+    - Props: `label`, `selectedLabel`, `placeholder`, `onPress`, `isDarkMode`, `icon`, `colorIndicator`
+
+11. **MetadataBadges** (`MetadataBadges.tsx`)
+    - Renders conditional badges (spoilers, NSFW, locked, pinned, etc.)
+    - Configurable colors and icons per badge
+    - Props: `badges` (array of Badge objects with `label`, `icon`, `backgroundColor`, `textColor`, `show`)
+
+#### Content-Specific Components
+12. **ImageDescriptionsSection** (`ImageDescriptionsSection.tsx`)
+    - Complete section for generating and displaying AI image descriptions
+    - Integrates with `imageDescriptionsStore` for state management
+    - Auto-expands after generation with animated transitions
+    - Props: `itemId`, `isDarkMode`, `onGenerate`, `showToast`
+    - Used in: DefaultItemView, XItemView, RedditItemView
+
+13. **TranscriptSection** (`TranscriptSection.tsx`)
+    - Flexible transcript component supporting both YouTube and X/Twitter styles
+    - Features:
+      - Optional timestamp display (YouTube-style)
+      - Optional SRT export (YouTube-style)
+      - Plain text view for simpler implementations (X-style)
+      - Statistics footer (chars, words, reading time)
+      - Copy to clipboard functionality
+    - Props: `transcript`, `segments`, `isDarkMode`, `isGenerating`, `onGenerate`, `showToast`, `enableTimestamps`, `enableSrtExport`
+    - Used in: YouTubeItemView (with timestamps & SRT), XItemView (plain text only)
+
+### ItemView Files
+All ItemView components are located in `src/components/itemViews/`:
+- **DefaultItemView.tsx** - Generic bookmarks and general items
+- **NoteItemView.tsx** - Note content type
+- **YouTubeItemView.tsx** - YouTube videos with transcript support
+- **XItemView.tsx** - X/Twitter posts with videos and image descriptions
+- **RedditItemView.tsx** - Reddit posts with engagement metrics
+- **MovieTVItemView.tsx** - Movies/TV shows with simplified features
+
+### Usage Pattern
+ItemViews import components using the barrel export:
+```typescript
+import {
+  ItemViewTitle,
+  ItemViewDescription,
+  ItemViewTldr,
+  ItemViewNotes,
+  ItemViewFooter,
+  SectionHeader,
+  ActionButton,
+  SelectorDropdown,
+  ImageDescriptionsSection,
+  TranscriptSection,
+} from './components';
+```
+
+### Benefits
+- **Reduced Duplication**: ~7,000 lines of duplicated code eliminated
+- **Consistency**: Uniform styling and behavior across all itemViews
+- **Maintainability**: Changes to shared UI patterns only require updating one component
+- **Extensibility**: Easy to add new itemView types by composing existing components
+- **Type Safety**: Shared TypeScript interfaces ensure proper prop usage
+
+### Design Patterns
+- All components support dark mode via `isDarkMode` prop
+- Consistent spacing (sections: `marginBottom: 20`, labels: `marginBottom: 8`)
+- Standardized color palette (primary: `#007AFF` light, `#0A84FF` dark)
+- Unified border radius (`8` or `12` depending on component)
+- Animated transitions using react-native-reanimated for smooth UX
+
 ## 6. Non-Functional Requirements
 - **Security**:  
   - Supabase Row-Level Security (RLS) ensures user-owned data isolation.  

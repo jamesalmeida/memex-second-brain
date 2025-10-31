@@ -41,12 +41,10 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getXVideoTranscript } from '../../services/twitter';
 import { itemMetadataComputed } from '../../stores/itemMetadata';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import { extractUsername } from '../../utils/itemCardHelpers';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -752,7 +750,7 @@ const XItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -790,7 +788,7 @@ const XItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {

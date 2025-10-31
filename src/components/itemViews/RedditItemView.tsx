@@ -34,11 +34,9 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -652,7 +650,7 @@ const RedditItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -690,7 +688,7 @@ const RedditItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {

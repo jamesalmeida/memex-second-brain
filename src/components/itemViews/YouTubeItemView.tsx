@@ -38,8 +38,7 @@ import { getYouTubeTranscript } from '../../services/youtube';
 import { serpapi } from '../../services/serpapi';
 import { adminPrefsStore } from '../../stores/adminPrefs';
 import { trackApiUsage } from '../../services/apiUsageTracking';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
@@ -48,7 +47,6 @@ import { ImageWithActions } from '../ImageWithActions';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -640,7 +638,7 @@ const YouTubeItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -678,7 +676,7 @@ const YouTubeItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {

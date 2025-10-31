@@ -20,9 +20,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
-import ItemViewFooter from '../ItemViewFooter';
+import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -383,7 +381,7 @@ const MovieTVItemView = observer(({
       )} */}
 
       {/* TLDR Section */}
-      <TldrSection
+      <ItemViewTldr
         item={itemToDisplay}
         isDarkMode={isDarkMode}
       />
@@ -414,7 +412,7 @@ const MovieTVItemView = observer(({
       </View>
 
       {/* Notes Section */}
-      <NotesSection
+      <ItemViewNotes
         item={itemToDisplay}
         isDarkMode={isDarkMode}
       />

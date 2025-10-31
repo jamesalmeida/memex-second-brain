@@ -34,12 +34,9 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
- 
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import ItemViewFooter from '../ItemViewFooter';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
@@ -652,26 +649,25 @@ const DefaultItemView = observer(({
   return (
     <View style={styles.container}>
       {/* Hero Media Section */}
-        <HeroMediaSection
-          item={itemToDisplay!}
-          isDarkMode={isDarkMode}
-          contentTypeIcon={getContentTypeIcon()}
-          videoUrl={videoUrl}
-          videoPlayer={videoPlayer}
-          isVideoPlaying={isVideoPlaying}
-          onVideoPlay={() => {
-            if (videoPlayer) {
-              videoPlayer.play();
-              setIsVideoPlaying(true);
-            }
-          }}
-          showPlayButton={itemToDisplay?.content_type === 'x'}
-          onImageAdd={() => imageUploadModalRef.current?.open()}
-          onImageRemove={handleMetadataImageRemove}
-          onThumbnailRemove={handleImageRemove}
-          skipForTextOnlyXPosts={true}
-        />
-      )}
+      <HeroMediaSection
+        item={itemToDisplay!}
+        isDarkMode={isDarkMode}
+        contentTypeIcon={getContentTypeIcon()}
+        videoUrl={videoUrl}
+        videoPlayer={videoPlayer}
+        isVideoPlaying={isVideoPlaying}
+        onVideoPlay={() => {
+          if (videoPlayer) {
+            videoPlayer.play();
+            setIsVideoPlaying(true);
+          }
+        }}
+        showPlayButton={itemToDisplay?.content_type === 'x'}
+        onImageAdd={() => imageUploadModalRef.current?.open()}
+        onImageRemove={handleMetadataImageRemove}
+        onThumbnailRemove={handleImageRemove}
+        skipForTextOnlyXPosts={true}
+      />
 
       {/* Content */}
       <View style={styles.content}>
@@ -722,7 +718,7 @@ const DefaultItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -761,7 +757,7 @@ const DefaultItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {

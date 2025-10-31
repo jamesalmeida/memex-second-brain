@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Item } from '../types';
-import { itemsActions } from '../stores/items';
-import InlineEditableText from './InlineEditableText';
+import { Item } from '../../../types';
+import { itemsActions } from '../../../stores/items';
+import InlineEditableText from '../../InlineEditableText';
 
 interface NotesSectionProps {
   item: Item;

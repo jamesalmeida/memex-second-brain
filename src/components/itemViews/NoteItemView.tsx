@@ -9,13 +9,12 @@ import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewTldr, ItemViewNotes } from './components';
 import * as Clipboard from 'expo-clipboard';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import HeroMediaSection from '../HeroMediaSection';
 import SpaceSelectorModal from '../SpaceSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
+import { ItemViewFooter } from './components';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -148,16 +147,14 @@ const NoteItemView = observer(({ item, onChat, onArchive, onUnarchive, onDelete,
       </View> */}
 
       {/* Hero Image / Images Carousel */}
-      <View style={styles.heroWrapper}>
-        <HeroMediaSection
-          item={itemToDisplay}
-          isDarkMode={isDarkMode}
-          contentTypeIcon="📝"
-          onImageAdd={() => imageUploadModalRef.current?.open()}
-          onImageRemove={handleImageRemove}
-          onThumbnailRemove={() => handleImageRemove(itemToDisplay.thumbnail_url || '')}
-        />
-      </View>
+      <HeroMediaSection
+        item={itemToDisplay}
+        isDarkMode={isDarkMode}
+        contentTypeIcon="📝"
+        onImageAdd={() => imageUploadModalRef.current?.open()}
+        onImageRemove={handleImageRemove}
+        onThumbnailRemove={() => handleImageRemove(itemToDisplay.thumbnail_url || '')}
+      />
 
       <View style={styles.content}>
         {/* Title (inline editable) */}
@@ -213,7 +210,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onUnarchive, onDelete,
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -239,7 +236,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onUnarchive, onDelete,
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {
@@ -329,11 +326,6 @@ export default NoteItemView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  heroWrapper: {
-    paddingHorizontal: CONTENT_PADDING,
-    marginTop: 16,
-    marginBottom: 12,
   },
   heroImage: {
     width: CONTENT_WIDTH,
