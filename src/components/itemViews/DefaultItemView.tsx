@@ -660,13 +660,14 @@ const DefaultItemView = observer(({
         }}
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
-        placeholder="Tap to add title"
+        placeholder="Title"
       />
 
       {/* Hero Media Section */}
       <HeroMediaSection
         item={itemToDisplay!}
         isDarkMode={isDarkMode}
+        placeholder="Title"
         contentTypeIcon={getContentTypeIcon()}
         videoUrl={videoUrl}
         videoPlayer={videoPlayer}
@@ -717,6 +718,7 @@ const DefaultItemView = observer(({
             collapsedLines={6}
             showMoreThreshold={300}
             isDarkMode={isDarkMode}
+        placeholder="Title"
           />
         </View>
 
@@ -724,6 +726,7 @@ const DefaultItemView = observer(({
         <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onTldrChange={(newTldr) => {
             setDisplayItem({ ...itemToDisplay, tldr: newTldr });
           }}
@@ -763,6 +766,7 @@ const DefaultItemView = observer(({
         <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onNotesChange={(newNotes) => {
             setDisplayItem({ ...itemToDisplay, notes: newNotes });
           }}
@@ -967,6 +971,7 @@ const DefaultItemView = observer(({
           isRefreshing={isRefreshingMetadata || isRefreshing}
           isDeleting={isDeleting}
           isDarkMode={isDarkMode}
+        placeholder="Title"
         />
       </View>
 

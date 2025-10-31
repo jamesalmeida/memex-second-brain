@@ -284,7 +284,7 @@ const MovieTVItemView = observer(({
         }}
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
-        placeholder="Tap to add title"
+        placeholder="Title"
       />
 
       {/* Media Section */}
@@ -292,6 +292,7 @@ const MovieTVItemView = observer(({
         <HeroMediaSection
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           contentTypeIcon="🎬"
           videoUrl={videoUrl}
           videoPlayer={player}
@@ -368,6 +369,7 @@ const MovieTVItemView = observer(({
           multiline
           maxLines={8}
           isDarkMode={isDarkMode}
+        placeholder="Title"
         />
       </View>
 
@@ -385,6 +387,7 @@ const MovieTVItemView = observer(({
       <ItemViewTldr
         item={itemToDisplay}
         isDarkMode={isDarkMode}
+        placeholder="Title"
       />
 
       {/* Tags Section */}
@@ -416,6 +419,7 @@ const MovieTVItemView = observer(({
       <ItemViewNotes
         item={itemToDisplay}
         isDarkMode={isDarkMode}
+        placeholder="Title"
       />
 
       {/* Spaces Section */}
@@ -488,6 +492,7 @@ const MovieTVItemView = observer(({
         isRefreshing={isRefreshingMetadata || isRefreshing}
         isDeleting={isDeleting}
         isDarkMode={isDarkMode}
+        placeholder="Title"
       />
 
       <ImageUploadModal
