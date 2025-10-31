@@ -157,6 +157,30 @@ const AdminSheet = observer(
                 thumbColor={showTestToast ? '#fff' : '#f4f3f4'}
               />
             </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="auto-awesome"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Auto-Generate TLDR
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Automatically generate TLDR when adding new items
+                </Text>
+              </View>
+              <Switch
+                value={adminPrefsStore.autoGenerateTldr.get()}
+                onValueChange={(value) => {
+                  adminPrefsActions.setAutoGenerateTldr(value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={adminPrefsStore.autoGenerateTldr.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
           </View>
 
           {/* YouTube Enrichment Source */}
