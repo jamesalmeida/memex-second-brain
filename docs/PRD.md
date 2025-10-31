@@ -650,7 +650,7 @@ All external API calls are made directly from the client (`src/services/` and `s
   - User preferences in `AdminSheet.tsx`:
     - **YouTube Enrichment Source**: Toggle between `youtubei.js` or `SerpAPI`
     - **YouTube Transcript Source**: Toggle between `youtubei.js` or `SerpAPI`
-    - Preferences stored in `adminPrefsStore` and passed through pipeline context
+    - Preferences stored in `adminSettingsStore` (cloud-synced) and read via `adminSettingsComputed`
   - Pipeline enrichment:
     - `Step04_1a_EnrichYouTube_SerpAPI` (conditional on user preference) enriches YouTube metadata via SerpAPI
     - `Step04_4_EnrichSerpApiGeneric` enriches supported sites (e.g., eBay, Yelp, Apple App Store)
