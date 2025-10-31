@@ -10,6 +10,7 @@ import {
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
+import { Host, Picker } from '@expo/ui/swift-ui';
 import { themeStore } from '../stores/theme';
 import { COLORS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
@@ -34,6 +35,10 @@ const AdminSheet = observer(
     const [serpError, setSerpError] = useState<string | null>(null);
     const [serpAccount, setSerpAccount] = useState<SerpApiAccount | null>(null);
     const [serpLastUpdated, setSerpLastUpdated] = useState<number | null>(null);
+
+    // YouTube source picker indices (computed from adminSettingsStore)
+    const youtubeSourceIndex = (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' ? 0 : 1;
+    const youtubeTranscriptSourceIndex = (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'youtubei' ? 0 : 1;
 
     const fetchSerpApiStatus = useCallback(async () => {
       if (!isAPIConfigured.serpapi()) {
@@ -157,6 +162,13 @@ const AdminSheet = observer(
                 thumbColor={showTestToast ? '#fff' : '#f4f3f4'}
               />
             </View>
+          </View>
+
+          {/* AI Automation Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              AI Automation (Global)
+            </Text>
 
             <View style={styles.row}>
               <MaterialIcons
@@ -181,14 +193,7 @@ const AdminSheet = observer(
                 thumbColor={adminSettingsStore.settings.auto_generate_tldr.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
-          </View>
-
-          {/* AI Automation Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              AI Automation (Global)
-            </Text>
-
+            
             <View style={styles.row}>
               <MaterialIcons
                 name="subtitles"
@@ -232,58 +237,65 @@ const AdminSheet = observer(
                 thumbColor={adminSettingsStore.settings.auto_generate_image_descriptions.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
-          </View>
 
           {/* YouTube Enrichment Source */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>YouTube Enrichment Source (Global)</Text>
-            </View>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Source</Text>
-              <View style={{ flexDirection: 'row' }}>
-                <TouchableOpacity
-                  onPress={() => adminSettingsActions.setYouTubeSource('youtubei')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnActive]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => adminSettingsActions.setYouTubeSource('serpapi')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnActive]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
-                </TouchableOpacity>
+            <View style={styles.row}>
+              <MaterialIcons
+                name="video-library"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  YouTube Metadata Source
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Choose the API for fetching YouTube video metadata
+                </Text>
+                <View style={styles.pickerContainer}>
+                  <Host matchContents>
+                    <Picker
+                      options={['youtubei.js', 'SerpAPI']}
+                      selectedIndex={youtubeSourceIndex}
+                      onOptionSelected={({ nativeEvent: { index } }) => {
+                        adminSettingsActions.setYouTubeSource(index === 0 ? 'youtubei' : 'serpapi');
+                      }}
+                      variant="segmented"
+                    />
+                  </Host>
+                </View>
               </View>
             </View>
-          </View>
 
-          {/* YouTube Transcript Source */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>YouTube Transcript Source (Global)</Text>
-            </View>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Source</Text>
-              <View style={{ flexDirection: 'row' }}>
-                <TouchableOpacity
-                  onPress={() => adminSettingsActions.setYouTubeTranscriptSource('youtubei')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnActive]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => adminSettingsActions.setYouTubeTranscriptSource('serpapi')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnActive]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
-                </TouchableOpacity>
+            {/* YouTube Transcript Source */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="closed-caption"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  YouTube Transcript Source
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Choose the API for fetching YouTube video transcripts
+                </Text>
+                <View style={styles.pickerContainer}>
+                  <Host matchContents>
+                    <Picker
+                      options={['youtubei.js', 'SerpAPI']}
+                      selectedIndex={youtubeTranscriptSourceIndex}
+                      onOptionSelected={({ nativeEvent: { index } }) => {
+                        adminSettingsActions.setYouTubeTranscriptSource(index === 0 ? 'youtubei' : 'serpapi');
+                      }}
+                      variant="segmented"
+                    />
+                  </Host>
+                </View>
               </View>
             </View>
+
           </View>
 
           {/* SerpAPI Status Section */}
@@ -533,23 +545,8 @@ const styles = StyleSheet.create({
   linkTextDark: {
     color: COLORS.primary,
   },
-  segBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    marginLeft: 8,
-  },
-  segBtnActive: {
-    backgroundColor: COLORS.primary,
-  },
-  segBtnText: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '600',
-  },
-  segBtnTextActive: {
-    color: '#fff',
+  pickerContainer: {
+    marginTop: 12,
   },
 });
 
