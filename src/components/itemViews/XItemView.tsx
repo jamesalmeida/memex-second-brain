@@ -17,7 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image } from 'expo-image';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 import { videoTranscriptsActions, videoTranscriptsComputed } from '../../stores/videoTranscripts';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { VideoTranscript, ImageDescription } from '../../types';
@@ -676,7 +676,7 @@ const XItemView = observer(({
         }}
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
-        placeholder="Tap to add title"
+        placeholder="Title"
       />
 
       {/* X/Twitter Header */}
@@ -715,6 +715,7 @@ const XItemView = observer(({
           multiline
           maxLines={8}
           isDarkMode={isDarkMode}
+        placeholder="Title"
         />
       </View>
 
@@ -722,6 +723,7 @@ const XItemView = observer(({
       <HeroMediaSection
         item={itemToDisplay!}
         isDarkMode={isDarkMode}
+        placeholder="Title"
         contentTypeIcon="𝕏"
         videoUrl={videoUrl}
         videoPlayer={videoPlayer}
@@ -756,6 +758,7 @@ const XItemView = observer(({
         <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onTldrChange={(newTldr) => {
             setDisplayItem({ ...itemToDisplay, tldr: newTldr });
           }}
@@ -794,6 +797,7 @@ const XItemView = observer(({
         <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onNotesChange={(newNotes) => {
             setDisplayItem({ ...itemToDisplay, notes: newNotes });
           }}
@@ -1042,6 +1046,7 @@ const XItemView = observer(({
           isRefreshing={isRefreshingMetadata || isRefreshing}
           isDeleting={isDeleting}
           isDarkMode={isDarkMode}
+        placeholder="Title"
         />
       </View>
 

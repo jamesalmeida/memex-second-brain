@@ -19,13 +19,16 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   onSave,
   onClose,
   isDarkMode,
-  placeholder = 'Tap to add title',
+  placeholder = 'Title',
   style,
 }) => {
   const handleMenuAction = (action: string) => {
     // Placeholder for future menu actions
     console.log('Menu action:', action);
   };
+
+  // Define placeholder color based on theme
+  const placeholderColor = isDarkMode ? '#666666' : '#999999';
 
   return (
     <View style={[styles.header, isDarkMode && styles.headerDark]}>
@@ -52,6 +55,8 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
           isDarkMode={isDarkMode}
           numberOfLines={1}
           ellipsizeMode="tail"
+          hideEditIcon={true}
+          placeholderTextColor={placeholderColor}
         />
       </View>
 
@@ -126,12 +131,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
     color: '#000',
     textAlign: 'center',
+    width: '100%',
   },
   titleDark: {
     color: '#FFFFFF',

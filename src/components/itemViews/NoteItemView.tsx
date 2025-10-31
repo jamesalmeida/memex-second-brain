@@ -12,7 +12,7 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as Clipboard from 'expo-clipboard';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
-import HeroMediaSection from '../HeroMediaSection';
+import { HeroMediaSection } from './components';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -147,13 +147,14 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         }}
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
-        placeholder="Tap to add title"
+        placeholder="Title"
       />
 
       {/* Hero Image / Images Carousel */}
       <HeroMediaSection
         item={itemToDisplay}
         isDarkMode={isDarkMode}
+        placeholder="Title"
         contentTypeIcon="📝"
         onImageAdd={() => imageUploadModalRef.current?.open()}
         onImageRemove={handleImageRemove}
@@ -198,6 +199,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
             collapsedLines={6}
             showMoreThreshold={300}
             isDarkMode={isDarkMode}
+        placeholder="Title"
           />
         </View>
 
@@ -205,6 +207,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onTldrChange={(newTldr) => {
             setDisplayItem({ ...itemToDisplay, tldr: newTldr });
           }}
@@ -231,6 +234,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onNotesChange={(newNotes) => {
             setDisplayItem({ ...itemToDisplay, notes: newNotes });
           }}
@@ -293,6 +297,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
           isRefreshing={isRefreshing}
           isDeleting={isDeleting}
           isDarkMode={isDarkMode}
+        placeholder="Title"
         />
       </View>
 

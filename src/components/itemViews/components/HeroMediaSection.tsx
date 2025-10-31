@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Style
 import { VideoView } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
 import { observer } from '@legendapp/state/react';
-import { itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
-import { ImageWithActions } from './ImageWithActions';
-import { Item } from '../types';
+import { itemTypeMetadataComputed } from '../../../stores/itemTypeMetadata';
+import { ImageWithActions } from '../../ImageWithActions';
+import { Item } from '../../../types';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -258,6 +258,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingHorizontal: CONTENT_PADDING,
     overflow: 'hidden',
+    marginTop: 10,
   },
   heroMedia: {
     width: CONTENT_WIDTH,

@@ -16,6 +16,8 @@ interface InlineEditableTextProps {
   showMoreThreshold?: number; // min chars to show Show more/less
   numberOfLines?: number; // Force specific number of lines with ellipsis
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
+  hideEditIcon?: boolean; // Hide edit icon and controls for clean native input style
+  placeholderTextColor?: string; // Custom placeholder color
 }
 
 const InlineEditableText: React.FC<InlineEditableTextProps> = ({
@@ -32,6 +34,8 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   showMoreThreshold = 300,
   numberOfLines,
   ellipsizeMode = 'tail',
+  hideEditIcon = false,
+  placeholderTextColor,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<string>(value ?? '');
@@ -63,13 +67,11 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
 
   const saveValue = async (val: string) => {
     if (val === (value ?? '')) {
-      setIsEditing(false);
       return;
     }
     try {
       setIsSaving(true);
       await Promise.resolve(onSave(val));
-      setIsEditing(false);
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 1200);
     } finally {
@@ -78,6 +80,8 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   };
 
   const saveEdit = async () => {
+    // Optimistically hide the input immediately on blur
+    setIsEditing(false);
     await saveValue(draft);
   };
 
@@ -108,14 +112,21 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
         <TouchableOpacity onPress={beginEdit} activeOpacity={0.7} testID={testID}>
           <View style={styles.readonlyRow}>
             <Text
-              style={[style, showPlaceholder && styles.placeholderText, isDarkMode && (showPlaceholder ? styles.placeholderTextDark : null)]}
+              style={[
+                style,
+                showPlaceholder && !placeholderTextColor && styles.placeholderText,
+                showPlaceholder && placeholderTextColor && { color: placeholderTextColor, fontStyle: 'normal' },
+                isDarkMode && (showPlaceholder && !placeholderTextColor ? styles.placeholderTextDark : null)
+              ]}
               numberOfLines={displayLines}
               ellipsizeMode={ellipsizeMode}
             >
               {showPlaceholder ? placeholder : value}
             </Text>
-            <Feather name="edit" size={16} color={isDarkMode ? '#AAA' : '#555'} style={styles.pencilIcon} />
-            {justSaved && (
+            {!hideEditIcon && (
+              <Feather name="edit" size={16} color={isDarkMode ? '#AAA' : '#555'} style={styles.pencilIcon} />
+            )}
+            {!hideEditIcon && justSaved && (
               <Text style={[styles.savedBadge, isDarkMode && styles.savedBadgeDark]}>✓ Saved</Text>
             )}
           </View>
@@ -139,6 +150,7 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
         onChangeText={setDraft}
         onBlur={saveEdit}
         placeholder={placeholder}
+        placeholderTextColor={placeholderTextColor || (isDarkMode ? '#999' : '#888')}
         multiline={multiline}
         numberOfLines={multiline ? (maxLines || 6) : 1}
         style={[style, styles.input, isDarkMode && styles.inputDark]}
@@ -146,25 +158,27 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
         onSubmitEditing={!multiline ? saveEdit : undefined}
         blurOnSubmit={!multiline}
       />
-      <View style={styles.controls}>
-        <TouchableOpacity onPress={cancelEdit} style={styles.controlButton} activeOpacity={0.7}>
-          <Text style={styles.controlText}>✕</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={clearAndSave} style={styles.controlButton} activeOpacity={0.7}>
-          {isSaving ? (
-            <ActivityIndicator size="small" />
-          ) : (
-            <MaterialIcons name="delete-outline" size={18} color="#FF3B30" />
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={saveEdit} style={styles.controlButton} activeOpacity={0.7}>
-          {isSaving ? (
-            <ActivityIndicator size="small" />
-          ) : (
-            <Text style={styles.controlText}>✓</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {!hideEditIcon && (
+        <View style={styles.controls}>
+          <TouchableOpacity onPress={cancelEdit} style={styles.controlButton} activeOpacity={0.7}>
+            <Text style={styles.controlText}>✕</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={clearAndSave} style={styles.controlButton} activeOpacity={0.7}>
+            {isSaving ? (
+              <ActivityIndicator size="small" />
+            ) : (
+              <MaterialIcons name="delete-outline" size={18} color="#FF3B30" />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={saveEdit} style={styles.controlButton} activeOpacity={0.7}>
+            {isSaving ? (
+              <ActivityIndicator size="small" />
+            ) : (
+              <Text style={styles.controlText}>✓</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -175,6 +189,7 @@ const styles = StyleSheet.create({
   readonlyRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
   },
   pencil: {
@@ -198,17 +213,19 @@ const styles = StyleSheet.create({
   },
   editContainer: {
     position: 'relative',
+    width: '100%',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#D1D1D6',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
+    width: '100%',
   },
   inputDark: {
-    borderColor: '#3A3A3C',
+    borderColor: '#48484A',
     backgroundColor: '#1C1C1E',
     color: '#FFFFFF',
   },

@@ -213,6 +213,30 @@ export const buildItemContext = (item: Item): ContextResult => {
   // Estimate token count for the entire context
   const tokenEstimate = estimateTokens(contextString);
 
+  // Debug logging: show context breakdown
+  console.log('📦 Context built for item:', item.id);
+  console.log(`  Total: ${contextString.length.toLocaleString()} chars, ${wordCount.toLocaleString()} words, ~${tokenEstimate.estimatedTokens.toLocaleString()} tokens`);
+
+  // Show breakdown by field
+  const transcriptLength = transcript ?
+    (transcript.segments?.length
+      ? transcript.segments.map(s => `[00:00] ${s.text}`).join('\n').length
+      : transcript.transcript.length)
+    : 0;
+  if (transcriptLength > 0) {
+    console.log(`  - Transcript: ${transcriptLength.toLocaleString()} chars`);
+  }
+  if (item.content) {
+    console.log(`  - Content: ${item.content.length.toLocaleString()} chars`);
+  }
+  if (item.raw_text) {
+    console.log(`  - Raw text: ${Math.min(item.raw_text.length, 2000).toLocaleString()} chars (${item.raw_text.length > 2000 ? 'truncated' : 'full'})`);
+  }
+  if (imageDescriptions && imageDescriptions.length > 0) {
+    const imgDescLength = imageDescriptions.reduce((sum, d) => sum + d.description.length, 0);
+    console.log(`  - Image descriptions: ${imgDescLength.toLocaleString()} chars (${imageDescriptions.length} images)`);
+  }
+
   return {
     contextString,
     metadata: {

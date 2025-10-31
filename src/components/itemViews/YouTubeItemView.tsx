@@ -36,7 +36,7 @@ import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { serpapi } from '../../services/serpapi';
-import { adminPrefsStore } from '../../stores/adminPrefs';
+import { adminSettingsComputed } from '../../stores/adminSettings';
 import { trackApiUsage } from '../../services/apiUsageTracking';
 import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -272,7 +272,7 @@ const YouTubeItemView = observer(({
       }
       const videoId = videoIdMatch[1];
 
-      const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+      const sourcePref = adminSettingsComputed.youtubeTranscriptSource();
       console.log('[YouTubeItemView][Transcript] Source preference:', sourcePref);
       let fetchedTranscript: string;
       let language: string;
@@ -561,7 +561,7 @@ const YouTubeItemView = observer(({
         }}
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
-        placeholder="Tap to add title"
+        placeholder="Title"
       />
 
       {/* YouTube Video Embed */}
@@ -637,6 +637,7 @@ const YouTubeItemView = observer(({
             collapsedLines={6}
             showMoreThreshold={300}
             isDarkMode={isDarkMode}
+        placeholder="Title"
           />
         </View>
 
@@ -644,6 +645,7 @@ const YouTubeItemView = observer(({
         <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onTldrChange={(newTldr) => {
             setDisplayItem({ ...itemToDisplay, tldr: newTldr });
           }}
@@ -682,6 +684,7 @@ const YouTubeItemView = observer(({
         <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
+        placeholder="Title"
           onNotesChange={(newNotes) => {
             setDisplayItem({ ...itemToDisplay, notes: newNotes });
           }}
@@ -1023,6 +1026,7 @@ const YouTubeItemView = observer(({
           isRefreshing={isRefreshingMetadata || isRefreshing}
           isDeleting={isDeleting}
           isDarkMode={isDarkMode}
+        placeholder="Title"
         />
       </View>
 

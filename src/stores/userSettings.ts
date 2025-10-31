@@ -15,8 +15,7 @@ const DEFAULT_SETTINGS = {
   theme_dark_mode: false,
   ai_chat_model: 'gpt-4o-mini',
   ai_metadata_model: 'gpt-4o-mini',
-  ai_auto_transcripts: false,
-  ai_auto_image_descriptions: false,
+  // Note: ai_auto_transcripts and ai_auto_image_descriptions moved to admin_settings table (global settings)
   ui_x_video_muted: true,
   ui_autoplay_x_videos: true,
   ui_radial_actions: ['chat', 'share', 'archive'] as const, // Default actions
@@ -38,8 +37,7 @@ export const userSettingsComputed = {
   // AI
   chatModel: () => userSettingsStore.settings.get()?.ai_chat_model ?? DEFAULT_SETTINGS.ai_chat_model,
   metadataModel: () => userSettingsStore.settings.get()?.ai_metadata_model ?? DEFAULT_SETTINGS.ai_metadata_model,
-  autoTranscripts: () => userSettingsStore.settings.get()?.ai_auto_transcripts ?? DEFAULT_SETTINGS.ai_auto_transcripts,
-  autoImageDescriptions: () => userSettingsStore.settings.get()?.ai_auto_image_descriptions ?? DEFAULT_SETTINGS.ai_auto_image_descriptions,
+  // Note: autoTranscripts and autoImageDescriptions moved to adminSettingsComputed
 
   // UI
   xVideoMuted: () => userSettingsStore.settings.get()?.ui_x_video_muted ?? DEFAULT_SETTINGS.ui_x_video_muted,

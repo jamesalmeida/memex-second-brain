@@ -17,6 +17,7 @@ import { chatMessagesActions } from '../stores/chatMessages';
 import { aiSettingsActions } from '../stores/aiSettings';
 import { filterActions } from '../stores/filter';
 import { userSettingsActions } from '../stores/userSettings';
+import { adminSettingsActions } from '../stores/adminSettings';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -66,6 +67,12 @@ export function useAuth() {
           console.log('⚙️ Loading user settings from cloud...');
           await userSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load user settings:', error);
+          });
+
+          // Load admin settings (global settings for all users)
+          console.log('🔧 Loading admin settings...');
+          await adminSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load admin settings:', error);
           });
 
           // Load AI settings AFTER user settings are loaded
@@ -126,6 +133,12 @@ export function useAuth() {
             console.error('Failed to load user settings:', error);
           });
 
+          // Load admin settings (global settings for all users)
+          console.log('🔧 Loading admin settings...');
+          await adminSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load admin settings:', error);
+          });
+
           // Load AI settings AFTER user settings are loaded
           console.log('🤖 Loading AI settings...');
           await aiSettingsActions.loadSettings().catch(error => {
@@ -173,6 +186,7 @@ export function useAuth() {
               STORAGE_KEYS.AI_MODELS,
               STORAGE_KEYS.FILTERS,
               STORAGE_KEYS.USER_SETTINGS,
+              STORAGE_KEYS.ADMIN_SETTINGS,
             ]);
             console.log('✅ Cleared all user data from storage');
           } catch (error) {
@@ -280,6 +294,7 @@ export function useAuth() {
           STORAGE_KEYS.AI_MODELS,
           STORAGE_KEYS.FILTERS,
           STORAGE_KEYS.USER_SETTINGS,
+          STORAGE_KEYS.ADMIN_SETTINGS,
         ]);
       } catch (err) {
         // swallow

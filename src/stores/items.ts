@@ -14,7 +14,7 @@ import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
 import { serpapi } from '../services/serpapi';
-import { adminPrefsStore } from './adminPrefs';
+import { adminSettingsComputed } from './adminSettings';
 import { trackApiUsage } from '../services/apiUsageTracking';
 import uuid from 'react-native-uuid';
 
@@ -100,8 +100,8 @@ export const itemsActions = {
   // NOTE: This function is no longer called immediately after item creation.
   // It is now called from the enrichment pipeline steps after content type detection.
   _autoGenerateContent: async (item: Item) => {
-    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
-    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
+    const autoGenerateTranscripts = adminSettingsComputed.autoGenerateTranscripts();
+    const autoGenerateImageDescriptions = adminSettingsComputed.autoGenerateImageDescriptions();
     const selectedModel = aiSettingsStore.selectedModel.get();
 
     // Auto-generate video transcript if enabled
@@ -128,7 +128,7 @@ export const itemsActions = {
             const videoId = videoIdMatch[1];
 
             // Check admin preference for transcript source
-            const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+            const sourcePref = adminSettingsComputed.youtubeTranscriptSource();
             console.log('[AutoGen][Transcript] Source preference:', sourcePref);
 
             if (sourcePref === 'serpapi') {
@@ -263,7 +263,7 @@ export const itemsActions = {
 
   // Helper function to auto-generate transcript for YouTube videos after enrichment
   autoGenerateYouTubeTranscript: async (itemId: string) => {
-    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    const autoGenerateTranscripts = adminSettingsComputed.autoGenerateTranscripts();
     if (!autoGenerateTranscripts) return;
 
     const item = itemsStore.items.get().find(i => i.id === itemId);
@@ -283,7 +283,7 @@ export const itemsActions = {
 
   // Helper function to auto-generate transcript for X videos after enrichment
   autoGenerateXVideoTranscript: async (itemId: string) => {
-    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    const autoGenerateTranscripts = adminSettingsComputed.autoGenerateTranscripts();
     if (!autoGenerateTranscripts) return;
 
     const item = itemsStore.items.get().find(i => i.id === itemId);
@@ -306,7 +306,7 @@ export const itemsActions = {
 
   // Helper function to auto-generate image descriptions for X posts after enrichment
   autoGenerateXImageDescriptions: async (itemId: string) => {
-    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
+    const autoGenerateImageDescriptions = adminSettingsComputed.autoGenerateImageDescriptions();
     if (!autoGenerateImageDescriptions) return;
 
     const item = itemsStore.items.get().find(i => i.id === itemId);

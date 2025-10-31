@@ -12,6 +12,10 @@ import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
 import { runPipeline } from '../services/pipeline/runPipeline';
 import { spacesComputed } from '../stores/spaces';
+import { adminSettingsComputed } from '../stores/adminSettings';
+import { buildItemContext } from '../services/contextBuilder';
+import { openai } from '../services/openai';
+import { itemsStore } from '../stores/items';
 
 interface AddItemSheetProps {
   preSelectedSpaceId?: string | null;
@@ -124,6 +128,36 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
 
       // Run the numbered pipeline (detect type, parse, enrich)
       runPipeline({ itemId: id, url })
+        .then(async () => {
+          // Auto-generate TLDR if enabled (global admin setting)
+          if (adminSettingsComputed.autoGenerateTldr()) {
+            try {
+              // Get the latest item data after pipeline completion
+              const updatedItem = itemsStore.items.get().find(i => i.id === id);
+              if (updatedItem && !updatedItem.tldr) {
+                console.log('🤖 Auto-generating TLDR for item:', id);
+
+                // Build full context including transcript, images, metadata, etc.
+                const contextResult = buildItemContext(updatedItem);
+
+                // Generate summary using full context
+                const generatedTldr = await openai.summarizeContent(
+                  contextResult.contextString,
+                  contextResult.metadata.contentType
+                );
+
+                if (generatedTldr && generatedTldr !== 'Summary not available') {
+                  // Save to database
+                  await itemsActions.updateItemWithSync(id, { tldr: generatedTldr });
+                  console.log('✅ Auto-generated TLDR saved successfully');
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error auto-generating TLDR:', error);
+              // Fail silently - don't block item creation
+            }
+          }
+        })
         .catch(() => {})
         .finally(() => {
           processingItemsActions.remove(id);
