@@ -128,13 +128,22 @@ export const adminSettingsActions = {
       }
 
       // Update in Supabase (RLS will check if user is admin)
-      const { error } = await supabase
+      console.log(`🔧 Attempting to update admin setting: ${field} =`, value, 'for user:', user.id);
+      const { data, error } = await supabase
         .from('admin_settings')
         .update({ [field]: value })
-        .eq('id', ADMIN_SETTINGS_ID);
+        .eq('id', ADMIN_SETTINGS_ID)
+        .select();
 
       if (error) {
-        console.error('🔧 Error updating admin setting:', error);
+        console.error('🔧 ❌ ERROR updating admin setting:', {
+          field,
+          value,
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
         // Revert optimistic update
         if (currentSettings) {
           adminSettingsStore.settings.set(currentSettings);
@@ -142,7 +151,7 @@ export const adminSettingsActions = {
         throw error;
       }
 
-      console.log(`🔧 Admin setting updated: ${field} =`, value);
+      console.log(`🔧 ✅ Admin setting updated successfully: ${field} =`, value, 'Response:', data);
 
       // Update AsyncStorage cache
       const updatedSettings = adminSettingsStore.settings.get();

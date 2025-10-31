@@ -186,6 +186,7 @@ export function useAuth() {
               STORAGE_KEYS.AI_MODELS,
               STORAGE_KEYS.FILTERS,
               STORAGE_KEYS.USER_SETTINGS,
+              STORAGE_KEYS.ADMIN_SETTINGS,
             ]);
             console.log('✅ Cleared all user data from storage');
           } catch (error) {
@@ -293,6 +294,7 @@ export function useAuth() {
           STORAGE_KEYS.AI_MODELS,
           STORAGE_KEYS.FILTERS,
           STORAGE_KEYS.USER_SETTINGS,
+          STORAGE_KEYS.ADMIN_SETTINGS,
         ]);
       } catch (err) {
         // swallow

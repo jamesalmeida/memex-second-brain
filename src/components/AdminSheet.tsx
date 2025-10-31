@@ -174,12 +174,12 @@ const AdminSheet = observer(
                 </Text>
               </View>
               <Switch
-                value={adminSettingsStore.settings.get()?.auto_generate_tldr ?? false}
+                value={adminSettingsStore.settings.auto_generate_tldr.get() ?? false}
                 onValueChange={(value) => {
                   adminSettingsActions.setAutoGenerateTldr(value);
                 }}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
-                thumbColor={adminSettingsStore.settings.get()?.auto_generate_tldr ? '#fff' : '#f4f3f4'}
+                thumbColor={adminSettingsStore.settings.auto_generate_tldr.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
           </View>
@@ -205,10 +205,10 @@ const AdminSheet = observer(
                 </Text>
               </View>
               <Switch
-                value={adminSettingsStore.settings.get()?.auto_generate_transcripts ?? false}
+                value={adminSettingsStore.settings.auto_generate_transcripts.get() ?? false}
                 onValueChange={(value) => adminSettingsActions.setAutoGenerateTranscripts(value)}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
-                thumbColor={adminSettingsStore.settings.get()?.auto_generate_transcripts ? '#fff' : '#f4f3f4'}
+                thumbColor={adminSettingsStore.settings.auto_generate_transcripts.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
 
@@ -227,10 +227,10 @@ const AdminSheet = observer(
                 </Text>
               </View>
               <Switch
-                value={adminSettingsStore.settings.get()?.auto_generate_image_descriptions ?? false}
+                value={adminSettingsStore.settings.auto_generate_image_descriptions.get() ?? false}
                 onValueChange={(value) => adminSettingsActions.setAutoGenerateImageDescriptions(value)}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
-                thumbColor={adminSettingsStore.settings.get()?.auto_generate_image_descriptions ? '#fff' : '#f4f3f4'}
+                thumbColor={adminSettingsStore.settings.auto_generate_image_descriptions.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
           </View>
@@ -245,17 +245,17 @@ const AdminSheet = observer(
               <View style={{ flexDirection: 'row' }}>
                 <TouchableOpacity
                   onPress={() => adminSettingsActions.setYouTubeSource('youtubei')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.get()?.youtube_source ?? 'youtubei') === 'youtubei' && styles.segBtnActive]}
+                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnActive]}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.get()?.youtube_source ?? 'youtubei') === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
+                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => adminSettingsActions.setYouTubeSource('serpapi')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.get()?.youtube_source ?? 'youtubei') === 'serpapi' && styles.segBtnActive]}
+                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnActive]}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.get()?.youtube_source ?? 'youtubei') === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
+                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -271,17 +271,17 @@ const AdminSheet = observer(
               <View style={{ flexDirection: 'row' }}>
                 <TouchableOpacity
                   onPress={() => adminSettingsActions.setYouTubeTranscriptSource('youtubei')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.get()?.youtube_transcript_source ?? 'youtubei') === 'youtubei' && styles.segBtnActive]}
+                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnActive]}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.get()?.youtube_transcript_source ?? 'youtubei') === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
+                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => adminSettingsActions.setYouTubeTranscriptSource('serpapi')}
-                  style={[styles.segBtn, (adminSettingsStore.settings.get()?.youtube_transcript_source ?? 'youtubei') === 'serpapi' && styles.segBtnActive]}
+                  style={[styles.segBtn, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnActive]}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.get()?.youtube_transcript_source ?? 'youtubei') === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
+                  <Text style={[styles.segBtnText, (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
                 </TouchableOpacity>
               </View>
             </View>

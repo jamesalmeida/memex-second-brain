@@ -3,10 +3,11 @@ import { subscriptions } from './supabase';
 import { authStore } from '../stores/auth';
 import { itemsStore } from '../stores/items';
 import { spacesStore } from '../stores/spaces';
+import { adminSettingsStore } from '../stores/adminSettings';
 import { syncService } from './syncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import { Item, Space } from '../types';
+import { Item, Space, AdminSettings } from '../types';
 
 /**
  * Real-time sync service that listens for changes from other devices
@@ -15,6 +16,7 @@ import { Item, Space } from '../types';
 class RealtimeSyncService {
   private itemsChannel: RealtimeChannel | null = null;
   private spacesChannel: RealtimeChannel | null = null;
+  private adminSettingsChannel: RealtimeChannel | null = null;
   private isActive = false;
 
   /**
@@ -46,6 +48,12 @@ class RealtimeSyncService {
       await this.handleSpaceChange(payload);
     });
 
+    // Subscribe to admin settings changes (global, no user filter)
+    this.adminSettingsChannel = subscriptions.adminSettings(async (payload) => {
+      console.log('📡 [RealtimeSync] Admin settings change received:', payload.eventType);
+      await this.handleAdminSettingsChange(payload);
+    });
+
     this.isActive = true;
     console.log('✅ [RealtimeSync] Real-time subscriptions active');
   }
@@ -64,6 +72,11 @@ class RealtimeSyncService {
     if (this.spacesChannel) {
       await this.spacesChannel.unsubscribe();
       this.spacesChannel = null;
+    }
+
+    if (this.adminSettingsChannel) {
+      await this.adminSettingsChannel.unsubscribe();
+      this.adminSettingsChannel = null;
     }
 
     this.isActive = false;
@@ -193,6 +206,33 @@ class RealtimeSyncService {
       console.log('✅ [RealtimeSync] Space change applied locally');
     } catch (error) {
       console.error('❌ [RealtimeSync] Error handling space change:', error);
+    }
+  }
+
+  /**
+   * Handle admin settings changes from other devices/users
+   */
+  private async handleAdminSettingsChange(payload: any) {
+    const { eventType, new: newSettings } = payload;
+
+    try {
+      // Admin settings should only be UPDATE events (single row table)
+      // INSERT/DELETE shouldn't happen in normal operation
+      if (eventType === 'UPDATE' && newSettings) {
+        console.log('🔄 [RealtimeSync] Updating admin settings from remote');
+
+        // Update the store (this will trigger UI updates)
+        adminSettingsStore.settings.set(newSettings as AdminSettings);
+
+        // Update AsyncStorage cache
+        await AsyncStorage.setItem(STORAGE_KEYS.ADMIN_SETTINGS, JSON.stringify(newSettings));
+
+        console.log('✅ [RealtimeSync] Admin settings change applied locally');
+      } else {
+        console.log(`ℹ️ [RealtimeSync] Ignoring admin settings ${eventType} event`);
+      }
+    } catch (error) {
+      console.error('❌ [RealtimeSync] Error handling admin settings change:', error);
     }
   }
 
