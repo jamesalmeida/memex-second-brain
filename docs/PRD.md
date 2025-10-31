@@ -673,12 +673,36 @@ The metadata extraction pipeline (`src/services/pipeline/`) has been reorganized
 - **Solution**: Detect type FIRST from URL pattern (instant), then use linkedom as fallback only when needed
 - **Result**: Amazon URLs correctly detected as 'product', linkedom extracts metadata successfully, no specialized enricher conflicts
 
+**Systematic Missing Enricher Pattern Discovered:**
+After fixing the pipeline order, a systematic issue was identified: certain content types were correctly detected by Step01 but lacked Step04 enrichers, causing metadata to appear only after manual refresh. The refresh worked because it called `extractURLMetadata` which had specialized extractors, but the initial pipeline run had no enrichment step.
+
+**Affected Platforms & Fixes:**
+- **Amazon Products** (`product` type): Added Step04_5_EnrichAmazon - extracts title, description, product images (supports short URLs like a.co)
+- **IMDb Movies/TV** (`movie`, `tv_show` types): Added Step04_6_EnrichMovie - extracts poster images, descriptions, cast info
+- **TikTok Videos** (`tiktok` type): Added Step04_7_EnrichTikTok - extracts author, title, description, video thumbnails
+- **Reddit Videos**: Added video player support to RedditItemView and RedditItemCard components for proper video playback
+
+All platforms now receive complete metadata on first save without requiring manual refresh.
+
 **Implementation Details:**
 - Pipeline controller: `src/services/pipeline/runPipeline.ts`
 - Step files: `src/services/pipeline/steps/Step0*.ts`
 - Each step can skip execution based on item state (e.g., skip if `content_type` already set)
 - Steps communicate via item updates stored in Legend-State and synced to Supabase
 - All steps handle offline scenarios gracefully (queue for later processing)
+
+**Step04 Enrichers (Platform-Specific Metadata Extraction):**
+- `Step04_1a_EnrichYouTube_SerpAPI` - YouTube metadata via SerpAPI (conditional on user preference)
+- `Step04_1_EnrichYouTube` - YouTube metadata via youtubei.js
+- `Step04_2_EnrichX` - X/Twitter posts with media and engagement metrics
+- `Step04_3_EnrichReddit` - Reddit posts with videos, images, and community data
+- `Step04_4_EnrichSerpApiGeneric` - eBay products, Yelp businesses, Apple App Store apps
+- `Step04_5_EnrichAmazon` - Amazon products including short URLs (a.co, amzn.to)
+- `Step04_6_EnrichMovie` - IMDb movies and TV shows with posters and cast
+- `Step04_7_EnrichTikTok` - TikTok videos with author and thumbnail data
+
+**Content Types with Specialized Enrichers:**
+Step03_ParseLinkedom skips these types: `['youtube', 'x', 'reddit', 'ebay', 'yelp', 'app_store', 'product', 'movie', 'tv_show', 'tiktok', 'note']`
 
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
 The app uses an **offline-first architecture** with automatic sync and real-time updates:
@@ -890,8 +914,17 @@ All ItemView components are located in `src/components/itemViews/`:
 - **NoteItemView.tsx** - Note content type
 - **YouTubeItemView.tsx** - YouTube videos with transcript support
 - **XItemView.tsx** - X/Twitter posts with videos and image descriptions
-- **RedditItemView.tsx** - Reddit posts with engagement metrics
+- **RedditItemView.tsx** - Reddit posts with engagement metrics and video playback support
+  - Integrates video player via HeroMediaSection with autoplay (muted) and play button overlay
+  - Retrieves video URLs from `itemTypeMetadataComputed.getVideoUrl()`
+  - Supports both video posts and image carousel posts
 - **MovieTVItemView.tsx** - Movies/TV shows with simplified features
+
+**Item Card Components** (Grid view):
+All ItemCard components are located in `src/components/items/`:
+- **RedditItemCard.tsx** - Includes video player support with play button overlay
+  - Displays video first if available, falls back to images
+  - Uses expo-video for autoplay (muted) in grid view
 
 ### Usage Pattern
 ItemViews import components using the barrel export:
