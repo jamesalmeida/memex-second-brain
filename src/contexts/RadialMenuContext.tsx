@@ -356,6 +356,35 @@ const RadialMenuOverlay = observer(({
         );
       },
     },
+    refresh: {
+      id: 'refresh',
+      label: 'Refresh',
+      icon: 'refresh-outline',
+      color: '#5AC8FA',
+      action: async (item: Item) => {
+        console.log('🔄 REFRESH button pressed for item:', item.title);
+        try {
+          const success = await itemsActions.refreshMetadata(item.id);
+          if (success) {
+            showToast({
+              message: 'Metadata refreshed successfully',
+              type: 'success',
+            });
+          } else {
+            showToast({
+              message: 'Failed to refresh metadata',
+              type: 'error',
+            });
+          }
+        } catch (error) {
+          console.error('🔄 Error refreshing metadata from radial menu:', error);
+          showToast({
+            message: 'Failed to refresh metadata',
+            type: 'error',
+          });
+        }
+      },
+    },
   };
 
   // Filter actions based on user configuration
@@ -637,6 +666,35 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ],
           { cancelable: true }
         );
+      },
+    },
+    refresh: {
+      id: 'refresh',
+      label: 'Refresh',
+      icon: 'refresh-outline',
+      color: '#5AC8FA',
+      action: async (item: Item) => {
+        console.log('🔄 REFRESH button pressed for item:', item.title);
+        try {
+          const success = await itemsActions.refreshMetadata(item.id);
+          if (success) {
+            showToast({
+              message: 'Metadata refreshed successfully',
+              type: 'success',
+            });
+          } else {
+            showToast({
+              message: 'Failed to refresh metadata',
+              type: 'error',
+            });
+          }
+        } catch (error) {
+          console.error('🔄 Error refreshing metadata from radial menu:', error);
+          showToast({
+            message: 'Failed to refresh metadata',
+            type: 'error',
+          });
+        }
       },
     },
   };
