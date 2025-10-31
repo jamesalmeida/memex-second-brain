@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useToast } from '../../contexts/ToastContext';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import HeroMediaSection from '../HeroMediaSection';
@@ -97,6 +98,17 @@ const RedditItemView = observer(({
   // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [expandedDescription, setExpandedDescription] = useState(false);
+
+  // Video player state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
+  const videoPlayer = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
+      player.loop = true;
+      player.muted = true;
+      player.play();
+    }
+  });
 
   // Image descriptions state
   const [imageDescriptions, setImageDescriptions] = useState<ImageDescription[]>([]);
@@ -541,6 +553,16 @@ const RedditItemView = observer(({
         item={itemToDisplay!}
         isDarkMode={isDarkMode}
         contentTypeIcon="👽"
+        videoUrl={videoUrl}
+        videoPlayer={videoPlayer}
+        isVideoPlaying={isVideoPlaying}
+        onVideoPlay={() => {
+          if (videoPlayer) {
+            videoPlayer.play();
+            setIsVideoPlaying(true);
+          }
+        }}
+        showPlayButton={true}
         onImageAdd={() => imageUploadModalRef.current?.open()}
         onImageRemove={handleMetadataImageRemove}
         onThumbnailRemove={handleHeroImageRemove}

@@ -632,13 +632,53 @@ All external API calls are made directly from the client (`src/services/` and `s
 - This reduces reliance on AI for simple metadata and speeds up saves.
 - If a site blocks fetch or lacks metadata, we save a minimal item and skip enrichment. Premium AI enrichments remain available but are not invoked for basic saves.
 
-#### Invalid URL Handling
-- When the pasted input is not a valid URL, `parseUrlWithLinkedom` signals an invalid state. In that case, `Step01_ParseLinkedom` converts the item into a note:
+#### Metadata Extraction Pipeline Architecture
+The metadata extraction pipeline (`src/services/pipeline/`) has been reorganized to optimize performance and reliability. The pipeline runs sequentially through these steps:
+
+**Pipeline Step Order:**
+1. **Step01_DetectType** (formerly Step02) - Fast URL pattern-based content type detection
+2. **Step02_DetectTypeAI** (formerly Step03) - AI fallback for ambiguous URLs
+3. **Step03_ParseLinkedom** (formerly Step01) - HTML parsing fallback for generic content
+4. **Step04_*** - Specialized enrichment steps for specific content types
+
+**Key Design Decisions:**
+
+**Why Type Detection First:**
+- URL pattern matching is instant (no HTTP fetch required) and works offline
+- Critical for URLs like Amazon product pages that would otherwise be blocked by linkedom (HTML too large or anti-bot protection)
+- Ensures correct content type before attempting metadata extraction
+- Examples: YouTube URLs → `youtube`, Amazon URLs → `product`, X/Twitter URLs → `x`
+
+**Linkedom as Fallback:**
+- Linkedom parsing moved to Step03 to run AFTER type detection succeeds
+- Only runs for content types WITHOUT specialized enrichers (Step04)
+- Skips if `content_type` already has a dedicated enrichment step
+- Prevents redundant HTTP fetches and HTML parsing
+- Content types with specialized enrichers: `youtube`, `x`, `reddit`, `ebay`, `yelp`, `app_store`, `note`
+- Content types using linkedom fallback: `bookmark`, `product`, `amazon`, `instagram`, `movie`, `article`, etc.
+
+**Invalid URL Handling:**
+- Step01_DetectType validates URL format using `new URL()` try-catch
+- Invalid URLs are immediately converted to notes:
   - Set `content_type` to `note`
-  - Set `title` to an empty string
-  - Set `desc` to the original pasted text
-  - Clear `url`, `thumbnail_url`, and parsed HTML `content`
-  - Subsequent detection/enrichment steps naturally skip because the item is no longer a `bookmark`
+  - Set `title` to empty string
+  - Set `desc` to the original pasted text (preserves user input)
+  - Clear `url`, `thumbnail_url`, and `content` fields
+- Subsequent pipeline steps skip notes automatically
+- Ensures user input is never lost, even if it's not a URL
+
+**Why This Order Matters:**
+- **Original Problem**: Amazon product URLs were saved as "unknown" type with no metadata
+- **Root Cause**: Step01_ParseLinkedom ran first, failed on Amazon's large HTML, converted item to 'note' before type detection could run
+- **Solution**: Detect type FIRST from URL pattern (instant), then use linkedom as fallback only when needed
+- **Result**: Amazon URLs correctly detected as 'product', linkedom extracts metadata successfully, no specialized enricher conflicts
+
+**Implementation Details:**
+- Pipeline controller: `src/services/pipeline/runPipeline.ts`
+- Step files: `src/services/pipeline/steps/Step0*.ts`
+- Each step can skip execution based on item state (e.g., skip if `content_type` already set)
+- Steps communicate via item updates stored in Legend-State and synced to Supabase
+- All steps handle offline scenarios gracefully (queue for later processing)
 
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
 The app uses an **offline-first architecture** with automatic sync and real-time updates:

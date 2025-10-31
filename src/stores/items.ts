@@ -676,6 +676,7 @@ export const itemsActions = {
         title: metadata.title || item.title,
         desc: metadata.description || item.desc,
         thumbnail_url: metadata.image || item.thumbnail_url,
+        content_type: metadata.contentType, // Update content type based on URL detection
         updated_at: new Date().toISOString(),
       };
 
