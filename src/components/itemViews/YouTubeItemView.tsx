@@ -36,7 +36,7 @@ import TagsEditor from '../TagsEditor';
 import { openai } from '../../services/openai';
 import { getYouTubeTranscript } from '../../services/youtube';
 import { serpapi } from '../../services/serpapi';
-import { adminPrefsStore } from '../../stores/adminPrefs';
+import { adminSettingsComputed } from '../../stores/adminSettings';
 import { trackApiUsage } from '../../services/apiUsageTracking';
 import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -272,7 +272,7 @@ const YouTubeItemView = observer(({
       }
       const videoId = videoIdMatch[1];
 
-      const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+      const sourcePref = adminSettingsComputed.youtubeTranscriptSource();
       console.log('[YouTubeItemView][Transcript] Source preference:', sourcePref);
       let fetchedTranscript: string;
       let language: string;

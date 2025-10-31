@@ -42,7 +42,7 @@ import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
 import { serpapi } from '../services/serpapi';
-import { adminPrefsStore } from '../stores/adminPrefs';
+import { adminSettingsComputed } from '../stores/adminSettings';
 import { trackApiUsage } from '../services/apiUsageTracking';
 import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
@@ -173,7 +173,7 @@ const ChatSheet = observer(
           const videoId = videoIdMatch[1];
 
           // Check admin preference for transcript source
-          const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+          const sourcePref = adminSettingsComputed.youtubeTranscriptSource();
           console.log('[ChatSheet][Auto-Fetch] Transcript source preference:', sourcePref);
 
           if (sourcePref === 'serpapi') {
@@ -354,6 +354,18 @@ const ChatSheet = observer(
             role: m.role as 'user' | 'assistant',
             content: m.content,
           }));
+
+        // Debug logging: show previous messages breakdown
+        console.log('💬 Previous messages in conversation:');
+        console.log(`  Count: ${previousMessages.length}`);
+        if (previousMessages.length > 0) {
+          previousMessages.forEach((msg, idx) => {
+            const preview = msg.content.substring(0, 80).replace(/\n/g, ' ');
+            console.log(`  [${idx}] ${msg.role}: ${msg.content.length.toLocaleString()} chars - "${preview}${msg.content.length > 80 ? '...' : ''}"`);
+          });
+          const totalPrevChars = previousMessages.reduce((sum, msg) => sum + msg.content.length, 0);
+          console.log(`  📏 Total previous message chars: ${totalPrevChars.toLocaleString()}`);
+        }
 
         // Call OpenAI API
         const completion = await openai.chatWithContextEnhanced(

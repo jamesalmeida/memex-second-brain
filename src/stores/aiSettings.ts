@@ -16,8 +16,7 @@ interface AISettingsState {
   lastModelsFetch: string | null;
   isLoadingModels: boolean;
   hasApiKey: boolean;
-  autoGenerateTranscripts: boolean;
-  autoGenerateImageDescriptions: boolean;
+  // Note: autoGenerateTranscripts and autoGenerateImageDescriptions moved to adminSettings (global settings)
 }
 
 const initialState: AISettingsState = {
@@ -27,8 +26,6 @@ const initialState: AISettingsState = {
   lastModelsFetch: null,
   isLoadingModels: false,
   hasApiKey: !!API.OPENAI_API_KEY,
-  autoGenerateTranscripts: false,
-  autoGenerateImageDescriptions: false,
 };
 
 export const aiSettingsStore = observable(initialState);
@@ -40,8 +37,7 @@ export const aiSettingsComputed = {
   availableModels: () => aiSettingsStore.availableModels.get(),
   isLoadingModels: () => aiSettingsStore.isLoadingModels.get(),
   hasApiKey: () => aiSettingsStore.hasApiKey.get(),
-  autoGenerateTranscripts: () => aiSettingsStore.autoGenerateTranscripts.get(),
-  autoGenerateImageDescriptions: () => aiSettingsStore.autoGenerateImageDescriptions.get(),
+  // Note: autoGenerateTranscripts and autoGenerateImageDescriptions moved to adminSettingsComputed
 
   // Check if models need refresh (24h cache)
   needsRefresh: (): boolean => {
@@ -87,8 +83,6 @@ export const aiSettingsActions = {
       const settings = {
         selectedModel: modelId,
         metadataModel: aiSettingsStore.metadataModel.get(),
-        autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
-        autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
       };
       await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
       console.log('🤖 Selected chat model:', modelId);
@@ -108,8 +102,6 @@ export const aiSettingsActions = {
       const settings = {
         selectedModel: aiSettingsStore.selectedModel.get(),
         metadataModel: modelId,
-        autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
-        autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
       };
       await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
       console.log('🤖 Selected metadata model:', modelId);
@@ -118,47 +110,8 @@ export const aiSettingsActions = {
     }
   },
 
-  setAutoGenerateTranscripts: async (enabled: boolean) => {
-    aiSettingsStore.autoGenerateTranscripts.set(enabled);
-    try {
-      // Save to cloud-synced user settings
-      const { userSettingsActions } = require('./userSettings');
-      await userSettingsActions.updateSetting('ai_auto_transcripts', enabled);
-
-      // Also save to legacy AsyncStorage for backward compatibility
-      const settings = {
-        selectedModel: aiSettingsStore.selectedModel.get(),
-        metadataModel: aiSettingsStore.metadataModel.get(),
-        autoGenerateTranscripts: enabled,
-        autoGenerateImageDescriptions: aiSettingsStore.autoGenerateImageDescriptions.get(),
-      };
-      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
-      console.log('🤖 Auto-generate transcripts:', enabled);
-    } catch (error) {
-      console.error('Error saving auto-generate transcripts setting:', error);
-    }
-  },
-
-  setAutoGenerateImageDescriptions: async (enabled: boolean) => {
-    aiSettingsStore.autoGenerateImageDescriptions.set(enabled);
-    try {
-      // Save to cloud-synced user settings
-      const { userSettingsActions } = require('./userSettings');
-      await userSettingsActions.updateSetting('ai_auto_image_descriptions', enabled);
-
-      // Also save to legacy AsyncStorage for backward compatibility
-      const settings = {
-        selectedModel: aiSettingsStore.selectedModel.get(),
-        metadataModel: aiSettingsStore.metadataModel.get(),
-        autoGenerateTranscripts: aiSettingsStore.autoGenerateTranscripts.get(),
-        autoGenerateImageDescriptions: enabled,
-      };
-      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
-      console.log('🤖 Auto-generate image descriptions:', enabled);
-    } catch (error) {
-      console.error('Error saving auto-generate image descriptions setting:', error);
-    }
-  },
+  // Note: setAutoGenerateTranscripts and setAutoGenerateImageDescriptions removed
+  // These are now global admin settings managed via adminSettingsActions
 
   fetchModels: async (force: boolean = false) => {
     // Check if we need to refresh
@@ -246,20 +199,12 @@ export const aiSettingsActions = {
 
       const chatModel = userSettingsComputed.chatModel();
       const metadataModel = userSettingsComputed.metadataModel();
-      const autoTranscripts = userSettingsComputed.autoTranscripts();
-      const autoImageDescriptions = userSettingsComputed.autoImageDescriptions();
 
       if (chatModel) {
         aiSettingsStore.selectedModel.set(chatModel);
       }
       if (metadataModel) {
         aiSettingsStore.metadataModel.set(metadataModel);
-      }
-      if (typeof autoTranscripts === 'boolean') {
-        aiSettingsStore.autoGenerateTranscripts.set(autoTranscripts);
-      }
-      if (typeof autoImageDescriptions === 'boolean') {
-        aiSettingsStore.autoGenerateImageDescriptions.set(autoImageDescriptions);
       }
 
       // Fall back to legacy AsyncStorage if userSettings not available
@@ -272,12 +217,6 @@ export const aiSettingsActions = {
         }
         if (!metadataModel && settings.metadataModel) {
           aiSettingsStore.metadataModel.set(settings.metadataModel);
-        }
-        if (autoTranscripts === undefined && typeof settings.autoGenerateTranscripts === 'boolean') {
-          aiSettingsStore.autoGenerateTranscripts.set(settings.autoGenerateTranscripts);
-        }
-        if (autoImageDescriptions === undefined && typeof settings.autoGenerateImageDescriptions === 'boolean') {
-          aiSettingsStore.autoGenerateImageDescriptions.set(settings.autoGenerateImageDescriptions);
         }
       }
 

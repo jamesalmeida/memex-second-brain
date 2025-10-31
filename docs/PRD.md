@@ -88,17 +88,28 @@
   - **Offline**: All actions queue for sync when offline (archive, delete, move use sync service)  
 - **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
 - **Admin Sheet** (`AdminSheet.tsx`): Developer/admin panel accessible via drawer menu. Features:
+  - **Access Control**: Only visible to users with `user_settings.is_admin = true`
+    - Admin button appears in drawer menu when user has admin privileges
+    - Checked via `isAdminComputed()` from `adminCheck.ts` (reads from `userSettingsStore`)
+    - Reactive: button automatically shows/hides when admin status changes
+  - **AI Automation (Global Settings)**: System-wide toggles that apply to ALL users:
+    - Auto-generate transcripts - Automatically extract video transcripts when new items are added
+    - Auto-generate image descriptions - Automatically generate AI descriptions for images
+    - Auto-generate TLDR - Automatically generate AI summaries after item pipeline completion
+    - Settings stored in `admin_settings` table (single global row)
+    - Managed by `adminSettingsStore` with cloud sync
+  - **YouTube Source Preferences**: Toggle between `youtubei.js` and `SerpAPI` for:
+    - YouTube enrichment (metadata extraction)
+    - YouTube transcripts (timestamped vs plain text)
+    - Settings stored in `admin_settings` table globally
   - **SerpAPI Status Section**: Displays comprehensive account information from SerpAPI Account API:
     - Account ID, email, plan name, monthly price
     - Monthly limit, current usage, searches left
     - Extra credits, last hour searches, hourly rate limit
     - Auto-refreshes when sheet opens for real-time data
     - Manual refresh button for on-demand updates
-  - **YouTube Source Preferences**: Toggle between `youtubei.js` and `SerpAPI` for:
-    - YouTube enrichment (metadata extraction)
-    - YouTube transcripts (timestamped vs plain text)
-  - Preferences stored in `adminPrefsStore` and sync across devices
-  - UI Debug tools: Test toast notifications, etc.
+  - **UI Debug Tools**: Test toast notifications, etc.
+  - Implementation: `src/components/AdminSheet.tsx`, `src/stores/adminSettings.ts`, `src/utils/adminCheck.ts`
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
@@ -278,13 +289,14 @@
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
 - **User_Settings**:
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (jsonb, default '["chat", "share", "archive"]'::jsonb), `created_at` (timestamp), `updated_at` (timestamp).
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (jsonb, default '["chat", "share", "archive"]'::jsonb), `is_admin` (boolean, default false), `created_at` (timestamp), `updated_at` (timestamp).
   - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
   - One settings row per user (enforced by unique constraint on `user_id`).
   - Settings categories:
     - Theme: `theme_dark_mode` - Light/dark mode preference
-    - AI: `ai_chat_model`, `ai_metadata_model`, `ai_auto_transcripts`, `ai_auto_image_descriptions` - AI model selection and automation preferences
+    - AI: `ai_chat_model`, `ai_metadata_model` - AI model selection for chat and metadata extraction (Note: AI automation preferences like auto-transcripts and auto-image-descriptions are now global admin settings in the admin_settings table)
     - UI: `ui_x_video_muted`, `ui_autoplay_x_videos`, `ui_radial_actions` - Video playback and quick action menu preferences
+    - Admin: `is_admin` - Admin flag for accessing admin panel (set manually via Supabase Dashboard)
   - Radial Action Menu Configuration:
     - `ui_radial_actions` stores an ordered array of up to 3 action IDs that appear in the long-press radial menu
     - Available actions: 'chat' (open AI chat), 'share' (share item URL), 'archive' (move to archive / unarchive if already archived), 'delete' (soft delete item), 'move' (move to different space)
@@ -293,9 +305,32 @@
     - Users configure via "Configure Action Button" option in drawer menu
     - Configuration modal (ActionMenuConfigModal) allows selecting 1-3 actions with visual ordering indicators
     - Changes sync instantly across devices via Supabase real-time updates
+  - Admin Access Control:
+    - `is_admin` flag controls access to AdminSheet (developer/admin panel)
+    - Set to `true` manually via Supabase Dashboard SQL: `UPDATE user_settings SET is_admin = true WHERE user_id = '...'`
+    - Admin button appears in drawer menu when `is_admin = true`
+    - Loads automatically with userSettings on login (no separate role fetching required)
+    - Reactive: DrawerContent automatically shows/hides Admin button when admin status changes
   - Synced on app launch, login, and during manual sync operations.
   - Changes are optimistically updated locally then synced to Supabase.
   - Falls back to legacy AsyncStorage if cloud sync unavailable (offline mode).
+- **Admin_Settings**:
+  - Fields: `id` (UUID, PK, fixed as '00000000-0000-0000-0000-000000000001'::uuid), `auto_generate_transcripts` (boolean, default false), `auto_generate_image_descriptions` (boolean, default false), `auto_generate_tldr` (boolean, default false), `youtube_source` (text, default 'youtubei'), `youtube_transcript_source` (text, default 'youtubei'), `created_at` (timestamp), `updated_at` (timestamp).
+  - Purpose: **Global admin settings** that apply to ALL users system-wide (not per-user). Controls AI automation behavior and API preferences for metadata extraction.
+  - Single row table: Uses fixed UUID to ensure only one settings row exists globally.
+  - Settings categories:
+    - AI Automation (Global): Settings that control automatic AI processing for all newly added items
+      - `auto_generate_transcripts` - Automatically extract transcripts for video content when items are added
+      - `auto_generate_image_descriptions` - Automatically generate AI descriptions for images when items are added
+      - `auto_generate_tldr` - Automatically generate AI summaries (TLDR) for new items after pipeline completion
+    - YouTube Data Sources: API/library preferences for YouTube metadata extraction
+      - `youtube_source` - Source for YouTube enrichment metadata ('youtubei' or 'serpapi')
+      - `youtube_transcript_source` - Source for YouTube transcripts ('youtubei' or 'serpapi')
+  - Access Control: Only users with `user_settings.is_admin = true` can view/modify via AdminSheet
+  - State Management: Managed by `adminSettingsStore` (`src/stores/adminSettings.ts`) with cloud sync
+  - Loading: Auto-loads on user login via `useAuth` hook after userSettings
+  - Usage: Pipeline steps and enrichment services check these flags to determine whether to auto-run AI operations
+  - RLS Policies: Only admins can read/write (checked via `user_settings.is_admin` column)
 - **Item_Spaces** (DEPRECATED):
   - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).
   - **Status**: Deprecated in favor of `Items.space_id`. This table is no longer used for new data but remains for historical records.
@@ -323,7 +358,8 @@
 - **Performance Indexes**:
   - Items: `idx_items_user_id`, `idx_items_content_type`, `idx_items_created_at`, `idx_items_is_archived`, `idx_items_is_deleted`, `idx_items_space_id`, `idx_items_tags` (GIN on tags array).
   - Spaces: `idx_spaces_user_id`, `idx_spaces_user_order` (user_id, order_index), `idx_spaces_is_deleted`, `idx_spaces_is_archived`.
-  - User_Settings: `idx_user_settings_user_id` (unique).
+  - User_Settings: `idx_user_settings_user_id` (unique), `idx_user_settings_is_admin` (partial WHERE is_admin = true).
+  - Admin_Settings: No indexes needed (single row table).
   - Item_Spaces (deprecated): `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.
   - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).
   - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`, `idx_video_transcripts_segments` (GIN on JSONB, partial WHERE segments IS NOT NULL).
@@ -339,7 +375,11 @@
   - `20251030_add_ui_radial_actions.sql` - Adds `ui_radial_actions` column to `user_settings` table for configurable radial action menu
   - `20250131_add_segments_to_video_transcripts.sql` - Adds `segments` JSONB column to `video_transcripts` table for timestamped transcript data from SerpAPI
   - `20250201_create_api_usage_tracking.sql` - Creates `api_usage_tracking` table for monitoring API quota usage (SerpAPI, etc.)
+  - `20251101_create_admin_settings.sql` - Creates `admin_settings` table for global system-wide admin settings (AI automation, YouTube sources)
+  - `20251101_add_is_admin_to_user_settings.sql` - Adds `is_admin` boolean column to `user_settings` for admin access control
+  - `20251101_cleanup_user_roles.sql` - Drops obsolete `user_roles` table and `is_admin()` function (abandoned approach)
   - Note: Archive functionality requires `is_archived`, `archived_at`, and `auto_archived` fields added in `20251024_add_archive_and_simplify_spaces.sql`
+  - Note: Admin system uses simplified approach with `user_settings.is_admin` column instead of separate roles table
 
 ## 4. UI/UX Requirements
 - **Navigation**:
@@ -610,7 +650,7 @@ All external API calls are made directly from the client (`src/services/` and `s
   - User preferences in `AdminSheet.tsx`:
     - **YouTube Enrichment Source**: Toggle between `youtubei.js` or `SerpAPI`
     - **YouTube Transcript Source**: Toggle between `youtubei.js` or `SerpAPI`
-    - Preferences stored in `adminPrefsStore` and passed through pipeline context
+    - Preferences stored in `adminSettingsStore` (cloud-synced) and read via `adminSettingsComputed`
   - Pipeline enrichment:
     - `Step04_1a_EnrichYouTube_SerpAPI` (conditional on user preference) enriches YouTube metadata via SerpAPI
     - `Step04_4_EnrichSerpApiGeneric` enriches supported sites (e.g., eBay, Yelp, Apple App Store)

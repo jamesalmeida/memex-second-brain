@@ -10,13 +10,15 @@ import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 import { COLORS, SPECIAL_SPACES } from '../constants';
 import ActionMenuConfigModal from './ActionMenuConfigModal';
+import { isAdminComputed } from '../utils/adminCheck';
 
 const DrawerContentInner = observer(() => {
-  console.log('🎨 [DrawerContent] Body rendered');
-
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const spaces = spacesComputed.activeSpaces();
+  const userIsAdmin = isAdminComputed(); // Reactive check - will re-render when role changes
+
+  console.log('🎨 [DrawerContent] Body rendered - isAdmin:', userIsAdmin);
   const {
     onSettingsPress,
     onAdminPress,
@@ -206,20 +208,22 @@ const DrawerContentInner = observer(() => {
                 </Text>
               </TouchableOpacity>
 
-              {/* Admin button */}
-              <TouchableOpacity
-                style={[styles.menuItem, { marginTop: 12 }]}
-                onPress={onAdminPress}
-              >
-                <MaterialIcons
-                  name="build"
-                  size={24}
-                  color={isDarkMode ? '#FFFFFF' : '#000000'}
-                />
-                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
-                  Admin
-                </Text>
-              </TouchableOpacity>
+              {/* Admin button - Only visible to admins */}
+              {userIsAdmin && (
+                <TouchableOpacity
+                  style={[styles.menuItem, { marginTop: 12 }]}
+                  onPress={onAdminPress}
+                >
+                  <MaterialIcons
+                    name="build"
+                    size={24}
+                    color={isDarkMode ? '#FFFFFF' : '#000000'}
+                  />
+                  <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                    Admin
+                  </Text>
+                </TouchableOpacity>
+              )}
 
             </View>
 

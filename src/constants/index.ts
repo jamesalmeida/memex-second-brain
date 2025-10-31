@@ -110,6 +110,7 @@ export const STORAGE_KEYS = {
   CHAT_MESSAGES: '@memex_chat_messages',
   FILTERS: '@memex_filters',
   USER_SETTINGS: '@memex_user_settings', // Cloud-synced user settings
+  ADMIN_SETTINGS: '@memex_admin_settings', // Cloud-synced global admin settings
 };
 
 // Special spaces

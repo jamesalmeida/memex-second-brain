@@ -430,4 +430,20 @@ export const subscriptions = {
       )
       .subscribe();
   },
+
+  adminSettings: (callback: (payload: any) => void) => {
+    return supabase
+      .channel('admin_settings')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'admin_settings',
+          // No filter - admin_settings is a global single-row table
+        },
+        callback
+      )
+      .subscribe();
+  },
 };

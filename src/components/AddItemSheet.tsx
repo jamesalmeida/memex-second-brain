@@ -12,7 +12,7 @@ import { Item } from '../types';
 import { processingItemsActions } from '../stores/processingItems';
 import { runPipeline } from '../services/pipeline/runPipeline';
 import { spacesComputed } from '../stores/spaces';
-import { adminPrefsStore } from '../stores/adminPrefs';
+import { adminSettingsComputed } from '../stores/adminSettings';
 import { buildItemContext } from '../services/contextBuilder';
 import { openai } from '../services/openai';
 import { itemsStore } from '../stores/items';
@@ -129,8 +129,8 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
       // Run the numbered pipeline (detect type, parse, enrich)
       runPipeline({ itemId: id, url })
         .then(async () => {
-          // Auto-generate TLDR if enabled
-          if (adminPrefsStore.autoGenerateTldr.get()) {
+          // Auto-generate TLDR if enabled (global admin setting)
+          if (adminSettingsComputed.autoGenerateTldr()) {
             try {
               // Get the latest item data after pipeline completion
               const updatedItem = itemsStore.items.get().find(i => i.id === id);
