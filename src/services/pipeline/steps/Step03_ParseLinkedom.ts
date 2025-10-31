@@ -9,7 +9,7 @@ export const Step03_ParseLinkedom: Step = async ({ itemId, url }) => {
   if (!item) return;
 
   // Skip if content_type has a specialized enricher (Step04)
-  const hasEnricher = ['youtube', 'x', 'reddit', 'ebay', 'yelp', 'app_store', 'product', 'note'].includes(item.content_type);
+  const hasEnricher = ['youtube', 'x', 'reddit', 'ebay', 'yelp', 'app_store', 'product', 'movie', 'tv_show', 'note'].includes(item.content_type);
   if (hasEnricher) {
     console.log('🧰 [Step03_ParseLinkedom] Skipping - content_type has specialized handler');
     return;
