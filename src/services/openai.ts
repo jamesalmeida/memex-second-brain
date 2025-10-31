@@ -192,6 +192,16 @@ export const openai = {
       },
     ];
 
+    // Debug logging: show what we're sending to OpenAI
+    console.log('📨 Messages array being sent to OpenAI:');
+    console.log(`  Total messages: ${messages.length}`);
+    messages.forEach((msg, idx) => {
+      const preview = msg.content.substring(0, 100).replace(/\n/g, ' ');
+      console.log(`  [${idx}] ${msg.role}: ${msg.content.length.toLocaleString()} chars - "${preview}${msg.content.length > 100 ? '...' : ''}"`);
+    });
+    const totalChars = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+    console.log(`  📏 Total characters: ${totalChars.toLocaleString()}`);
+
     // Estimate total token count
     const tokenEstimate = estimateMessageTokens(messages);
     console.log(`📊 Estimated context size: ${tokenEstimate.estimatedTokens.toLocaleString()} tokens (${tokenEstimate.wordCount.toLocaleString()} words)`);
