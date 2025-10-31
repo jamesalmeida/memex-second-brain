@@ -168,10 +168,17 @@ export const userSettingsActions = {
     const user = authStore.user.get();
     if (!user) return;
 
-    const currentSettings = userSettingsStore.settings.get();
+    let currentSettings = userSettingsStore.settings.get();
     if (!currentSettings) {
-      console.error('⚙️ No settings loaded, cannot update');
-      return;
+      console.log('⚙️ No settings loaded, creating defaults first...');
+      await userSettingsActions.createDefaultSettings();
+      currentSettings = userSettingsStore.settings.get();
+
+      // If still no settings after creation attempt, bail out
+      if (!currentSettings) {
+        console.error('⚙️ Failed to create default settings, cannot update');
+        return;
+      }
     }
 
     // Optimistic update
@@ -218,10 +225,17 @@ export const userSettingsActions = {
     const user = authStore.user.get();
     if (!user) return;
 
-    const currentSettings = userSettingsStore.settings.get();
+    let currentSettings = userSettingsStore.settings.get();
     if (!currentSettings) {
-      console.error('⚙️ No settings loaded, cannot update');
-      return;
+      console.log('⚙️ No settings loaded, creating defaults first...');
+      await userSettingsActions.createDefaultSettings();
+      currentSettings = userSettingsStore.settings.get();
+
+      // If still no settings after creation attempt, bail out
+      if (!currentSettings) {
+        console.error('⚙️ Failed to create default settings, cannot update');
+        return;
+      }
     }
 
     // Optimistic update

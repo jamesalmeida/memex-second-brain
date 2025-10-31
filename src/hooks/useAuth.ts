@@ -62,10 +62,16 @@ export function useAuth() {
           });
           authActions.setSession(session);
 
-          // Load user settings from cloud
+          // Load user settings from cloud FIRST
           console.log('⚙️ Loading user settings from cloud...');
-          userSettingsActions.loadSettings().catch(error => {
+          await userSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load user settings:', error);
+          });
+
+          // Load AI settings AFTER user settings are loaded
+          console.log('🤖 Loading AI settings...');
+          await aiSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load AI settings:', error);
           });
 
           // Trigger sync for existing session
@@ -114,10 +120,16 @@ export function useAuth() {
           authActions.setSession(session);
           authActions.setLoading(false);
 
-          // Load user settings from cloud
+          // Load user settings from cloud FIRST
           console.log('⚙️ Loading user settings from cloud...');
-          userSettingsActions.loadSettings().catch(error => {
+          await userSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load user settings:', error);
+          });
+
+          // Load AI settings AFTER user settings are loaded
+          console.log('🤖 Loading AI settings...');
+          await aiSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load AI settings:', error);
           });
 
           // Trigger sync with Supabase after sign in
