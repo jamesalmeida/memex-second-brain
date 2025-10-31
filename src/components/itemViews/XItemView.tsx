@@ -41,12 +41,10 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { getXVideoTranscript } from '../../services/twitter';
 import { itemMetadataComputed } from '../../stores/itemMetadata';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import { extractUsername } from '../../utils/itemCardHelpers';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -75,22 +73,28 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 
 interface XItemViewProps {
   item: Item | null;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
 const XItemView = observer(({
   item,
+  onClose,
   onChat,
   onArchive,
   onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
+  isDeleting = false,
+  isRefreshing = false,
 }: XItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
@@ -663,6 +667,18 @@ const XItemView = observer(({
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <ItemViewHeader
+        value={itemToDisplay?.title || ''}
+        onSave={async (newTitle) => {
+          await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+        }}
+        onClose={() => onClose?.()}
+        isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
+      />
+
       {/* X/Twitter Header */}
       <View style={[styles.xHeader, isDarkMode && styles.xHeaderDark]}>
         {metadataForItem?.profile_image ? (
@@ -725,18 +741,7 @@ const XItemView = observer(({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata (inline editable title) */}
-        <InlineEditableText
-          value={itemToDisplay?.title || ''}
-          placeholder="Tap to add title"
-          onSave={async (newTitle) => {
-            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
-            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
-          }}
-          style={[styles.title, isDarkMode && styles.titleDark]}
-          isDarkMode={isDarkMode}
-        />
-
+        {/* Metadata */}
         <View style={styles.metadata}>
           {getDomain() && (
             <View style={styles.metaItem}>
@@ -748,7 +753,7 @@ const XItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -786,7 +791,7 @@ const XItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {
@@ -952,7 +957,7 @@ const XItemView = observer(({
         )}
 
         {/* Transcript Section (for X Videos) */}
-        {videoUrl && (
+        {(videoUrl || transcriptExists) && (
           <View style={styles.transcriptSection}>
             <Text style={[styles.transcriptSectionLabel, isDarkMode && styles.transcriptSectionLabelDark]}>
               TRANSCRIPT
@@ -1034,7 +1039,8 @@ const XItemView = observer(({
           onArchive={() => onArchive?.(itemToDisplay!)}
           onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
-          isRefreshing={isRefreshingMetadata}
+          isRefreshing={isRefreshingMetadata || isRefreshing}
+          isDeleting={isDeleting}
           isDarkMode={isDarkMode}
         />
       </View>

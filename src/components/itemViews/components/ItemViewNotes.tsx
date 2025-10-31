@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Item } from '../types';
-import { itemsActions } from '../stores/items';
-import InlineEditableText from './InlineEditableText';
+import { Item } from '../../../types';
+import { itemsActions } from '../../../stores/items';
+import InlineEditableText from '../../InlineEditableText';
 
 interface NotesSectionProps {
   item: Item;
@@ -30,7 +30,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({ item, isDarkMode, onNotesCh
         onSave={handleSaveNotes}
         style={[styles.notesText, isDarkMode && styles.notesTextDark]}
         multiline
-        minLines={4}
+        maxLines={4}
         isDarkMode={isDarkMode}
       />
     </View>

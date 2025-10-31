@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useToast } from '../../contexts/ToastContext';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import HeroMediaSection from '../HeroMediaSection';
@@ -34,11 +35,9 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -67,22 +66,28 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 
 interface RedditItemViewProps {
   item: Item | null;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
 const RedditItemView = observer(({
   item,
+  onClose,
   onChat,
   onArchive,
   onUnarchive,
   onDelete,
   onShare,
   currentSpaceId,
+  isDeleting = false,
+  isRefreshing = false,
 }: RedditItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
@@ -95,6 +100,17 @@ const RedditItemView = observer(({
   // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   const [expandedDescription, setExpandedDescription] = useState(false);
+
+  // Video player state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const videoUrl = displayItem ? itemTypeMetadataComputed.getVideoUrl(displayItem.id) : undefined;
+  const videoPlayer = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
+      player.loop = true;
+      player.muted = true;
+      player.play();
+    }
+  });
 
   // Image descriptions state
   const [imageDescriptions, setImageDescriptions] = useState<ImageDescription[]>([]);
@@ -503,6 +519,18 @@ const RedditItemView = observer(({
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <ItemViewHeader
+        value={itemToDisplay?.title || ''}
+        onSave={async (newTitle) => {
+          await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+        }}
+        onClose={() => onClose?.()}
+        isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
+      />
+
       {/* Reddit Header with Orange Border */}
       <View style={[styles.redditHeader, isDarkMode && styles.redditHeaderDark]}>
         <Text style={styles.redditIcon}>🤖</Text>
@@ -539,6 +567,16 @@ const RedditItemView = observer(({
         item={itemToDisplay!}
         isDarkMode={isDarkMode}
         contentTypeIcon="👽"
+        videoUrl={videoUrl}
+        videoPlayer={videoPlayer}
+        isVideoPlaying={isVideoPlaying}
+        onVideoPlay={() => {
+          if (videoPlayer) {
+            videoPlayer.play();
+            setIsVideoPlaying(true);
+          }
+        }}
+        showPlayButton={true}
         onImageAdd={() => imageUploadModalRef.current?.open()}
         onImageRemove={handleMetadataImageRemove}
         onThumbnailRemove={handleHeroImageRemove}
@@ -559,16 +597,6 @@ const RedditItemView = observer(({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata (inline editable title) */}
-        <InlineEditableText
-          value={itemToDisplay?.title || ''}
-          placeholder="Tap to add title"
-          onSave={async (newTitle) => {
-            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
-          }}
-          style={[styles.title, isDarkMode && styles.titleDark]}
-          isDarkMode={isDarkMode}
-        />
 
         {/* Content Warning Badges */}
         {redditMetadata && (redditMetadata.spoiler || redditMetadata.over_18 || redditMetadata.locked || redditMetadata.stickied) && (
@@ -648,7 +676,7 @@ const RedditItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -686,7 +714,7 @@ const RedditItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {
@@ -877,7 +905,8 @@ const RedditItemView = observer(({
           onArchive={() => onArchive?.(itemToDisplay!)}
           onUnarchive={() => onUnarchive?.(itemToDisplay!)}
           onDelete={() => onDelete?.(itemToDisplay!)}
-          isRefreshing={isRefreshingMetadata}
+          isRefreshing={isRefreshingMetadata || isRefreshing}
+          isDeleting={isDeleting}
           isDarkMode={isDarkMode}
         />
       </View>

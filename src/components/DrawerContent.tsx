@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { themeStore } from '../stores/theme';
 import { spacesComputed, spacesActions } from '../stores/spaces';
 import { useDrawer } from '../contexts/DrawerContext';
 import { COLORS, SPECIAL_SPACES } from '../constants';
+import ActionMenuConfigModal from './ActionMenuConfigModal';
 
 const DrawerContentInner = observer(() => {
   console.log('🎨 [DrawerContent] Body rendered');
@@ -25,6 +26,8 @@ const DrawerContentInner = observer(() => {
     onNavigateToSpace,
     onNavigateToEverything,
   } = useDrawer();
+
+  const [isActionMenuConfigVisible, setIsActionMenuConfigVisible] = useState(false);
 
   const navigateToSpace = (spaceId: string) => {
     console.log('🚪 [DrawerContent] Navigate to space:', spaceId);
@@ -188,6 +191,36 @@ const DrawerContentInner = observer(() => {
                   Manage Tags
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuItem, { marginTop: 12 }]}
+                onPress={() => setIsActionMenuConfigVisible(true)}
+              >
+                <MaterialIcons
+                  name="touch-app"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Configure Action Button
+                </Text>
+              </TouchableOpacity>
+
+              {/* Admin button */}
+              <TouchableOpacity
+                style={[styles.menuItem, { marginTop: 12 }]}
+                onPress={onAdminPress}
+              >
+                <MaterialIcons
+                  name="build"
+                  size={24}
+                  color={isDarkMode ? '#FFFFFF' : '#000000'}
+                />
+                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
+                  Admin
+                </Text>
+              </TouchableOpacity>
+
             </View>
 
             {/* <View style={[styles.divider, isDarkMode && styles.dividerDark]} /> */}
@@ -261,22 +294,6 @@ const DrawerContentInner = observer(() => {
               </View>
             </View>
 
-            {/* Admin button */}
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={[styles.menuItem, { marginTop: 12 }]}
-                onPress={onAdminPress}
-              >
-                <MaterialIcons
-                  name="build"
-                  size={24}
-                  color={isDarkMode ? '#FFFFFF' : '#000000'}
-                />
-                <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
-                  Admin
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
         )}
         onDragEnd={({ data }) => {
@@ -349,6 +366,10 @@ const DrawerContentInner = observer(() => {
             </View>
           </ScaleDecorator>
         )}
+      />
+      <ActionMenuConfigModal
+        visible={isActionMenuConfigVisible}
+        onClose={() => setIsActionMenuConfigVisible(false)}
       />
     </View>
   );

@@ -13,6 +13,9 @@ import { itemTypeMetadataComputed } from './itemTypeMetadata';
 import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
+import { serpapi } from '../services/serpapi';
+import { adminPrefsStore } from './adminPrefs';
+import { trackApiUsage } from '../services/apiUsageTracking';
 import uuid from 'react-native-uuid';
 
 interface ItemsState {
@@ -85,18 +88,17 @@ export const itemsActions = {
         await syncOperations.uploadItem(newItem, user.id);
       }
 
-      // Auto-generate content in background (non-blocking)
-      setTimeout(() => {
-        itemsActions._autoGenerateContent(newItem).catch(err => {
-          console.error('Error auto-generating content:', err);
-        });
-      }, 100);
+      // NOTE: Auto-generation is now handled by the enrichment pipeline steps
+      // after content type detection, not immediately after item creation.
+      // See: Step04_1_EnrichYouTube, Step04_1a_EnrichYouTube_SerpAPI, Step04_2_EnrichX
     } catch (error) {
       console.error('Error saving item:', error);
     }
   },
 
   // Auto-generate transcripts and image descriptions if enabled
+  // NOTE: This function is no longer called immediately after item creation.
+  // It is now called from the enrichment pipeline steps after content type detection.
   _autoGenerateContent: async (item: Item) => {
     const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
     const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
@@ -115,6 +117,7 @@ export const itemsActions = {
           let fetchedTranscript: string;
           let language: string;
           let platform: 'youtube' | 'x';
+          let segments: Array<{ startMs: number; endMs?: number; text: string }> | undefined;
 
           if (isYouTube && item.url) {
             // Extract video ID from URL for YouTube
@@ -124,11 +127,61 @@ export const itemsActions = {
             }
             const videoId = videoIdMatch[1];
 
-            // Fetch transcript from YouTube
-            const result = await getYouTubeTranscript(videoId);
-            fetchedTranscript = result.transcript;
-            language = result.language;
-            platform = 'youtube';
+            // Check admin preference for transcript source
+            const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+            console.log('[AutoGen][Transcript] Source preference:', sourcePref);
+
+            if (sourcePref === 'serpapi') {
+              // Try SerpAPI first (prefers timestamped version)
+              try {
+                const serpResult = await serpapi.fetchYouTubeTranscript(item.url);
+                if ((serpResult as any)?.error) {
+                  console.warn('[AutoGen][Transcript] SerpAPI failed, falling back to youtubei.js:', (serpResult as any).error);
+                  throw new Error('SerpAPI failed');
+                }
+
+                const serpTranscript = serpResult as { transcript: string; language?: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> };
+
+                // Prefer timestamped format if segments are available
+                if (serpTranscript.segments && serpTranscript.segments.length > 0) {
+                  // Format segments with timestamps: [mm:ss] text
+                  fetchedTranscript = serpTranscript.segments
+                    .map((s) => {
+                      const mm = Math.floor(s.startMs / 60000);
+                      const ss = Math.floor((s.startMs % 60000) / 1000);
+                      const ts = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+                      return `[${ts}] ${s.text}`;
+                  })
+                    .join('\n');
+                  segments = serpTranscript.segments; // Store segments for DB sync
+                } else {
+                  // Fall back to plain text
+                  fetchedTranscript = serpTranscript.transcript;
+                  segments = undefined;
+                }
+
+                language = serpTranscript.language || 'en';
+                platform = 'youtube';
+                // Track API usage for successful transcript generation
+                await trackApiUsage('serpapi', 'youtube_transcript', item.id);
+              } catch (serpError) {
+                // Fall back to youtubei.js
+                console.log('[AutoGen][Transcript] Falling back to youtubei.js');
+                const result = await getYouTubeTranscript(videoId);
+                fetchedTranscript = result.transcript;
+                language = result.language;
+                platform = 'youtube';
+                segments = undefined;
+              }
+            } else {
+              // Use youtubei.js
+              console.log('[AutoGen][Transcript] Using youtubei.js');
+              const result = await getYouTubeTranscript(videoId);
+              fetchedTranscript = result.transcript;
+              language = result.language;
+              platform = 'youtube';
+              segments = undefined;
+            }
           } else if (isXVideo) {
             // Get video URL from metadata for X posts
             const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -155,6 +208,7 @@ export const itemsActions = {
             platform,
             language,
             duration: item.duration,
+            segments: segments, // Store segments for toggling between timestamped/plain text
             fetched_at: new Date().toISOString(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -205,6 +259,72 @@ export const itemsActions = {
         }
       }
     }
+  },
+
+  // Helper function to auto-generate transcript for YouTube videos after enrichment
+  autoGenerateYouTubeTranscript: async (itemId: string) => {
+    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    if (!autoGenerateTranscripts) return;
+
+    const item = itemsStore.items.get().find(i => i.id === itemId);
+    if (!item || (item.content_type !== 'youtube' && item.content_type !== 'youtube_short')) return;
+
+    // Check if transcript already exists
+    const { videoTranscriptsStore } = await import('./videoTranscripts');
+    const existingTranscript = videoTranscriptsStore.transcripts.get().find(t => t.item_id === itemId);
+    if (existingTranscript) {
+      console.log('🎬 Transcript already exists for item:', itemId);
+      return;
+    }
+
+    console.log('🎬 Auto-generating YouTube transcript for', itemId);
+    await itemsActions._autoGenerateContent(item);
+  },
+
+  // Helper function to auto-generate transcript for X videos after enrichment
+  autoGenerateXVideoTranscript: async (itemId: string) => {
+    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
+    if (!autoGenerateTranscripts) return;
+
+    const item = itemsStore.items.get().find(i => i.id === itemId);
+    if (!item || item.content_type !== 'x') return;
+
+    const videoUrl = itemTypeMetadataComputed.getVideoUrl(itemId);
+    if (!videoUrl) return;
+
+    // Check if transcript already exists
+    const { videoTranscriptsStore } = await import('./videoTranscripts');
+    const existingTranscript = videoTranscriptsStore.transcripts.get().find(t => t.item_id === itemId);
+    if (existingTranscript) {
+      console.log('🎬 Transcript already exists for item:', itemId);
+      return;
+    }
+
+    console.log('🎬 Auto-generating X video transcript for', itemId);
+    await itemsActions._autoGenerateContent(item);
+  },
+
+  // Helper function to auto-generate image descriptions for X posts after enrichment
+  autoGenerateXImageDescriptions: async (itemId: string) => {
+    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
+    if (!autoGenerateImageDescriptions) return;
+
+    const item = itemsStore.items.get().find(i => i.id === itemId);
+    if (!item || item.content_type !== 'x') return;
+
+    const imageUrls = itemTypeMetadataComputed.getImageUrls(itemId);
+    if (!imageUrls || imageUrls.length === 0) return;
+
+    // Check if descriptions already exist
+    const { imageDescriptionsStore } = await import('./imageDescriptions');
+    const existingDescriptions = imageDescriptionsStore.descriptions.get().filter(d => d.item_id === itemId);
+    if (existingDescriptions.length > 0) {
+      console.log('🖼️  Image descriptions already exist for item:', itemId);
+      return;
+    }
+
+    console.log('🖼️  Auto-generating X image descriptions for', itemId);
+    await itemsActions._autoGenerateContent(item);
   },
 
   addItems: async (newItems: Item[]) => {
@@ -556,6 +676,7 @@ export const itemsActions = {
         title: metadata.title || item.title,
         desc: metadata.description || item.desc,
         thumbnail_url: metadata.image || item.thumbnail_url,
+        content_type: metadata.contentType, // Update content type based on URL detection
         updated_at: new Date().toISOString(),
       };
 

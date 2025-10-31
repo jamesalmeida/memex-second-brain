@@ -10,19 +10,24 @@ import Animated, {
   Easing,
   interpolateColor,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { itemsActions } from '../stores/items';
 import { chatUIActions } from '../stores/chatUI';
 import { expandedItemUIActions } from '../stores/expandedItemUI';
-import { Item, ContentType } from '../types';
+import { userSettingsComputed } from '../stores/userSettings';
+import { spacesComputed } from '../stores/spaces';
+import { Item, ContentType, RadialActionId } from '../types';
+import SpaceSelectorModal from '../components/SpaceSelectorModal';
+import { useToast } from './ToastContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface ActionButton {
   id: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
+  iconLibrary?: 'ionicons' | 'material'; // Default: ionicons
   color: string;
   action: (item: Item) => void | Promise<void>;
 }
@@ -168,11 +173,19 @@ const RadialButton: React.FC<{
       ]}
       pointerEvents="none"
     >
-      <Ionicons
-        name={button.icon}
-        size={isHovered ? 30 : 24}
-        color={isHovered ? '#3A3A3C' : '#FFFFFF'}
-      />
+      {button.iconLibrary === 'material' ? (
+        <MaterialIcons
+          name={button.icon as any}
+          size={isHovered ? 30 : 24}
+          color={isHovered ? '#3A3A3C' : '#FFFFFF'}
+        />
+      ) : (
+        <Ionicons
+          name={button.icon as any}
+          size={isHovered ? 30 : 24}
+          color={isHovered ? '#3A3A3C' : '#FFFFFF'}
+        />
+      )}
     </Animated.View>
   );
 };
@@ -186,6 +199,7 @@ interface RadialMenuOverlayProps {
   hoveredButtonId: string | null;
   onHide: () => void;
   onExecuteAction: () => void;
+  onShowMoveToSpaceModal: (item: Item) => void;
 }
 
 const RadialMenuOverlay = observer(({
@@ -196,18 +210,20 @@ const RadialMenuOverlay = observer(({
   cardLayout,
   hoveredButtonId,
   onHide,
+  onShowMoveToSpaceModal,
 }: RadialMenuOverlayProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const overlayOpacity = useSharedValue(visible ? 1 : 0);
+  const configuredActionIds = userSettingsComputed.radialActions();
+  const { showToast } = useToast();
 
   React.useEffect(() => {
     overlayOpacity.value = withTiming(visible && !isClosing ? 1 : 0, { duration: 250 });
   }, [visible, isClosing]);
 
-  // TODO: Add settings feature to let users choose which 3 buttons to show
-  // Currently showing 3 buttons max to prevent finger from covering one during interaction
-  const actionButtons: ActionButton[] = [
-    {
+  // Define all available actions
+  const allActions: Record<RadialActionId, ActionButton> = {
+    chat: {
       id: 'chat',
       label: 'Chat',
       icon: 'chatbubble-outline',
@@ -218,7 +234,7 @@ const RadialMenuOverlay = observer(({
         chatUIActions.openChat(item);
       },
     },
-    {
+    share: {
       id: 'share',
       label: 'Share',
       icon: 'share-outline',
@@ -242,39 +258,112 @@ const RadialMenuOverlay = observer(({
         }, 300);
       },
     },
-    // {
-    //   id: 'move',
-    //   label: 'Move',
-    //   icon: 'folder-outline',
-    //   color: '#AF52DE',
-    //   action: (item: Item) => {
-    //     console.log('📁 MOVE button pressed for item:', item.title);
-    //   },
-    // },
-    // {
-    //   id: 'archive',
-    //   label: 'Archive',
-    //   icon: 'archive-outline',
-    //   color: '#FF9500',
-    //   action: (item: Item) => {
-    //     console.log('📦 ARCHIVE button pressed for item:', item.title);
-    //   },
-    // },
-    {
+    move: {
+      id: 'move',
+      label: 'Move',
+      icon: 'folder-outline',
+      color: '#AF52DE',
+      action: (item: Item) => {
+        console.log('📁 MOVE button pressed for item:', item.title);
+        // Delay to let the radial menu modal close first to avoid modal conflicts
+        setTimeout(() => {
+          onShowMoveToSpaceModal(item);
+        }, 300);
+      },
+    },
+    archive: {
+      id: 'archive',
+      label: 'Archive',
+      icon: 'archive-outline',
+      color: '#FF9500',
+      action: async (item: Item) => {
+        console.log('📦 ARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.archiveItemWithSync(item.id);
+          showToast({
+            message: 'Item archived successfully',
+            type: 'success',
+          });
+        } catch (error) {
+          console.error('📦 Error archiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to archive item',
+            type: 'error',
+          });
+        }
+      },
+    },
+    unarchive: {
+      id: 'unarchive',
+      label: 'Unarchive',
+      icon: 'unarchive',
+      iconLibrary: 'material',
+      color: '#34C759',
+      action: async (item: Item) => {
+        console.log('📂 UNARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.unarchiveItemWithSync(item.id);
+          showToast({
+            message: 'Item unarchived successfully',
+            type: 'success',
+          });
+        } catch (error) {
+          console.error('📂 Error unarchiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to unarchive item',
+            type: 'error',
+          });
+        }
+      },
+    },
+    delete: {
       id: 'delete',
       label: 'Delete',
       icon: 'trash-outline',
       color: '#FF3B30',
       action: async (item: Item) => {
         console.log('🗑️ DELETE button pressed for item:', item.title);
-        try {
-          await itemsActions.removeItemWithSync(item.id);
-        } catch (error) {
-          console.error('🗑️ Error deleting item from radial menu:', error);
-        }
+        // Show confirmation alert
+        Alert.alert(
+          'Delete Item',
+          `Are you sure you want to delete "${item.title}"? This cannot be undone.`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await itemsActions.removeItemWithSync(item.id);
+                  showToast({
+                    message: 'Item deleted successfully',
+                    type: 'success',
+                  });
+                } catch (error) {
+                  console.error('🗑️ Error deleting item from radial menu:', error);
+                  showToast({
+                    message: 'Failed to delete item',
+                    type: 'error',
+                  });
+                }
+              },
+            },
+          ],
+          { cancelable: true }
+        );
       },
     },
-  ];
+  };
+
+  // Filter actions based on user configuration
+  // Replace 'archive' with 'unarchive' if item is archived (manually or auto-archived)
+  const adjustedActionIds = configuredActionIds.map(id =>
+    id === 'archive' && item?.is_archived ? 'unarchive' : id
+  );
+  const actionButtons: ActionButton[] = adjustedActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
@@ -408,11 +497,15 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [hoveredButtonId, setHoveredButtonId] = useState<string | null>(null);
   const [shouldDisableScroll, setShouldDisableScroll] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [moveToSpaceModalVisible, setMoveToSpaceModalVisible] = useState(false);
+  const [itemForMoveToSpace, setItemForMoveToSpace] = useState<Item | null>(null);
 
-  // TODO: Add settings feature to let users choose which 3 buttons to show
-  // Currently showing 3 buttons max to prevent finger from covering one during interaction
-  const actionButtons: ActionButton[] = [
-    {
+  const configuredActionIds = userSettingsComputed.radialActions();
+  const { showToast } = useToast();
+
+  // Define all available actions
+  const allActions: Record<RadialActionId, ActionButton> = {
+    chat: {
       id: 'chat',
       label: 'Chat',
       icon: 'chatbubble-outline',
@@ -423,7 +516,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         chatUIActions.openChat(item);
       },
     },
-    {
+    share: {
       id: 'share',
       label: 'Share',
       icon: 'share-outline',
@@ -447,39 +540,113 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }, 300);
       },
     },
-    // {
-    //   id: 'move',
-    //   label: 'Move',
-    //   icon: 'folder-outline',
-    //   color: '#AF52DE',
-    //   action: (item: Item) => {
-    //     console.log('📁 MOVE button pressed for item:', item.title);
-    //   },
-    // },
-    // {
-    //   id: 'archive',
-    //   label: 'Archive',
-    //   icon: 'archive-outline',
-    //   color: '#FF9500',
-    //   action: (item: Item) => {
-    //     console.log('📦 ARCHIVE button pressed for item:', item.title);
-    //   },
-    // },
-    {
+    move: {
+      id: 'move',
+      label: 'Move',
+      icon: 'folder-outline',
+      color: '#AF52DE',
+      action: (item: Item) => {
+        console.log('📁 MOVE button pressed for item:', item.title);
+        // Delay to let the radial menu modal close first to avoid modal conflicts
+        setTimeout(() => {
+          setItemForMoveToSpace(item);
+          setMoveToSpaceModalVisible(true);
+        }, 300);
+      },
+    },
+    archive: {
+      id: 'archive',
+      label: 'Archive',
+      icon: 'archive-outline',
+      color: '#FF9500',
+      action: async (item: Item) => {
+        console.log('📦 ARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.archiveItemWithSync(item.id);
+          showToast({
+            message: 'Item archived successfully',
+            type: 'success',
+          });
+        } catch (error) {
+          console.error('📦 Error archiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to archive item',
+            type: 'error',
+          });
+        }
+      },
+    },
+    unarchive: {
+      id: 'unarchive',
+      label: 'Unarchive',
+      icon: 'unarchive',
+      iconLibrary: 'material',
+      color: '#34C759',
+      action: async (item: Item) => {
+        console.log('📂 UNARCHIVE button pressed for item:', item.title);
+        try {
+          await itemsActions.unarchiveItemWithSync(item.id);
+          showToast({
+            message: 'Item unarchived successfully',
+            type: 'success',
+          });
+        } catch (error) {
+          console.error('📂 Error unarchiving item from radial menu:', error);
+          showToast({
+            message: 'Failed to unarchive item',
+            type: 'error',
+          });
+        }
+      },
+    },
+    delete: {
       id: 'delete',
       label: 'Delete',
       icon: 'trash-outline',
       color: '#FF3B30',
       action: async (item: Item) => {
         console.log('🗑️ DELETE button pressed for item:', item.title);
-        try {
-          await itemsActions.removeItemWithSync(item.id);
-        } catch (error) {
-          console.error('🗑️ Error deleting item from radial menu:', error);
-        }
+        // Show confirmation alert
+        Alert.alert(
+          'Delete Item',
+          `Are you sure you want to delete "${item.title}"? This cannot be undone.`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await itemsActions.removeItemWithSync(item.id);
+                  showToast({
+                    message: 'Item deleted successfully',
+                    type: 'success',
+                  });
+                } catch (error) {
+                  console.error('🗑️ Error deleting item from radial menu:', error);
+                  showToast({
+                    message: 'Failed to delete item',
+                    type: 'error',
+                  });
+                }
+              },
+            },
+          ],
+          { cancelable: true }
+        );
       },
     },
-  ];
+  };
+
+  // Filter actions based on user configuration
+  // Replace 'archive' with 'unarchive' if item is archived (manually or auto-archived)
+  const adjustedActionIds = configuredActionIds.map(id =>
+    id === 'archive' && item?.is_archived ? 'unarchive' : id
+  );
+  const actionButtons: ActionButton[] = adjustedActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
     const positions: { x: number; y: number }[] = [];
@@ -562,6 +729,28 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [visible, hoveredButtonId, getHoveredButton]);
 
+  const handleShowMoveToSpaceModal = useCallback((item: Item) => {
+    setItemForMoveToSpace(item);
+    setMoveToSpaceModalVisible(true);
+  }, []);
+
+  const handleCloseMoveToSpaceModal = useCallback(() => {
+    setMoveToSpaceModalVisible(false);
+    setItemForMoveToSpace(null);
+  }, []);
+
+  const handleSpaceChange = useCallback((spaceId: string | null) => {
+    // Show toast confirmation when item is moved to a space
+    const spaceName = spaceId
+      ? spacesComputed.getSpaceById(spaceId)?.name || 'Space'
+      : 'Everything';
+
+    showToast({
+      message: `Item moved to ${spaceName}`,
+      type: 'success',
+    });
+  }, [showToast]);
+
   const executeAction = useCallback(() => {
     console.log('🚀 Execute action - hoveredButtonId:', hoveredButtonId, 'item:', item?.title);
     if (hoveredButtonId && item) {
@@ -576,7 +765,7 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       console.log('ℹ️ No action to execute - no button hovered');
     }
-  }, [hoveredButtonId, item]);
+  }, [hoveredButtonId, item, actionButtons]);
 
   const value: RadialMenuContextType = {
     showMenu,
@@ -600,7 +789,17 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         hoveredButtonId={hoveredButtonId}
         onHide={hideMenu}
         onExecuteAction={executeAction}
+        onShowMoveToSpaceModal={handleShowMoveToSpaceModal}
       />
+      {itemForMoveToSpace && (
+        <SpaceSelectorModal
+          visible={moveToSpaceModalVisible}
+          itemId={itemForMoveToSpace.id}
+          currentSpaceId={itemForMoveToSpace.space_id || null}
+          onClose={handleCloseMoveToSpaceModal}
+          onSpaceChange={handleSpaceChange}
+        />
+      )}
     </RadialMenuContext.Provider>
   );
 };

@@ -9,13 +9,11 @@ import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as Clipboard from 'expo-clipboard';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import HeroMediaSection from '../HeroMediaSection';
 import SpaceSelectorModal from '../SpaceSelectorModal';
-import ItemViewFooter from '../ItemViewFooter';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -23,15 +21,18 @@ const CONTENT_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 
 interface NoteItemViewProps {
   item: Item | null;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onShare?: (item: Item) => void;
   currentSpaceId?: string | null;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
 }
 
-const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, currentSpaceId }: NoteItemViewProps) => {
+const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, onDelete, onShare, currentSpaceId, isDeleting = false, isRefreshing = false }: NoteItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const { showToast } = useToast();
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
@@ -137,39 +138,29 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
 
   return (
     <View style={styles.container}>
-      {/* Note Header */}
-      {/* <View style={[styles.noteHeader, isDarkMode && styles.noteHeaderDark]}>
-        <Text style={styles.noteEmoji}>📝</Text>
-        <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]} numberOfLines={1}>
-          Note
-        </Text>
-      </View> */}
+      {/* Header */}
+      <ItemViewHeader
+        value={itemToDisplay.title}
+        onSave={async (newTitle) => {
+          await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+        }}
+        onClose={() => onClose?.()}
+        isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
+      />
 
       {/* Hero Image / Images Carousel */}
-      <View style={styles.heroWrapper}>
-        <HeroMediaSection
-          item={itemToDisplay}
-          isDarkMode={isDarkMode}
-          contentTypeIcon="📝"
-          onImageAdd={() => imageUploadModalRef.current?.open()}
-          onImageRemove={handleImageRemove}
-          onThumbnailRemove={() => handleImageRemove(itemToDisplay.thumbnail_url || '')}
-        />
-      </View>
+      <HeroMediaSection
+        item={itemToDisplay}
+        isDarkMode={isDarkMode}
+        contentTypeIcon="📝"
+        onImageAdd={() => imageUploadModalRef.current?.open()}
+        onImageRemove={handleImageRemove}
+        onThumbnailRemove={() => handleImageRemove(itemToDisplay.thumbnail_url || '')}
+      />
 
       <View style={styles.content}>
-        {/* Title (inline editable) */}
-        <InlineEditableText
-          value={itemToDisplay.title}
-          placeholder="Tap to add title"
-          onSave={async (newTitle) => {
-            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
-            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
-          }}
-          style={[styles.title, isDarkMode && styles.titleDark]}
-          isDarkMode={isDarkMode}
-        />
-
         {/* Body content */}
         {itemToDisplay.content && (
           <View style={[styles.noteBody, isDarkMode && styles.noteBodyDark]}> 
@@ -211,7 +202,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -237,7 +228,7 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {
@@ -297,7 +288,10 @@ const NoteItemView = observer(({ item, onChat, onArchive, onDelete, onShare, cur
           item={itemToDisplay}
           onShare={() => onShare?.(itemToDisplay)}
           onArchive={() => onArchive?.(itemToDisplay)}
+          onUnarchive={() => onUnarchive?.(itemToDisplay)}
           onDelete={() => onDelete?.(itemToDisplay)}
+          isRefreshing={isRefreshing}
+          isDeleting={isDeleting}
           isDarkMode={isDarkMode}
         />
       </View>
@@ -324,11 +318,6 @@ export default NoteItemView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  heroWrapper: {
-    paddingHorizontal: CONTENT_PADDING,
-    marginTop: 16,
-    marginBottom: 12,
   },
   heroImage: {
     width: CONTENT_WIDTH,

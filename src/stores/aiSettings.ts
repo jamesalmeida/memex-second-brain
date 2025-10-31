@@ -317,5 +317,5 @@ export const aiSettingsActions = {
   },
 };
 
-// Load settings on app start
-aiSettingsActions.loadSettings();
+// NOTE: Settings are loaded by useAuth hook after userSettings loads from database
+// Do NOT load here to avoid race condition where aiSettings loads before userSettings

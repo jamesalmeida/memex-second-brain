@@ -41,6 +41,9 @@ import { buildItemContext, formatContextMetadata } from '../services/contextBuil
 import { openai } from '../services/openai';
 import { getYouTubeTranscript } from '../services/youtube';
 import { getXVideoTranscript } from '../services/twitter';
+import { serpapi } from '../services/serpapi';
+import { adminPrefsStore } from '../stores/adminPrefs';
+import { trackApiUsage } from '../services/apiUsageTracking';
 import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
@@ -64,10 +67,8 @@ const ChatSheet = observer(
     const [chat, setChat] = useState<ItemChat | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
-    const [showTranscriptButton, setShowTranscriptButton] = useState(false);
-    const [showDescriptionButton, setShowDescriptionButton] = useState(false);
-    const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
-    const [isGeneratingDescriptions, setIsGeneratingDescriptions] = useState(false);
+    const [isFetchingTranscript, setIsFetchingTranscript] = useState(false);
+    const [isFetchingImageDescriptions, setIsFetchingImageDescriptions] = useState(false);
     const [showModelSwitchBanner, setShowModelSwitchBanner] = useState(false);
     const [modelSwitchMessage, setModelSwitchMessage] = useState('');
     const [actualModelUsed, setActualModelUsed] = useState<string | null>(null);
@@ -90,29 +91,16 @@ const ChatSheet = observer(
     // Load or create chat when item changes
     useEffect(() => {
       if (item) {
-        loadOrCreateChat().then(() => {
-          checkForMissingContent();
+        loadOrCreateChat();
+        // Auto-fetch transcript and image descriptions immediately when chat opens
+        ensureTranscriptAvailable(item).catch(err => {
+          console.error('Error auto-fetching transcript on chat open:', err);
+        });
+        ensureImageDescriptionsAvailable(item).catch(err => {
+          console.error('Error auto-fetching image descriptions on chat open:', err);
         });
       }
     }, [item?.id]);
-
-    // Watch for changes in image descriptions store to update button visibility
-    useEffect(() => {
-      if (item) {
-        // Access the observable to establish reactivity
-        const hasDescriptions = imageDescriptionsComputed.hasDescriptions(item.id);
-        checkForMissingContent();
-      }
-    }, [item?.id, imageDescriptionsComputed.descriptions()]);
-
-    // Watch for changes in video transcripts store to update button visibility
-    useEffect(() => {
-      if (item) {
-        // Access the observable to establish reactivity
-        const hasTranscript = videoTranscriptsComputed.hasTranscript(item.id);
-        checkForMissingContent();
-      }
-    }, [item?.id, videoTranscriptsComputed.transcripts()]);
 
     const loadOrCreateChat = async () => {
       if (!item) return;
@@ -147,40 +135,34 @@ const ChatSheet = observer(
       }
     };
 
-    const checkForMissingContent = () => {
-      if (!item) return;
-
-      // Check if video item without transcript
+    // Auto-fetch transcript if needed before building context
+    const ensureTranscriptAvailable = async (item: Item): Promise<void> => {
       const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
       const isXVideo = item.content_type === 'x' && itemTypeMetadataComputed.getVideoUrl(item.id);
-      const needsTranscript =
-        (isYouTube || isXVideo) && !videoTranscriptsComputed.hasTranscript(item.id);
-
-      // Check if item has images without descriptions
-      const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
-      const needsDescriptions =
-        imageUrls && imageUrls.length > 0 && !imageDescriptionsComputed.hasDescriptions(item.id);
-
-      setShowTranscriptButton(needsTranscript);
-      setShowDescriptionButton(needsDescriptions);
-    };
-
-    const handleGenerateTranscript = async () => {
-      if (!item) return;
-
-      const isYouTube = item.content_type === 'youtube' || item.content_type === 'youtube_short';
-      const isXVideo = item.content_type === 'x';
 
       if (!isYouTube && !isXVideo) return;
 
-      setIsGeneratingTranscript(true);
+      // Check if transcript already exists
+      if (videoTranscriptsComputed.hasTranscript(item.id)) {
+        console.log('🎬 Transcript already exists for', item.id);
+        return;
+      }
+
+      // Check if already fetching
+      if (isFetchingTranscript) {
+        console.log('🎬 Already fetching transcript for', item.id);
+        return;
+      }
+
+      setIsFetchingTranscript(true);
       videoTranscriptsActions.setGenerating(item.id, true);
 
       try {
-        console.log('🎬 Generating transcript for', item.id);
+        console.log('🎬 Auto-fetching transcript for', item.id);
         let fetchedTranscript: string;
         let language: string;
         let platform: 'youtube' | 'x';
+        let segments: Array<{ startMs: number; endMs?: number; text: string }> | undefined;
 
         if (isYouTube && item.url) {
           // Extract video ID from URL for YouTube
@@ -190,11 +172,59 @@ const ChatSheet = observer(
           }
           const videoId = videoIdMatch[1];
 
-          // Fetch transcript from YouTube
-          const result = await getYouTubeTranscript(videoId);
-          fetchedTranscript = result.transcript;
-          language = result.language;
-          platform = 'youtube';
+          // Check admin preference for transcript source
+          const sourcePref = adminPrefsStore.youtubeTranscriptSource.get();
+          console.log('[ChatSheet][Auto-Fetch] Transcript source preference:', sourcePref);
+
+          if (sourcePref === 'serpapi') {
+            // Try SerpAPI first (prefers timestamped version)
+            try {
+              const serpResult = await serpapi.fetchYouTubeTranscript(item.url);
+              if ((serpResult as any)?.error) {
+                console.warn('[ChatSheet][Auto-Fetch] SerpAPI failed, falling back to youtubei.js:', (serpResult as any).error);
+                throw new Error('SerpAPI failed');
+              }
+
+              const serpTranscript = serpResult as { transcript: string; language?: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> };
+
+              // Prefer timestamped format if segments are available
+              if (serpTranscript.segments && serpTranscript.segments.length > 0) {
+                // Format segments with timestamps: [mm:ss] text
+                fetchedTranscript = serpTranscript.segments
+                  .map((s) => {
+                    const mm = Math.floor(s.startMs / 60000);
+                    const ss = Math.floor((s.startMs % 60000) / 1000);
+                    const ts = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+                    return `[${ts}] ${s.text}`;
+                  })
+                  .join('\n');
+                segments = serpTranscript.segments;
+              } else {
+                fetchedTranscript = serpTranscript.transcript;
+                segments = undefined;
+              }
+
+              language = serpTranscript.language || 'en';
+              platform = 'youtube';
+              await trackApiUsage('serpapi', 'youtube_transcript', item.id);
+            } catch (serpError) {
+              // Fall back to youtubei.js
+              console.log('[ChatSheet][Auto-Fetch] Falling back to youtubei.js');
+              const result = await getYouTubeTranscript(videoId);
+              fetchedTranscript = result.transcript;
+              language = result.language;
+              platform = 'youtube';
+              segments = undefined;
+            }
+          } else {
+            // Use youtubei.js
+            console.log('[ChatSheet][Auto-Fetch] Using youtubei.js');
+            const result = await getYouTubeTranscript(videoId);
+            fetchedTranscript = result.transcript;
+            language = result.language;
+            platform = 'youtube';
+            segments = undefined;
+          }
         } else if (isXVideo) {
           // Get video URL from metadata for X posts
           const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -221,6 +251,7 @@ const ChatSheet = observer(
           platform,
           language,
           duration: item.duration,
+          segments: segments,
           fetched_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -228,41 +259,42 @@ const ChatSheet = observer(
 
         // Save to local store and sync to Supabase
         await videoTranscriptsActions.addTranscript(transcriptData);
-        console.log('🎬 Transcript saved for item:', item.id);
-
-        // Hide the button
-        setShowTranscriptButton(false);
-        alert('Transcript generated successfully!');
+        console.log('🎬 Auto-fetched transcript saved for item:', item.id);
       } catch (error) {
-        console.error('Error generating transcript:', error);
-        alert('Failed to generate transcript. The video may not have captions available.');
+        console.error('Error auto-fetching transcript:', error);
+        // Don't show error to user, just log it - context will be built without transcript
       } finally {
-        setIsGeneratingTranscript(false);
+        setIsFetchingTranscript(false);
         videoTranscriptsActions.setGenerating(item.id, false);
       }
     };
 
-    const handleGenerateDescriptions = async () => {
-      if (!item) return;
-
+    // Auto-fetch image descriptions if needed before building context
+    const ensureImageDescriptionsAvailable = async (item: Item): Promise<void> => {
       const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+
       if (!imageUrls || imageUrls.length === 0) return;
 
-      setIsGeneratingDescriptions(true);
+      // Check if descriptions already exist
+      if (imageDescriptionsComputed.hasDescriptions(item.id)) {
+        console.log('🖼️  Image descriptions already exist for', item.id);
+        return;
+      }
+
+      setIsFetchingImageDescriptions(true);
       imageDescriptionsActions.setGenerating(item.id, true);
+
       try {
-        console.log('🖼️  Generating descriptions for', imageUrls.length, 'images');
+        console.log('🖼️  Auto-fetching descriptions for', imageUrls.length, 'images');
 
         for (const imageUrl of imageUrls) {
-          // Generate description for each image
           const description = await openai.describeImage(imageUrl, {
             model: selectedModel.includes('gpt-4') ? selectedModel : 'gpt-4o-mini',
           });
 
           if (description) {
-            // Create and save the description
             const imageDescription = {
-              id: `${item.id}-${imageUrl}`, // Temporary ID
+              id: `${item.id}-${imageUrl}`,
               item_id: item.id,
               image_url: imageUrl,
               description,
@@ -276,13 +308,12 @@ const ChatSheet = observer(
           }
         }
 
-        setShowDescriptionButton(false);
-        alert(`Generated descriptions for ${imageUrls.length} image${imageUrls.length > 1 ? 's' : ''}!`);
+        console.log('🖼️  Auto-fetched image descriptions saved for item:', item.id);
       } catch (error) {
-        console.error('Error generating image descriptions:', error);
-        alert('Failed to generate image descriptions. Please try again.');
+        console.error('Error auto-fetching image descriptions:', error);
+        // Don't show error to user, just log it - context will be built without descriptions
       } finally {
-        setIsGeneratingDescriptions(false);
+        setIsFetchingImageDescriptions(false);
         imageDescriptionsActions.setGenerating(item.id, false);
       }
     };
@@ -313,7 +344,7 @@ const ChatSheet = observer(
         );
         setMessages(prev => [...prev, userMsg]);
 
-        // Build context from item
+        // Build context from item (transcript auto-fetched when chat opened)
         const { contextString, metadata } = buildItemContext(item);
 
         // Get previous messages for conversation history
@@ -592,6 +623,7 @@ const ChatSheet = observer(
     const renderSystemMessage = () => {
       if (!item) return null;
 
+      const isGatheringContext = isFetchingTranscript || isFetchingImageDescriptions;
       const { metadata } = buildItemContext(item);
       const contextInfo = formatContextMetadata(metadata);
 
@@ -601,9 +633,20 @@ const ChatSheet = observer(
             <Text style={[styles.systemMessageTitle, isDarkMode && styles.systemMessageTitleDark]}>
               💬 Chatting about: {item.title}
             </Text>
-            <Text style={[styles.systemMessageSubtitle, isDarkMode && styles.systemMessageSubtitleDark]}>
-              📄 Context: {contextInfo}
-            </Text>
+            {isGatheringContext ? (
+              <View style={styles.gatheringContextContainer}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={[styles.systemMessageSubtitle, isDarkMode && styles.systemMessageSubtitleDark, styles.gatheringContextText]}>
+                  🔄 Gathering context...
+                  {isFetchingTranscript && ' Fetching transcript.'}
+                  {isFetchingImageDescriptions && ' Analyzing images.'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.systemMessageSubtitle, isDarkMode && styles.systemMessageSubtitleDark]}>
+                📄 Context: {contextInfo}
+              </Text>
+            )}
           </View>
         </View>
       );
@@ -702,7 +745,7 @@ const ChatSheet = observer(
         );
         setMessages(prev => [...prev, userMsg]);
 
-        // Build context from item
+        // Build context from item (transcript auto-fetched when chat opened)
         const { contextString, metadata } = buildItemContext(item!);
 
         // Get previous messages for conversation history
@@ -910,53 +953,6 @@ const ChatSheet = observer(
             showsVerticalScrollIndicator={false}
           >
             {renderSystemMessage()}
-
-            {/* Generation buttons */}
-            {(showTranscriptButton || showDescriptionButton) && (
-              <View style={styles.generationButtonsContainer}>
-                {showTranscriptButton && (
-                  <TouchableOpacity
-                    style={[
-                      styles.generateButton,
-                      isDarkMode && styles.generateButtonDark,
-                      (isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) && styles.generateButtonDisabled,
-                    ]}
-                    onPress={handleGenerateTranscript}
-                    disabled={isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')}
-                  >
-                    {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) ? (
-                      <ActivityIndicator size="small" color={COLORS.primary} />
-                    ) : (
-                      <MaterialIcons name="subtitles" size={20} color={COLORS.primary} />
-                    )}
-                    <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
-                      {(isGeneratingTranscript || videoTranscriptsComputed.isGenerating(item?.id || '')) ? 'Processing...' : 'Generate Transcript'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {showDescriptionButton && (
-                  <TouchableOpacity
-                    style={[
-                      styles.generateButton,
-                      isDarkMode && styles.generateButtonDark,
-                      (isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) && styles.generateButtonDisabled,
-                    ]}
-                    onPress={handleGenerateDescriptions}
-                    disabled={isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')}
-                  >
-                    {(isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) ? (
-                      <ActivityIndicator size="small" color={COLORS.primary} />
-                    ) : (
-                      <MaterialIcons name="image" size={20} color={COLORS.primary} />
-                    )}
-                    <Text style={[styles.generateButtonText, isDarkMode && styles.generateButtonTextDark]}>
-                      {(isGeneratingDescriptions || imageDescriptionsComputed.isGenerating(item?.id || '')) ? 'Processing Images...' : 'Generate Image Descriptions'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
 
             {messages.map((msg, idx) => renderMessage(msg, idx))}
 
@@ -1268,6 +1264,15 @@ const styles = StyleSheet.create({
   systemMessageSubtitleDark: {
     color: '#999999',
   },
+  gatheringContextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  gatheringContextText: {
+    flex: 1,
+  },
   messageContainer: {
     marginBottom: 16,
   },
@@ -1404,34 +1409,6 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
-  },
-  generationButtonsContainer: {
-    paddingVertical: 12,
-    gap: 10,
-  },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 10,
-  },
-  generateButtonDark: {
-    backgroundColor: '#2C2C2E',
-  },
-  generateButtonDisabled: {
-    opacity: 0.5,
-  },
-  generateButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.primary,
-    flex: 1,
-  },
-  generateButtonTextDark: {
-    color: COLORS.primary,
   },
 });
 

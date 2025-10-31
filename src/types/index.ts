@@ -12,6 +12,9 @@ export type ContentType =
   | 'tiktok'
   | 'reddit'
   | 'amazon'
+  | 'ebay'
+  | 'yelp'
+  | 'app_store'
   | 'linkedin'
   | 'image'
   | 'pdf'
@@ -110,6 +113,7 @@ export interface VideoTranscript {
   platform: VideoPlatform;
   language: string;
   duration?: number;
+  segments?: Array<{ startMs: number; endMs?: number; text: string }>; // For timestamped transcripts (SerpAPI)
   fetched_at: string;
   created_at: string;
   updated_at: string;
@@ -207,6 +211,8 @@ export interface SearchFilters {
   isArchived?: boolean;
 }
 
+export type RadialActionId = 'chat' | 'share' | 'archive' | 'unarchive' | 'delete' | 'move';
+
 export interface UserSettings {
   id: string;
   user_id: string;
@@ -220,6 +226,7 @@ export interface UserSettings {
   // UI preferences
   ui_x_video_muted: boolean;
   ui_autoplay_x_videos: boolean;
+  ui_radial_actions?: RadialActionId[]; // 3 action buttons for radial menu
   // Timestamps
   created_at: string;
   updated_at: string;

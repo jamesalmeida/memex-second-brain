@@ -1,9 +1,11 @@
-import React, { forwardRef, useMemo, useCallback, useState } from 'react';
+import React, { forwardRef, useMemo, useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Switch,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,6 +13,9 @@ import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { COLORS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
+import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
+import { isAPIConfigured } from '../config/api';
+import { adminPrefsStore, adminPrefsActions } from '../stores/adminPrefs';
 
 interface AdminSheetProps {
   onOpen?: () => void;
@@ -23,6 +28,36 @@ const AdminSheet = observer(
     const { showToast, dismissToast } = useToast();
     const [showTestToast, setShowTestToast] = useState(false);
     const [currentToastId, setCurrentToastId] = useState<string | null>(null);
+
+    // SerpAPI account status state
+    const [serpLoading, setSerpLoading] = useState(false);
+    const [serpError, setSerpError] = useState<string | null>(null);
+    const [serpAccount, setSerpAccount] = useState<SerpApiAccount | null>(null);
+    const [serpLastUpdated, setSerpLastUpdated] = useState<number | null>(null);
+
+    const fetchSerpApiStatus = useCallback(async () => {
+      if (!isAPIConfigured.serpapi()) {
+        setSerpError('API key not configured');
+        setSerpAccount(null);
+        setSerpLoading(false);
+        return;
+      }
+      setSerpLoading(true);
+      setSerpError(null);
+      
+      // Fetch account status (doesn't count against limit)
+      const res = await serpapi.fetchAccount();
+      if ((res as SerpApiError).error) {
+        setSerpError((res as SerpApiError).error);
+        setSerpAccount(null);
+      } else {
+        setSerpAccount(res as SerpApiAccount);
+        setSerpLastUpdated(Date.now());
+      }
+      
+      setSerpLoading(false);
+    }, []);
+
 
     // Snap points for the bottom sheet
     const snapPoints = useMemo(() => ['40%'], []);
@@ -61,6 +96,10 @@ const AdminSheet = observer(
             onClose?.();
           } else if (index >= 0) {
             onOpen?.();
+            // Automatically refresh SerpAPI status when sheet opens
+            if (isAPIConfigured.serpapi()) {
+              fetchSerpApiStatus();
+            }
           }
         }}
       >
@@ -119,6 +158,165 @@ const AdminSheet = observer(
               />
             </View>
           </View>
+
+          {/* YouTube Enrichment Source */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>YouTube Enrichment Source</Text>
+            </View>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Source</Text>
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeSource('youtubei')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeSource.get() === 'youtubei' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeSource.get() === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeSource('serpapi')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeSource.get() === 'serpapi' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeSource.get() === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* YouTube Transcript Source */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>YouTube Transcript Source</Text>
+            </View>
+            <View style={styles.rowBetween}>
+              <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Source</Text>
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeTranscriptSource('youtubei')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeTranscriptSource.get() === 'youtubei' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeTranscriptSource.get() === 'youtubei' && styles.segBtnTextActive]}>youtubei.js</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adminPrefsActions.setYouTubeTranscriptSource('serpapi')}
+                  style={[styles.segBtn, adminPrefsStore.youtubeTranscriptSource.get() === 'serpapi' && styles.segBtnActive]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.segBtnText, adminPrefsStore.youtubeTranscriptSource.get() === 'serpapi' && styles.segBtnTextActive]}>SerpAPI</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* SerpAPI Status Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+                SerpAPI Status
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={fetchSerpApiStatus}
+                style={styles.iconButton}
+              >
+                <MaterialIcons
+                  name="refresh"
+                  size={20}
+                  color={isDarkMode ? '#FFFFFF' : '#333333'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {!isAPIConfigured.serpapi() ? (
+              <Text style={[styles.infoText, isDarkMode && styles.infoTextDark]}>API key not configured</Text>
+            ) : serpLoading ? (
+              <View style={styles.row}>
+                <ActivityIndicator color={COLORS.primary} />
+                <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>Loading...</Text>
+              </View>
+            ) : serpError ? (
+              <Text style={[styles.errorText, isDarkMode && styles.errorTextDark]}>{serpError}</Text>
+            ) : serpAccount ? (
+              <View>
+                {serpAccount.account_id && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Account ID</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.account_id}</Text>
+                  </View>
+                )}
+                {serpAccount.account_email && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Email</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.account_email}</Text>
+                  </View>
+                )}
+                {serpAccount.plan_name && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Plan</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.plan_name}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.plan_monthly_price !== 'undefined' && serpAccount.plan_monthly_price !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Monthly Price</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>${serpAccount.plan_monthly_price.toFixed(2)}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.searches_per_month !== 'undefined' && serpAccount.searches_per_month !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Monthly Limit</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.searches_per_month.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.this_month_usage !== 'undefined' && serpAccount.this_month_usage !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>This Month Usage</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.this_month_usage.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.total_searches_left !== 'undefined' && serpAccount.total_searches_left !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Searches Left</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.total_searches_left.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.plan_searches_left !== 'undefined' && serpAccount.plan_searches_left !== null && serpAccount.plan_searches_left !== serpAccount.total_searches_left && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Plan Searches Left</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.plan_searches_left.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.extra_credits !== 'undefined' && serpAccount.extra_credits !== null && serpAccount.extra_credits > 0 && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Extra Credits</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.extra_credits.toLocaleString()}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.last_hour_searches !== 'undefined' && serpAccount.last_hour_searches !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Last Hour Searches</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.last_hour_searches}</Text>
+                  </View>
+                )}
+                {typeof serpAccount.account_rate_limit_per_hour !== 'undefined' && serpAccount.account_rate_limit_per_hour !== null && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Hourly Rate Limit</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{serpAccount.account_rate_limit_per_hour.toLocaleString()}</Text>
+                  </View>
+                )}
+                {serpLastUpdated && (
+                  <Text style={[styles.metaText, isDarkMode && styles.metaTextDark]}>Updated {new Date(serpLastUpdated).toLocaleTimeString()}</Text>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity onPress={fetchSerpApiStatus}>
+                <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>Tap to load SerpAPI status</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </BottomSheetScrollView>
       </BottomSheet>
     );
@@ -160,6 +358,11 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
@@ -170,10 +373,22 @@ const styles = StyleSheet.create({
   sectionTitleDark: {
     color: '#999999',
   },
+  iconButton: {
+    padding: 6,
+    borderRadius: 6,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E5E7',
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5E7',
   },
@@ -195,6 +410,71 @@ const styles = StyleSheet.create({
   },
   rowSubtitleDark: {
     color: '#666666',
+  },
+  valueText: {
+    fontSize: 16,
+    color: '#111111',
+  },
+  valueTextDark: {
+    color: '#EAEAEA',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#555555',
+    paddingVertical: 6,
+  },
+  infoTextDark: {
+    color: '#AAAAAA',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#B00020',
+    paddingVertical: 6,
+  },
+  errorTextDark: {
+    color: '#FF6B6B',
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#555555',
+  },
+  loadingTextDark: {
+    color: '#AAAAAA',
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 8,
+  },
+  metaTextDark: {
+    color: '#777777',
+  },
+  linkText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    paddingVertical: 6,
+  },
+  linkTextDark: {
+    color: COLORS.primary,
+  },
+  segBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginLeft: 8,
+  },
+  segBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  segBtnText: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: '600',
+  },
+  segBtnTextActive: {
+    color: '#fff',
   },
 });
 

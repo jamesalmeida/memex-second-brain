@@ -41,15 +41,64 @@
   - Swiping from Everything Grid scrolls into Space grid while also updating the HeaderBar to show selected Space. Scrolling the HeaderBar and tapping a Space auto scrolls to that Space.
   - To initiate AI chat with space content as context the user can use NativeTab in the BottomNavigation to slide over to Chat-mode with that space.  
   - Offline: Cached space items; queue edits.  
-- **Item Detail Expanded Card**: Full-screen expanding card animation for item details (title, content, metadata, media). Features:  
-  - Expands from grid position to full screen with hero animation (like iOS App Store)  
-  - Smooth reverse animation back to original grid position on close  
-  - Swipe-down to dismiss  
-  - Actions: Edit title/desc/metadata, archive, delete, move to another space  
-  - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)  
-  - Download media (if applicable) or open external URL  
-  - Offline: View cached details; queue edits/deletes  
+- **Item Detail Expanded Card**: Full-screen expanding card animation for item details (title, content, metadata, media). Features:
+  - Expands from grid position to full screen with hero animation (like iOS App Store)
+  - Smooth reverse animation back to original grid position on close
+  - Swipe-down to dismiss
+  - Actions: Edit title/desc/metadata, archive, delete, move to another space
+  - Initiate AI chat with item content as context (via bottom sheet that slides over the expanded card)
+  - Download media (if applicable) or open external URL
+  - Offline: View cached details; queue edits/deletes
+- **Radial Action Menu**: Quick access to item actions via long-press gesture on item cards. Features:
+  - **Activation**: Long-press (200ms) on any item card in grid view
+  - **Visual Feedback**:
+    - Card scales to 1.05x and rotates 2° during long-press
+    - Radial menu buttons animate outward from touch point
+    - Full-screen dark overlay appears behind menu
+    - Floating clone of item card appears at original position with glow effect
+  - **Interaction**:
+    - User drags finger to desired action button (without lifting)
+    - Hovered button scales to 1.3x and changes color for immediate visual feedback
+    - Release finger to execute hovered action
+    - Cancel by releasing without hovering any button
+  - **Available Actions**:
+    - **Chat**: Opens AI chat with item as context (expands item card + opens chat sheet)
+    - **Share**: Opens native share sheet with item URL and title
+    - **Archive**: Moves item to archive (soft archive with `is_archived=true`). Dynamically becomes "Unarchive" when long-pressing an archived item.
+    - **Unarchive**: Restores archived item to active state (sets `is_archived=false`, `auto_archived=false`). Automatically replaces "Archive" button when item is archived (both manually archived and auto-archived from space archive).
+    - **Delete**: Soft-deletes item (tombstone pattern with `is_deleted=true`), requires confirmation alert
+    - **Move to Space**: Opens SpaceSelectorModal to reassign item to different space
+  - **Configuration**:
+    - Users can customize which 3 actions appear in menu via "Configure Action Button" in drawer
+    - Default actions: Chat, Share, Archive
+    - Selection range: 1-3 actions (enforced by ActionMenuConfigModal)
+    - Configuration stored in `User_Settings.ui_radial_actions` and syncs across devices
+    - ActionMenuConfigModal displays all 5 configurable actions (Chat, Share, Archive/Unarchive, Delete, Move) with descriptions, icons, and selection indicators
+    - Note: Archive and Unarchive are treated as one configurable action that dynamically switches based on item state
+  - **Implementation**:
+    - Context: `RadialMenuContext` manages menu state, touch tracking, and action execution
+    - Wrapper: `RadialActionMenu` component wraps each item card with touch responders
+    - Overlay: `RadialMenuOverlay` renders full-screen modal with buttons and floating card clone
+    - Components: `src/contexts/RadialMenuContext.tsx`, `src/components/items/RadialActionMenu.tsx`, `src/components/ActionMenuConfigModal.tsx`
+  - **Performance**:
+    - Buttons positioned dynamically based on touch location (left/right side of screen)
+    - Arc angle: 110° centered 45° from touch point (upper-right if left side, upper-left if right side)
+    - Button radius: 80px from touch point
+    - Haptic feedback on menu open, button hover, and action execution
+  - **Offline**: All actions queue for sync when offline (archive, delete, move use sync service)  
 - **Settings Modal**: Displays user email/ID, theme toggle (light/dark), sign-out, and more options.
+- **Admin Sheet** (`AdminSheet.tsx`): Developer/admin panel accessible via drawer menu. Features:
+  - **SerpAPI Status Section**: Displays comprehensive account information from SerpAPI Account API:
+    - Account ID, email, plan name, monthly price
+    - Monthly limit, current usage, searches left
+    - Extra credits, last hour searches, hourly rate limit
+    - Auto-refreshes when sheet opens for real-time data
+    - Manual refresh button for on-demand updates
+  - **YouTube Source Preferences**: Toggle between `youtubei.js` and `SerpAPI` for:
+    - YouTube enrichment (metadata extraction)
+    - YouTube transcripts (timestamped vs plain text)
+  - Preferences stored in `adminPrefsStore` and sync across devices
+  - UI Debug tools: Test toast notifications, etc.
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  
@@ -72,6 +121,7 @@
     - Auto-archive: Item automatically archived when parent space is archived (tracked via `auto_archived=true` flag)
     - Archive syncs to Supabase immediately, propagates to other devices via real-time subscriptions
     - Unarchive: Restore archived item to active state. Auto-archived items can be selectively restored when parent space is unarchived.
+    - **UX**: ItemView sheet closes immediately when user triggers archive/unarchive; LoadingModal displays in background during operation; toast notification confirms success/failure
   - **Space Archive**: Archive entire space and all items within it
     - User confirms via alert: "Archive [space name]? This will also archive all X item(s) inside."
     - All items in space marked with `is_archived=true`, `archived_at` timestamp, and `auto_archived=true`
@@ -82,6 +132,7 @@
     - Items marked as deleted are retained locally for cross-device sync reliability
     - Prevents "resurrection bug" where offline devices re-upload deleted items
     - UI filters out deleted items automatically
+    - **UX**: ItemView sheet closes immediately when user triggers delete; LoadingModal displays in background during operation; toast notification confirms success/failure
   - **Move**: Reassign to different space by updating `Items.space_id` field. Queue offline.
   - **Space Deletion**: When deleting a space with items, user chooses:
     - "Move to Everything" - Sets `space_id=null` for all items in space
@@ -93,20 +144,29 @@
 - **Media Handling**:
   - Display images/videos in cards (Expo AV for video playback).
   - Show transcripts for videos (if cached).
+  - **YouTube Transcript Display** (`YouTubeItemView.tsx`):
+    - Toggle between timestamped segments (from SerpAPI) and plain text views
+    - Timestamped view shows each segment with `[mm:ss]` prefix
+    - Plain text view extracts text from segments or displays stored transcript
+    - Copy transcript to clipboard and export as SRT format
   - Download media via Expo FileSystem (store locally for offline access).
   - **Multi-Image Support**: Items can have multiple images stored in `Item_Type_Metadata.data.image_urls[]` array:
     - Display as horizontal carousel with pagination dots when 2+ images exist
     - Carousel supports swipe gesture to navigate between images
     - Long-press context menu on any image provides:
       - "View Full Screen" - Opens image in full-screen viewer
+      - "Copy Image" - Copies the actual image to device clipboard/pasteboard (not just URL)
       - "Copy Image URL" - Copies image URL to clipboard
+      - "Share Image" - Opens native share sheet to share the actual image file to other apps
       - "Save to Device" - Downloads image to device photo library
       - "Add Another Image" - Opens ImageUploadModal to add additional image
       - "Remove Image" - Deletes the currently displayed image from carousel
     - Delete removes only the current image being viewed (tracked by carousel index)
     - Single image displays with add/remove options via long-press menu
+    - **YouTube Thumbnail Actions**: YouTube item thumbnails also support the full set of image actions including copy/share image directly
     - Implemented in: YouTubeItemView, NoteItemView, DefaultItemView, XItemView, RedditItemView, MovieTVItemView
     - Images managed via `itemTypeMetadataActions.addImageUrl()` and `itemTypeMetadataActions.removeImageUrl()`
+    - Copy/Share functionality downloads image to cache, performs operation, then cleans up cached file automatically
 
 ### 2.4 Capture/Save
 - **Quick Capture**:
@@ -161,6 +221,7 @@
   - Initiate from item detail or space detail via bottom sheet UI (using `@gorhom/bottom-sheet`).  
   - Bottom sheet covers prior UI (item detail or space grid); swipe down to dismiss and return to previous view.  
   - Context: Item content or all space items passed to OpenAI API (abstracted for future models like Grok or Llama).  
+  - **Timestamped Transcripts**: For videos with SerpAPI transcripts, AI chat context prefers timestamped segments over plain text to enable LLM to reference specific timestamps (e.g., "at 3:45, the speaker mentions..."). Segments formatted as `[mm:ss] text` in context.
   - Save chat messages (role: user/system/assistant, content) in Supabase and Legend-State.  
   - Mobile: Handle keyboard dismissal (auto-adjust view) and scrollable chat history.  
   - Offline: Disable chat (requires API); show cached chat history.  
@@ -206,8 +267,9 @@
   - Purpose: Stores AI-generated descriptions of images to provide context for AI chat.  
   - Unique constraint on (`item_id`, `image_url`) - one description per image URL per item.  
 - **Video_Transcripts**:  
-  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `transcript` (text), `platform` (text: youtube, x, tiktok, instagram, reddit, etc.), `language` (text, default 'en'), `duration` (integer, seconds), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
+  - Fields: `id` (UUID, PK), `item_id` (UUID, FK to Items), `transcript` (text), `platform` (text: youtube, x, tiktok, instagram, reddit, etc.), `language` (text, default 'en'), `duration` (integer, seconds), `segments` (JSONB, nullable), `fetched_at` (timestamp), `created_at` (timestamp), `updated_at` (timestamp).  
   - Purpose: Stores transcripts for videos from various platforms.  
+  - Note: `segments` field stores timestamped transcript data as JSONB array: `[{"startMs": number, "endMs": number, "text": string}]`. Used by SerpAPI for YouTube transcripts to enable toggle between timestamped and plain text views. Preferred by AI chat context for timestamp references.
   - Unique constraint on `item_id` - one transcript per video item.  
 - **Spaces**:
   - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `name` (text), `desc` (text, nullable), `description` (text, nullable), `color` (text, default '#007AFF'), `item_count` (integer, default 0), `order_index` (integer, nullable), `is_archived` (boolean, default false), `archived_at` (timestamp, nullable), `is_deleted` (boolean, default false), `deleted_at` (timestamp, nullable), `created_at` (timestamp), `updated_at` (timestamp).
@@ -216,13 +278,21 @@
   - Note: Archiving a space automatically archives all items within it (tracked via `Item.auto_archived`).
   - Note: Soft-delete fields (`is_deleted`, `deleted_at`) enable tombstone-based sync for reliable cross-device deletion.
 - **User_Settings**:
-  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `created_at` (timestamp), `updated_at` (timestamp).
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users, unique), `theme_dark_mode` (boolean, default false), `ai_chat_model` (text, default 'gpt-4o-mini'), `ai_metadata_model` (text, default 'gpt-4o-mini'), `ai_auto_transcripts` (boolean, default false), `ai_auto_image_descriptions` (boolean, default false), `ui_x_video_muted` (boolean, default true), `ui_autoplay_x_videos` (boolean, default true), `ui_radial_actions` (jsonb, default '["chat", "share", "archive"]'::jsonb), `created_at` (timestamp), `updated_at` (timestamp).
   - Purpose: Cloud-synced user preferences that persist across devices and app reinstalls. Replaces device-specific AsyncStorage for global settings.
   - One settings row per user (enforced by unique constraint on `user_id`).
   - Settings categories:
     - Theme: `theme_dark_mode` - Light/dark mode preference
     - AI: `ai_chat_model`, `ai_metadata_model`, `ai_auto_transcripts`, `ai_auto_image_descriptions` - AI model selection and automation preferences
-    - UI: `ui_x_video_muted`, `ui_autoplay_x_videos` - Video playback preferences
+    - UI: `ui_x_video_muted`, `ui_autoplay_x_videos`, `ui_radial_actions` - Video playback and quick action menu preferences
+  - Radial Action Menu Configuration:
+    - `ui_radial_actions` stores an ordered array of up to 3 action IDs that appear in the long-press radial menu
+    - Available actions: 'chat' (open AI chat), 'share' (share item URL), 'archive' (move to archive / unarchive if already archived), 'delete' (soft delete item), 'move' (move to different space)
+    - Default actions: ['chat', 'share', 'archive']
+    - Note: When user configures 'archive', the menu automatically shows 'unarchive' button when long-pressing an archived item (both `is_archived=true` and `auto_archived=true` cases)
+    - Users configure via "Configure Action Button" option in drawer menu
+    - Configuration modal (ActionMenuConfigModal) allows selecting 1-3 actions with visual ordering indicators
+    - Changes sync instantly across devices via Supabase real-time updates
   - Synced on app launch, login, and during manual sync operations.
   - Changes are optimistically updated locally then synced to Supabase.
   - Falls back to legacy AsyncStorage if cloud sync unavailable (offline mode).
@@ -239,6 +309,11 @@
 - **Chat_Messages**:  
   - Fields: `id` (UUID, PK), `chat_id` (UUID, FK to Item_Chats or Space_Chats), `chat_type` (enum: item, space), `role` (enum: user, system, assistant), `content` (text), `metadata` (JSONB, default '{}'), `created_at` (timestamp).  
   - Purpose: Links to either `Item_Chats` or `Space_Chats` for clear relationships. `metadata` stores AI model info, token usage, and timestamps.  
+- **API_Usage_Tracking**:  
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `api_name` (text), `operation_type` (text), `item_id` (UUID, FK to Items, nullable), `created_at` (timestamp).  
+  - Purpose: Tracks API operations that count against monthly quotas (SerpAPI, etc.) for usage monitoring. Used by `apiUsageTracking` store and displayed in `AdminSheet`.  
+  - Constraints: `api_name` must be one of ('serpapi'), `operation_type` validated based on `api_name`.  
+  - Policies: Users can read/insert their own records only (append-only for data integrity).  
 - **Offline_Queue** (client-side, Legend-State, mirrored in Supabase):  
   - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `action_type` (enum: create_item, update_item, delete_item, create_capture), `payload` (JSONB), `created_at` (timestamp), `status` (enum: pending, synced, failed).  
   - JSONB `payload` examples:  
@@ -251,8 +326,9 @@
   - User_Settings: `idx_user_settings_user_id` (unique).
   - Item_Spaces (deprecated): `idx_item_spaces_item_id`, `idx_item_spaces_space_id`.
   - Chat_Messages: `idx_chat_messages_chat_id`, `idx_chat_messages_created_at`, `idx_chat_messages_chat_id_created_at`, `idx_chat_messages_chat_type`, `idx_chat_messages_metadata` (GIN on JSONB).
-  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`.
+  - Video_Transcripts: `idx_video_transcripts_item_id`, `idx_video_transcripts_created_at`, `idx_video_transcripts_platform`, `idx_video_transcripts_segments` (GIN on JSONB, partial WHERE segments IS NOT NULL).
   - Image_Descriptions: `idx_image_descriptions_item_id`, `idx_image_descriptions_created_at`.
+  - API_Usage_Tracking: `idx_api_usage_user_id`, `idx_api_usage_api_name`, `idx_api_usage_created_at`, `idx_api_usage_user_api_date` (user_id, api_name, created_at), `idx_api_usage_item_id`.
   - Offline_Queue: `idx_offline_queue_user_id`, `idx_offline_queue_status`.
 - **Database Migrations**:
   - `20251024_add_soft_delete_to_spaces.sql` - Adds soft-delete fields to spaces table
@@ -260,6 +336,9 @@
   - `20251024_enable_realtime.sql` - Enables Supabase real-time replication for items and spaces tables
   - `20251027_add_tldr_and_notes_to_items.sql` - Adds `tldr` and `notes` fields to items table for AI summaries and user annotations
   - `20251028_create_user_settings.sql` - Creates `user_settings` table for cloud-synced user preferences (theme, AI models, UI preferences)
+  - `20251030_add_ui_radial_actions.sql` - Adds `ui_radial_actions` column to `user_settings` table for configurable radial action menu
+  - `20250131_add_segments_to_video_transcripts.sql` - Adds `segments` JSONB column to `video_transcripts` table for timestamped transcript data from SerpAPI
+  - `20250201_create_api_usage_tracking.sql` - Creates `api_usage_tracking` table for monitoring API quota usage (SerpAPI, etc.)
   - Note: Archive functionality requires `is_archived`, `archived_at`, and `auto_archived` fields added in `20251024_add_archive_and_simplify_spaces.sql`
 
 ## 4. UI/UX Requirements
@@ -335,6 +414,28 @@
     - Used in: DefaultItemView, YouTubeItemView, XItemView, RedditItemView
   - **VideoPlayer**: Expo AV with autoplay, mute, loop, and lazy loading.
   - **ItemView Components**: All item detail views (DefaultItemView, YouTubeItemView, XItemView, NoteItemView, RedditItemView) are reactive to store updates and automatically refresh when item data changes on other devices.
+  - **LoadingModal** (`src/components/LoadingModal.tsx`): Reusable loading overlay component for indicating ongoing operations:
+    - **Purpose**: Provides consistent loading feedback across the app for operations like archiving, deleting, refreshing metadata
+    - **Props**:
+      - `visible: boolean` - Controls modal visibility
+      - `text?: string` - Customizable loading text (default: "Loading...")
+      - `isDarkMode: boolean` - Theme support
+    - **Design**:
+      - Full-screen semi-transparent overlay (95% opacity)
+      - Centered card with ActivityIndicator and text
+      - Absolute positioning (zIndex: 1000) to overlay parent component
+      - Smooth animations for appearance/disappearance
+      - Shadow/elevation for depth
+    - **Usage**:
+      - ExpandedItemView: Shows during archive/unarchive/delete/refresh operations
+      - ItemViewFooter: Integrated for delete and refresh button feedback
+      - All ItemView components: Pass through `isDeleting` and `isRefreshing` props
+    - **Behavior**:
+      - ItemView sheet closes immediately when user triggers delete/archive action
+      - LoadingModal remains visible in background until operation completes
+      - Toast notification appears after successful operation
+      - Error toast shown if operation fails
+    - **User Experience**: Non-blocking - allows user to return to browsing immediately while operation completes in background
   - **Archive View**: Special view for managing archived items. Features:
     - Accessed via Archive tab in HeaderBar or Archive space in DrawerContent
     - Shows all archived items (both manually archived and auto-archived) in flat grid
@@ -342,7 +443,7 @@
     - Items display archived date in expanded view footer: "Archived on [date]" or "Auto-archived on [date]"
     - Unarchive button replaces Archive button in expanded item view (MaterialIcons "unarchive" icon)
     - Long-press context menu includes "Unarchive" option
-    - Full-screen loading overlay during archive/unarchive operations with "Archiving..." or "Unarchiving..." message
+    - Uses LoadingModal during archive/unarchive operations with appropriate text
     - Success toast notification: "Item archived successfully" or "Item unarchived successfully"
     - Error toast on failure: "Failed to archive item" or "Failed to unarchive item"
     - Items disappear from Archive view immediately after unarchiving
@@ -490,6 +591,37 @@ All external API calls are made directly from the client (`src/services/` and `s
   - Configured for general URL content extraction
   - Fallback for unsupported content types
 
+- **SerpAPI** (`src/services/serpapi.ts`):
+  - Account API (free, does not count toward quota): `GET https://serpapi.com/account.json?api_key=...`
+    - Returns: `account_id`, `account_email`, `plan_id`, `plan_name`, `plan_monthly_price`, `searches_per_month`, `plan_searches_left`, `extra_credits`, `total_searches_left`, `this_month_usage`, `last_hour_searches`, `account_rate_limit_per_hour`
+    - Auto-refreshes when opening `AdminSheet` to display real-time usage data
+    - Manual refresh button available in AdminSheet UI
+  - YouTube Video API (`GET https://serpapi.com/search?engine=youtube_video&v=VIDEO_ID`):
+    - Extracts video metadata (title, description, view count, duration, etc.)
+    - Used by `Step04_1a_EnrichYouTube_SerpAPI` for enrichment (conditional on user preference)
+  - YouTube Transcript API (`GET https://serpapi.com/search?engine=youtube_video_transcript&v=VIDEO_ID`):
+    - Returns **timestamped segments** with `start_ms`, `end_ms`, and `text`/`snippet`
+    - Also provides fallback plain text transcript
+    - Segments stored in `video_transcripts.segments` (JSONB array)
+    - Used for AI chat context (preferred over plain text when available) to enable timestamp references
+    - Toggle between timestamped and plain text views in `YouTubeItemView.tsx`
+  - Environment variable: `EXPO_PUBLIC_SERPAI_API_KEY`
+  - Config entry in `src/config/api.ts` under `API_CONFIG.SERPAPI`
+  - User preferences in `AdminSheet.tsx`:
+    - **YouTube Enrichment Source**: Toggle between `youtubei.js` or `SerpAPI`
+    - **YouTube Transcript Source**: Toggle between `youtubei.js` or `SerpAPI`
+    - Preferences stored in `adminPrefsStore` and passed through pipeline context
+  - Pipeline enrichment:
+    - `Step04_1a_EnrichYouTube_SerpAPI` (conditional on user preference) enriches YouTube metadata via SerpAPI
+    - `Step04_4_EnrichSerpApiGeneric` enriches supported sites (e.g., eBay, Yelp, Apple App Store)
+    - Supported content types: `ebay`, `yelp`, `app_store`
+  - API usage tracking (`src/services/apiUsageTracking.ts` and `src/stores/apiUsageTracking.ts`):
+    - Tracks all SerpAPI operations that count against quota (enrichment, transcripts)
+    - Stores records in `api_usage_tracking` table (PostgreSQL)
+    - Local caching in Legend-State for offline access
+    - Operations tracked: `youtube_enrichment`, `youtube_transcript`, `ebay_product`, `yelp_business`, `app_store`
+    - Note: Account API calls are free and not tracked
+
 ### 5.6 Client-side URL Parsing (Linkedom)
 - For basic saves on mobile, the app fetches the target URL directly on-device and parses HTML using `linkedom` (`src/services/linkedomParser.ts`).
 - Extracted fields:
@@ -500,13 +632,77 @@ All external API calls are made directly from the client (`src/services/` and `s
 - This reduces reliance on AI for simple metadata and speeds up saves.
 - If a site blocks fetch or lacks metadata, we save a minimal item and skip enrichment. Premium AI enrichments remain available but are not invoked for basic saves.
 
-#### Invalid URL Handling
-- When the pasted input is not a valid URL, `parseUrlWithLinkedom` signals an invalid state. In that case, `Step01_ParseLinkedom` converts the item into a note:
+#### Metadata Extraction Pipeline Architecture
+The metadata extraction pipeline (`src/services/pipeline/`) has been reorganized to optimize performance and reliability. The pipeline runs sequentially through these steps:
+
+**Pipeline Step Order:**
+1. **Step01_DetectType** (formerly Step02) - Fast URL pattern-based content type detection
+2. **Step02_DetectTypeAI** (formerly Step03) - AI fallback for ambiguous URLs
+3. **Step03_ParseLinkedom** (formerly Step01) - HTML parsing fallback for generic content
+4. **Step04_*** - Specialized enrichment steps for specific content types
+
+**Key Design Decisions:**
+
+**Why Type Detection First:**
+- URL pattern matching is instant (no HTTP fetch required) and works offline
+- Critical for URLs like Amazon product pages that would otherwise be blocked by linkedom (HTML too large or anti-bot protection)
+- Ensures correct content type before attempting metadata extraction
+- Examples: YouTube URLs → `youtube`, Amazon URLs → `product`, X/Twitter URLs → `x`
+
+**Linkedom as Fallback:**
+- Linkedom parsing moved to Step03 to run AFTER type detection succeeds
+- Only runs for content types WITHOUT specialized enrichers (Step04)
+- Skips if `content_type` already has a dedicated enrichment step
+- Prevents redundant HTTP fetches and HTML parsing
+- Content types with specialized enrichers: `youtube`, `x`, `reddit`, `ebay`, `yelp`, `app_store`, `note`
+- Content types using linkedom fallback: `bookmark`, `product`, `amazon`, `instagram`, `movie`, `article`, etc.
+
+**Invalid URL Handling:**
+- Step01_DetectType validates URL format using `new URL()` try-catch
+- Invalid URLs are immediately converted to notes:
   - Set `content_type` to `note`
-  - Set `title` to an empty string
-  - Set `desc` to the original pasted text
-  - Clear `url`, `thumbnail_url`, and parsed HTML `content`
-  - Subsequent detection/enrichment steps naturally skip because the item is no longer a `bookmark`
+  - Set `title` to empty string
+  - Set `desc` to the original pasted text (preserves user input)
+  - Clear `url`, `thumbnail_url`, and `content` fields
+- Subsequent pipeline steps skip notes automatically
+- Ensures user input is never lost, even if it's not a URL
+
+**Why This Order Matters:**
+- **Original Problem**: Amazon product URLs were saved as "unknown" type with no metadata
+- **Root Cause**: Step01_ParseLinkedom ran first, failed on Amazon's large HTML, converted item to 'note' before type detection could run
+- **Solution**: Detect type FIRST from URL pattern (instant), then use linkedom as fallback only when needed
+- **Result**: Amazon URLs correctly detected as 'product', linkedom extracts metadata successfully, no specialized enricher conflicts
+
+**Systematic Missing Enricher Pattern Discovered:**
+After fixing the pipeline order, a systematic issue was identified: certain content types were correctly detected by Step01 but lacked Step04 enrichers, causing metadata to appear only after manual refresh. The refresh worked because it called `extractURLMetadata` which had specialized extractors, but the initial pipeline run had no enrichment step.
+
+**Affected Platforms & Fixes:**
+- **Amazon Products** (`product` type): Added Step04_5_EnrichAmazon - extracts title, description, product images (supports short URLs like a.co)
+- **IMDb Movies/TV** (`movie`, `tv_show` types): Added Step04_6_EnrichMovie - extracts poster images, descriptions, cast info
+- **TikTok Videos** (`tiktok` type): Added Step04_7_EnrichTikTok - extracts author, title, description, video thumbnails
+- **Reddit Videos**: Added video player support to RedditItemView and RedditItemCard components for proper video playback
+
+All platforms now receive complete metadata on first save without requiring manual refresh.
+
+**Implementation Details:**
+- Pipeline controller: `src/services/pipeline/runPipeline.ts`
+- Step files: `src/services/pipeline/steps/Step0*.ts`
+- Each step can skip execution based on item state (e.g., skip if `content_type` already set)
+- Steps communicate via item updates stored in Legend-State and synced to Supabase
+- All steps handle offline scenarios gracefully (queue for later processing)
+
+**Step04 Enrichers (Platform-Specific Metadata Extraction):**
+- `Step04_1a_EnrichYouTube_SerpAPI` - YouTube metadata via SerpAPI (conditional on user preference)
+- `Step04_1_EnrichYouTube` - YouTube metadata via youtubei.js
+- `Step04_2_EnrichX` - X/Twitter posts with media and engagement metrics
+- `Step04_3_EnrichReddit` - Reddit posts with videos, images, and community data
+- `Step04_4_EnrichSerpApiGeneric` - eBay products, Yelp businesses, Apple App Store apps
+- `Step04_5_EnrichAmazon` - Amazon products including short URLs (a.co, amzn.to)
+- `Step04_6_EnrichMovie` - IMDb movies and TV shows with posters and cast
+- `Step04_7_EnrichTikTok` - TikTok videos with author and thumbnail data
+
+**Content Types with Specialized Enrichers:**
+Step03_ParseLinkedom skips these types: `['youtube', 'x', 'reddit', 'ebay', 'yelp', 'app_store', 'product', 'movie', 'tv_show', 'tiktok', 'note']`
 
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
 The app uses an **offline-first architecture** with automatic sync and real-time updates:
@@ -626,6 +822,140 @@ The app implements **instant cross-device synchronization** using Supabase real-
   - Events are filtered server-side by user ID (no unnecessary data transfer)
   - Updates batched and debounced to prevent UI thrashing
   - Minimal battery impact (single WebSocket vs periodic polling)
+
+## 5.7 ItemView Component Architecture
+
+The ItemView rendering system has been refactored to use reusable components, reducing code duplication and improving maintainability across different content types.
+
+### Component Location
+All reusable ItemView components are located in `src/components/itemViews/components/` with a barrel export in `index.ts` for convenient imports.
+
+### Reusable Components
+
+#### Core Components
+1. **SectionHeader** (`SectionHeader.tsx`)
+   - Standardized section label headers used across all itemViews
+   - Props: `label`, `isDarkMode`, `rightElement`, `onPress`, `style`
+   - Consistent uppercase styling with proper spacing
+
+2. **ItemViewTitle** (`ItemViewTitle.tsx`)
+   - Inline editable title component
+   - Wraps `InlineEditableText` with consistent styling
+   - Props: `value`, `onSave`, `isDarkMode`, `placeholder`, `style`
+
+3. **ItemViewDescription** (`ItemViewDescription.tsx`)
+   - Inline editable description with optional section label
+   - Supports collapsible text with "Show More" functionality
+   - Props: `value`, `onSave`, `isDarkMode`, `placeholder`, `showLabel`, `label`, `maxLines`, `collapsible`, `collapsedLines`, `showMoreThreshold`
+
+4. **ItemViewTldr** (`ItemViewTldr.tsx`)
+   - AI-powered summary generation with editable text (formerly `TldrSection`)
+   - Generates concise summaries using OpenAI
+   - Props: See existing TldrSection documentation
+
+5. **ItemViewNotes** (`ItemViewNotes.tsx`)
+   - User notes with inline editing (formerly `NotesSection`)
+   - Supports multi-line text input
+   - Props: See existing NotesSection documentation
+
+6. **ItemViewFooter** (`ItemViewFooter.tsx`)
+   - Footer with action buttons (refresh, copy URL, share, archive/unarchive, delete)
+   - Displays creation and archive timestamps
+   - Props: `item`, `onRefresh`, `onShare`, `onArchive`, `onUnarchive`, `onDelete`, `isRefreshing`, `isDeleting`, `isDarkMode`
+
+#### Interactive Components
+7. **ActionButton** (`ActionButton.tsx`)
+   - Standardized action button with variants (primary, secondary, danger)
+   - Supports disabled state and loading indicators
+   - Props: `label`, `onPress`, `disabled`, `isDarkMode`, `variant`, `style`, `textStyle`
+
+8. **ExpandableContent** (`ExpandableContent.tsx`)
+   - Collapsible content display with expand/collapse toggle
+   - Optional copy button and statistics footer (chars, words, read time)
+   - Props: `content`, `isDarkMode`, `showByDefault`, `expandLabel`, `collapseLabel`, `onCopy`, `showCopyButton`, `showStats`, `maxHeight`
+
+9. **GenerateableContentSection** (`GenerateableContentSection.tsx`)
+   - Toggle between "Generate" button and content display
+   - Animated transitions using Reanimated
+   - Props: `label`, `content`, `isGenerating`, `isDarkMode`, `onGenerate`, `onCopy`, `generateLabel`, `generatingLabel`, `expandLabel`, `collapseLabel`, `showByDefault`, `showStats`, `buttonOpacity`, `contentOpacity`
+
+10. **SelectorDropdown** (`SelectorDropdown.tsx`)
+    - Generic dropdown selector component (used for spaces, content types, thumbnails)
+    - Supports color indicators and icons
+    - Props: `label`, `selectedLabel`, `placeholder`, `onPress`, `isDarkMode`, `icon`, `colorIndicator`
+
+11. **MetadataBadges** (`MetadataBadges.tsx`)
+    - Renders conditional badges (spoilers, NSFW, locked, pinned, etc.)
+    - Configurable colors and icons per badge
+    - Props: `badges` (array of Badge objects with `label`, `icon`, `backgroundColor`, `textColor`, `show`)
+
+#### Content-Specific Components
+12. **ImageDescriptionsSection** (`ImageDescriptionsSection.tsx`)
+    - Complete section for generating and displaying AI image descriptions
+    - Integrates with `imageDescriptionsStore` for state management
+    - Auto-expands after generation with animated transitions
+    - Props: `itemId`, `isDarkMode`, `onGenerate`, `showToast`
+    - Used in: DefaultItemView, XItemView, RedditItemView
+
+13. **TranscriptSection** (`TranscriptSection.tsx`)
+    - Flexible transcript component supporting both YouTube and X/Twitter styles
+    - Features:
+      - Optional timestamp display (YouTube-style)
+      - Optional SRT export (YouTube-style)
+      - Plain text view for simpler implementations (X-style)
+      - Statistics footer (chars, words, reading time)
+      - Copy to clipboard functionality
+    - Props: `transcript`, `segments`, `isDarkMode`, `isGenerating`, `onGenerate`, `showToast`, `enableTimestamps`, `enableSrtExport`
+    - Used in: YouTubeItemView (with timestamps & SRT), XItemView (plain text only)
+
+### ItemView Files
+All ItemView components are located in `src/components/itemViews/`:
+- **DefaultItemView.tsx** - Generic bookmarks and general items
+- **NoteItemView.tsx** - Note content type
+- **YouTubeItemView.tsx** - YouTube videos with transcript support
+- **XItemView.tsx** - X/Twitter posts with videos and image descriptions
+- **RedditItemView.tsx** - Reddit posts with engagement metrics and video playback support
+  - Integrates video player via HeroMediaSection with autoplay (muted) and play button overlay
+  - Retrieves video URLs from `itemTypeMetadataComputed.getVideoUrl()`
+  - Supports both video posts and image carousel posts
+- **MovieTVItemView.tsx** - Movies/TV shows with simplified features
+
+**Item Card Components** (Grid view):
+All ItemCard components are located in `src/components/items/`:
+- **RedditItemCard.tsx** - Includes video player support with play button overlay
+  - Displays video first if available, falls back to images
+  - Uses expo-video for autoplay (muted) in grid view
+
+### Usage Pattern
+ItemViews import components using the barrel export:
+```typescript
+import {
+  ItemViewTitle,
+  ItemViewDescription,
+  ItemViewTldr,
+  ItemViewNotes,
+  ItemViewFooter,
+  SectionHeader,
+  ActionButton,
+  SelectorDropdown,
+  ImageDescriptionsSection,
+  TranscriptSection,
+} from './components';
+```
+
+### Benefits
+- **Reduced Duplication**: ~7,000 lines of duplicated code eliminated
+- **Consistency**: Uniform styling and behavior across all itemViews
+- **Maintainability**: Changes to shared UI patterns only require updating one component
+- **Extensibility**: Easy to add new itemView types by composing existing components
+- **Type Safety**: Shared TypeScript interfaces ensure proper prop usage
+
+### Design Patterns
+- All components support dark mode via `isDarkMode` prop
+- Consistent spacing (sections: `marginBottom: 20`, labels: `marginBottom: 8`)
+- Standardized color palette (primary: `#007AFF` light, `#0A84FF` dark)
+- Unified border radius (`8` or `12` depending on component)
+- Animated transitions using react-native-reanimated for smooth UX
 
 ## 6. Non-Functional Requirements
 - **Security**:  

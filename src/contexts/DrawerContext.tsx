@@ -206,19 +206,19 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   }, []);
 
   const registerNavigateToSpaceHandler = useCallback((handler: (spaceId: string) => void) => {
-    console.log('🧭 [DrawerContext] Registering navigate to space handler');
+    // console.log('🧭 [DrawerContext] Registering navigate to space handler');
     navigateToSpaceHandlerRef.current = handler;
   }, []);
 
   const onNavigateToSpace = useCallback((spaceId: string) => {
-    console.log('🧭 [DrawerContext] onNavigateToSpace called for space:', spaceId);
+    // console.log('🧭 [DrawerContext] onNavigateToSpace called for space:', spaceId);
     console.log('🧭 [DrawerContext] Closing drawer');
     setIsDrawerOpen(false);
 
     // Wait for drawer to close before navigating to space
     setTimeout(() => {
       if (navigateToSpaceHandlerRef.current) {
-        console.log('🧭 [DrawerContext] Calling registered navigate to space handler');
+        // console.log('🧭 [DrawerContext] Calling registered navigate to space handler');
         navigateToSpaceHandlerRef.current(spaceId);
       } else {
         console.warn('⚠️ [DrawerContext] No navigate to space handler registered');
@@ -227,19 +227,19 @@ export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   }, []);
 
   const registerNavigateToEverythingHandler = useCallback((handler: () => void) => {
-    console.log('🧭 [DrawerContext] Registering navigate to EVERYTHING handler');
+    // console.log('🧭 [DrawerContext] Registering navigate to EVERYTHING handler');
     navigateToEverythingHandlerRef.current = handler;
   }, []);
 
   const onNavigateToEverything = useCallback(() => {
-    console.log('🧭 [DrawerContext] onNavigateToEverything called');
+    // console.log('🧭 [DrawerContext] onNavigateToEverything called');
     console.log('🧭 [DrawerContext] Closing drawer');
     setIsDrawerOpen(false);
 
     // Wait for drawer to close before navigating to Everything
     setTimeout(() => {
       if (navigateToEverythingHandlerRef.current) {
-        console.log('🧭 [DrawerContext] Calling registered navigate to EVERYTHING handler');
+        // console.log('🧭 [DrawerContext] Calling registered navigate to EVERYTHING handler');
         navigateToEverythingHandlerRef.current();
       } else {
         console.warn('⚠️ [DrawerContext] No navigate to EVERYTHING handler registered');

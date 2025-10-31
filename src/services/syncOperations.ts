@@ -222,6 +222,7 @@ export const syncOperations = {
       platform: transcript.platform,
       language: transcript.language,
       duration: transcript.duration,
+      segments: transcript.segments,
     });
     
     if (error) throw error;

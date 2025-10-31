@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   ai_auto_image_descriptions: false,
   ui_x_video_muted: true,
   ui_autoplay_x_videos: true,
+  ui_radial_actions: ['chat', 'share', 'archive'] as const, // Default actions
 };
 
 const initialState: UserSettingsState = {
@@ -43,6 +44,7 @@ export const userSettingsComputed = {
   // UI
   xVideoMuted: () => userSettingsStore.settings.get()?.ui_x_video_muted ?? DEFAULT_SETTINGS.ui_x_video_muted,
   autoplayXVideos: () => userSettingsStore.settings.get()?.ui_autoplay_x_videos ?? DEFAULT_SETTINGS.ui_autoplay_x_videos,
+  radialActions: () => userSettingsStore.settings.get()?.ui_radial_actions ?? DEFAULT_SETTINGS.ui_radial_actions,
 
   isLoading: () => userSettingsStore.isLoading.get(),
 };
@@ -166,10 +168,17 @@ export const userSettingsActions = {
     const user = authStore.user.get();
     if (!user) return;
 
-    const currentSettings = userSettingsStore.settings.get();
+    let currentSettings = userSettingsStore.settings.get();
     if (!currentSettings) {
-      console.error('⚙️ No settings loaded, cannot update');
-      return;
+      console.log('⚙️ No settings loaded, creating defaults first...');
+      await userSettingsActions.createDefaultSettings();
+      currentSettings = userSettingsStore.settings.get();
+
+      // If still no settings after creation attempt, bail out
+      if (!currentSettings) {
+        console.error('⚙️ Failed to create default settings, cannot update');
+        return;
+      }
     }
 
     // Optimistic update
@@ -216,10 +225,17 @@ export const userSettingsActions = {
     const user = authStore.user.get();
     if (!user) return;
 
-    const currentSettings = userSettingsStore.settings.get();
+    let currentSettings = userSettingsStore.settings.get();
     if (!currentSettings) {
-      console.error('⚙️ No settings loaded, cannot update');
-      return;
+      console.log('⚙️ No settings loaded, creating defaults first...');
+      await userSettingsActions.createDefaultSettings();
+      currentSettings = userSettingsStore.settings.get();
+
+      // If still no settings after creation attempt, bail out
+      if (!currentSettings) {
+        console.error('⚙️ Failed to create default settings, cannot update');
+        return;
+      }
     }
 
     // Optimistic update

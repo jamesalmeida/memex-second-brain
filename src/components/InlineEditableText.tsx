@@ -14,6 +14,8 @@ interface InlineEditableTextProps {
   collapsible?: boolean;
   collapsedLines?: number;
   showMoreThreshold?: number; // min chars to show Show more/less
+  numberOfLines?: number; // Force specific number of lines with ellipsis
+  ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
 }
 
 const InlineEditableText: React.FC<InlineEditableTextProps> = ({
@@ -28,6 +30,8 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   collapsible,
   collapsedLines,
   showMoreThreshold = 300,
+  numberOfLines,
+  ellipsizeMode = 'tail',
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<string>(value ?? '');
@@ -85,13 +89,28 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   if (!isEditing) {
     const showPlaceholder = !value || value.trim().length === 0;
     const canCollapse = !!multiline && !!collapsible && !!value && value.trim().length > showMoreThreshold;
+
+    // Determine numberOfLines for display
+    let displayLines: number | undefined;
+    if (numberOfLines !== undefined) {
+      // Use explicit numberOfLines prop if provided
+      displayLines = numberOfLines;
+    } else if (canCollapse && collapsed) {
+      // Use collapsedLines for collapsible content
+      displayLines = collapsedLines || 6;
+    } else {
+      // undefined = no limit
+      displayLines = undefined;
+    }
+
     return (
       <View>
         <TouchableOpacity onPress={beginEdit} activeOpacity={0.7} testID={testID}>
           <View style={styles.readonlyRow}>
             <Text
               style={[style, showPlaceholder && styles.placeholderText, isDarkMode && (showPlaceholder ? styles.placeholderTextDark : null)]}
-              numberOfLines={canCollapse && collapsed ? (collapsedLines || 6) : undefined}
+              numberOfLines={displayLines}
+              ellipsizeMode={ellipsizeMode}
             >
               {showPlaceholder ? placeholder : value}
             </Text>
@@ -156,7 +175,7 @@ const styles = StyleSheet.create({
   readonlyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   pencil: {
     marginLeft: 6,
@@ -167,7 +186,7 @@ const styles = StyleSheet.create({
     color: '#AAA',
   },
   pencilIcon: {
-    marginLeft: 6,
+    marginLeft: 0,
   },
   savedBadge: {
     marginLeft: 8,
