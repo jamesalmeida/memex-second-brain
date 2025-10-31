@@ -34,12 +34,9 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
- 
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import ItemViewFooter from '../ItemViewFooter';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import SpaceSelectorModal from '../SpaceSelectorModal';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
@@ -70,6 +67,7 @@ const contentTypeOptions: { type: ContentType; label: string; icon: string }[] =
 
 interface DefaultItemViewProps {
   item: Item | null;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
@@ -82,6 +80,7 @@ interface DefaultItemViewProps {
 
 const DefaultItemView = observer(({
   item,
+  onClose,
   onChat,
   onArchive,
   onUnarchive,
@@ -651,42 +650,42 @@ const DefaultItemView = observer(({
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <ItemViewHeader
+        value={itemToDisplay?.title || ''}
+        onSave={async (newTitle) => {
+          if (!itemToDisplay) return;
+          await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
+          setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
+        }}
+        onClose={() => onClose?.()}
+        isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
+      />
+
       {/* Hero Media Section */}
-        <HeroMediaSection
-          item={itemToDisplay!}
-          isDarkMode={isDarkMode}
-          contentTypeIcon={getContentTypeIcon()}
-          videoUrl={videoUrl}
-          videoPlayer={videoPlayer}
-          isVideoPlaying={isVideoPlaying}
-          onVideoPlay={() => {
-            if (videoPlayer) {
-              videoPlayer.play();
-              setIsVideoPlaying(true);
-            }
-          }}
-          showPlayButton={itemToDisplay?.content_type === 'x'}
-          onImageAdd={() => imageUploadModalRef.current?.open()}
-          onImageRemove={handleMetadataImageRemove}
-          onThumbnailRemove={handleImageRemove}
-          skipForTextOnlyXPosts={true}
-        />
-      )}
+      <HeroMediaSection
+        item={itemToDisplay!}
+        isDarkMode={isDarkMode}
+        contentTypeIcon={getContentTypeIcon()}
+        videoUrl={videoUrl}
+        videoPlayer={videoPlayer}
+        isVideoPlaying={isVideoPlaying}
+        onVideoPlay={() => {
+          if (videoPlayer) {
+            videoPlayer.play();
+            setIsVideoPlaying(true);
+          }
+        }}
+        showPlayButton={itemToDisplay?.content_type === 'x'}
+        onImageAdd={() => imageUploadModalRef.current?.open()}
+        onImageRemove={handleMetadataImageRemove}
+        onThumbnailRemove={handleImageRemove}
+        skipForTextOnlyXPosts={true}
+      />
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title and Metadata (inline editable title) */}
-        <InlineEditableText
-          value={itemToDisplay?.title || ''}
-          placeholder="Tap to add title"
-          onSave={async (newTitle) => {
-            if (!itemToDisplay) return;
-            await itemsActions.updateItemWithSync(itemToDisplay.id, { title: newTitle });
-            setDisplayItem({ ...(itemToDisplay as Item), title: newTitle });
-          }}
-          style={[styles.title, isDarkMode && styles.titleDark]}
-          isDarkMode={isDarkMode}
-        />
 
         <View style={styles.metadata}>
           {getDomain() && (
@@ -722,7 +721,7 @@ const DefaultItemView = observer(({
         </View>
 
         {/* TLDR Section */}
-        <TldrSection
+        <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onTldrChange={(newTldr) => {
@@ -761,7 +760,7 @@ const DefaultItemView = observer(({
         </View>
 
         {/* Notes Section */}
-        <NotesSection
+        <ItemViewNotes
           item={itemToDisplay}
           isDarkMode={isDarkMode}
           onNotesChange={(newNotes) => {

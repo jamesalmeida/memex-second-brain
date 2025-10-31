@@ -81,6 +81,7 @@ const ExpandedItemView = observer(
 
     const commonProps = {
       item,
+      onClose,
       onChat,
       onArchive,
       onUnarchive,
@@ -121,10 +122,7 @@ const ExpandedItemView = observer(
         styles.sheetBackground,
         isDarkMode && styles.sheetBackgroundDark,
       ]}
-      handleIndicatorStyle={[
-        styles.handleIndicator,
-        isDarkMode && styles.handleIndicatorDark,
-      ]}
+      handleIndicatorStyle={{ display: 'none' }}
       onChange={(index) => {
         console.log('📄 [ExpandedItemView] onChange - index:', index);
         if (index === -1) {
@@ -167,13 +165,6 @@ const styles = StyleSheet.create({
   },
   sheetBackgroundDark: {
     backgroundColor: '#1C1C1E',
-  },
-  handleIndicator: {
-    backgroundColor: '#CCCCCC',
-    width: 40,
-  },
-  handleIndicatorDark: {
-    backgroundColor: '#666666',
   },
   scrollContent: {
     paddingBottom: 20,

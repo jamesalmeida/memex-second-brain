@@ -57,6 +57,24 @@ export const Step04_2_EnrichX: Step = async ({ itemId, url }) => {
   } catch (e) {
     console.log('ℹ️ [Step04_2_EnrichX] posted_at not updated (column may be missing locally)');
   }
+
+  // Auto-generate video transcript if enabled (non-blocking)
+  if (videoUrl) {
+    setTimeout(() => {
+      itemsActions.autoGenerateXVideoTranscript(itemId).catch(err => {
+        console.error('Error auto-generating X video transcript:', err);
+      });
+    }, 100);
+  }
+
+  // Auto-generate image descriptions if enabled (non-blocking)
+  if (imageUrls.length > 0) {
+    setTimeout(() => {
+      itemsActions.autoGenerateXImageDescriptions(itemId).catch(err => {
+        console.error('Error auto-generating X image descriptions:', err);
+      });
+    }, 100);
+  }
 };
 
 

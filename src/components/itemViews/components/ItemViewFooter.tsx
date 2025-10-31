@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { Item } from '../types';
-import { formatDate } from '../utils/itemCardHelpers';
-import { useToast } from '../contexts/ToastContext';
+import { Item } from '../../../types';
+import { formatDate } from '../../../utils/itemCardHelpers';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface ItemViewFooterProps {
   item: Item;

@@ -72,6 +72,13 @@ export const Step04_1a_EnrichYouTube_SerpAPI: Step = async ({ itemId, url, prefe
       serpapi_enriched: true,
     },
   });
+
+  // Auto-generate transcript if enabled (non-blocking)
+  setTimeout(() => {
+    itemsActions.autoGenerateYouTubeTranscript(itemId).catch(err => {
+      console.error('Error auto-generating YouTube transcript:', err);
+    });
+  }, 100);
 };
 
 

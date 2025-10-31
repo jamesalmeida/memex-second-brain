@@ -3,14 +3,32 @@ import type { ContentType } from '../../../types';
 import { itemsStore, itemsActions } from '../../../stores/items';
 import { isAmazonUrl } from '../../../utils/urlHelpers';
 
-export const Step02_DetectType: Step = async ({ itemId, url }) => {
-  console.log('🧭 [Step02_DetectType] Detecting content type');
-  // If content_type was already set by a previous step (e.g., converted to 'note'), do nothing
-  const existing = itemsStore.items.get().find(i => i.id === itemId);
-  if (existing && existing.content_type !== 'bookmark') {
-    console.log('🧭 [Step02_DetectType] Skipping - content_type already set to', existing.content_type);
-    return;
+export const Step01_DetectType: Step = async ({ itemId, url }) => {
+  console.log('🧭 [Step01_DetectType] Detecting content type');
+
+  // STEP 1: Validate URL format
+  let isValidUrl = false;
+  try {
+    new URL(url);
+    isValidUrl = true;
+  } catch {
+    isValidUrl = false;
   }
+
+  // STEP 2: Handle invalid URLs (convert to notes)
+  if (!isValidUrl) {
+    console.log('🧭 [Step01_DetectType] Not a valid URL - converting to note');
+    await itemsActions.updateItemWithSync(itemId, {
+      content_type: 'note',
+      title: '',
+      desc: url, // Save the text as note body
+      url: undefined,
+      thumbnail_url: undefined,
+    });
+    return; // Stop pipeline here
+  }
+
+  // STEP 3: Detect content type for valid URLs
   const lower = url.toLowerCase();
   let content_type: ContentType = 'bookmark';
   // YouTube detection: Match youtube.com (with any subdomain) or youtu.be
@@ -28,9 +46,9 @@ export const Step02_DetectType: Step = async ({ itemId, url }) => {
 
   if (content_type !== 'bookmark') {
     await itemsActions.updateItemWithSync(itemId, { content_type });
-    console.log('🧭 [Step02_DetectType] Set content_type =', content_type);
+    console.log('🧭 [Step01_DetectType] Set content_type =', content_type);
   } else {
-    console.log('🧭 [Step02_DetectType] Defaulting content_type to bookmark');
+    console.log('🧭 [Step01_DetectType] Defaulting content_type to bookmark');
   }
 };
 

@@ -632,13 +632,77 @@ All external API calls are made directly from the client (`src/services/` and `s
 - This reduces reliance on AI for simple metadata and speeds up saves.
 - If a site blocks fetch or lacks metadata, we save a minimal item and skip enrichment. Premium AI enrichments remain available but are not invoked for basic saves.
 
-#### Invalid URL Handling
-- When the pasted input is not a valid URL, `parseUrlWithLinkedom` signals an invalid state. In that case, `Step01_ParseLinkedom` converts the item into a note:
+#### Metadata Extraction Pipeline Architecture
+The metadata extraction pipeline (`src/services/pipeline/`) has been reorganized to optimize performance and reliability. The pipeline runs sequentially through these steps:
+
+**Pipeline Step Order:**
+1. **Step01_DetectType** (formerly Step02) - Fast URL pattern-based content type detection
+2. **Step02_DetectTypeAI** (formerly Step03) - AI fallback for ambiguous URLs
+3. **Step03_ParseLinkedom** (formerly Step01) - HTML parsing fallback for generic content
+4. **Step04_*** - Specialized enrichment steps for specific content types
+
+**Key Design Decisions:**
+
+**Why Type Detection First:**
+- URL pattern matching is instant (no HTTP fetch required) and works offline
+- Critical for URLs like Amazon product pages that would otherwise be blocked by linkedom (HTML too large or anti-bot protection)
+- Ensures correct content type before attempting metadata extraction
+- Examples: YouTube URLs → `youtube`, Amazon URLs → `product`, X/Twitter URLs → `x`
+
+**Linkedom as Fallback:**
+- Linkedom parsing moved to Step03 to run AFTER type detection succeeds
+- Only runs for content types WITHOUT specialized enrichers (Step04)
+- Skips if `content_type` already has a dedicated enrichment step
+- Prevents redundant HTTP fetches and HTML parsing
+- Content types with specialized enrichers: `youtube`, `x`, `reddit`, `ebay`, `yelp`, `app_store`, `note`
+- Content types using linkedom fallback: `bookmark`, `product`, `amazon`, `instagram`, `movie`, `article`, etc.
+
+**Invalid URL Handling:**
+- Step01_DetectType validates URL format using `new URL()` try-catch
+- Invalid URLs are immediately converted to notes:
   - Set `content_type` to `note`
-  - Set `title` to an empty string
-  - Set `desc` to the original pasted text
-  - Clear `url`, `thumbnail_url`, and parsed HTML `content`
-  - Subsequent detection/enrichment steps naturally skip because the item is no longer a `bookmark`
+  - Set `title` to empty string
+  - Set `desc` to the original pasted text (preserves user input)
+  - Clear `url`, `thumbnail_url`, and `content` fields
+- Subsequent pipeline steps skip notes automatically
+- Ensures user input is never lost, even if it's not a URL
+
+**Why This Order Matters:**
+- **Original Problem**: Amazon product URLs were saved as "unknown" type with no metadata
+- **Root Cause**: Step01_ParseLinkedom ran first, failed on Amazon's large HTML, converted item to 'note' before type detection could run
+- **Solution**: Detect type FIRST from URL pattern (instant), then use linkedom as fallback only when needed
+- **Result**: Amazon URLs correctly detected as 'product', linkedom extracts metadata successfully, no specialized enricher conflicts
+
+**Systematic Missing Enricher Pattern Discovered:**
+After fixing the pipeline order, a systematic issue was identified: certain content types were correctly detected by Step01 but lacked Step04 enrichers, causing metadata to appear only after manual refresh. The refresh worked because it called `extractURLMetadata` which had specialized extractors, but the initial pipeline run had no enrichment step.
+
+**Affected Platforms & Fixes:**
+- **Amazon Products** (`product` type): Added Step04_5_EnrichAmazon - extracts title, description, product images (supports short URLs like a.co)
+- **IMDb Movies/TV** (`movie`, `tv_show` types): Added Step04_6_EnrichMovie - extracts poster images, descriptions, cast info
+- **TikTok Videos** (`tiktok` type): Added Step04_7_EnrichTikTok - extracts author, title, description, video thumbnails
+- **Reddit Videos**: Added video player support to RedditItemView and RedditItemCard components for proper video playback
+
+All platforms now receive complete metadata on first save without requiring manual refresh.
+
+**Implementation Details:**
+- Pipeline controller: `src/services/pipeline/runPipeline.ts`
+- Step files: `src/services/pipeline/steps/Step0*.ts`
+- Each step can skip execution based on item state (e.g., skip if `content_type` already set)
+- Steps communicate via item updates stored in Legend-State and synced to Supabase
+- All steps handle offline scenarios gracefully (queue for later processing)
+
+**Step04 Enrichers (Platform-Specific Metadata Extraction):**
+- `Step04_1a_EnrichYouTube_SerpAPI` - YouTube metadata via SerpAPI (conditional on user preference)
+- `Step04_1_EnrichYouTube` - YouTube metadata via youtubei.js
+- `Step04_2_EnrichX` - X/Twitter posts with media and engagement metrics
+- `Step04_3_EnrichReddit` - Reddit posts with videos, images, and community data
+- `Step04_4_EnrichSerpApiGeneric` - eBay products, Yelp businesses, Apple App Store apps
+- `Step04_5_EnrichAmazon` - Amazon products including short URLs (a.co, amzn.to)
+- `Step04_6_EnrichMovie` - IMDb movies and TV shows with posters and cast
+- `Step04_7_EnrichTikTok` - TikTok videos with author and thumbnail data
+
+**Content Types with Specialized Enrichers:**
+Step03_ParseLinkedom skips these types: `['youtube', 'x', 'reddit', 'ebay', 'yelp', 'app_store', 'product', 'movie', 'tv_show', 'tiktok', 'note']`
 
 ### 5.5 Sync Service & Offline Handling (`src/services/syncService.ts`)
 The app uses an **offline-first architecture** with automatic sync and real-time updates:
@@ -758,6 +822,140 @@ The app implements **instant cross-device synchronization** using Supabase real-
   - Events are filtered server-side by user ID (no unnecessary data transfer)
   - Updates batched and debounced to prevent UI thrashing
   - Minimal battery impact (single WebSocket vs periodic polling)
+
+## 5.7 ItemView Component Architecture
+
+The ItemView rendering system has been refactored to use reusable components, reducing code duplication and improving maintainability across different content types.
+
+### Component Location
+All reusable ItemView components are located in `src/components/itemViews/components/` with a barrel export in `index.ts` for convenient imports.
+
+### Reusable Components
+
+#### Core Components
+1. **SectionHeader** (`SectionHeader.tsx`)
+   - Standardized section label headers used across all itemViews
+   - Props: `label`, `isDarkMode`, `rightElement`, `onPress`, `style`
+   - Consistent uppercase styling with proper spacing
+
+2. **ItemViewTitle** (`ItemViewTitle.tsx`)
+   - Inline editable title component
+   - Wraps `InlineEditableText` with consistent styling
+   - Props: `value`, `onSave`, `isDarkMode`, `placeholder`, `style`
+
+3. **ItemViewDescription** (`ItemViewDescription.tsx`)
+   - Inline editable description with optional section label
+   - Supports collapsible text with "Show More" functionality
+   - Props: `value`, `onSave`, `isDarkMode`, `placeholder`, `showLabel`, `label`, `maxLines`, `collapsible`, `collapsedLines`, `showMoreThreshold`
+
+4. **ItemViewTldr** (`ItemViewTldr.tsx`)
+   - AI-powered summary generation with editable text (formerly `TldrSection`)
+   - Generates concise summaries using OpenAI
+   - Props: See existing TldrSection documentation
+
+5. **ItemViewNotes** (`ItemViewNotes.tsx`)
+   - User notes with inline editing (formerly `NotesSection`)
+   - Supports multi-line text input
+   - Props: See existing NotesSection documentation
+
+6. **ItemViewFooter** (`ItemViewFooter.tsx`)
+   - Footer with action buttons (refresh, copy URL, share, archive/unarchive, delete)
+   - Displays creation and archive timestamps
+   - Props: `item`, `onRefresh`, `onShare`, `onArchive`, `onUnarchive`, `onDelete`, `isRefreshing`, `isDeleting`, `isDarkMode`
+
+#### Interactive Components
+7. **ActionButton** (`ActionButton.tsx`)
+   - Standardized action button with variants (primary, secondary, danger)
+   - Supports disabled state and loading indicators
+   - Props: `label`, `onPress`, `disabled`, `isDarkMode`, `variant`, `style`, `textStyle`
+
+8. **ExpandableContent** (`ExpandableContent.tsx`)
+   - Collapsible content display with expand/collapse toggle
+   - Optional copy button and statistics footer (chars, words, read time)
+   - Props: `content`, `isDarkMode`, `showByDefault`, `expandLabel`, `collapseLabel`, `onCopy`, `showCopyButton`, `showStats`, `maxHeight`
+
+9. **GenerateableContentSection** (`GenerateableContentSection.tsx`)
+   - Toggle between "Generate" button and content display
+   - Animated transitions using Reanimated
+   - Props: `label`, `content`, `isGenerating`, `isDarkMode`, `onGenerate`, `onCopy`, `generateLabel`, `generatingLabel`, `expandLabel`, `collapseLabel`, `showByDefault`, `showStats`, `buttonOpacity`, `contentOpacity`
+
+10. **SelectorDropdown** (`SelectorDropdown.tsx`)
+    - Generic dropdown selector component (used for spaces, content types, thumbnails)
+    - Supports color indicators and icons
+    - Props: `label`, `selectedLabel`, `placeholder`, `onPress`, `isDarkMode`, `icon`, `colorIndicator`
+
+11. **MetadataBadges** (`MetadataBadges.tsx`)
+    - Renders conditional badges (spoilers, NSFW, locked, pinned, etc.)
+    - Configurable colors and icons per badge
+    - Props: `badges` (array of Badge objects with `label`, `icon`, `backgroundColor`, `textColor`, `show`)
+
+#### Content-Specific Components
+12. **ImageDescriptionsSection** (`ImageDescriptionsSection.tsx`)
+    - Complete section for generating and displaying AI image descriptions
+    - Integrates with `imageDescriptionsStore` for state management
+    - Auto-expands after generation with animated transitions
+    - Props: `itemId`, `isDarkMode`, `onGenerate`, `showToast`
+    - Used in: DefaultItemView, XItemView, RedditItemView
+
+13. **TranscriptSection** (`TranscriptSection.tsx`)
+    - Flexible transcript component supporting both YouTube and X/Twitter styles
+    - Features:
+      - Optional timestamp display (YouTube-style)
+      - Optional SRT export (YouTube-style)
+      - Plain text view for simpler implementations (X-style)
+      - Statistics footer (chars, words, reading time)
+      - Copy to clipboard functionality
+    - Props: `transcript`, `segments`, `isDarkMode`, `isGenerating`, `onGenerate`, `showToast`, `enableTimestamps`, `enableSrtExport`
+    - Used in: YouTubeItemView (with timestamps & SRT), XItemView (plain text only)
+
+### ItemView Files
+All ItemView components are located in `src/components/itemViews/`:
+- **DefaultItemView.tsx** - Generic bookmarks and general items
+- **NoteItemView.tsx** - Note content type
+- **YouTubeItemView.tsx** - YouTube videos with transcript support
+- **XItemView.tsx** - X/Twitter posts with videos and image descriptions
+- **RedditItemView.tsx** - Reddit posts with engagement metrics and video playback support
+  - Integrates video player via HeroMediaSection with autoplay (muted) and play button overlay
+  - Retrieves video URLs from `itemTypeMetadataComputed.getVideoUrl()`
+  - Supports both video posts and image carousel posts
+- **MovieTVItemView.tsx** - Movies/TV shows with simplified features
+
+**Item Card Components** (Grid view):
+All ItemCard components are located in `src/components/items/`:
+- **RedditItemCard.tsx** - Includes video player support with play button overlay
+  - Displays video first if available, falls back to images
+  - Uses expo-video for autoplay (muted) in grid view
+
+### Usage Pattern
+ItemViews import components using the barrel export:
+```typescript
+import {
+  ItemViewTitle,
+  ItemViewDescription,
+  ItemViewTldr,
+  ItemViewNotes,
+  ItemViewFooter,
+  SectionHeader,
+  ActionButton,
+  SelectorDropdown,
+  ImageDescriptionsSection,
+  TranscriptSection,
+} from './components';
+```
+
+### Benefits
+- **Reduced Duplication**: ~7,000 lines of duplicated code eliminated
+- **Consistency**: Uniform styling and behavior across all itemViews
+- **Maintainability**: Changes to shared UI patterns only require updating one component
+- **Extensibility**: Easy to add new itemView types by composing existing components
+- **Type Safety**: Shared TypeScript interfaces ensure proper prop usage
+
+### Design Patterns
+- All components support dark mode via `isDarkMode` prop
+- Consistent spacing (sections: `marginBottom: 20`, labels: `marginBottom: 8`)
+- Standardized color palette (primary: `#007AFF` light, `#0A84FF` dark)
+- Unified border radius (`8` or `12` depending on component)
+- Animated transitions using react-native-reanimated for smooth UX
 
 ## 6. Non-Functional Requirements
 - **Security**:  

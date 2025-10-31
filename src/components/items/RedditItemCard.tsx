@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
@@ -21,6 +22,19 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Get video URL from item type metadata
+  const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+
+  // Set up video player
+  const player = useVideoPlayer(videoUrl || null, player => {
+    if (player && videoUrl) {
+      player.loop = true;
+      player.muted = true;
+      player.volume = 0;
+      player.play();
+    }
+  });
 
   // Get image URLs from item type metadata
   const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
@@ -62,8 +76,24 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
               </Text>
             </View>
 
-            {/* Media Below (Images) */}
-            {hasMultipleImages ? (
+            {/* Media Below (Video or Images) */}
+            {videoUrl && player ? (
+              <View style={styles.mediaContainer}>
+                <View style={{ position: 'relative' }}>
+                  <VideoView
+                    player={player}
+                    style={[styles.media, { height: 200 }]}
+                    contentFit="cover"
+                    nativeControls={false}
+                  />
+                  <View style={styles.playButtonOverlay} pointerEvents="none">
+                    <View style={styles.playButton}>
+                      <Text style={styles.playButtonIcon}>▶</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : hasMultipleImages ? (
               <View style={styles.mediaContainer}>
                 <ScrollView
                   ref={scrollViewRef}
@@ -244,5 +274,34 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+  },
+  playButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  playButtonIcon: {
+    fontSize: 20,
+    color: '#000',
+    marginLeft: 3,
   },
 });

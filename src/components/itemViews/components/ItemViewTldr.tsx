@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Item } from '../types';
-import { itemsActions } from '../stores/items';
-import { openai } from '../services/openai';
-import { buildItemContext } from '../services/contextBuilder';
-import InlineEditableText from './InlineEditableText';
+import { Item } from '../../../types';
+import { itemsActions } from '../../../stores/items';
+import { openai } from '../../../services/openai';
+import { buildItemContext } from '../../../services/contextBuilder';
+import InlineEditableText from '../../InlineEditableText';
 
 interface TldrSectionProps {
   item: Item;

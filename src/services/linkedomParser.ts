@@ -4,11 +4,11 @@ import { resolveToAbsoluteUrl } from '../utils/urlHelpers';
 // Lightweight client-side HTML parsing using linkedom
 // Extracts: title, description, lead image, full HTML, and siteName
 export interface ParsedPage {
+  siteName?: string;
   title: string;
   description?: string;
   image?: string;
   html: string;
-  siteName?: string;
 }
 
 export async function parseUrlWithLinkedom(url: string): Promise<ParsedPage> {

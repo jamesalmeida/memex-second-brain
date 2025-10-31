@@ -20,15 +20,14 @@ import { generateTags, URLMetadata } from '../../services/urlMetadata';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
-import TldrSection from '../TldrSection';
-import NotesSection from '../NotesSection';
-import ItemViewFooter from '../ItemViewFooter';
+import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 interface MovieTVItemViewProps {
   item: Item;
+  onClose?: () => void;
   onChat?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onUnarchive?: (item: Item) => void;
@@ -41,6 +40,7 @@ interface MovieTVItemViewProps {
 
 const MovieTVItemView = observer(({
   item,
+  onClose,
   onChat,
   onArchive,
   onUnarchive,
@@ -276,16 +276,15 @@ const MovieTVItemView = observer(({
 
   return (
     <View style={styles.container}>
-      {/* Title (inline editable) */}
-      <InlineEditableText
+      {/* Header */}
+      <ItemViewHeader
         value={itemToDisplay.title || ''}
-        placeholder="Tap to add title"
         onSave={async (newTitle) => {
           await itemsActions.updateItem(itemToDisplay.id, { title: newTitle });
-          // local immediate UI update is handled by global store subscription
         }}
-        style={[styles.title, isDarkMode && styles.titleDark]}
+        onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
+        placeholder="Tap to add title"
       />
 
       {/* Media Section */}
@@ -383,7 +382,7 @@ const MovieTVItemView = observer(({
       )} */}
 
       {/* TLDR Section */}
-      <TldrSection
+      <ItemViewTldr
         item={itemToDisplay}
         isDarkMode={isDarkMode}
       />
@@ -414,7 +413,7 @@ const MovieTVItemView = observer(({
       </View>
 
       {/* Notes Section */}
-      <NotesSection
+      <ItemViewNotes
         item={itemToDisplay}
         isDarkMode={isDarkMode}
       />
