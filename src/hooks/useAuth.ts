@@ -17,6 +17,7 @@ import { chatMessagesActions } from '../stores/chatMessages';
 import { aiSettingsActions } from '../stores/aiSettings';
 import { filterActions } from '../stores/filter';
 import { userSettingsActions } from '../stores/userSettings';
+import { adminSettingsActions } from '../stores/adminSettings';
 
 // Global flag to ensure auth initialization happens only once
 let isAuthInitialized = false;
@@ -66,6 +67,12 @@ export function useAuth() {
           console.log('⚙️ Loading user settings from cloud...');
           await userSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load user settings:', error);
+          });
+
+          // Load admin settings (global settings for all users)
+          console.log('🔧 Loading admin settings...');
+          await adminSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load admin settings:', error);
           });
 
           // Load AI settings AFTER user settings are loaded
@@ -124,6 +131,12 @@ export function useAuth() {
           console.log('⚙️ Loading user settings from cloud...');
           await userSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load user settings:', error);
+          });
+
+          // Load admin settings (global settings for all users)
+          console.log('🔧 Loading admin settings...');
+          await adminSettingsActions.loadSettings().catch(error => {
+            console.error('Failed to load admin settings:', error);
           });
 
           // Load AI settings AFTER user settings are loaded

@@ -32,6 +32,9 @@ export type ContentType =
 export interface User {
   id: string;
   email: string;
+  user_metadata?: {
+    [key: string]: any;
+  };
 }
 
 export interface Item {
@@ -227,6 +230,24 @@ export interface UserSettings {
   ui_x_video_muted: boolean;
   ui_autoplay_x_videos: boolean;
   ui_radial_actions?: RadialActionId[]; // 3 action buttons for radial menu
+  // Admin settings
+  is_admin?: boolean; // Admin flag - only admins can access admin panel
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}
+
+// Global admin settings that apply to ALL users
+// Only one row exists in the database
+export interface AdminSettings {
+  id: string;
+  // AI Automation Settings
+  auto_generate_transcripts: boolean;
+  auto_generate_image_descriptions: boolean;
+  auto_generate_tldr: boolean;
+  // API Source Preferences
+  youtube_source: 'youtubei' | 'serpapi';
+  youtube_transcript_source: 'youtubei' | 'serpapi';
   // Timestamps
   created_at: string;
   updated_at: string;
