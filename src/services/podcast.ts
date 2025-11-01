@@ -20,9 +20,12 @@ export interface PodcastEpisodeData {
  * Extract podcast episode data from a URL
  * Uses RSS feed parsing to find the audio file URL
  */
-export const extractPodcastData = async (url: string): Promise<PodcastEpisodeData> => {
+export const extractPodcastData = async (url: string, episodeTitle?: string): Promise<PodcastEpisodeData> => {
   try {
     console.log('🎙️ [Podcast] Extracting podcast data from:', url);
+    if (episodeTitle) {
+      console.log('🎙️ [Podcast] Episode title hint:', episodeTitle);
+    }
 
     // Check if this is a specific episode URL or podcast homepage
     const isEpisodeUrl = isSpecificEpisode(url);
@@ -36,7 +39,7 @@ export const extractPodcastData = async (url: string): Promise<PodcastEpisodeDat
 
     // Try platform-specific extractors
     if (url.includes('podcasts.apple.com')) {
-      return await extractApplePodcast(url);
+      return await extractApplePodcast(url, episodeTitle);
     } else if (url.includes('spotify.com/episode')) {
       return await extractSpotifyPodcast(url);
     } else if (url.includes('overcast.fm')) {
@@ -80,7 +83,7 @@ const isSpecificEpisode = (url: string): boolean => {
 /**
  * Extract Apple Podcasts episode data
  */
-const extractApplePodcast = async (url: string): Promise<PodcastEpisodeData> => {
+const extractApplePodcast = async (url: string, episodeTitle?: string): Promise<PodcastEpisodeData> => {
   try {
     console.log('🍎 [Apple Podcasts] Extracting episode data');
 
@@ -102,18 +105,58 @@ const extractApplePodcast = async (url: string): Promise<PodcastEpisodeData> => 
 
     console.log('🍎 [Apple Podcasts] Podcast ID:', podcastId, 'Episode ID:', episodeId);
 
+    // First, fetch episode-specific data from iTunes API
+    const episodeLookupResponse = await fetch(`https://itunes.apple.com/lookup?id=${episodeId}`);
+    const episodeLookupData = await episodeLookupResponse.json();
+
+    let episodeGuid: string | undefined;
+    let fallbackEpisodeData: Partial<PodcastEpisodeData> = {};
+
+    if (episodeLookupData.results && episodeLookupData.results.length > 0) {
+      const episodeInfo = episodeLookupData.results[0];
+      episodeGuid = episodeInfo.episodeGuid;
+
+      // Store fallback data from iTunes API
+      fallbackEpisodeData = {
+        title: episodeInfo.trackName,
+        description: episodeInfo.description,
+        audioUrl: episodeInfo.episodeUrl,
+        publishedDate: episodeInfo.releaseDate,
+        duration: episodeInfo.trackTimeMillis ? Math.floor(episodeInfo.trackTimeMillis / 1000) : undefined,
+        podcastTitle: episodeInfo.collectionName,
+      };
+
+      console.log('🍎 [Apple Podcasts] Episode GUID from iTunes:', episodeGuid);
+    }
+
     // Use iTunes API to get podcast feed URL
     const lookupResponse = await fetch(`https://itunes.apple.com/lookup?id=${podcastId}&entity=podcast`);
     const lookupData = await lookupResponse.json();
 
     if (!lookupData.results || lookupData.results.length === 0) {
-      console.log('🍎 [Apple Podcasts] No results from iTunes API');
+      console.log('🍎 [Apple Podcasts] No podcast results from iTunes API');
+      // If we have fallback data, use it
+      if (fallbackEpisodeData.audioUrl) {
+        console.log('🍎 [Apple Podcasts] Using iTunes API fallback data');
+        return {
+          ...fallbackEpisodeData,
+          isEpisode: true,
+        };
+      }
       return { isEpisode: false };
     }
 
     const feedUrl = lookupData.results[0].feedUrl;
     if (!feedUrl) {
       console.log('🍎 [Apple Podcasts] No feed URL found');
+      // If we have fallback data, use it
+      if (fallbackEpisodeData.audioUrl) {
+        console.log('🍎 [Apple Podcasts] Using iTunes API fallback data');
+        return {
+          ...fallbackEpisodeData,
+          isEpisode: true,
+        };
+      }
       return { isEpisode: false };
     }
 
@@ -123,19 +166,54 @@ const extractApplePodcast = async (url: string): Promise<PodcastEpisodeData> => 
     const feedResponse = await fetch(feedUrl);
     const feedText = await feedResponse.text();
 
-    // Parse RSS feed to find the episode by matching the episode ID
-    // Apple Podcasts episode ID is in the <guid> tag
-    const episodeData = parseRSSForEpisode(feedText, episodeId);
+    // Try multiple matching strategies in order of reliability:
+    // 1. Match by episode title (if provided from page metadata)
+    // 2. Match by episodeGuid (from iTunes API)
+    // 3. Match by episodeId (Apple's trackId - least reliable)
+    let episodeData: Omit<PodcastEpisodeData, 'isEpisode'> | null = null;
 
-    if (episodeData) {
-      console.log('🍎 [Apple Podcasts] Found episode audio URL:', episodeData.audioUrl);
+    if (episodeTitle) {
+      console.log('🍎 [Apple Podcasts] Trying to match by episode title:', episodeTitle);
+      episodeData = parseRSSForEpisodeByTitle(feedText, episodeTitle);
+      if (episodeData && episodeData.audioUrl) {
+        console.log('🍎 [Apple Podcasts] Found episode by title match!');
+      }
+    }
+
+    if (!episodeData && episodeGuid) {
+      console.log('🍎 [Apple Podcasts] Trying to match by episode GUID:', episodeGuid);
+      episodeData = parseRSSForEpisode(feedText, episodeGuid);
+      if (episodeData && episodeData.audioUrl) {
+        console.log('🍎 [Apple Podcasts] Found episode by GUID match!');
+      }
+    }
+
+    if (!episodeData) {
+      console.log('🍎 [Apple Podcasts] Trying to match by episode ID:', episodeId);
+      episodeData = parseRSSForEpisode(feedText, episodeId);
+      if (episodeData && episodeData.audioUrl) {
+        console.log('🍎 [Apple Podcasts] Found episode by ID match!');
+      }
+    }
+
+    if (episodeData && episodeData.audioUrl) {
+      console.log('🍎 [Apple Podcasts] Found episode in RSS feed, audio URL:', episodeData.audioUrl);
       return {
         ...episodeData,
         isEpisode: true,
       };
     }
 
-    console.log('🍎 [Apple Podcasts] Could not find episode in feed');
+    // Fallback to iTunes API data if RSS parsing failed
+    if (fallbackEpisodeData.audioUrl) {
+      console.log('🍎 [Apple Podcasts] RSS parsing failed, using iTunes API fallback data');
+      return {
+        ...fallbackEpisodeData,
+        isEpisode: true,
+      };
+    }
+
+    console.log('🍎 [Apple Podcasts] Could not find episode in feed and no fallback data available');
     return { isEpisode: false };
   } catch (error) {
     console.error('Error extracting Apple Podcasts data:', error);
@@ -246,6 +324,46 @@ const parseRSSForEpisode = (xml: string, episodeId: string): Omit<PodcastEpisode
     return null;
   } catch (error) {
     console.error('Error parsing RSS for episode:', error);
+    return null;
+  }
+};
+
+/**
+ * Parse RSS feed XML to find a specific episode by title
+ * Useful for Apple Podcasts where we can extract the title from the webpage
+ */
+const parseRSSForEpisodeByTitle = (xml: string, episodeTitle: string): Omit<PodcastEpisodeData, 'isEpisode'> | null => {
+  try {
+    // Clean up the title for matching
+    // Apple Podcasts page title format: "Episode Title - Podcast Name - Apple Podcasts"
+    const cleanTitle = episodeTitle.split(' - ')[0].trim().toLowerCase();
+
+    console.log('🔍 [RSS] Searching for episode with title:', cleanTitle);
+
+    // Find all <item> elements
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const itemXml = match[1];
+
+      // Check if this item matches the episode title
+      const titleMatch = itemXml.match(/<title>(.*?)<\/title>/);
+      if (titleMatch) {
+        const itemTitle = decodeHtml(titleMatch[1]).toLowerCase();
+
+        // Try both exact match and partial match (in case of slight differences)
+        if (itemTitle === cleanTitle || itemTitle.includes(cleanTitle) || cleanTitle.includes(itemTitle)) {
+          console.log('🔍 [RSS] Found matching episode title:', titleMatch[1]);
+          return parseEpisodeFromItemXml(itemXml);
+        }
+      }
+    }
+
+    console.log('🔍 [RSS] No episode found matching title:', cleanTitle);
+    return null;
+  } catch (error) {
+    console.error('Error parsing RSS for episode by title:', error);
     return null;
   }
 };

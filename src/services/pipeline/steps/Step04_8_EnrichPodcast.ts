@@ -11,7 +11,8 @@ export const Step04_8_EnrichPodcast: Step = async ({ itemId, url }) => {
   console.log('🎙️ [Step04_8_EnrichPodcast] Enriching podcast from URL');
 
   try {
-    const data = await extractPodcastData(url);
+    // Pass the item's title as a hint for episode matching
+    const data = await extractPodcastData(url, item.title || undefined);
 
     // If not a specific episode, skip further enrichment
     if (!data.isEpisode) {
