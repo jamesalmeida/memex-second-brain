@@ -10,6 +10,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { useToast } from '../../contexts/ToastContext';
+import { spacesStore } from '../../stores/spaces';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { imageDescriptionsActions, imageDescriptionsComputed } from '../../stores/imageDescriptions';
 import { aiSettingsComputed } from '../../stores/aiSettings';
@@ -22,6 +23,7 @@ import InlineEditableText from '../InlineEditableText';
 import { openai } from '../../services/openai';
 import { ItemViewHeader, ItemViewTldr, ItemViewNotes, ItemViewFooter } from './components';
 import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
+import SpaceSelectorModal from '../SpaceSelectorModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -58,6 +60,8 @@ const MovieTVItemView = observer(({
   const [showDescriptions, setShowDescriptions] = useState(false);
   const [generatingTags, setGeneratingTags] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(item.thumbnail_url || null);
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
 
   // Get video URL and image URLs from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -87,6 +91,17 @@ const MovieTVItemView = observer(({
     setTags(item.tags || []);
     setThumbnailUrl(item.thumbnail_url || null);
   }, [item.id, item.tags]);
+
+  // Watch for space_id changes in the store and update local state
+  useEffect(() => {
+    if (item?.id) {
+      const latestItem = itemsStore.items.get().find(i => i.id === item.id);
+      if (latestItem && latestItem.space_id !== selectedSpaceId) {
+        console.log('📄 [MovieTVItemView] Item space_id changed in store, updating UI');
+        setSelectedSpaceId(latestItem.space_id || null);
+      }
+    }
+  }, [item?.id, itemsStore.items.get()]);
 
   // Copy URL to clipboard
   const handleCopyUrl = async () => {
@@ -422,12 +437,42 @@ const MovieTVItemView = observer(({
         placeholder="Title"
       />
 
-      {/* Spaces Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Space</Text>
-        <Text style={[styles.spaceText, isDarkMode && styles.spaceTextDark]}>
-          {currentSpaceId || 'No space assigned'}
+      {/* Space Selector */}
+      <View style={styles.spaceSection}>
+        <Text style={[styles.spaceSectionLabel, isDarkMode && styles.spaceSectionLabelDark]}>
+          SPACES
         </Text>
+        <TouchableOpacity
+          style={[styles.spaceSelector, isDarkMode && styles.spaceSelectorDark]}
+          onPress={() => setShowSpaceModal(true)}
+          activeOpacity={0.7}
+        >
+          {selectedSpaceId ? (
+            <View style={styles.selectedSpaces}>
+              {(() => {
+                const allSpaces = spacesStore.spaces.get();
+                const space = allSpaces.find(s => s.id === selectedSpaceId);
+                return space ? (
+                  <View key={selectedSpaceId} style={styles.selectedSpaceTag}>
+                    <View
+                      style={[
+                        styles.spaceTagDot,
+                        { backgroundColor: space.color }
+                      ]}
+                    />
+                    <Text style={[styles.spaceTagText, isDarkMode && styles.spaceTagTextDark]}>
+                      {space.name}
+                    </Text>
+                  </View>
+                ) : null;
+              })()}
+            </View>
+          ) : (
+            <Text style={[styles.noSpace, isDarkMode && styles.noSpaceDark]}>
+              📂 Everything (No Space)
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* URL Section */}
@@ -509,6 +554,15 @@ const MovieTVItemView = observer(({
         onTypeChange={() => {
           // Modal handles the update, just close
         }}
+      />
+
+      {/* Space Selector Modal */}
+      <SpaceSelectorModal
+        visible={showSpaceModal}
+        itemId={itemToDisplay?.id || ''}
+        currentSpaceId={selectedSpaceId}
+        onClose={() => setShowSpaceModal(false)}
+        onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
       />
     </View>
   );
@@ -743,12 +797,68 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   // Removed local tag UI styles in favor of shared TagsEditor styles
-  spaceText: {
-    fontSize: 15,
-    color: '#333333',
+  spaceSection: {
+    marginBottom: 20,
   },
-  spaceTextDark: {
-    color: '#CCCCCC',
+  spaceSectionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  spaceSectionLabelDark: {
+    color: '#999',
+  },
+  spaceSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  spaceSelectorDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#3C3C3E',
+  },
+  selectedSpaces: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  selectedSpaceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  spaceTagDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  spaceTagText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  spaceTagTextDark: {
+    color: '#FFF',
+  },
+  noSpace: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  noSpaceDark: {
+    color: '#666',
   },
   urlContainer: {
     flexDirection: 'row',
