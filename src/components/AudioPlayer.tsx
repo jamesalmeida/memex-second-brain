@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Audio } from 'expo-av';
 import { MaterialIcons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
+import { Host, Slider } from '@expo/ui/swift-ui';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -210,16 +210,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
         <Text style={[styles.timeText, isDarkMode && styles.timeTextDark]}>
           {formatTime(position)}
         </Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={0}
-          maximumValue={duration}
-          value={position}
-          onSlidingComplete={handleSeek}
-          minimumTrackTintColor={isDarkMode ? '#5AC8FA' : '#007AFF'}
-          maximumTrackTintColor={isDarkMode ? '#3A3A3C' : '#D1D1D6'}
-          thumbTintColor={isDarkMode ? '#5AC8FA' : '#007AFF'}
-        />
+        <Host style={styles.slider}>
+          <Slider
+            value={duration > 0 ? position / duration : 0}
+            onValueChange={(value) => handleSeek(value * duration)}
+          />
+        </Host>
         <Text style={[styles.timeText, isDarkMode && styles.timeTextDark]}>
           {formatTime(duration)}
         </Text>
