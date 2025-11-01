@@ -2,7 +2,7 @@
   "expo": {
     "name": "Memex",
     "slug": "memex-second-brain",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,7 +20,7 @@
       },
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
-      "buildNumber": "12",
+      "buildNumber": "1",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "This app needs local network access to connect to the Metro development server.",
         "ITSAppUsesNonExemptEncryption": false,
@@ -53,7 +53,8 @@
           "savePhotosPermission": "This app needs permission to save images to your photo library."
         }
       ],
-      "react-native-legal"
+      "react-native-legal",
+      "expo-audio"
     ]
   }
 }

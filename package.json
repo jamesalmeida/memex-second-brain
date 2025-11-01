@@ -26,6 +26,7 @@
     "base-64": "^1.0.0",
     "event-target-polyfill": "^0.0.4",
     "expo": "54.0.21",
+    "expo-audio": "~1.0.14",
     "expo-auth-session": "~7.0.8",
     "expo-av": "~16.0.7",
     "expo-blur": "~15.0.7",

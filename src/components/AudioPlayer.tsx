@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Host, Slider } from '@expo/ui/swift-ui';
 import { itemTypeMetadataActions, itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
@@ -16,18 +16,20 @@ interface AudioPlayerProps {
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode }) => {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Use expo-audio hooks
+  const player = useAudioPlayer(audioUrl);
+  const status = useAudioPlayerStatus(player);
+
+  // State for UI and persistence
   const [isLoading, setIsLoading] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [position, setPosition] = useState(0);
+  const [position, setPosition] = useState(0); // Keep in ms for internal consistency
+  const [duration, setDuration] = useState(0); // Keep in ms for internal consistency
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const isMounted = useRef(true);
   const lastSavedPosition = useRef<number>(0);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasRestoredPosition = useRef(false);
   const currentPositionRef = useRef<number>(0);
-  const currentSoundRef = useRef<Audio.Sound | null>(null);
 
   // Save playback position to metadata
   const savePlaybackPosition = useCallback(async (positionMs: number, rate?: number) => {
@@ -60,11 +62,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode 
     isMounted.current = true;
 
     // Set audio mode for playback
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
+    setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionModeAndroid: 'duckOthers',
     });
 
     return () => {
@@ -72,75 +74,40 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode 
     };
   }, []);
 
+  // Handle audio source changes and restoration
   useEffect(() => {
-    loadAudio();
+    if (!player) return;
 
-    return () => {
-      // Save position and unload when audioUrl changes or component unmounts
-      const currentSound = currentSoundRef.current;
-      const currentPos = currentPositionRef.current;
+    const restorePlaybackState = async () => {
+      try {
+        setIsLoading(true);
+        hasRestoredPosition.current = false;
 
-      if (currentSound) {
-        // Don't await in cleanup - fire and forget
-        if (currentPos > 0) {
-          savePlaybackPosition(currentPos).catch(err =>
-            console.error('Error saving position in cleanup:', err)
-          );
+        console.log('🎙️ [AudioPlayer] Loading audio from:', audioUrl);
+
+        // Get saved playback position and rate
+        const metadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
+        const savedPositionMs = metadata?.data?.playback_position_ms || 0;
+        const savedRate = metadata?.data?.playback_rate || 1.0;
+
+        if (savedPositionMs > 0) {
+          console.log('📍 [AudioPlayer] Restoring position:', Math.floor(savedPositionMs / 1000), 'seconds');
         }
-        currentSound.unloadAsync().catch(err =>
-          console.error('Error unloading sound:', err)
-        );
-        currentSoundRef.current = null;
-      }
-    };
-  }, [audioUrl, savePlaybackPosition]);
+        if (savedRate !== 1.0) {
+          console.log('⚡ [AudioPlayer] Restoring playback rate:', savedRate, 'x');
+        }
 
-  const loadAudio = async () => {
-    try {
-      setIsLoading(true);
-      hasRestoredPosition.current = false;
-
-      // Unload previous sound if exists
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      console.log('🎙️ [AudioPlayer] Loading audio from:', audioUrl);
-
-      // Get saved playback position and rate
-      const metadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
-      const savedPosition = metadata?.data?.playback_position_ms || 0;
-      const savedRate = metadata?.data?.playback_rate || 1.0;
-
-      if (savedPosition > 0) {
-        console.log('📍 [AudioPlayer] Restoring position:', Math.floor(savedPosition / 1000), 'seconds');
-      }
-      if (savedRate !== 1.0) {
-        console.log('⚡ [AudioPlayer] Restoring playback rate:', savedRate, 'x');
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        {
-          shouldPlay: false,
-          rate: savedRate,
-          shouldCorrectPitch: true,
-        },
-        onPlaybackStatusUpdate
-      );
-
-      if (isMounted.current) {
-        setSound(newSound);
-        currentSoundRef.current = newSound; // Keep ref in sync
+        // Set playback rate
+        player.setPlaybackRate(savedRate, 'high');
         setPlaybackRate(savedRate);
 
-        // Restore position after sound is loaded
-        if (savedPosition > 0) {
+        // Restore position (convert ms to seconds)
+        if (savedPositionMs > 0) {
           setTimeout(async () => {
             try {
-              await newSound.setPositionAsync(savedPosition);
+              await player.seekTo(savedPositionMs / 1000); // Convert ms to seconds
               hasRestoredPosition.current = true;
-              currentPositionRef.current = savedPosition;
+              currentPositionRef.current = savedPositionMs;
               console.log('✅ [AudioPlayer] Position restored successfully');
             } catch (error) {
               console.error('Error restoring position:', error);
@@ -149,42 +116,59 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode 
         } else {
           hasRestoredPosition.current = true;
         }
-      }
-    } catch (error) {
-      console.error('Error loading audio:', error);
-      if (isMounted.current) {
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading audio:', error);
         setIsLoading(false);
       }
-    }
-  };
+    };
 
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (!isMounted.current) return;
+    restorePlaybackState();
 
-    if (status.isLoaded) {
-      setIsPlaying(status.isPlaying);
-      const newPosition = status.positionMillis || 0;
-      setPosition(newPosition);
-      currentPositionRef.current = newPosition; // Keep ref in sync
-      setDuration(status.durationMillis || 0);
-      setIsLoading(false);
+    return () => {
+      // Save position on cleanup
+      const currentPos = currentPositionRef.current;
+      if (currentPos > 0) {
+        savePlaybackPosition(currentPos).catch(err =>
+          console.error('Error saving position in cleanup:', err)
+        );
+      }
+    };
+  }, [player, audioUrl, itemId, savePlaybackPosition]);
 
-      if (status.didJustFinish) {
-        // Save position at end and reset
-        savePlaybackPosition(status.durationMillis || 0);
+  // Update position and duration from status hook
+  useEffect(() => {
+    if (!status || !isMounted.current) return;
+
+    // Convert seconds to milliseconds for internal state consistency
+    const newPositionMs = (status.currentTime || 0) * 1000;
+    const newDurationMs = (status.duration || 0) * 1000;
+
+    setPosition(newPositionMs);
+    currentPositionRef.current = newPositionMs;
+    setDuration(newDurationMs);
+
+    // Handle playback completion - expo-audio requires manual reset
+    if (status.didJustFinish) {
+      console.log('🏁 [AudioPlayer] Playback finished');
+      // Save position at end
+      savePlaybackPosition(newDurationMs);
+
+      // Manually reset position (expo-audio doesn't auto-reset)
+      player.seekTo(0).then(() => {
         setPosition(0);
         currentPositionRef.current = 0;
-        setIsPlaying(false);
-      }
-    } else if (status.error) {
-      console.error('Playback error:', status.error);
-      setIsLoading(false);
+        console.log('↩️  [AudioPlayer] Position reset to start');
+      }).catch(err => {
+        console.error('Error resetting position:', err);
+      });
     }
-  };
+  }, [status, player, savePlaybackPosition]);
 
   // Auto-save position during playback (debounced every 10 seconds)
   useEffect(() => {
-    if (!isPlaying || !hasRestoredPosition.current) {
+    if (!status?.playing || !hasRestoredPosition.current) {
       return;
     }
 
@@ -205,20 +189,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode 
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [position, isPlaying, savePlaybackPosition]);
+  }, [position, status?.playing, savePlaybackPosition]);
 
-  const togglePlayPause = async () => {
-    if (!sound) return;
+  const togglePlayPause = () => {
+    if (!player) return;
 
     try {
-      if (isPlaying) {
-        await sound.pauseAsync();
+      if (status?.playing) {
+        player.pause(); // Synchronous in expo-audio
         // Immediately save position when pausing
         if (position > 0) {
           savePlaybackPosition(position);
         }
       } else {
-        await sound.playAsync();
+        player.play(); // Synchronous in expo-audio
       }
     } catch (error) {
       console.error('Error toggling play/pause:', error);
@@ -226,35 +210,37 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode 
   };
 
   const handleSeek = async (value: number) => {
-    if (!sound) return;
+    if (!player) return;
 
     try {
-      await sound.setPositionAsync(value);
+      // Convert milliseconds to seconds for expo-audio
+      await player.seekTo(value / 1000);
     } catch (error) {
       console.error('Error seeking:', error);
     }
   };
 
   const skip = async (seconds: number) => {
-    if (!sound) return;
+    if (!player) return;
 
     try {
-      const newPosition = Math.max(0, Math.min(duration, position + (seconds * 1000)));
-      await sound.setPositionAsync(newPosition);
+      const newPositionMs = Math.max(0, Math.min(duration, position + (seconds * 1000)));
+      // Convert milliseconds to seconds for expo-audio
+      await player.seekTo(newPositionMs / 1000);
     } catch (error) {
       console.error('Error skipping:', error);
     }
   };
 
-  const cyclePlaybackRate = async () => {
-    if (!sound) return;
+  const cyclePlaybackRate = () => {
+    if (!player) return;
 
     const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
     const currentIndex = rates.indexOf(playbackRate);
     const nextRate = rates[(currentIndex + 1) % rates.length];
 
     try {
-      await sound.setRateAsync(nextRate, true);
+      player.setPlaybackRate(nextRate, 'high'); // Synchronous in expo-audio
       setPlaybackRate(nextRate);
       // Save new playback rate
       savePlaybackPosition(position, nextRate);
@@ -299,7 +285,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode 
         >
           {isLoading ? (
             <MaterialIcons name="hourglass-empty" size={40} color={isDarkMode ? '#000' : '#FFF'} />
-          ) : isPlaying ? (
+          ) : status?.playing ? (
             <MaterialIcons name="pause" size={40} color={isDarkMode ? '#000' : '#FFF'} />
           ) : (
             <MaterialIcons name="play-arrow" size={40} color={isDarkMode ? '#000' : '#FFF'} />
