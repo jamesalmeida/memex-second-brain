@@ -63,6 +63,13 @@ const AVAILABLE_ACTIONS: ActionOption[] = [
     color: '#AF52DE',
     description: 'Move to a different space',
   },
+  {
+    id: 'refresh',
+    label: 'Refresh',
+    icon: 'refresh-outline',
+    color: '#5AC8FA',
+    description: 'Refresh item metadata',
+  },
 ];
 
 const ActionMenuConfigModal = observer(({
