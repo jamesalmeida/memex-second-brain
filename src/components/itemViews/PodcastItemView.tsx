@@ -422,7 +422,7 @@ const PodcastItemView = observer(({
       <View style={styles.content}>
         {/* Audio Player - Only show if this is a specific episode with audio URL */}
         {isEpisode && audioUrl ? (
-          <AudioPlayer audioUrl={audioUrl} isDarkMode={isDarkMode} />
+          <AudioPlayer itemId={itemToDisplay.id} audioUrl={audioUrl} isDarkMode={isDarkMode} />
         ) : !isEpisode ? (
           <View style={[styles.notEpisodeNotice, isDarkMode && styles.notEpisodeNoticeDark]}>
             <Text style={[styles.notEpisodeText, isDarkMode && styles.notEpisodeTextDark]}>

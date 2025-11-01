@@ -1,19 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Audio } from 'expo-av';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Host, Slider } from '@expo/ui/swift-ui';
+import { itemTypeMetadataActions, itemTypeMetadataComputed } from '../stores/itemTypeMetadata';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
 const CONTENT_WIDTH = SCREEN_WIDTH - (CONTENT_PADDING * 2);
 
 interface AudioPlayerProps {
+  itemId: string;
   audioUrl: string;
   isDarkMode: boolean;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ itemId, audioUrl, isDarkMode }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,6 +23,38 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
   const [position, setPosition] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const isMounted = useRef(true);
+  const lastSavedPosition = useRef<number>(0);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRestoredPosition = useRef(false);
+  const currentPositionRef = useRef<number>(0);
+  const currentSoundRef = useRef<Audio.Sound | null>(null);
+
+  // Save playback position to metadata
+  const savePlaybackPosition = useCallback(async (positionMs: number, rate?: number) => {
+    // Don't save if position hasn't changed significantly (> 1 second)
+    if (Math.abs(positionMs - lastSavedPosition.current) < 1000 && rate === undefined) {
+      return;
+    }
+
+    lastSavedPosition.current = positionMs;
+
+    try {
+      const metadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
+      await itemTypeMetadataActions.upsertTypeMetadata({
+        item_id: itemId,
+        content_type: 'podcast',
+        data: {
+          ...metadata?.data,
+          playback_position_ms: Math.floor(positionMs),
+          playback_rate: rate !== undefined ? rate : playbackRate,
+          last_played_at: new Date().toISOString(),
+        },
+      });
+      console.log('💾 [AudioPlayer] Saved position:', Math.floor(positionMs / 1000), 'seconds');
+    } catch (error) {
+      console.error('Error saving playback position:', error);
+    }
+  }, [itemId, playbackRate]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -35,9 +69,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
 
     return () => {
       isMounted.current = false;
-      if (sound) {
-        sound.unloadAsync();
-      }
     };
   }, []);
 
@@ -45,15 +76,29 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
     loadAudio();
 
     return () => {
-      if (sound) {
-        sound.unloadAsync();
+      // Save position and unload when audioUrl changes or component unmounts
+      const currentSound = currentSoundRef.current;
+      const currentPos = currentPositionRef.current;
+
+      if (currentSound) {
+        // Don't await in cleanup - fire and forget
+        if (currentPos > 0) {
+          savePlaybackPosition(currentPos).catch(err =>
+            console.error('Error saving position in cleanup:', err)
+          );
+        }
+        currentSound.unloadAsync().catch(err =>
+          console.error('Error unloading sound:', err)
+        );
+        currentSoundRef.current = null;
       }
     };
-  }, [audioUrl]);
+  }, [audioUrl, savePlaybackPosition]);
 
   const loadAudio = async () => {
     try {
       setIsLoading(true);
+      hasRestoredPosition.current = false;
 
       // Unload previous sound if exists
       if (sound) {
@@ -62,14 +107,48 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
 
       console.log('🎙️ [AudioPlayer] Loading audio from:', audioUrl);
 
+      // Get saved playback position and rate
+      const metadata = itemTypeMetadataComputed.getTypeMetadataForItem(itemId);
+      const savedPosition = metadata?.data?.playback_position_ms || 0;
+      const savedRate = metadata?.data?.playback_rate || 1.0;
+
+      if (savedPosition > 0) {
+        console.log('📍 [AudioPlayer] Restoring position:', Math.floor(savedPosition / 1000), 'seconds');
+      }
+      if (savedRate !== 1.0) {
+        console.log('⚡ [AudioPlayer] Restoring playback rate:', savedRate, 'x');
+      }
+
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: audioUrl },
-        { shouldPlay: false },
+        {
+          shouldPlay: false,
+          rate: savedRate,
+          shouldCorrectPitch: true,
+        },
         onPlaybackStatusUpdate
       );
 
       if (isMounted.current) {
         setSound(newSound);
+        currentSoundRef.current = newSound; // Keep ref in sync
+        setPlaybackRate(savedRate);
+
+        // Restore position after sound is loaded
+        if (savedPosition > 0) {
+          setTimeout(async () => {
+            try {
+              await newSound.setPositionAsync(savedPosition);
+              hasRestoredPosition.current = true;
+              currentPositionRef.current = savedPosition;
+              console.log('✅ [AudioPlayer] Position restored successfully');
+            } catch (error) {
+              console.error('Error restoring position:', error);
+            }
+          }, 100);
+        } else {
+          hasRestoredPosition.current = true;
+        }
       }
     } catch (error) {
       console.error('Error loading audio:', error);
@@ -84,13 +163,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
 
     if (status.isLoaded) {
       setIsPlaying(status.isPlaying);
-      setPosition(status.positionMillis || 0);
+      const newPosition = status.positionMillis || 0;
+      setPosition(newPosition);
+      currentPositionRef.current = newPosition; // Keep ref in sync
       setDuration(status.durationMillis || 0);
       setIsLoading(false);
 
       if (status.didJustFinish) {
-        // Reset to beginning when finished
+        // Save position at end and reset
+        savePlaybackPosition(status.durationMillis || 0);
         setPosition(0);
+        currentPositionRef.current = 0;
         setIsPlaying(false);
       }
     } else if (status.error) {
@@ -99,12 +182,41 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
     }
   };
 
+  // Auto-save position during playback (debounced every 10 seconds)
+  useEffect(() => {
+    if (!isPlaying || !hasRestoredPosition.current) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout to save position
+    saveTimeoutRef.current = setTimeout(() => {
+      if (position > 0) {
+        savePlaybackPosition(position);
+      }
+    }, 10000); // Save every 10 seconds during playback
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [position, isPlaying, savePlaybackPosition]);
+
   const togglePlayPause = async () => {
     if (!sound) return;
 
     try {
       if (isPlaying) {
         await sound.pauseAsync();
+        // Immediately save position when pausing
+        if (position > 0) {
+          savePlaybackPosition(position);
+        }
       } else {
         await sound.playAsync();
       }
@@ -144,6 +256,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isDarkMode }) => {
     try {
       await sound.setRateAsync(nextRate, true);
       setPlaybackRate(nextRate);
+      // Save new playback rate
+      savePlaybackPosition(position, nextRate);
     } catch (error) {
       console.error('Error changing playback rate:', error);
     }
