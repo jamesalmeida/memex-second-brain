@@ -10,6 +10,7 @@ import { Step04_4_EnrichSerpApiGeneric } from './steps/Step04_4_EnrichSerpApiGen
 import { Step04_5_EnrichAmazon } from './steps/Step04_5_EnrichAmazon';
 import { Step04_6_EnrichMovie } from './steps/Step04_6_EnrichMovie';
 import { Step04_7_EnrichTikTok } from './steps/Step04_7_EnrichTikTok';
+import { Step04_8_EnrichPodcast } from './steps/Step04_8_EnrichPodcast';
 // import { Step99_Finalize } from './steps/Step99_Finalize';
 
 // Order: Detect type first (URL patterns), then AI fallback, then linkedom fallback for generic bookmarks, then enrichers
@@ -25,6 +26,7 @@ const STEPS: Step[] = [
   Step04_5_EnrichAmazon,
   Step04_6_EnrichMovie,
   Step04_7_EnrichTikTok,
+  Step04_8_EnrichPodcast,
 ];
 
 export async function runPipeline(ctx: StepContext) {
