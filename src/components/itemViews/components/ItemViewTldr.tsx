@@ -73,9 +73,9 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChang
             onSave={handleSaveTldr}
             style={[styles.tldrText, isDarkMode && styles.tldrTextDark]}
             multiline
-            maxLines={6}
+            maxLines={20}
             collapsible
-            collapsedLines={4}
+            collapsedLines={6}
             showMoreThreshold={200}
             isDarkMode={isDarkMode}
             hideEditIcon={true}
