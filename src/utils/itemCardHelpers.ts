@@ -80,6 +80,7 @@ export const getContentTypeIcon = (contentType: string): string => {
     case 'tv_show':
       return '📺';
     case 'podcast':
+    case 'podcast_episode':
       return '🎙️';
     case 'github':
       return '⚡';
@@ -117,6 +118,7 @@ export const getContentTypeColor = (contentType: string): string => {
     case 'tv_show':
       return '#00A8E1';  // TV show blue
     case 'podcast':
+    case 'podcast_episode':
       return '#8B5CF6';  // Purple for podcasts
     case 'github':
       return '#24292e';

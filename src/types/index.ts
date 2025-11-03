@@ -21,6 +21,7 @@ export type ContentType =
   | 'video'
   | 'audio'
   | 'podcast'
+  | 'podcast_episode'
   | 'note'
   | 'article'
   | 'product'

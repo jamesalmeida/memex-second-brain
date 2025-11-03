@@ -146,6 +146,7 @@ Return ONLY the content type, nothing else.`;
       'video',
       'audio',
       'podcast',
+      'podcast_episode',
       'note',
       'article',
       'product',
@@ -185,6 +186,95 @@ export const isArticleUrl = async (url: string, context?: { pageTitle?: string; 
   const classification = await classifyUrlWithAI(url, context);
   return classification === 'article';
 };
+
+/**
+ * Podcast URL classifier - differentiates episode vs homepage
+ *
+ * Analyzes podcast platform URLs to determine if they point to a specific episode
+ * or a podcast show homepage. Also attempts to extract episode title.
+ *
+ * @param url - The podcast URL to classify
+ * @returns Object with isEpisode boolean and optional title
+ */
+export interface PodcastClassificationResult {
+  isEpisode: boolean;
+  title?: string;
+}
+
+export async function classifyPodcastUrl(url: string): Promise<PodcastClassificationResult> {
+  if (!isAPIConfigured.openai()) {
+    console.log('OpenAI not configured, falling back to URL pattern matching');
+    // Fallback to basic URL pattern matching
+    const isEpisode = url.includes('?i=') || url.includes('/episode/');
+    return { isEpisode };
+  }
+
+  try {
+    console.log('🎙️ Classifying podcast URL:', url);
+
+    const openai = new OpenAI({
+      apiKey: API_CONFIG.OPENAI.API_KEY,
+    });
+
+    const prompt = `Analyze this podcast URL and determine:
+1. Is this a specific podcast EPISODE (with audio content) or a podcast HOMEPAGE/SHOW page?
+2. If it's an episode and you can extract the episode title from the URL path or metadata, provide it.
+
+URL: ${url}
+
+URL Pattern Clues:
+- Apple Podcasts episodes contain "?i=" parameter (episode ID)
+- Spotify episodes have "/episode/" in path
+- Spotify shows have "/show/" in path
+- Overcast episodes have extra path segments beyond podcast ID
+- Episode URLs typically have more specific path segments than homepage URLs
+
+Respond in JSON format:
+{
+  "isEpisode": true/false,
+  "title": "episode title if you can extract it, otherwise null"
+}
+
+Examples:
+- "https://podcasts.apple.com/podcast/name/id123?i=456" → {"isEpisode": true, "title": null}
+- "https://podcasts.apple.com/podcast/name/id123" → {"isEpisode": false, "title": null}
+- "https://spotify.com/episode/abc" → {"isEpisode": true, "title": null}
+- "https://spotify.com/show/abc" → {"isEpisode": false, "title": null}
+
+IMPORTANT: Base your decision primarily on the URL structure. Episodes have specific identifiers like "?i=" or "/episode/". If unsure, check for these patterns.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a podcast URL analyzer. Return ONLY valid JSON matching the schema provided.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      console.log('🎙️ No response from AI, defaulting to non-episode');
+      return { isEpisode: false };
+    }
+
+    const result = JSON.parse(content) as PodcastClassificationResult;
+    console.log('🎙️ AI classification result:', result);
+
+    return result;
+  } catch (error) {
+    console.error('Error classifying podcast URL:', error);
+    // Default to non-episode on error (safer)
+    return { isEpisode: false };
+  }
+}
 
 /**
  * Example usage:

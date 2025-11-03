@@ -107,6 +107,7 @@ const ExpandedItemView = observer(
       case 'tv_show':
         return <MovieTVItemView {...commonProps} />;
       case 'podcast':
+      case 'podcast_episode':
         return <PodcastItemView {...commonProps} />;
       default:
         return <DefaultItemView {...commonProps} />;
