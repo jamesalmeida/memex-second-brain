@@ -115,7 +115,7 @@ const PodcastItemView = observer(({
       setTags(latestItem.tags || []);
 
       // Check for existing transcript
-      if (latestItem.content_type === 'podcast') {
+      if (latestItem.content_type === 'podcast' || latestItem.content_type === 'podcast_episode') {
         checkForExistingTranscript(latestItem.id);
       }
     }

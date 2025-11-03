@@ -333,7 +333,7 @@ export const itemsActions = {
     if (!autoGenerateTranscripts) return;
 
     const item = itemsStore.items.get().find(i => i.id === itemId);
-    if (!item || item.content_type !== 'podcast') return;
+    if (!item || (item.content_type !== 'podcast' && item.content_type !== 'podcast_episode')) return;
 
     const audioUrl = itemTypeMetadataComputed.getTypeMetadataForItem(itemId)?.data?.audio_url;
     if (!audioUrl) return;
@@ -353,7 +353,7 @@ export const itemsActions = {
   // Generate transcript for a podcast episode using AssemblyAI
   generatePodcastTranscript: async (itemId: string): Promise<{ transcript: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> } | null> => {
     const item = itemsStore.items.get().find(i => i.id === itemId);
-    if (!item || item.content_type !== 'podcast') {
+    if (!item || (item.content_type !== 'podcast' && item.content_type !== 'podcast_episode')) {
       console.error('Item is not a podcast or does not exist');
       return null;
     }
