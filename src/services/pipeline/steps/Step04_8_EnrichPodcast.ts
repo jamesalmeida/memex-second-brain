@@ -1,14 +1,28 @@
 import type { Step } from '../types';
-import { itemsStore, itemsActions } from '../../../stores/items';
+import { itemsActions } from '../../../stores/items';
 import { extractPodcastData } from '../../../services/podcast';
 import { itemMetadataActions } from '../../../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
+import { supabase } from '../../../services/supabase';
 
 export const Step04_8_EnrichPodcast: Step = async ({ itemId, url }) => {
-  const item = itemsStore.items.get().find(i => i.id === itemId);
-  if (item?.content_type !== 'podcast') return;
+  // Fetch item directly from Supabase to avoid race condition with local store updates
+  // (In production builds, Step03's observable update may not propagate before Step04_8 reads it)
+  const { data: item, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('id', itemId)
+    .single();
+
+  if (error || !item) {
+    console.error('🎙️ [Step04_8_EnrichPodcast] Failed to fetch item:', error);
+    return;
+  }
+
+  if (item.content_type !== 'podcast') return;
 
   console.log('🎙️ [Step04_8_EnrichPodcast] Enriching podcast from URL');
+  console.log('🎙️ [Step04_8_EnrichPodcast] Item title:', item.title || '(no title)');
 
   try {
     // Pass the item's title as a hint for episode matching
