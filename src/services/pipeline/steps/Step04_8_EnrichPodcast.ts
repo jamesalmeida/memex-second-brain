@@ -1,25 +1,30 @@
 import type { Step } from '../types';
-import { itemsActions } from '../../../stores/items';
+import { itemsActions, itemsStore } from '../../../stores/items';
 import { extractPodcastData } from '../../../services/podcast';
 import { itemMetadataActions } from '../../../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../../../stores/itemTypeMetadata';
-import { supabase } from '../../../services/supabase';
 
 export const Step04_8_EnrichPodcast: Step = async ({ itemId, url }) => {
-  // Fetch item directly from Supabase to avoid race condition with local store updates
-  // (In production builds, Step03's observable update may not propagate before Step04_8 reads it)
-  const { data: item, error } = await supabase
-    .from('items')
-    .select('*')
-    .eq('id', itemId)
-    .single();
+  console.log('🎙️ [Step04_8_EnrichPodcast] Starting podcast enrichment');
 
-  if (error || !item) {
-    console.error('🎙️ [Step04_8_EnrichPodcast] Failed to fetch item:', error);
+  // Read item from local store (pipeline steps run sequentially with await,
+  // so Step02's store update will have completed before this step runs)
+  const allItems = itemsStore.items.get();
+  console.log('🎙️ [Step04_8_EnrichPodcast] Total items in store:', allItems.length);
+
+  const item = allItems.find(i => i.id === itemId);
+  if (!item) {
+    console.error('🎙️ [Step04_8_EnrichPodcast] Item not found in store:', itemId);
+    console.error('🎙️ [Step04_8_EnrichPodcast] Available item IDs:', allItems.map(i => i.id).slice(0, 5));
     return;
   }
 
-  if (item.content_type !== 'podcast') return;
+  console.log('🎙️ [Step04_8_EnrichPodcast] Found item, content_type:', item.content_type);
+
+  if (item.content_type !== 'podcast') {
+    console.log('🎙️ [Step04_8_EnrichPodcast] Skipping - not a podcast, content_type:', item.content_type);
+    return;
+  }
 
   console.log('🎙️ [Step04_8_EnrichPodcast] Enriching podcast from URL');
   console.log('🎙️ [Step04_8_EnrichPodcast] Item title:', item.title || '(no title)');
