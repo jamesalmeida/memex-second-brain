@@ -87,12 +87,6 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
                   }
                 }}
               />
-              {/* Audio indicator overlay */}
-              <View style={styles.audioIndicatorOverlay} pointerEvents="none">
-                <View style={styles.audioIndicator}>
-                  <Text style={styles.microphoneIcon}>🎙️</Text>
-                </View>
-              </View>
             </View>
           ) : (
             <View style={[styles.placeholderArtwork, isDarkMode && styles.placeholderArtworkDark]}>
@@ -101,7 +95,7 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
           )}
 
           {/* Episode/Duration Badge */}
-          {(episodeInfo || durationText) && (
+          {/* {(episodeInfo || durationText) && (
             <View style={[styles.metadataBadge, isDarkMode && styles.metadataBadgeDark]}>
               {episodeInfo && (
                 <Text style={[styles.metadataBadgeText, isDarkMode && styles.metadataBadgeTextDark]}>
@@ -119,45 +113,17 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
                 </Text>
               )}
             </View>
-          )}
+          )} */}
 
           {/* Card Content */}
-          <View style={styles.cardContent}>
-            {/* Podcast/Author Name */}
-            {author && (
-              <Text style={[styles.author, isDarkMode && styles.authorDark]} numberOfLines={1}>
-                {author}
-              </Text>
+            {item.content_type === 'podcast_episode' && (
+              <View style={styles.cardContent}>
+                <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
+                  {item.title}
+                </Text>
+              </View>
             )}
 
-            {/* Episode Title */}
-            <Text style={[styles.title, isDarkMode && styles.titleDark]} numberOfLines={2}>
-              {item.title}
-            </Text>
-
-            {/* Description */}
-            {item.desc ? (
-              <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={2}>
-                {item.desc}
-              </Text>
-            ) : getDomain(item) ? (
-              <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={1}>
-                {getDomain(item)}
-              </Text>
-            ) : null}
-
-            {/* Footer */}
-            <View style={styles.footer}>
-              {getDomain(item) && (
-                <Text style={[styles.domain, isDarkMode && styles.domainDark]} numberOfLines={1}>
-                  {getDomain(item)}
-                </Text>
-              )}
-              <Text style={[styles.date, isDarkMode && styles.dateDark]}>
-                {formatDate(item.created_at)}
-              </Text>
-            </View>
-          </View>
         </View>
       </View>
     </RadialActionMenu>
@@ -218,27 +184,6 @@ const styles = StyleSheet.create({
   },
   placeholderIcon: {
     fontSize: 48,
-  },
-  audioIndicatorOverlay: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-  },
-  audioIndicator: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(139, 92, 246, 0.9)', // Purple with transparency
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  microphoneIcon: {
-    fontSize: 18,
   },
   metadataBadge: {
     position: 'absolute',
