@@ -42,6 +42,36 @@ export const itemTypeMetadataComputed = {
     const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
     return metadata?.data?.site_icon_url;
   },
+
+  // Get audio URL for podcast items
+  getAudioUrl: (itemId: string): string | undefined => {
+    const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
+    return metadata?.data?.audio_url;
+  },
+
+  // Get duration for podcast items (in seconds)
+  getDuration: (itemId: string): number | undefined => {
+    const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
+    return metadata?.data?.duration;
+  },
+
+  // Get episode number for podcast items
+  getEpisodeNumber: (itemId: string): number | undefined => {
+    const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
+    return metadata?.data?.episode_number;
+  },
+
+  // Get season number for podcast items
+  getSeasonNumber: (itemId: string): number | undefined => {
+    const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
+    return metadata?.data?.season_number;
+  },
+
+  // Check if podcast item is an episode vs homepage
+  getIsEpisode: (itemId: string): boolean | undefined => {
+    const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
+    return metadata?.data?.is_episode;
+  },
 };
 
 // Actions

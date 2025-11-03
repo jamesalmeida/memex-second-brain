@@ -259,8 +259,9 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 12,
     color: '#007AFF',
-    marginTop: 8,
+    marginTop: 5,
     fontWeight: '500',
+    textAlign: 'center',
   },
   toggleTextDark: {
     color: '#5AC8FA',
