@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   ui_x_video_muted: true,
   ui_autoplay_x_videos: true,
   ui_radial_actions: ['chat', 'share', 'archive'] as const, // Default actions
+  is_admin: false, // Default to non-admin
 };
 
 const initialState: UserSettingsState = {
@@ -77,7 +78,7 @@ export const userSettingsActions = {
         // Fall back to AsyncStorage
         await userSettingsActions.loadFromAsyncStorage();
       } else if (data) {
-        console.log('⚙️ Settings loaded from Supabase');
+        console.log('⚙️ Settings loaded from Supabase - is_admin:', data.is_admin);
         userSettingsStore.settings.set(data);
         userSettingsStore.lastSyncTime.set(new Date().toISOString());
 
@@ -125,10 +126,16 @@ export const userSettingsActions = {
     const user = authStore.user.get();
     if (!user) return;
 
+    // Preserve is_admin from user metadata if available
+    const isAdmin = user.user_metadata?.is_admin ?? DEFAULT_SETTINGS.is_admin;
+
     const newSettings: Partial<UserSettings> = {
       user_id: user.id,
       ...DEFAULT_SETTINGS,
+      is_admin: isAdmin, // Explicitly preserve admin status
     };
+
+    console.log('⚙️ Creating default settings with is_admin:', isAdmin);
 
     try {
       const { data, error } = await supabase
@@ -142,7 +149,7 @@ export const userSettingsActions = {
         return;
       }
 
-      console.log('⚙️ Default settings created');
+      console.log('⚙️ Default settings created with admin status:', data.is_admin);
       userSettingsStore.settings.set(data);
       userSettingsStore.lastSyncTime.set(new Date().toISOString());
 
@@ -186,6 +193,11 @@ export const userSettingsActions = {
       updated_at: new Date().toISOString(),
     };
     userSettingsStore.settings.set(updatedSettings);
+
+    // Log admin status changes for debugging
+    if (field === 'is_admin') {
+      console.log('🔐 [ADMIN STATUS CHANGE] is_admin updated from', currentSettings.is_admin, 'to', value);
+    }
 
     try {
       // Update in Supabase
@@ -244,6 +256,11 @@ export const userSettingsActions = {
     };
     userSettingsStore.settings.set(updatedSettings);
 
+    // Log admin status changes for debugging
+    if ('is_admin' in updates) {
+      console.log('🔐 [ADMIN STATUS CHANGE] is_admin updated from', currentSettings.is_admin, 'to', updates.is_admin);
+    }
+
     try {
       // Update in Supabase
       const { error } = await supabase
@@ -294,6 +311,7 @@ export const userSettingsActions = {
       }
 
       if (data) {
+        console.log('⚙️ Settings synced from cloud - is_admin:', data.is_admin);
         userSettingsStore.settings.set(data);
         userSettingsStore.lastSyncTime.set(new Date().toISOString());
 
@@ -302,8 +320,6 @@ export const userSettingsActions = {
           STORAGE_KEYS.USER_SETTINGS,
           JSON.stringify(data)
         );
-
-        console.log('⚙️ Settings synced from cloud');
       } else {
         console.log('⚙️ No settings found in cloud, will create on first change');
       }
@@ -328,15 +344,23 @@ export const userSettingsActions = {
 
   /**
    * Reset settings to defaults
+   * Note: Preserves is_admin flag to prevent accidental removal of admin privileges
    */
   resetToDefaults: async () => {
     const user = authStore.user.get();
     if (!user) return;
 
+    // Get current is_admin value to preserve it
+    const currentSettings = userSettingsStore.settings.get();
+    const currentIsAdmin = currentSettings?.is_admin ?? false;
+
     try {
       const { error } = await supabase
         .from('user_settings')
-        .update(DEFAULT_SETTINGS)
+        .update({
+          ...DEFAULT_SETTINGS,
+          is_admin: currentIsAdmin, // Preserve admin status
+        })
         .eq('user_id', user.id);
 
       if (error) {
@@ -346,7 +370,7 @@ export const userSettingsActions = {
 
       // Reload settings
       await userSettingsActions.loadSettings();
-      console.log('⚙️ Settings reset to defaults');
+      console.log('⚙️ Settings reset to defaults (preserved is_admin:', currentIsAdmin, ')');
     } catch (error) {
       console.error('⚙️ Error resetting settings:', error);
     }
