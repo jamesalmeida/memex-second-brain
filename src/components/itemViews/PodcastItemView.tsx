@@ -423,19 +423,13 @@ const PodcastItemView = observer(({
         {/* Audio Player - Only show if this is a specific episode with audio URL */}
         {isEpisode && audioUrl ? (
           <AudioPlayer itemId={itemToDisplay.id} audioUrl={audioUrl} isDarkMode={isDarkMode} />
-        ) : !isEpisode ? (
-          <View style={[styles.notEpisodeNotice, isDarkMode && styles.notEpisodeNoticeDark]}>
-            <Text style={[styles.notEpisodeText, isDarkMode && styles.notEpisodeTextDark]}>
-              This URL points to a podcast homepage, not a specific episode.
-            </Text>
-          </View>
-        ) : (
+        ) : isEpisode ? (
           <View style={[styles.noAudioNotice, isDarkMode && styles.noAudioNoticeDark]}>
             <Text style={[styles.noAudioText, isDarkMode && styles.noAudioTextDark]}>
               No audio URL found for this episode. Transcription unavailable.
             </Text>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.metadata}>
           {/* Episode/Season Numbers */}

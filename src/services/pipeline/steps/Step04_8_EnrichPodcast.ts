@@ -36,7 +36,39 @@ export const Step04_8_EnrichPodcast: Step = async ({ itemId, url }) => {
     (url.includes('overcast.fm') && !url.endsWith('/itunes'));  // Overcast episode
 
   if (!isEpisodeUrl) {
-    console.log('🎙️ [Step04_8_EnrichPodcast] URL pattern indicates homepage, not episode - skipping');
+    console.log('🎙️ [Step04_8_EnrichPodcast] URL pattern indicates homepage, extracting basic metadata');
+
+    // Extract basic metadata for podcast homepage (title, description, artwork)
+    try {
+      const parsed = await parseUrlWithLinkedom(url);
+      if (parsed.title && parsed.title !== 'Invalid URL') {
+        console.log('🎙️ [Step04_8_EnrichPodcast] Fetched podcast homepage metadata');
+        console.log('🎙️ [Step04_8_EnrichPodcast] Title:', parsed.title);
+        console.log('🎙️ [Step04_8_EnrichPodcast] Description:', parsed.description ? 'Yes' : 'No');
+        console.log('🎙️ [Step04_8_EnrichPodcast] Thumbnail:', parsed.image ? 'Yes' : 'No');
+
+        // Update item with the fetched metadata
+        await itemsActions.updateItemWithSync(itemId, {
+          title: parsed.title,
+          desc: parsed.description || undefined,
+          thumbnail_url: parsed.image || undefined,
+        });
+      } else {
+        console.log('🎙️ [Step04_8_EnrichPodcast] Failed to fetch metadata from homepage');
+      }
+    } catch (error) {
+      console.error('🎙️ [Step04_8_EnrichPodcast] Error fetching homepage metadata:', error);
+    }
+
+    // Mark as non-episode
+    await itemTypeMetadataActions.upsertTypeMetadata({
+      item_id: itemId,
+      content_type: 'podcast',
+      data: {
+        is_episode: false,
+      },
+    });
+
     return;
   }
 
