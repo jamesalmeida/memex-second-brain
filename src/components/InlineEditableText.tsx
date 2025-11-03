@@ -34,7 +34,7 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   showMoreThreshold = 300,
   numberOfLines,
   ellipsizeMode = 'tail',
-  hideEditIcon = false,
+  hideEditIcon = true,
   placeholderTextColor,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -101,7 +101,7 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
       displayLines = numberOfLines;
     } else if (canCollapse && collapsed) {
       // Use collapsedLines for collapsible content
-      displayLines = collapsedLines || 6;
+      displayLines = collapsedLines || 8;
     } else {
       // undefined = no limit
       displayLines = undefined;
@@ -262,6 +262,13 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: '500',
     textAlign: 'center',
+    position: 'absolute',
+    bottom: -17,
+    right: 0,
+    backgroundColor: 'white',
+    width: '85',
+    paddingLeft: 3,
+    paddingRight: 3,
   },
   toggleTextDark: {
     color: '#5AC8FA',
