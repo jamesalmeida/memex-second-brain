@@ -121,7 +121,13 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
     // Apply content type filter (single selection)
     if (selectedContentType !== null) {
-      filtered = filtered.filter(item => item.content_type === selectedContentType);
+      filtered = filtered.filter(item => {
+        // Treat 'podcast' and 'podcast_episode' as equivalent
+        if (selectedContentType === 'podcast') {
+          return item.content_type === 'podcast' || item.content_type === 'podcast_episode';
+        }
+        return item.content_type === selectedContentType;
+      });
     }
 
     // Apply tag filter (multiple selection - requires ALL selected tags)
