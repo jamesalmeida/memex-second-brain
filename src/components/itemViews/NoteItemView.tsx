@@ -270,7 +270,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         </TouchableOpacity>
 
         {/* ADMIN SECTION START- Only visible if admin toggle is enabled */}
-        
+
         {/* Description (inline editable)*/}
         {showDescription && (
           <View style={styles.section}>
@@ -511,7 +511,8 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chatButton: {
-    marginTop: 20,
+    marginTop: 10,
+    marginBottom: 10,
     padding: 16,
     borderRadius: 12,
     backgroundColor: '#007AFF',
