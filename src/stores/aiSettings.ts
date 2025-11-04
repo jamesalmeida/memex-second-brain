@@ -31,207 +31,81 @@ const initialState: AISettingsState = {
 export const aiSettingsStore = observable(initialState);
 
 // Computed values
+// Note: All AI settings moved to adminSettings (global settings controlled by admin)
+// These computed values now delegate to adminSettingsComputed
 export const aiSettingsComputed = {
-  selectedModel: () => aiSettingsStore.selectedModel.get(),
-  metadataModel: () => aiSettingsStore.metadataModel.get(),
-  availableModels: () => aiSettingsStore.availableModels.get(),
+  selectedModel: () => {
+    const { adminSettingsComputed } = require('./adminSettings');
+    return adminSettingsComputed.aiChatModel();
+  },
+  metadataModel: () => {
+    const { adminSettingsComputed } = require('./adminSettings');
+    return adminSettingsComputed.aiMetadataModel();
+  },
+  availableModels: () => {
+    const { adminSettingsComputed } = require('./adminSettings');
+    return adminSettingsComputed.aiAvailableModels();
+  },
   isLoadingModels: () => aiSettingsStore.isLoadingModels.get(),
   hasApiKey: () => aiSettingsStore.hasApiKey.get(),
   // Note: autoGenerateTranscripts and autoGenerateImageDescriptions moved to adminSettingsComputed
 
   // Check if models need refresh (24h cache)
   needsRefresh: (): boolean => {
-    const lastFetch = aiSettingsStore.lastModelsFetch.get();
-    if (!lastFetch) return true;
-
-    const lastFetchTime = new Date(lastFetch).getTime();
-    const now = new Date().getTime();
-    const hoursSinceLastFetch = (now - lastFetchTime) / (1000 * 60 * 60);
-
-    return hoursSinceLastFetch >= 24;
+    const { adminSettingsComputed } = require('./adminSettings');
+    return adminSettingsComputed.needsRefresh();
   },
 
   // Get formatted time since last fetch
   timeSinceLastFetch: (): string => {
-    const lastFetch = aiSettingsStore.lastModelsFetch.get();
-    if (!lastFetch) return 'Never';
-
-    const lastFetchTime = new Date(lastFetch).getTime();
-    const now = new Date().getTime();
-    const minutesAgo = Math.floor((now - lastFetchTime) / (1000 * 60));
-
-    if (minutesAgo < 60) return `${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago`;
-
-    const hoursAgo = Math.floor(minutesAgo / 60);
-    if (hoursAgo < 24) return `${hoursAgo} hour${hoursAgo !== 1 ? 's' : ''} ago`;
-
-    const daysAgo = Math.floor(hoursAgo / 24);
-    return `${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago`;
+    const { adminSettingsComputed } = require('./adminSettings');
+    return adminSettingsComputed.timeSinceLastFetch();
   },
 };
 
 // Actions
+// Note: Model selection moved to adminSettings (global settings controlled by admin)
+// These actions now delegate to adminSettingsActions
 export const aiSettingsActions = {
   setSelectedModel: async (modelId: string) => {
-    aiSettingsStore.selectedModel.set(modelId);
-    try {
-      // Save to cloud-synced user settings
-      const { userSettingsActions } = require('./userSettings');
-      await userSettingsActions.updateSetting('ai_chat_model', modelId);
-
-      // Also save to legacy AsyncStorage for backward compatibility
-      const settings = {
-        selectedModel: modelId,
-        metadataModel: aiSettingsStore.metadataModel.get(),
-      };
-      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
-      console.log('🤖 Selected chat model:', modelId);
-    } catch (error) {
-      console.error('Error saving selected model:', error);
-    }
+    // Delegate to adminSettings
+    const { adminSettingsActions } = require('./adminSettings');
+    await adminSettingsActions.setAiChatModel(modelId);
+    console.log('🤖 Selected chat model (via adminSettings):', modelId);
   },
 
   setMetadataModel: async (modelId: string) => {
-    aiSettingsStore.metadataModel.set(modelId);
-    try {
-      // Save to cloud-synced user settings
-      const { userSettingsActions } = require('./userSettings');
-      await userSettingsActions.updateSetting('ai_metadata_model', modelId);
-
-      // Also save to legacy AsyncStorage for backward compatibility
-      const settings = {
-        selectedModel: aiSettingsStore.selectedModel.get(),
-        metadataModel: modelId,
-      };
-      await AsyncStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(settings));
-      console.log('🤖 Selected metadata model:', modelId);
-    } catch (error) {
-      console.error('Error saving metadata model:', error);
-    }
+    // Delegate to adminSettings
+    const { adminSettingsActions } = require('./adminSettings');
+    await adminSettingsActions.setAiMetadataModel(modelId);
+    console.log('🤖 Selected metadata model (via adminSettings):', modelId);
   },
 
   // Note: setAutoGenerateTranscripts and setAutoGenerateImageDescriptions removed
   // These are now global admin settings managed via adminSettingsActions
 
   fetchModels: async (force: boolean = false) => {
-    // Check if we need to refresh
-    if (!force && !aiSettingsComputed.needsRefresh()) {
-      console.log('🤖 Using cached models list');
-      return;
-    }
-
-    if (!API.OPENAI_API_KEY) {
-      console.warn('🤖 OpenAI API key not configured');
-      return;
-    }
+    // Delegate to adminSettings
+    const { adminSettingsActions } = require('./adminSettings');
 
     try {
       aiSettingsStore.isLoadingModels.set(true);
-      console.log('🤖 Fetching available models from OpenAI...');
-
-      const response = await fetch('https://api.openai.com/v1/models', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Filter to only chat-compatible models (gpt-* models)
-      const chatModels = data.data
-        .filter((model: OpenAIModel) =>
-          model.id.startsWith('gpt-') &&
-          !model.id.includes('instruct') && // Exclude instruct models
-          !model.id.includes('vision') // Vision models handled separately
-        )
-        .sort((a: OpenAIModel, b: OpenAIModel) => {
-          // Sort by model version (newer first)
-          if (a.id.includes('4') && !b.id.includes('4')) return -1;
-          if (!a.id.includes('4') && b.id.includes('4')) return 1;
-          return b.created - a.created;
-        });
-
-      aiSettingsStore.availableModels.set(chatModels);
-      aiSettingsStore.lastModelsFetch.set(new Date().toISOString());
-
-      // Save to AsyncStorage for offline access
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.AI_MODELS,
-        JSON.stringify({
-          models: chatModels,
-          lastFetch: new Date().toISOString(),
-        })
-      );
-
-      console.log(`🤖 Fetched ${chatModels.length} chat models`);
+      await adminSettingsActions.fetchModels(force);
+      console.log('🤖 Fetched models (via adminSettings)');
     } catch (error) {
       console.error('🤖 Error fetching models:', error);
-      // Try to load from cache if fetch fails
-      await aiSettingsActions.loadModelsFromCache();
+      throw error;
     } finally {
       aiSettingsStore.isLoadingModels.set(false);
     }
   },
 
-  loadModelsFromCache: async () => {
-    try {
-      const cached = await AsyncStorage.getItem(STORAGE_KEYS.AI_MODELS);
-      if (cached) {
-        const { models, lastFetch } = JSON.parse(cached);
-        aiSettingsStore.availableModels.set(models);
-        aiSettingsStore.lastModelsFetch.set(lastFetch);
-        console.log('🤖 Loaded cached models list');
-      }
-    } catch (error) {
-      console.error('Error loading cached models:', error);
-    }
-  },
-
+  // Note: loadModelsFromCache and loadSettings removed
+  // Models are now stored in adminSettings and loaded by adminSettingsActions.loadSettings()
   loadSettings: async () => {
-    try {
-      // First try to load from userSettings (cloud-synced)
-      const { userSettingsComputed } = require('./userSettings');
-
-      const chatModel = userSettingsComputed.chatModel();
-      const metadataModel = userSettingsComputed.metadataModel();
-
-      if (chatModel) {
-        aiSettingsStore.selectedModel.set(chatModel);
-      }
-      if (metadataModel) {
-        aiSettingsStore.metadataModel.set(metadataModel);
-      }
-
-      // Fall back to legacy AsyncStorage if userSettings not available
-      const saved = await AsyncStorage.getItem(STORAGE_KEYS.AI_SETTINGS);
-      if (saved) {
-        const settings = JSON.parse(saved);
-        // Only use legacy settings if not already set from userSettings
-        if (!chatModel && settings.selectedModel) {
-          aiSettingsStore.selectedModel.set(settings.selectedModel);
-        }
-        if (!metadataModel && settings.metadataModel) {
-          aiSettingsStore.metadataModel.set(settings.metadataModel);
-        }
-      }
-
-      // Load cached models
-      await aiSettingsActions.loadModelsFromCache();
-
-      // Fetch fresh models if cache is stale (but don't block)
-      if (aiSettingsComputed.needsRefresh()) {
-        aiSettingsActions.fetchModels(false).catch(console.error);
-      }
-
-      console.log('🤖 AI settings loaded');
-    } catch (error) {
-      console.error('Error loading AI settings:', error);
-    }
+    // Settings are now loaded from adminSettings
+    // This method is kept for backward compatibility but does nothing
+    console.log('🤖 AI settings now loaded from adminSettings (global settings)');
   },
 
   checkApiKey: () => {
@@ -245,11 +119,16 @@ export const aiSettingsActions = {
   },
 
   clearAll: async () => {
-    aiSettingsStore.set(initialState);
+    // Note: AI model settings are now global (stored in adminSettings)
+    // We only reset the local loading state, not the global settings
+    aiSettingsStore.isLoadingModels.set(false);
+    aiSettingsStore.hasApiKey.set(!!API.OPENAI_API_KEY);
+
     try {
+      // Remove legacy AsyncStorage keys (no longer used)
       await AsyncStorage.removeItem(STORAGE_KEYS.AI_SETTINGS);
       await AsyncStorage.removeItem(STORAGE_KEYS.AI_MODELS);
-      console.log('🤖 Cleared all AI settings');
+      console.log('🤖 Cleared local AI settings (global settings preserved)');
     } catch (error) {
       console.error('Error clearing AI settings:', error);
     }
