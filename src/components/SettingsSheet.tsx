@@ -95,7 +95,7 @@ const SettingsSheet = observer(
             onPress: async () => {
               try {
                 await signOut();
-                router.replace('/auth');
+                // Navigation is handled automatically by useAuth hook
               } catch (error) {
                 Alert.alert('Error', 'Failed to sign out. Please try again.');
               }
