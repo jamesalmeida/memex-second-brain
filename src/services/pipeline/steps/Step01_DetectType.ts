@@ -21,7 +21,7 @@ export const Step01_DetectType: Step = async ({ itemId, url }) => {
     await itemsActions.updateItemWithSync(itemId, {
       content_type: 'note',
       title: '',
-      desc: url, // Save the text as note body
+      notes: url, // Save the text as note body
       url: undefined,
       thumbnail_url: undefined,
     });
@@ -42,6 +42,9 @@ export const Step01_DetectType: Step = async ({ itemId, url }) => {
   else if (/apps\.apple\.com/i.test(lower)) content_type = 'app_store';
   else if (/(facebook\.com|fb\.com|fb\.watch)/i.test(lower)) content_type = 'facebook';
   else if (/imdb\.com\/title\//i.test(lower)) content_type = 'movie';
+  else if (/(podcasts\.apple\.com|itunes\.apple\.com)/i.test(lower)) content_type = 'podcast';
+  else if (/(spotify\.com\/episode|spotify\.com\/show)/i.test(lower)) content_type = 'podcast';
+  else if (/overcast\.fm/i.test(lower)) content_type = 'podcast';
   else if (isAmazonUrl(url)) content_type = 'product';
 
   if (content_type !== 'bookmark') {

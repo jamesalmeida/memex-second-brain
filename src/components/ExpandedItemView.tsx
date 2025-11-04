@@ -10,6 +10,7 @@ import XItemView from './itemViews/XItemView';
 import MovieTVItemView from './itemViews/MovieTVItemView';
 import DefaultItemView from './itemViews/DefaultItemView';
 import NoteItemView from './itemViews/NoteItemView';
+import PodcastItemView from './itemViews/PodcastItemView';
 import LoadingModal from './LoadingModal';
 
 interface ExpandedItemViewProps {
@@ -105,6 +106,9 @@ const ExpandedItemView = observer(
       case 'movie':
       case 'tv_show':
         return <MovieTVItemView {...commonProps} />;
+      case 'podcast':
+      case 'podcast_episode':
+        return <PodcastItemView {...commonProps} />;
       default:
         return <DefaultItemView {...commonProps} />;
     }

@@ -24,7 +24,12 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
 
     activeItems.forEach(item => {
       if (item.content_type) {
-        counts[item.content_type] = (counts[item.content_type] || 0) + 1;
+        // Combine podcast and podcast_episode counts under 'podcast'
+        if (item.content_type === 'podcast_episode') {
+          counts['podcast'] = (counts['podcast'] || 0) + 1;
+        } else {
+          counts[item.content_type] = (counts[item.content_type] || 0) + 1;
+        }
       }
     });
 

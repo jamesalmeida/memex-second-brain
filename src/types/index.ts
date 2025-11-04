@@ -21,6 +21,7 @@ export type ContentType =
   | 'video'
   | 'audio'
   | 'podcast'
+  | 'podcast_episode'
   | 'note'
   | 'article'
   | 'product'
@@ -107,7 +108,7 @@ export interface ItemSpace {
   created_at: string;
 }
 
-export type VideoPlatform = 'youtube' | 'x' | 'tiktok' | 'instagram' | 'reddit';
+export type VideoPlatform = 'youtube' | 'x' | 'tiktok' | 'instagram' | 'reddit' | 'podcast';
 
 export interface VideoTranscript {
   id: string;
@@ -214,7 +215,7 @@ export interface SearchFilters {
   isArchived?: boolean;
 }
 
-export type RadialActionId = 'chat' | 'share' | 'archive' | 'unarchive' | 'delete' | 'move';
+export type RadialActionId = 'chat' | 'share' | 'archive' | 'unarchive' | 'delete' | 'move' | 'refresh';
 
 export interface UserSettings {
   id: string;
@@ -247,6 +248,8 @@ export interface AdminSettings {
   // API Source Preferences
   youtube_source: 'youtubei' | 'serpapi';
   youtube_transcript_source: 'youtubei' | 'serpapi';
+  // UI Debug Settings
+  ui_show_description: boolean;
   // Timestamps
   created_at: string;
   updated_at: string;

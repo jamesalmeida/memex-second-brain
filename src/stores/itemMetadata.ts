@@ -19,10 +19,16 @@ export const itemMetadataStore = observable(initialState);
 export const itemMetadataComputed = {
   metadata: () => itemMetadataStore.metadata.get(),
   isLoading: () => itemMetadataStore.isLoading.get(),
-  
+
   // Get metadata for a specific item
   getMetadataForItem: (itemId: string): ItemMetadata | undefined => {
     return itemMetadataStore.metadata.get().find(m => m.item_id === itemId);
+  },
+
+  // Get author for an item
+  getAuthor: (itemId: string): string | undefined => {
+    const metadata = itemMetadataStore.metadata.get().find(m => m.item_id === itemId);
+    return metadata?.author || undefined;
   },
 };
 

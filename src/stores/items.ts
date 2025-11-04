@@ -327,6 +327,77 @@ export const itemsActions = {
     await itemsActions._autoGenerateContent(item);
   },
 
+  // Helper function to auto-generate transcript for podcast episodes after enrichment
+  autoGeneratePodcastTranscript: async (itemId: string) => {
+    const autoGenerateTranscripts = adminSettingsComputed.autoGenerateTranscripts();
+    if (!autoGenerateTranscripts) return;
+
+    const item = itemsStore.items.get().find(i => i.id === itemId);
+    if (!item || (item.content_type !== 'podcast' && item.content_type !== 'podcast_episode')) return;
+
+    const audioUrl = itemTypeMetadataComputed.getTypeMetadataForItem(itemId)?.data?.audio_url;
+    if (!audioUrl) return;
+
+    // Check if transcript already exists
+    const { videoTranscriptsStore } = await import('./videoTranscripts');
+    const existingTranscript = videoTranscriptsStore.transcripts.get().find(t => t.item_id === itemId);
+    if (existingTranscript) {
+      console.log('🎙️ Transcript already exists for podcast:', itemId);
+      return;
+    }
+
+    console.log('🎙️ Auto-generating podcast transcript for', itemId);
+    await itemsActions.generatePodcastTranscript(itemId);
+  },
+
+  // Generate transcript for a podcast episode using AssemblyAI
+  generatePodcastTranscript: async (itemId: string): Promise<{ transcript: string; segments?: Array<{ startMs: number; endMs?: number; text: string }> } | null> => {
+    const item = itemsStore.items.get().find(i => i.id === itemId);
+    if (!item || (item.content_type !== 'podcast' && item.content_type !== 'podcast_episode')) {
+      console.error('Item is not a podcast or does not exist');
+      return null;
+    }
+
+    // Get audio URL from type metadata
+    const audioUrl = itemTypeMetadataComputed.getTypeMetadataForItem(itemId)?.data?.audio_url;
+    if (!audioUrl) {
+      console.error('No audio URL found for podcast episode');
+      return null;
+    }
+
+    try {
+      console.log('🎙️ Generating transcript for podcast episode:', itemId);
+      const { transcribeVideo } = await import('../services/assemblyai');
+
+      // Use AssemblyAI to transcribe the podcast audio
+      const result = await transcribeVideo(audioUrl, (status: string) => {
+        console.log('🎙️ Transcription status:', status);
+      });
+
+      console.log('🎙️ Podcast transcript generated successfully:', result.transcript.length, 'characters');
+
+      // Save transcript to store
+      const { videoTranscriptsActions } = await import('./videoTranscripts');
+      await videoTranscriptsActions.addTranscript({
+        id: `${itemId}-transcript`,
+        item_id: itemId,
+        transcript: result.transcript,
+        platform: 'podcast',
+        language: result.language,
+        fetched_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      return {
+        transcript: result.transcript,
+      };
+    } catch (error) {
+      console.error('Error generating podcast transcript:', error);
+      throw error;
+    }
+  },
+
   addItems: async (newItems: Item[]) => {
     const currentItems = itemsStore.items.get();
     const updatedItems = [...currentItems, ...newItems];

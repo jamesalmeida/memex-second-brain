@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import * as Haptics from 'expo-haptics';
 import InlineEditableText from '../../InlineEditableText';
+import { useDrawer } from '../../../contexts/DrawerContext';
+import { isAdminComputed } from '../../../utils/adminCheck';
+import { Item } from '../../../types';
 
 interface ItemViewHeaderProps {
   value: string;
@@ -12,6 +15,16 @@ interface ItemViewHeaderProps {
   isDarkMode: boolean;
   placeholder?: string;
   style?: TextStyle;
+  hasImage?: boolean;
+  onAddImage?: () => void;
+  onChangeContentType?: () => void;
+  onMoveToSpace?: () => void;
+  onRefresh?: () => void;
+  onShare?: () => void;
+  onArchive?: () => void;
+  onUnarchive?: () => void;
+  onDelete?: () => void;
+  item?: Item;
 }
 
 const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
@@ -21,8 +34,57 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   isDarkMode,
   placeholder = 'Title',
   style,
+  hasImage = true,
+  onAddImage,
+  onChangeContentType,
+  onMoveToSpace,
+  onRefresh,
+  onShare,
+  onArchive,
+  onUnarchive,
+  onDelete,
+  item,
 }) => {
+  const { onAdminPress } = useDrawer();
+  const userIsAdmin = isAdminComputed(); // Reactive check - will re-render when role changes
+
   const handleMenuAction = (action: string) => {
+    if (action === 'addImage' && onAddImage) {
+      onAddImage();
+      return;
+    }
+    if (action === 'admin') {
+      onAdminPress();
+      return;
+    }
+    if (action === 'changeContentType' && onChangeContentType) {
+      onChangeContentType();
+      return;
+    }
+    if (action === 'moveToSpace' && onMoveToSpace) {
+      onMoveToSpace();
+      return;
+    }
+    if (action === 'refresh' && onRefresh) {
+      onRefresh();
+      return;
+    }
+    if (action === 'share' && onShare) {
+      onShare();
+      return;
+    }
+    if (action === 'archive' && onArchive) {
+      onArchive();
+      return;
+    }
+    if (action === 'unarchive' && onUnarchive) {
+      onUnarchive();
+      return;
+    }
+    if (action === 'delete' && onDelete) {
+      onDelete();
+      return;
+    }
     // Placeholder for future menu actions
     console.log('Menu action:', action);
   };
@@ -79,15 +141,48 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
             </TouchableOpacity>
           </ContextMenu.Trigger>
           <ContextMenu.Items>
-            <Button onPress={() => handleMenuAction('action1')}>
-              Action 1
-            </Button>
-            <Button onPress={() => handleMenuAction('action2')}>
-              Action 2
-            </Button>
-            <Button onPress={() => handleMenuAction('action3')}>
-              Action 3
-            </Button>
+            {userIsAdmin && (
+              <Button onPress={() => handleMenuAction('admin')}>
+                Admin Settings
+              </Button>
+            )}
+            {!item?.is_archived && (
+              <>
+                <Button onPress={() => handleMenuAction('changeContentType')}>
+                  Change Content Type
+                </Button>
+                {!hasImage && (
+                  <Button onPress={() => handleMenuAction('addImage')}>
+                    Add Image
+                  </Button>
+                )}
+                <Button onPress={() => handleMenuAction('moveToSpace')}>
+                  Move to Space
+                </Button>
+                <Button onPress={() => handleMenuAction('refresh')}>
+                  Refresh Item
+                </Button>
+                <Button onPress={() => handleMenuAction('share')}>
+                  Share Item
+                </Button>
+                <Button onPress={() => handleMenuAction('archive')}>
+                  Archive Item
+                </Button>
+                <Button onPress={() => handleMenuAction('delete')}>
+                  Delete Item
+                </Button>
+              </>
+            )}
+            {item?.is_archived && onUnarchive && (
+              <Button onPress={() => handleMenuAction('unarchive')}>
+                Unarchive Item
+              </Button>
+            )}
+            {item?.is_archived && (
+              <Button onPress={() => handleMenuAction('delete')}>
+                Delete Item
+              </Button>
+            )}
           </ContextMenu.Items>
         </ContextMenu>
       </Host>

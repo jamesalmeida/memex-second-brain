@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
-import { observer } from '@legendapp/state/react';
+import { observer, useObservable } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { useToast } from '../../contexts/ToastContext';
 import { itemsStore, itemsActions } from '../../stores/items';
 import { spacesStore, spacesActions } from '../../stores/spaces';
+import { adminSettingsStore } from '../../stores/adminSettings';
+import { itemTypeMetadataComputed, itemTypeMetadataActions } from '../../stores/itemTypeMetadata';
 import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
@@ -14,6 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import { HeroMediaSection } from './components';
 import SpaceSelectorModal from '../SpaceSelectorModal';
+import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -34,10 +37,12 @@ interface NoteItemViewProps {
 
 const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, onDelete, onShare, currentSpaceId, isDeleting = false, isRefreshing = false }: NoteItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const showDescription = adminSettingsStore.settings.ui_show_description.get() ?? false;
   const { showToast } = useToast();
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
@@ -136,6 +141,10 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
     }
   };
 
+  // Calculate hasImage for ItemViewHeader
+  const metadataImages = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
+  const hasImage = (metadataImages && metadataImages.length > 0) || !!itemToDisplay.thumbnail_url;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -148,6 +157,15 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
         placeholder="Title"
+        hasImage={hasImage}
+        onAddImage={() => imageUploadModalRef.current?.open()}
+        onChangeContentType={() => setShowTypeModal(true)}
+        onMoveToSpace={() => setShowSpaceModal(true)}
+        onShare={() => onShare?.(itemToDisplay)}
+        onArchive={() => onArchive?.(itemToDisplay)}
+        onUnarchive={() => onUnarchive?.(itemToDisplay)}
+        onDelete={() => onDelete?.(itemToDisplay)}
+        item={itemToDisplay}
       />
 
       {/* Hero Image / Images Carousel */}
@@ -163,17 +181,17 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
 
       <View style={styles.content}>
         {/* Body content */}
-        {itemToDisplay.content && (
-          <View style={[styles.noteBody, isDarkMode && styles.noteBodyDark]}> 
+        {/* {itemToDisplay.notes && (
+          <View style={[styles.noteBody, isDarkMode && styles.noteBodyDark]}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={[styles.noteText, isDarkMode && styles.noteTextDark]}>
-                {itemToDisplay.content}
+                {itemToDisplay.notes}
               </Text>
             </ScrollView>
             <TouchableOpacity
               style={styles.copyButton}
               onPress={async () => {
-                await Clipboard.setStringAsync(itemToDisplay.content || '');
+                await Clipboard.setStringAsync(itemToDisplay.notes || '');
                 showToast({ message: 'Note copied to clipboard', type: 'success' });
               }}
               activeOpacity={0.7}
@@ -181,37 +199,27 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
               <Text style={styles.copyIcon}>📋</Text>
             </TouchableOpacity>
           </View>
-        )}
+        )} */}
 
-        {/* Description (inline editable) */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>DESCRIPTION</Text>
-          <InlineEditableText
-            value={itemToDisplay.desc || ''}
-            placeholder="Tap to add description"
-            onSave={async (newDesc) => {
-              await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
-            }}
-            style={[styles.noteText, isDarkMode && styles.noteTextDark]}
-            multiline
-            maxLines={8}
-            collapsible
-            collapsedLines={6}
-            showMoreThreshold={300}
-            isDarkMode={isDarkMode}
+        {/* Notes Section */}
+        <ItemViewNotes
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
         placeholder="Title"
-          />
-        </View>
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* TLDR Section */}
-        <ItemViewTldr
+        {/* <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
         placeholder="Title"
           onTldrChange={(newTldr) => {
             setDisplayItem({ ...itemToDisplay, tldr: newTldr });
           }}
-        />
+        /> */}
 
         {/* Tags */}
         <View style={styles.section}>
@@ -229,16 +237,6 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
             buttonLabel="✨ Generate Tags"
           />
         </View>
-
-        {/* Notes Section */}
-        <ItemViewNotes
-          item={itemToDisplay}
-          isDarkMode={isDarkMode}
-        placeholder="Title"
-          onNotesChange={(newNotes) => {
-            setDisplayItem({ ...itemToDisplay, notes: newNotes });
-          }}
-        />
 
         {/* Space Selector */}
         <View style={styles.spaceSection}>
@@ -287,6 +285,32 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
           <Text style={styles.chatButtonText}>💬 Chat</Text>
         </TouchableOpacity>
 
+        {/* ADMIN SECTION START- Only visible if admin toggle is enabled */}
+
+        {/* Description (inline editable)*/}
+        {showDescription && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>DESCRIPTION</Text>
+            <InlineEditableText
+              value={itemToDisplay.desc || ''}
+              placeholder="Tap to add description"
+              onSave={async (newDesc) => {
+                await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+              }}
+              style={[styles.noteText, isDarkMode && styles.noteTextDark]}
+              multiline
+              maxLines={8}
+              collapsible
+              collapsedLines={6}
+              showMoreThreshold={300}
+              isDarkMode={isDarkMode}
+          placeholder="Title"
+            />
+          </View>
+        )}
+
+        {/* ADMIN SECTION - End */}
+
         {/* Footer */}
         <ItemViewFooter
           item={itemToDisplay}
@@ -313,6 +337,15 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         currentSpaceId={selectedSpaceId}
         onClose={() => setShowSpaceModal(false)}
         onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
+      />
+
+      {/* Content Type Selector Modal */}
+      <ContentTypeSelectorModal
+        visible={showTypeModal}
+        itemId={itemToDisplay?.id || ''}
+        currentType={itemToDisplay.content_type}
+        onClose={() => setShowTypeModal(false)}
+        onTypeChange={() => {}}
       />
     </View>
   );
@@ -503,7 +536,8 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chatButton: {
-    marginTop: 20,
+    marginTop: 10,
+    marginBottom: 10,
     padding: 16,
     borderRadius: 12,
     backgroundColor: '#007AFF',

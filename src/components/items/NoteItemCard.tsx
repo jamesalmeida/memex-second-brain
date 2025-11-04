@@ -35,7 +35,7 @@ const NoteItemCard = observer(({ item, onPress, onLongPress, disabled }: NoteIte
         >
           {/* Sticky note style header */}
           <View style={[styles.noteHeader, { backgroundColor: noteColor }]}> 
-            {/* <Text style={styles.noteIcon}>{getContentTypeIcon('note')}</Text> */}
+            <Text style={styles.noteIcon}>{getContentTypeIcon('note')}</Text>
           </View>
 
           {/* Text content preview */}
@@ -45,9 +45,9 @@ const NoteItemCard = observer(({ item, onPress, onLongPress, disabled }: NoteIte
                 {item.title}
               </Text>
             )}
-            {(item.desc || item.content) && (
+            {item.notes && (
               <Text style={[styles.textPreviewContent, isDarkMode && styles.textDark]} numberOfLines={6}>
-                {item.desc || item.content}
+                {item.notes}
               </Text>
             )}
           </View>

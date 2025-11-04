@@ -6,6 +6,7 @@ import YoutubeItemCard from './YoutubeItemCard';
 import MovieTVItemCard from './MovieTVItemCard';
 import RedditItemCard from './RedditItemCard';
 import ProductItemCard from './ProductItemCard';
+import PodcastItemCard from './PodcastItemCard';
 import DefaultItemCard from './DefaultItemCard';
 import ProcessingItemCard from './ProcessingItemCard';
 import { processingItemsComputed } from '../../stores/processingItems';
@@ -40,6 +41,10 @@ const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
 
     case 'product':
       return <ProductItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
+
+    case 'podcast':
+    case 'podcast_episode':
+      return <PodcastItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
 
     default:
       return <DefaultItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
