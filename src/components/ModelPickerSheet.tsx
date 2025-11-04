@@ -1,24 +1,26 @@
-import React, { forwardRef, useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { aiSettingsStore, aiSettingsActions, OpenAIModel } from '../stores/aiSettings';
 import { COLORS } from '../constants';
+import { BaseModal, ModalHeader } from './modals';
 
 interface ModelPickerSheetProps {
+  visible: boolean;
+  onClose: () => void;
   onModelSelected?: (modelId: string) => void;
   modelType?: 'chat' | 'metadata'; // Which model to update
 }
 
-const ModelPickerSheet = observer(
-  forwardRef<BottomSheet, ModelPickerSheetProps>(({ onModelSelected, modelType = 'chat' }, ref) => {
+const ModelPickerSheet = observer(({ visible, onClose, onModelSelected, modelType = 'chat' }: ModelPickerSheetProps) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const selectedChatModel = aiSettingsStore.selectedModel.get();
     const selectedMetadataModel = aiSettingsStore.metadataModel.get();
@@ -26,20 +28,6 @@ const ModelPickerSheet = observer(
 
     // Use appropriate selected model based on type
     const selectedModel = modelType === 'metadata' ? selectedMetadataModel : selectedChatModel;
-
-    const snapPoints = useMemo(() => ['70%'], []);
-
-    const renderBackdrop = useCallback(
-      (props: any) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      []
-    );
 
     const handleModelSelect = async (modelId: string) => {
       // Update appropriate model based on type
@@ -49,7 +37,7 @@ const ModelPickerSheet = observer(
         await aiSettingsActions.setSelectedModel(modelId);
       }
       onModelSelected?.(modelId);
-      (ref as any)?.current?.close();
+      onClose();
     };
 
     const getModelDisplayName = (model: OpenAIModel): string => {
@@ -124,34 +112,22 @@ const ModelPickerSheet = observer(
     }, [availableModels]);
 
     return (
-      <BottomSheet
-        ref={ref}
-        index={-1}
-        snapPoints={snapPoints}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        backgroundStyle={[
-          styles.sheetBackground,
-          isDarkMode && styles.sheetBackgroundDark,
-        ]}
-        handleIndicatorStyle={[
-          styles.handleIndicator,
-          isDarkMode && styles.handleIndicatorDark,
-        ]}
+      <BaseModal
+        visible={visible}
+        onClose={onClose}
+        maxHeight="75%"
       >
-        <View style={styles.header}>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-            {modelType === 'metadata' ? 'Select Metadata Model' : 'Select Chat Model'}
-          </Text>
-          <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-            {modelType === 'metadata'
-              ? 'Used for title/description extraction'
-              : `${availableModels.length} models available`}
-          </Text>
-        </View>
+        <ModalHeader
+          title={modelType === 'metadata' ? 'Select Metadata Model' : 'Select Chat Model'}
+          subtitle={modelType === 'metadata'
+            ? 'Used for title/description extraction'
+            : `${availableModels.length} models available`}
+          onClose={onClose}
+          isDarkMode={isDarkMode}
+        />
 
-        <BottomSheetScrollView
-          contentContainerStyle={styles.scrollContent}
+        <ScrollView
+          style={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {groupedModels.map(([groupName, models]) => (
@@ -217,50 +193,14 @@ const ModelPickerSheet = observer(
           ))}
 
           <View style={{ height: 40 }} />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        </ScrollView>
+      </BaseModal>
     );
-  })
-);
+});
 
 const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: '#FFFFFF',
-  },
-  sheetBackgroundDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  handleIndicator: {
-    backgroundColor: '#CCCCCC',
-    width: 40,
-  },
-  handleIndicatorDark: {
-    backgroundColor: '#666666',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5E7',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  titleDark: {
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#666666',
-    marginTop: 2,
-  },
-  subtitleDark: {
-    color: '#999999',
-  },
   scrollContent: {
-    paddingHorizontal: 20,
+    flexShrink: 1,
     paddingTop: 10,
   },
   group: {

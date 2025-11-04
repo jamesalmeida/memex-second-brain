@@ -43,7 +43,7 @@ const SettingsSheet = observer(
     const { showToast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
     const [isRefreshingModels, setIsRefreshingModels] = useState(false);
-    const modelPickerSheetRef = useRef<BottomSheet>(null);
+    const [modelPickerVisible, setModelPickerVisible] = useState(false);
 
     // Sync status observables
     const pendingChanges = syncStatusStore.pendingChanges.get();
@@ -210,7 +210,7 @@ const SettingsSheet = observer(
 
                 // Open chat model picker
                 setModelPickerType('chat');
-                modelPickerSheetRef.current?.snapToIndex(0);
+                setModelPickerVisible(true);
               }}
             >
               <MaterialIcons
@@ -248,7 +248,7 @@ const SettingsSheet = observer(
 
                 // Open metadata model picker
                 setModelPickerType('metadata');
-                modelPickerSheetRef.current?.snapToIndex(0);
+                setModelPickerVisible(true);
               }}
             >
               <MaterialIcons
@@ -652,12 +652,14 @@ const SettingsSheet = observer(
         </BottomSheetScrollView>
       </BottomSheet>
 
-      {/* Model Picker Sheet */}
+      {/* Model Picker Modal */}
       <ModelPickerSheet
-        ref={modelPickerSheetRef}
+        visible={modelPickerVisible}
+        onClose={() => setModelPickerVisible(false)}
         modelType={modelPickerType}
         onModelSelected={(modelId) => {
           console.log(`Selected ${modelPickerType} model:`, modelId);
+          setModelPickerVisible(false);
         }}
       />
     </>
