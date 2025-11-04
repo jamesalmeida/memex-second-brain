@@ -272,6 +272,7 @@ const styles = StyleSheet.create({
   },
   toggleTextDark: {
     color: '#5AC8FA',
+    backgroundColor: '#1C1C1E',
   },
 });
 

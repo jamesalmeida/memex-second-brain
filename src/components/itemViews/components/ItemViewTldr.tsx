@@ -115,7 +115,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   tldrContainerDark: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: '#1C1C1E',
+    borderColor: '#48484A',
   },
   tldrLabel: {
     fontSize: 13,
@@ -134,6 +135,7 @@ const styles = StyleSheet.create({
   },
   tldrLabelDark: {
     color: '#FF8A8A',
+    backgroundColor: '#1C1C1E',
   },
   tldrContent: {
     flex: 1,
