@@ -1,10 +1,11 @@
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { pickImageFromDevice, uploadImageToStorage, uploadImageFromUrl, validateImageUrl } from '../services/imageUpload';
 import { authComputed } from '../stores/auth';
+import { BaseModal, ModalHeader } from './modals';
 
 interface ImageUploadModalProps {
   onImageSelected: (imageUrl: string, storagePath?: string) => void;
@@ -113,45 +114,23 @@ const ImageUploadModal = observer(forwardRef<ImageUploadModalHandle, ImageUpload
   };
 
   return (
-    <Modal
+    <BaseModal
       visible={isVisible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setIsVisible(false)}
+      onClose={() => setIsVisible(false)}
+      maxWidth={520}
+      borderRadius={16}
+      backdropOpacity={0.5}
+      keyboardAware={true}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalOverlay}
-      >
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={() => setIsVisible(false)}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={[styles.modalContent, isDarkMode && styles.modalContentDark]}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerLeft}>
-                {mode === 'url' && (
-                  <TouchableOpacity onPress={handleBackToChoose} style={styles.backButton}>
-                    <MaterialIcons name="arrow-back" size={24} color={isDarkMode ? '#FFFFFF' : '#000000'} />
-                  </TouchableOpacity>
-                )}
-                <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-                  {mode === 'choose' ? 'Choose Image' : 'Enter Image URL'}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsVisible(false)} style={styles.closeButton}>
-                <MaterialIcons name="close" size={24} color={isDarkMode ? '#FFFFFF' : '#000000'} />
-              </TouchableOpacity>
-            </View>
+      <ModalHeader
+        title={mode === 'choose' ? 'Choose Image' : 'Enter Image URL'}
+        onClose={() => setIsVisible(false)}
+        showBackButton={mode === 'url'}
+        onBack={handleBackToChoose}
+        isDarkMode={isDarkMode}
+      />
 
-            {/* Content */}
-            <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
               {isUploading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#FF6B35" />
@@ -222,64 +201,14 @@ const ImageUploadModal = observer(forwardRef<ImageUploadModalHandle, ImageUpload
                   </TouchableOpacity>
                 </View>
               )}
-            </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </Modal>
+      </ScrollView>
+    </BaseModal>
   );
 }));
 
 export default ImageUploadModal;
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  backdrop: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    width: '92%',
-    maxWidth: 520,
-    minWidth: 320,
-    maxHeight: '80%',
-    overflow: 'hidden',
-  },
-  modalContentDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5E7',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backButton: {
-    marginRight: 4,
-  },
-  title: { fontSize: 18, fontWeight: '600', color: '#000000' },
-  titleDark: { color: '#FFFFFF' },
   submitButton: {
     backgroundColor: '#FF6B35',
     paddingHorizontal: 24,

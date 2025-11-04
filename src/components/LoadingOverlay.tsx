@@ -1,21 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
-interface LoadingModalProps {
+interface LoadingOverlayProps {
   visible: boolean;
   text?: string;
   isDarkMode: boolean;
 }
 
 /**
- * Reusable loading modal component that overlays its parent component.
+ * Reusable loading overlay component that overlays its parent component.
  * Shows a loading spinner with customizable text.
+ * Note: This is NOT a Modal component - it's an absolute positioned overlay.
  *
- * @param visible - Controls whether the modal is shown
+ * @param visible - Controls whether the overlay is shown
  * @param text - Custom text to display (e.g., "Loading...", "Saving...", "Deleting...")
  * @param isDarkMode - Whether dark mode is enabled
  */
-const LoadingModal: React.FC<LoadingModalProps> = ({
+const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   visible,
   text = 'Loading...',
   isDarkMode,
@@ -34,7 +35,7 @@ const LoadingModal: React.FC<LoadingModalProps> = ({
   );
 };
 
-export default LoadingModal;
+export default LoadingOverlay;
 
 const styles = StyleSheet.create({
   overlay: {

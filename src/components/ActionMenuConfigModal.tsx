@@ -1,6 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,10 +8,11 @@ import {
   Alert,
 } from 'react-native';
 import { observer } from '@legendapp/state/react';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { userSettingsComputed, userSettingsActions } from '../stores/userSettings';
 import { RadialActionId } from '../types';
+import { BaseModal, ModalHeader, Checkbox } from './modals';
 
 interface ActionMenuConfigModalProps {
   visible: boolean;
@@ -78,11 +78,11 @@ const ActionMenuConfigModal = observer(({
 }: ActionMenuConfigModalProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const currentActions = userSettingsComputed.radialActions();
-  const [selectedActions, setSelectedActions] = useState<RadialActionId[]>(currentActions);
+  const [selectedActions, setSelectedActions] = useState<RadialActionId[]>([...currentActions]);
 
   // Sync internal state with computed value when it changes
   useEffect(() => {
-    setSelectedActions(currentActions);
+    setSelectedActions([...currentActions]);
   }, [currentActions]);
 
   const handleActionToggle = useCallback((actionId: RadialActionId) => {
@@ -126,184 +126,97 @@ const ActionMenuConfigModal = observer(({
   }, [selectedActions, onClose]);
 
   const handleCancel = useCallback(() => {
-    setSelectedActions(currentActions);
+    setSelectedActions([...currentActions]);
     onClose();
   }, [currentActions, onClose]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleCancel}
-    >
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={handleCancel}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(event) => event.stopPropagation()}
-            style={[styles.modalContent, isDarkMode && styles.modalContentDark]}
-          >
-            <View style={styles.header}>
-              <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-                Configure Action Menu
-              </Text>
-              <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
-                <MaterialIcons name="close" size={22} color={isDarkMode ? '#FFFFFF' : '#3A3A3C'} />
-              </TouchableOpacity>
-            </View>
+    <BaseModal visible={visible} onClose={handleCancel}>
+      <ModalHeader
+        title="Configure Action Menu"
+        subtitle="Select up to 3 actions for the quick action menu"
+        onClose={handleCancel}
+        isDarkMode={isDarkMode}
+      />
 
-            <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-              Select up to 3 actions for the quick action menu
-            </Text>
+      <ScrollView
+        style={styles.actionsList}
+        showsVerticalScrollIndicator={false}
+      >
+        {AVAILABLE_ACTIONS.map((action) => {
+          const isSelected = selectedActions.includes(action.id);
+          const selectionIndex = selectedActions.indexOf(action.id);
 
-            <ScrollView
-              style={styles.actionsList}
-              showsVerticalScrollIndicator={false}
+          return (
+            <TouchableOpacity
+              key={action.id}
+              style={[styles.actionItem, isDarkMode && styles.actionItemDark]}
+              onPress={() => handleActionToggle(action.id)}
+              activeOpacity={0.8}
             >
-              {AVAILABLE_ACTIONS.map((action) => {
-                const isSelected = selectedActions.includes(action.id);
-                const selectionIndex = selectedActions.indexOf(action.id);
+              <View style={styles.actionItemContent}>
+                <Checkbox
+                  selected={isSelected}
+                  color={action.color}
+                />
 
-                return (
-                  <TouchableOpacity
-                    key={action.id}
-                    style={[styles.actionItem, isDarkMode && styles.actionItemDark]}
-                    onPress={() => handleActionToggle(action.id)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.actionItemContent}>
-                      <View style={[
-                        styles.checkbox,
-                        isSelected && styles.checkboxSelected,
-                        isSelected && { backgroundColor: action.color, borderColor: action.color }
-                      ]}>
-                        {isSelected && (
-                          <MaterialIcons name="check" size={16} color="#FFFFFF" />
-                        )}
-                      </View>
+                <View style={[
+                  styles.iconContainer,
+                  { backgroundColor: action.color }
+                ]}>
+                  <Ionicons
+                    name={action.icon}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </View>
 
-                      <View style={[
-                        styles.iconContainer,
-                        { backgroundColor: action.color }
-                      ]}>
-                        <Ionicons
-                          name={action.icon}
-                          size={20}
-                          color="#FFFFFF"
-                        />
-                      </View>
+                <View style={styles.actionTextContainer}>
+                  <Text style={[styles.actionLabel, isDarkMode && styles.actionLabelDark]}>
+                    {action.label}
+                  </Text>
+                  <Text style={[styles.actionDescription, isDarkMode && styles.actionDescriptionDark]}>
+                    {action.description}
+                  </Text>
+                </View>
 
-                      <View style={styles.actionTextContainer}>
-                        <Text style={[styles.actionLabel, isDarkMode && styles.actionLabelDark]}>
-                          {action.label}
-                        </Text>
-                        <Text style={[styles.actionDescription, isDarkMode && styles.actionDescriptionDark]}>
-                          {action.description}
-                        </Text>
-                      </View>
-
-                      {isSelected && (
-                        <View style={[styles.orderBadge, { backgroundColor: action.color }]}>
-                          <Text style={styles.orderText}>{selectionIndex + 1}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View style={styles.footer}>
-              <Text style={[styles.selectedCount, isDarkMode && styles.selectedCountDark]}>
-                {selectedActions.length} / 3 selected
-              </Text>
-              <View style={styles.footerButtons}>
-                <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
-                  onPress={handleCancel}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.saveButton]}
-                  onPress={handleSave}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
+                {isSelected && (
+                  <View style={[styles.orderBadge, { backgroundColor: action.color }]}>
+                    <Text style={styles.orderText}>{selectionIndex + 1}</Text>
+                  </View>
+                )}
               </View>
-            </View>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <Text style={[styles.selectedCount, isDarkMode && styles.selectedCountDark]}>
+          {selectedActions.length} / 3 selected
+        </Text>
+        <View style={styles.footerButtons}>
+          <TouchableOpacity
+            style={[styles.button, styles.cancelButton]}
+            onPress={handleCancel}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.saveButton]}
+            onPress={handleSave}
+          >
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </Modal>
+    </BaseModal>
   );
 });
 
 export default ActionMenuConfigModal;
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    paddingHorizontal: 20,
-  },
-  backdrop: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 420,
-    maxHeight: '80%',
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    paddingBottom: 20,
-  },
-  modalContentDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#3A3A3C',
-    letterSpacing: 0.5,
-  },
-  titleDark: {
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 16,
-  },
-  subtitleDark: {
-    color: '#A1A1A6',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   actionsList: {
     flexShrink: 1,
     marginBottom: 16,
@@ -321,19 +234,6 @@ const styles = StyleSheet.create({
   actionItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxSelected: {
-    borderWidth: 0,
   },
   iconContainer: {
     width: 36,
