@@ -334,7 +334,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
     paddingBottom: 12,
   },
   dotsContainerDark: {
