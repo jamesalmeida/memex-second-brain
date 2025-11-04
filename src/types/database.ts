@@ -353,6 +353,48 @@ export interface Database {
           }
         ]
       }
+      user_settings: {
+        Row: {
+          id: string
+          user_id: string
+          theme_dark_mode: boolean
+          ai_chat_model: string
+          ai_metadata_model: string
+          ui_x_video_muted: boolean
+          ui_autoplay_x_videos: boolean
+          ui_radial_actions: Json
+          is_admin: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          theme_dark_mode?: boolean
+          ai_chat_model?: string
+          ai_metadata_model?: string
+          ui_x_video_muted?: boolean
+          ui_autoplay_x_videos?: boolean
+          ui_radial_actions?: Json
+          is_admin?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          theme_dark_mode?: boolean
+          ai_chat_model?: string
+          ai_metadata_model?: string
+          ui_x_video_muted?: boolean
+          ui_autoplay_x_videos?: boolean
+          ui_radial_actions?: Json
+          is_admin?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           email: string

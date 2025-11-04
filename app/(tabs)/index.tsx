@@ -402,7 +402,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             keyExtractor={item => item.id}
             masonry
             numColumns={2}
-            estimatedItemSize={200}
             contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
             showsVerticalScrollIndicator={false}
             scrollEnabled={!shouldDisableScroll}
@@ -427,7 +426,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
               keyExtractor={item => item.id}
               masonry
               numColumns={2}
-              estimatedItemSize={200}
               contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
               showsVerticalScrollIndicator={false}
               scrollEnabled={!shouldDisableScroll}
@@ -452,7 +450,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             keyExtractor={item => item.id}
             masonry
             numColumns={2}
-            estimatedItemSize={200}
             contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
             showsVerticalScrollIndicator={false}
             scrollEnabled={!shouldDisableScroll}

@@ -185,10 +185,12 @@ const SpaceDetailScreen = observer(() => {
   };
 
   const handleEditSpace = () => {
+    if (!space) return;
     console.log('Edit space:', space.name);
   };
 
   const handleChatWithSpace = () => {
+    if (!space) return;
     console.log('Chat with space:', space.name);
   };
 

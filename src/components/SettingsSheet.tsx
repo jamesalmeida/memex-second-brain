@@ -33,7 +33,8 @@ import { useState } from 'react';
 import { ReactNativeLegal } from 'react-native-legal';
 
 interface SettingsSheetProps {
-  // Additional props can be added here
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
 const SettingsSheet = observer(
