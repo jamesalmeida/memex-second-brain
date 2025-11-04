@@ -161,6 +161,11 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
         onMoveToSpace={() => setShowSpaceModal(true)}
+        onShare={() => onShare?.(itemToDisplay)}
+        onArchive={() => onArchive?.(itemToDisplay)}
+        onUnarchive={() => onUnarchive?.(itemToDisplay)}
+        onDelete={() => onDelete?.(itemToDisplay)}
+        item={itemToDisplay}
       />
 
       {/* Hero Image / Images Carousel */}

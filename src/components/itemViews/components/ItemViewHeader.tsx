@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import InlineEditableText from '../../InlineEditableText';
 import { useDrawer } from '../../../contexts/DrawerContext';
 import { isAdminComputed } from '../../../utils/adminCheck';
+import { Item } from '../../../types';
 
 interface ItemViewHeaderProps {
   value: string;
@@ -18,6 +19,12 @@ interface ItemViewHeaderProps {
   onAddImage?: () => void;
   onChangeContentType?: () => void;
   onMoveToSpace?: () => void;
+  onRefresh?: () => void;
+  onShare?: () => void;
+  onArchive?: () => void;
+  onUnarchive?: () => void;
+  onDelete?: () => void;
+  item?: Item;
 }
 
 const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
@@ -31,6 +38,12 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   onAddImage,
   onChangeContentType,
   onMoveToSpace,
+  onRefresh,
+  onShare,
+  onArchive,
+  onUnarchive,
+  onDelete,
+  item,
 }) => {
   const { onAdminPress } = useDrawer();
   const userIsAdmin = isAdminComputed(); // Reactive check - will re-render when role changes
@@ -50,6 +63,26 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
     }
     if (action === 'moveToSpace' && onMoveToSpace) {
       onMoveToSpace();
+      return;
+    }
+    if (action === 'refresh' && onRefresh) {
+      onRefresh();
+      return;
+    }
+    if (action === 'share' && onShare) {
+      onShare();
+      return;
+    }
+    if (action === 'archive' && onArchive) {
+      onArchive();
+      return;
+    }
+    if (action === 'unarchive' && onUnarchive) {
+      onUnarchive();
+      return;
+    }
+    if (action === 'delete' && onDelete) {
+      onDelete();
       return;
     }
     // Placeholder for future menu actions
@@ -124,21 +157,30 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
             <Button onPress={() => handleMenuAction('moveToSpace')}>
               Move to Space
             </Button>
-            <Button onPress={() => handleMenuAction('action3')}>
-              Refresh Item
-            </Button>
-            <Button onPress={() => handleMenuAction('action4')}>
-              Share Item
-            </Button>
-            <Button onPress={() => handleMenuAction('action5')}>
-              Archive Item
-            </Button>
-            <Button onPress={() => handleMenuAction('action6')}>
-              Unarchive Item
-            </Button>
-            <Button onPress={() => handleMenuAction('action9')}>
-              Delete Item
-            </Button>
+            {onRefresh && (
+              <Button onPress={() => handleMenuAction('refresh')}>
+                Refresh Item
+              </Button>
+            )}
+            {onShare && (
+              <Button onPress={() => handleMenuAction('share')}>
+                Share Item
+              </Button>
+            )}
+            {item?.is_archived && onUnarchive ? (
+              <Button onPress={() => handleMenuAction('unarchive')}>
+                Unarchive Item
+              </Button>
+            ) : onArchive && !item?.is_archived ? (
+              <Button onPress={() => handleMenuAction('archive')}>
+                Archive Item
+              </Button>
+            ) : null}
+            {onDelete && (
+              <Button onPress={() => handleMenuAction('delete')}>
+                Delete Item
+              </Button>
+            )}
           </ContextMenu.Items>
         </ContextMenu>
       </Host>

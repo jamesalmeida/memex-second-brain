@@ -671,6 +671,12 @@ const DefaultItemView = observer(({
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
         onMoveToSpace={() => setShowSpaceModal(true)}
+        onRefresh={handleRefreshMetadata}
+        onShare={() => onShare?.(itemToDisplay)}
+        onArchive={() => onArchive?.(itemToDisplay)}
+        onUnarchive={() => onUnarchive?.(itemToDisplay)}
+        onDelete={() => onDelete?.(itemToDisplay)}
+        item={itemToDisplay}
       />
 
       {/* Hero Media Section */}
