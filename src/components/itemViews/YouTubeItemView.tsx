@@ -22,13 +22,14 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { observer } from '@legendapp/state/react';
+import { observer, useObservable } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { itemsStore, itemsActions } from '../../stores/items';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { itemMetadataComputed } from '../../stores/itemMetadata';
 import { aiSettingsComputed } from '../../stores/aiSettings';
+import { adminSettingsStore } from '../../stores/adminSettings';
 import { Item, ContentType } from '../../types';
 import { supabase } from '../../services/supabase';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
@@ -99,6 +100,7 @@ const YouTubeItemView = observer(({
   isRefreshing = false,
 }: YouTubeItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const showDescription = adminSettingsStore.settings.ui_show_description.get() ?? false;
   const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
@@ -618,28 +620,30 @@ const YouTubeItemView = observer(({
           })()}
         </View>
 
-        {/* Description (inline editable) */}
-        <View style={styles.descriptionSection}>
-          <Text style={[styles.descriptionSectionLabel, isDarkMode && styles.descriptionSectionLabelDark]}>
-            DESCRIPTION
-          </Text>
-          <InlineEditableText
-            value={itemToDisplay?.desc || ''}
-            placeholder="Tap to add description"
-            onSave={async (newDesc) => {
-              await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
-              setDisplayItem({ ...(itemToDisplay as Item), desc: newDesc });
-            }}
-            style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
-            multiline
-            maxLines={8}
-            collapsible
-            collapsedLines={6}
-            showMoreThreshold={300}
-            isDarkMode={isDarkMode}
-        placeholder="Title"
-          />
-        </View>
+        {/* Description (inline editable) - Only visible if admin toggle is enabled */}
+        {showDescription && (
+          <View style={styles.descriptionSection}>
+            <Text style={[styles.descriptionSectionLabel, isDarkMode && styles.descriptionSectionLabelDark]}>
+              DESCRIPTION
+            </Text>
+            <InlineEditableText
+              value={itemToDisplay?.desc || ''}
+              placeholder="Tap to add description"
+              onSave={async (newDesc) => {
+                await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+                setDisplayItem({ ...(itemToDisplay as Item), desc: newDesc });
+              }}
+              style={[styles.descriptionText, isDarkMode && styles.descriptionTextDark]}
+              multiline
+              maxLines={8}
+              collapsible
+              collapsedLines={6}
+              showMoreThreshold={300}
+              isDarkMode={isDarkMode}
+          placeholder="Title"
+            />
+          </View>
+        )}
 
         {/* TLDR Section */}
         <ItemViewTldr

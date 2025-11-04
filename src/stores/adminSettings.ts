@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   auto_generate_tldr: false,
   youtube_source: 'youtubei' as const,
   youtube_transcript_source: 'youtubei' as const,
+  ui_show_description: false,
 };
 
 const initialState: AdminSettingsState = {
@@ -36,6 +37,7 @@ export const adminSettingsComputed = {
   autoGenerateTldr: () => adminSettingsStore.settings.get()?.auto_generate_tldr ?? DEFAULT_SETTINGS.auto_generate_tldr,
   youtubeSource: () => adminSettingsStore.settings.get()?.youtube_source ?? DEFAULT_SETTINGS.youtube_source,
   youtubeTranscriptSource: () => adminSettingsStore.settings.get()?.youtube_transcript_source ?? DEFAULT_SETTINGS.youtube_transcript_source,
+  showDescription: () => adminSettingsStore.settings.get()?.ui_show_description ?? DEFAULT_SETTINGS.ui_show_description,
   isLoading: () => adminSettingsStore.isLoading.get(),
 };
 
@@ -237,6 +239,10 @@ export const adminSettingsActions = {
 
   setYouTubeTranscriptSource: async (source: 'youtubei' | 'serpapi') => {
     await adminSettingsActions.updateSetting('youtube_transcript_source', source);
+  },
+
+  setShowDescription: async (enabled: boolean) => {
+    await adminSettingsActions.updateSetting('ui_show_description', enabled);
   },
 };
 

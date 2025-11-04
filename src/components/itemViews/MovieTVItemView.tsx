@@ -7,8 +7,9 @@ import { HeroMediaSection } from './components';
 import Animated, { FadeInDown, FadeOutUp, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons } from '@expo/vector-icons';
-import { observer } from '@legendapp/state/react';
+import { observer, useObservable } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
+import { adminSettingsStore } from '../../stores/adminSettings';
 import { useToast } from '../../contexts/ToastContext';
 import { spacesStore } from '../../stores/spaces';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
@@ -53,6 +54,7 @@ const MovieTVItemView = observer(({
   isRefreshing = false,
 }: MovieTVItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const showDescription = adminSettingsStore.settings.ui_show_description.get() ?? false;
   const { showToast } = useToast();
   // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
@@ -371,22 +373,24 @@ const MovieTVItemView = observer(({
         </View>
       )}
 
-      {/* Description */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Description</Text>
-        <InlineEditableText
-          value={itemToDisplay.desc || ''}
-          placeholder="Tap to add description"
-          onSave={async (newDesc) => {
-            await itemsActions.updateItem(itemToDisplay.id, { desc: newDesc });
-          }}
-          style={[styles.description, isDarkMode && styles.descriptionDark]}
-          multiline
-          maxLines={8}
-          isDarkMode={isDarkMode}
-        placeholder="Title"
-        />
-      </View>
+      {/* Description - Only visible if admin toggle is enabled */}
+      {showDescription && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>Description</Text>
+          <InlineEditableText
+            value={itemToDisplay.desc || ''}
+            placeholder="Tap to add description"
+            onSave={async (newDesc) => {
+              await itemsActions.updateItem(itemToDisplay.id, { desc: newDesc });
+            }}
+            style={[styles.description, isDarkMode && styles.descriptionDark]}
+            multiline
+            maxLines={8}
+            isDarkMode={isDarkMode}
+          placeholder="Title"
+          />
+        </View>
+      )}
 
       {/* Content */}
       {/* {itemToDisplay.content && (

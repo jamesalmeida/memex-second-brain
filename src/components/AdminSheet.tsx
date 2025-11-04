@@ -162,6 +162,30 @@ const AdminSheet = observer(
                 thumbColor={showTestToast ? '#fff' : '#f4f3f4'}
               />
             </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="description"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Show Description Section
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Display description field in item views (for testing)
+                </Text>
+              </View>
+              <Switch
+                value={adminSettingsStore.settings.ui_show_description.get() ?? false}
+                onValueChange={(value) => {
+                  adminSettingsActions.setShowDescription(value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={adminSettingsStore.settings.ui_show_description.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
           </View>
 
           {/* AI Automation Section */}

@@ -80,13 +80,28 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
           </ContextMenu.Trigger>
           <ContextMenu.Items>
             <Button onPress={() => handleMenuAction('action1')}>
-              Action 1
+              Admin Settings
             </Button>
             <Button onPress={() => handleMenuAction('action2')}>
-              Action 2
+              This is the wrong content type for this item
+            </Button>
+            <Button onPress={() => handleMenuAction('action4')}>
+              Move to Space
             </Button>
             <Button onPress={() => handleMenuAction('action3')}>
-              Action 3
+              Refresh Item
+            </Button> 
+            <Button onPress={() => handleMenuAction('action4')}>
+              Share Item
+            </Button>
+            <Button onPress={() => handleMenuAction('action5')}>
+              Archive Item
+            </Button>
+            <Button onPress={() => handleMenuAction('action6')}>
+              Unarchive Item
+            </Button>
+            <Button onPress={() => handleMenuAction('action9')}>
+              Delete Item
             </Button>
           </ContextMenu.Items>
         </ContextMenu>

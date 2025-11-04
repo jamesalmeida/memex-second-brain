@@ -26,13 +26,14 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { observer } from '@legendapp/state/react';
+import { observer, useObservable } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { itemsStore, itemsActions } from '../../stores/items';
 import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { aiSettingsComputed } from '../../stores/aiSettings';
 import { expandedItemUIStore, expandedItemUIActions } from '../../stores/expandedItemUI';
+import { adminSettingsStore } from '../../stores/adminSettings';
 import { Item, ContentType } from '../../types';
 import { supabase } from '../../services/supabase';
 import { generateTags, URLMetadata } from '../../services/urlMetadata';
@@ -97,6 +98,7 @@ const XItemView = observer(({
   isRefreshing = false,
 }: XItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const showDescription = adminSettingsStore.settings.ui_show_description.get() ?? false;
   const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);

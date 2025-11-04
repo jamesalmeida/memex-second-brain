@@ -248,6 +248,8 @@ export interface AdminSettings {
   // API Source Preferences
   youtube_source: 'youtubei' | 'serpapi';
   youtube_transcript_source: 'youtubei' | 'serpapi';
+  // UI Debug Settings
+  ui_show_description: boolean;
   // Timestamps
   created_at: string;
   updated_at: string;
