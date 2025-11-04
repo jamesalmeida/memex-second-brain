@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import * as Haptics from 'expo-haptics';
 import InlineEditableText from '../../InlineEditableText';
+import { useDrawer } from '../../../contexts/DrawerContext';
+import { isAdminComputed } from '../../../utils/adminCheck';
 
 interface ItemViewHeaderProps {
   value: string;
@@ -26,9 +28,16 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   hasImage = true,
   onAddImage,
 }) => {
+  const { onAdminPress } = useDrawer();
+  const userIsAdmin = isAdminComputed(); // Reactive check - will re-render when role changes
+
   const handleMenuAction = (action: string) => {
     if (action === 'addImage' && onAddImage) {
       onAddImage();
+      return;
+    }
+    if (action === 'admin') {
+      onAdminPress();
       return;
     }
     // Placeholder for future menu actions
@@ -87,9 +96,11 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
             </TouchableOpacity>
           </ContextMenu.Trigger>
           <ContextMenu.Items>
-            <Button onPress={() => handleMenuAction('action1')}>
-              Admin Settings
-            </Button>
+            {userIsAdmin && (
+              <Button onPress={() => handleMenuAction('admin')}>
+                Admin Settings
+              </Button>
+            )}
             <Button onPress={() => handleMenuAction('action2')}>
               This is the wrong content type for this item
             </Button>
