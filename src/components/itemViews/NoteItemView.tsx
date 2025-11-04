@@ -165,17 +165,17 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
 
       <View style={styles.content}>
         {/* Body content */}
-        {itemToDisplay.content && (
-          <View style={[styles.noteBody, isDarkMode && styles.noteBodyDark]}> 
+        {/* {itemToDisplay.notes && (
+          <View style={[styles.noteBody, isDarkMode && styles.noteBodyDark]}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={[styles.noteText, isDarkMode && styles.noteTextDark]}>
-                {itemToDisplay.content}
+                {itemToDisplay.notes}
               </Text>
             </ScrollView>
             <TouchableOpacity
               style={styles.copyButton}
               onPress={async () => {
-                await Clipboard.setStringAsync(itemToDisplay.content || '');
+                await Clipboard.setStringAsync(itemToDisplay.notes || '');
                 showToast({ message: 'Note copied to clipboard', type: 'success' });
               }}
               activeOpacity={0.7}
@@ -183,39 +183,27 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
               <Text style={styles.copyIcon}>📋</Text>
             </TouchableOpacity>
           </View>
-        )}
+        )} */}
 
-        {/* Description (inline editable) - Only visible if admin toggle is enabled */}
-        {showDescription && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>DESCRIPTION</Text>
-            <InlineEditableText
-              value={itemToDisplay.desc || ''}
-              placeholder="Tap to add description"
-              onSave={async (newDesc) => {
-                await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
-              }}
-              style={[styles.noteText, isDarkMode && styles.noteTextDark]}
-              multiline
-              maxLines={8}
-              collapsible
-              collapsedLines={6}
-              showMoreThreshold={300}
-              isDarkMode={isDarkMode}
-          placeholder="Title"
-            />
-          </View>
-        )}
+        {/* Notes Section */}
+        <ItemViewNotes
+          item={itemToDisplay}
+          isDarkMode={isDarkMode}
+        placeholder="Title"
+          onNotesChange={(newNotes) => {
+            setDisplayItem({ ...itemToDisplay, notes: newNotes });
+          }}
+        />
 
         {/* TLDR Section */}
-        <ItemViewTldr
+        {/* <ItemViewTldr
           item={itemToDisplay}
           isDarkMode={isDarkMode}
         placeholder="Title"
           onTldrChange={(newTldr) => {
             setDisplayItem({ ...itemToDisplay, tldr: newTldr });
           }}
-        />
+        /> */}
 
         {/* Tags */}
         <View style={styles.section}>
@@ -233,16 +221,6 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
             buttonLabel="✨ Generate Tags"
           />
         </View>
-
-        {/* Notes Section */}
-        <ItemViewNotes
-          item={itemToDisplay}
-          isDarkMode={isDarkMode}
-        placeholder="Title"
-          onNotesChange={(newNotes) => {
-            setDisplayItem({ ...itemToDisplay, notes: newNotes });
-          }}
-        />
 
         {/* Space Selector */}
         <View style={styles.spaceSection}>
@@ -290,6 +268,32 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         >
           <Text style={styles.chatButtonText}>💬 Chat</Text>
         </TouchableOpacity>
+
+        {/* ADMIN SECTION START- Only visible if admin toggle is enabled */}
+        
+        {/* Description (inline editable)*/}
+        {showDescription && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>DESCRIPTION</Text>
+            <InlineEditableText
+              value={itemToDisplay.desc || ''}
+              placeholder="Tap to add description"
+              onSave={async (newDesc) => {
+                await itemsActions.updateItemWithSync(itemToDisplay.id, { desc: newDesc });
+              }}
+              style={[styles.noteText, isDarkMode && styles.noteTextDark]}
+              multiline
+              maxLines={8}
+              collapsible
+              collapsedLines={6}
+              showMoreThreshold={300}
+              isDarkMode={isDarkMode}
+          placeholder="Title"
+            />
+          </View>
+        )}
+
+        {/* ADMIN SECTION - End */}
 
         {/* Footer */}
         <ItemViewFooter

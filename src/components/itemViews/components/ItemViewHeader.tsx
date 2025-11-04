@@ -85,6 +85,10 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
             <Button onPress={() => handleMenuAction('action2')}>
               This is the wrong content type for this item
             </Button>
+            {/* (Add Image should only be visible if no image exists) */}
+            <Button onPress={() => handleMenuAction('action3')}>
+              Add Image 
+            </Button>
             <Button onPress={() => handleMenuAction('action4')}>
               Move to Space
             </Button>

@@ -21,7 +21,7 @@ export const Step01_DetectType: Step = async ({ itemId, url }) => {
     await itemsActions.updateItemWithSync(itemId, {
       content_type: 'note',
       title: '',
-      desc: url, // Save the text as note body
+      notes: url, // Save the text as note body
       url: undefined,
       thumbnail_url: undefined,
     });
