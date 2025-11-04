@@ -28,7 +28,7 @@ const BottomNavigation = observer(({
 
   // if (!visible) return null;
 
-  const textColor = isDarkMode ? '#FFFFFF' : '#000000';
+  const iconColor = isDarkMode ? '#FFFFFF' : '#000000';
 
   return (
     <>
@@ -51,7 +51,7 @@ const BottomNavigation = observer(({
             <Image
               systemName="line.3.horizontal.decrease"
               size={24}
-              color={textColor}
+              color={iconColor}
             />
           </ZStack>
         </FilterContextMenuTrigger>
@@ -126,7 +126,7 @@ const BottomNavigation = observer(({
             <Image
               systemName="plus"
               size={24}
-              color={textColor}
+              color={iconColor}
             />
           </ZStack>
         </Host>
