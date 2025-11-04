@@ -291,6 +291,10 @@ const MovieTVItemView = observer(({
     }
   };
 
+  // Calculate hasImage for ItemViewHeader
+  const metadataImages = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
+  const hasImage = (metadataImages && metadataImages.length > 0) || !!itemToDisplay.thumbnail_url;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -302,6 +306,8 @@ const MovieTVItemView = observer(({
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
         placeholder="Title"
+        hasImage={hasImage}
+        onAddImage={() => imageUploadModalRef.current?.open()}
       />
 
       {/* Media Section */}

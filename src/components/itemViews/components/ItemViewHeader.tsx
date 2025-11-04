@@ -12,6 +12,8 @@ interface ItemViewHeaderProps {
   isDarkMode: boolean;
   placeholder?: string;
   style?: TextStyle;
+  hasImage?: boolean;
+  onAddImage?: () => void;
 }
 
 const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
@@ -21,8 +23,14 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   isDarkMode,
   placeholder = 'Title',
   style,
+  hasImage = true,
+  onAddImage,
 }) => {
   const handleMenuAction = (action: string) => {
+    if (action === 'addImage' && onAddImage) {
+      onAddImage();
+      return;
+    }
     // Placeholder for future menu actions
     console.log('Menu action:', action);
   };
@@ -85,16 +93,17 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
             <Button onPress={() => handleMenuAction('action2')}>
               This is the wrong content type for this item
             </Button>
-            {/* (Add Image should only be visible if no image exists) */}
-            <Button onPress={() => handleMenuAction('action3')}>
-              Add Image 
-            </Button>
+            {!hasImage && (
+              <Button onPress={() => handleMenuAction('addImage')}>
+                Add Image
+              </Button>
+            )}
             <Button onPress={() => handleMenuAction('action4')}>
               Move to Space
             </Button>
             <Button onPress={() => handleMenuAction('action3')}>
               Refresh Item
-            </Button> 
+            </Button>
             <Button onPress={() => handleMenuAction('action4')}>
               Share Item
             </Button>

@@ -112,6 +112,11 @@ const HeroMediaSection = observer(({
     return null;
   }
 
+  // Hide HeroMediaSection completely when there's no image and no video
+  if (!videoUrl && (!imageUrls || imageUrls.length === 0)) {
+    return null;
+  }
+
   return (
     <View style={[styles.heroContainer, containerStyle]}>
       {/* Video Player */}

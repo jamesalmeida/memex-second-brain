@@ -6,6 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { itemsStore, itemsActions } from '../../stores/items';
 import { spacesStore, spacesActions } from '../../stores/spaces';
 import { adminSettingsStore } from '../../stores/adminSettings';
+import { itemTypeMetadataComputed, itemTypeMetadataActions } from '../../stores/itemTypeMetadata';
 import { Item, ContentType } from '../../types';
 import TagsEditor from '../TagsEditor';
 import InlineEditableText from '../InlineEditableText';
@@ -138,6 +139,10 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
     }
   };
 
+  // Calculate hasImage for ItemViewHeader
+  const metadataImages = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
+  const hasImage = (metadataImages && metadataImages.length > 0) || !!itemToDisplay.thumbnail_url;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -150,6 +155,8 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
         placeholder="Title"
+        hasImage={hasImage}
+        onAddImage={() => imageUploadModalRef.current?.open()}
       />
 
       {/* Hero Image / Images Carousel */}

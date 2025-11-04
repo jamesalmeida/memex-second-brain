@@ -650,6 +650,10 @@ const DefaultItemView = observer(({
     }
   };
 
+  // Calculate hasImage for ItemViewHeader
+  const metadataImages = itemToDisplay ? itemTypeMetadataComputed.getImageUrls(itemToDisplay.id) : null;
+  const hasImage = (metadataImages && metadataImages.length > 0) || !!itemToDisplay?.thumbnail_url;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -663,6 +667,8 @@ const DefaultItemView = observer(({
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
         placeholder="Title"
+        hasImage={hasImage}
+        onAddImage={() => imageUploadModalRef.current?.open()}
       />
 
       {/* Hero Media Section */}
