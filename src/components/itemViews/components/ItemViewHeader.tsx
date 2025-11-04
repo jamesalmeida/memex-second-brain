@@ -159,21 +159,18 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
                 <Button onPress={() => handleMenuAction('moveToSpace')}>
                   Move to Space
                 </Button>
-                {onRefresh && (
-                  <Button onPress={() => handleMenuAction('refresh')}>
-                    Refresh Item
-                  </Button>
-                )}
-                {onShare && (
-                  <Button onPress={() => handleMenuAction('share')}>
-                    Share Item
-                  </Button>
-                )}
-                {onArchive && (
-                  <Button onPress={() => handleMenuAction('archive')}>
-                    Archive Item
-                  </Button>
-                )}
+                <Button onPress={() => handleMenuAction('refresh')}>
+                  Refresh Item
+                </Button>
+                <Button onPress={() => handleMenuAction('share')}>
+                  Share Item
+                </Button>
+                <Button onPress={() => handleMenuAction('archive')}>
+                  Archive Item
+                </Button>
+                <Button onPress={() => handleMenuAction('delete')}>
+                  Delete Item
+                </Button>
               </>
             )}
             {item?.is_archived && onUnarchive && (
@@ -181,7 +178,7 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
                 Unarchive Item
               </Button>
             )}
-            {onDelete && (
+            {item?.is_archived && (
               <Button onPress={() => handleMenuAction('delete')}>
                 Delete Item
               </Button>

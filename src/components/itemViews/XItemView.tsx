@@ -760,7 +760,7 @@ const XItemView = observer(({
       {/* Content */}
       <View style={styles.content}>
         {/* Metadata */}
-        <View style={styles.metadata}>
+        {/* <View style={styles.metadata}>
           {getDomain() && (
             <View style={styles.metaItem}>
               <Text style={[styles.metaLabel, isDarkMode && styles.metaLabelDark]}>
@@ -768,7 +768,7 @@ const XItemView = observer(({
               </Text>
             </View>
           )}
-        </View>
+        </View> */}
 
         {/* TLDR Section */}
         <ItemViewTldr
