@@ -689,6 +689,7 @@ const ChatSheet = observer(
 
       const basePills = [
         { label: 'TL;DR', prompt: 'Give me a concise TL;DR summary of this content.' },
+        { label: 'Green text', prompt: 'Create a TLDR summary in 4chan greentext format. Use the ">" prefix for each line and tell the story connecting all the facts and context from this content in a narrative greentext style.' },
         { label: 'Key Takeaways', prompt: 'What are the key takeaways from this content?' },
         { label: 'Questions I Should Ask', prompt: 'What questions should I ask to better understand this content?' },
       ];
