@@ -31,6 +31,7 @@ import { expandedItemUIStore, expandedItemUIActions } from '../stores/expandedIt
 import ModelPickerSheet from './ModelPickerSheet';
 import { useState } from 'react';
 import { ReactNativeLegal } from 'react-native-legal';
+import UniversalButton from './UniversalButton';
 
 interface SettingsSheetProps {
   // Additional props can be added here
@@ -41,8 +42,6 @@ const SettingsSheet = observer(
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
     const { showToast } = useToast();
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [isRefreshingModels, setIsRefreshingModels] = useState(false);
     const [modelPickerVisible, setModelPickerVisible] = useState(false);
 
     // Sync status observables
@@ -287,66 +286,41 @@ const SettingsSheet = observer(
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.row}
-              onPress={async () => {
-                if (!hasApiKey) {
-                  Alert.alert(
-                    'API Key Required',
-                    'Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file to use AI features.'
-                  );
-                  return;
-                }
-
-                setIsRefreshingModels(true);
-                try {
-                  await aiSettingsActions.fetchModels(true);
-                  showToast({ message: `Loaded ${availableModels.length} models`, type: 'success' });
-                } catch (error: any) {
-                  Alert.alert('Error', error.message || 'Failed to refresh models');
-                } finally {
-                  setIsRefreshingModels(false);
-                }
-              }}
-              disabled={isRefreshingModels || isLoadingModels}
-            >
+            <View style={styles.row}>
               <MaterialIcons
                 name="refresh"
                 size={24}
-                color={
-                  isRefreshingModels || isLoadingModels
-                    ? '#999'
-                    : isDarkMode
-                    ? '#FFFFFF'
-                    : '#333333'
-                }
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
               />
               <View style={styles.rowContent}>
-                <Text
-                  style={[
-                    styles.rowTitle,
-                    isDarkMode && styles.rowTitleDark,
-                    (isRefreshingModels || isLoadingModels) && styles.rowDisabled,
-                  ]}
-                >
-                  {isRefreshingModels || isLoadingModels ? 'Refreshing...' : 'Refresh Models List'}
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Refresh Models List
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
                   {availableModels.length > 0
                     ? `${availableModels.length} models • Last updated: ${timeSinceLastFetch}`
                     : 'No models loaded'}
                 </Text>
+                <View style={{ marginTop: 8 }}>
+                  <UniversalButton
+                    label="Refresh Models"
+                    icon="refresh"
+                    onPress={async () => {
+                      if (!hasApiKey) {
+                        throw new Error('API Key Required. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.');
+                      }
+                      await aiSettingsActions.fetchModels(true);
+                    }}
+                    variant="secondary"
+                    size="small"
+                    showToastOnSuccess
+                    successMessage={`Loaded ${availableModels.length} models`}
+                    errorMessage="Failed to refresh models"
+                    disabled={!hasApiKey || isLoadingModels}
+                  />
+                </View>
               </View>
-              {isRefreshingModels || isLoadingModels ? (
-                <Text style={[styles.syncingText, isDarkMode && styles.syncingTextDark]}>...</Text>
-              ) : (
-                <MaterialIcons
-                  name="chevron-right"
-                  size={24}
-                  color={isDarkMode ? '#666' : '#999'}
-                />
-              )}
-            </TouchableOpacity>
+            </View>
           </View>
 
           {/* Data & Sync Section */}
@@ -376,55 +350,43 @@ const SettingsSheet = observer(
               )}
             </View>
 
-            <TouchableOpacity 
-              style={styles.row}
-              onPress={async () => {
-                if (isSyncing) return;
-                setIsSyncing(true);
-                try {
-                  console.log('🔄 Starting manual sync...');
-                  const result = await syncService.forceSync();
-                  if (result.success) {
-                    showToast({ message: `Synced ${result.itemsSynced} items successfully`, type: 'success' });
-                  } else {
-                    Alert.alert('Sync Failed', result.errors.join('\n'));
-                  }
-                } catch (error: any) {
-                  Alert.alert('Error', error.message || 'Sync failed');
-                } finally {
-                  setIsSyncing(false);
-                }
-              }}
-              disabled={isSyncing}
-            >
+            <View style={styles.row}>
               <MaterialIcons
                 name="sync"
                 size={24}
-                color={isSyncing ? '#999' : (isDarkMode ? '#FFFFFF' : '#333333')}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark, isSyncing && styles.rowDisabled]}>
-                  {isSyncing ? 'Syncing...' : 'Sync with Cloud'}
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Sync with Cloud
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
                   Force sync all data with Supabase
                 </Text>
+                <View style={{ marginTop: 8 }}>
+                  <UniversalButton
+                    label="Sync Now"
+                    icon="sync"
+                    onPress={async () => {
+                      console.log('🔄 Starting manual sync...');
+                      const result = await syncService.forceSync();
+                      if (!result.success) {
+                        throw new Error(result.errors.join('\n'));
+                      }
+                    }}
+                    variant="secondary"
+                    size="small"
+                    showToastOnSuccess
+                    successMessage="Synced successfully"
+                    errorMessage="Sync failed"
+                  />
+                </View>
               </View>
-              {isSyncing ? (
-                <Text style={[styles.syncingText, isDarkMode && styles.syncingTextDark]}>...</Text>
-              ) : (
-                <MaterialIcons
-                  name="chevron-right"
-                  size={24}
-                  color={isDarkMode ? '#666' : '#999'}
-                />
-              )}
-            </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.row}
               onPress={async () => {
-                if (isSyncing) return;
                 Alert.alert(
                   'Clean Orphaned Data',
                   'This will remove local metadata and relationships for items that no longer exist in the cloud. This is safe and helps fix sync issues.',

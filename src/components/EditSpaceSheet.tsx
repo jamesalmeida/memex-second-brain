@@ -17,6 +17,7 @@ import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
 import { Space } from '../types';
 import { syncService } from '../services/syncService';
+import UniversalButton from './UniversalButton';
 
 interface EditSpaceSheetProps {
   onSpaceUpdated?: (space: Space) => void;
@@ -274,20 +275,27 @@ const EditSpaceSheet = observer(
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.button, styles.updateButton, { backgroundColor: selectedColor }]}
+            <UniversalButton
+              label="Update Space"
               onPress={handleUpdate}
-            >
-              <Text style={styles.buttonText}>Update Space</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.button, styles.deleteButton]}
+              variant="primary"
+              size="large"
+              fullWidth
+              showToastOnSuccess
+              successMessage="Space updated!"
+              errorMessage="Failed to update space"
+              style={{ backgroundColor: selectedColor }}
+            />
+
+            <UniversalButton
+              label="Delete Space"
+              icon="delete-outline"
+              iconPosition="left"
               onPress={handleDelete}
-            >
-              <MaterialIcons name="delete-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.deleteButtonText}>Delete Space</Text>
-            </TouchableOpacity>
+              variant="danger"
+              size="large"
+              fullWidth
+            />
           </View>
         </BottomSheetScrollView>
       </BottomSheet>

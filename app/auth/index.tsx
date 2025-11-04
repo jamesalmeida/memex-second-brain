@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -18,9 +17,9 @@ import { syncService } from '../../src/services/syncService';
 import { authActions } from '../../src/stores';
 import { COLORS, UI } from '../../src/constants';
 import { themeStore } from '../../src/stores/theme';
+import UniversalButton from '../../src/components/UniversalButton';
 
 const AuthScreen = observer(() => {
-  const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +31,6 @@ const AuthScreen = observer(() => {
       return;
     }
 
-    setIsLoading(true);
     try {
       if (isSignUp) {
         console.log('🔍 Starting sign up...');
@@ -83,9 +81,7 @@ const AuthScreen = observer(() => {
       }
     } catch (error) {
       console.error('❌ Auth exception:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+      throw new Error('An unexpected error occurred. Please try again.');
     }
   };
 
@@ -133,24 +129,18 @@ const AuthScreen = observer(() => {
             />
           </View>
 
-          <TouchableOpacity
-            style={[styles.authButton, isLoading && styles.buttonDisabled]}
+          <UniversalButton
+            label={isSignUp ? 'Create Account' : 'Sign In'}
             onPress={handleAuth}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.authButtonText}>
-                {isSignUp ? 'Create Account' : 'Sign In'}
-              </Text>
-            )}
-          </TouchableOpacity>
+            variant="primary"
+            size="large"
+            fullWidth
+            errorMessage={isSignUp ? 'Sign up failed. Please try again.' : 'Sign in failed. Please check your credentials.'}
+          />
 
           <TouchableOpacity
             style={styles.switchButton}
             onPress={() => setIsSignUp(!isSignUp)}
-            disabled={isLoading}
           >
             <Text style={[styles.switchButtonText, isDarkMode && styles.switchButtonTextDark]}>
               {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}

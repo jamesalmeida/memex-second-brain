@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -16,6 +16,7 @@ import { adminSettingsComputed } from '../stores/adminSettings';
 import { buildItemContext } from '../services/contextBuilder';
 import { openai } from '../services/openai';
 import { itemsStore } from '../stores/items';
+import UniversalButton from './UniversalButton';
 
 interface AddItemSheetProps {
   preSelectedSpaceId?: string | null;
@@ -36,7 +37,6 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   const [input, setInput] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const [savedUI, setSavedUI] = useState<{ visible: boolean; title?: string } | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(preSelectedSpaceId);
@@ -84,17 +84,14 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   const performSave = useCallback(async (value: string) => {
     const url = value.trim();
     if (!url) {
-      Alert.alert('Enter a URL or note');
-      return false;
+      throw new Error('Enter a URL or note');
     }
 
     const userId = authComputed.userId();
     if (!userId) {
-      Alert.alert('Not signed in');
-      return false;
+      throw new Error('Not signed in');
     }
 
-    setIsSaving(true);
     try {
       const id = uuid.v4() as string;
       const now = new Date().toISOString();
@@ -162,9 +159,9 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         .finally(() => {
           processingItemsActions.remove(id);
         });
-      return true;
-    } finally {
-      setIsSaving(false);
+    } catch (error) {
+      console.error('Error saving item:', error);
+      throw error;
     }
   }, [selectedSpaceId]);
 
@@ -173,36 +170,15 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   }, [performSave, input]);
 
   const handlePasteAndSave = useCallback(async () => {
-    if (isSaving) return;
     const clipboardText = (await Clipboard.getStringAsync()).trim();
     if (!clipboardText) {
-      Alert.alert('Clipboard is empty', 'Copy a link first.');
-      return;
+      throw new Error('Clipboard is empty. Copy a link first.');
     }
     setInput(clipboardText);
     await performSave(clipboardText);
-  }, [isSaving, performSave]);
+  }, [performSave]);
 
-  const buttonAnimation = useRef(new Animated.Value(0)).current;
   const hasInput = input.trim().length > 0;
-
-  useEffect(() => {
-    Animated.timing(buttonAnimation, {
-      toValue: hasInput ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [buttonAnimation, hasInput]);
-
-  const pasteSaveOpacity = buttonAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 0, 0],
-  });
-
-  const saveOpacity = buttonAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 0, 1],
-  });
 
   // Cleanup any pending close timer on unmount
   useEffect(() => {
@@ -239,44 +215,20 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
     >
       <View style={[styles.header, isDarkMode && styles.headerDark]}>
         <View style={styles.headerButtonRow}>
-          <Animated.View
-            style={[
-              styles.saveButtonWrapper,
-              { opacity: isSaving ? 0.65 : 1 },
-              isDarkMode && styles.saveButtonWrapperDark,
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.saveButton,
-                isDarkMode && styles.saveButtonDark,
-                isSaving && styles.saveButtonDisabled,
-              ]}
+          <View style={[styles.saveButtonWrapper, isDarkMode && styles.saveButtonWrapperDark]}>
+            <UniversalButton
+              label={hasInput ? 'Save' : 'Paste & Save'}
+              icon={hasInput ? 'save' : 'content-paste'}
               onPress={hasInput ? handleSave : handlePasteAndSave}
-              disabled={isSaving}
-            >
-              <View style={styles.saveButtonLabel}>
-                {isSaving ? (
-                  <Text style={styles.saveButtonText}>Saving…</Text>
-                ) : (
-                  <>
-                    <Animated.View
-                      style={[styles.saveButtonContentOverlay, { opacity: pasteSaveOpacity }]}
-                    >
-                      <MaterialIcons name="content-paste" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
-                      <Text style={styles.saveButtonText}>Paste & Save</Text>
-                    </Animated.View>
-                    <Animated.View
-                      style={[styles.saveButtonContentOverlay, { opacity: saveOpacity }]}
-                    >
-                      <MaterialIcons name="save" size={18} color="#FFFFFF" style={styles.saveButtonIcon} />
-                      <Text style={styles.saveButtonText}>Save</Text>
-                    </Animated.View>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+              variant="primary"
+              size="large"
+              fullWidth
+              showToastOnSuccess
+              successMessage="Saved to Memex!"
+              errorMessage="Failed to save item"
+              style={{ borderRadius: 26 }}
+            />
+          </View>
         </View>
       </View>
 

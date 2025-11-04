@@ -18,6 +18,7 @@ import { themeStore } from '../stores/theme';
 import { spacesActions } from '../stores/spaces';
 import { authComputed } from '../stores/auth';
 import { Space } from '../types';
+import UniversalButton from './UniversalButton';
 
 interface CreateSpaceSheetProps {
   onSpaceCreated?: (space: Space) => void;
@@ -57,14 +58,12 @@ const CreateSpaceSheet = observer(
 
     const handleCreate = async () => {
       if (!spaceName.trim()) {
-        Alert.alert('Error', 'Please enter a space name');
-        return;
+        throw new Error('Please enter a space name');
       }
 
       const userId = authComputed.userId();
       if (!userId) {
-        Alert.alert('Error', 'User not authenticated');
-        return;
+        throw new Error('User not authenticated');
       }
 
       // Dismiss keyboard
@@ -133,15 +132,26 @@ const CreateSpaceSheet = observer(
       >
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleCancel}>
-              <Text style={[styles.headerButton, styles.cancelButton]}>Cancel</Text>
-            </TouchableOpacity>
+            <UniversalButton
+              label="Cancel"
+              onPress={handleCancel}
+              variant="ghost"
+              size="small"
+              style={{ paddingHorizontal: 0 }}
+            />
             <Text style={[styles.title, isDarkMode && styles.titleDark]}>
               Create New Space
             </Text>
-            <TouchableOpacity onPress={handleCreate}>
-              <Text style={[styles.headerButton, styles.createButton]}>Create</Text>
-            </TouchableOpacity>
+            <UniversalButton
+              label="Create"
+              onPress={handleCreate}
+              variant="ghost"
+              size="small"
+              showToastOnSuccess
+              successMessage="Space created!"
+              errorMessage="Failed to create space"
+              style={{ paddingHorizontal: 0 }}
+            />
           </View>
 
           <BottomSheetScrollView
