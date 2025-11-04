@@ -146,36 +146,41 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
                 Admin Settings
               </Button>
             )}
-            <Button onPress={() => handleMenuAction('changeContentType')}>
-              Change Content Type
-            </Button>
-            {!hasImage && (
-              <Button onPress={() => handleMenuAction('addImage')}>
-                Add Image
-              </Button>
+            {!item?.is_archived && (
+              <>
+                <Button onPress={() => handleMenuAction('changeContentType')}>
+                  Change Content Type
+                </Button>
+                {!hasImage && (
+                  <Button onPress={() => handleMenuAction('addImage')}>
+                    Add Image
+                  </Button>
+                )}
+                <Button onPress={() => handleMenuAction('moveToSpace')}>
+                  Move to Space
+                </Button>
+                {onRefresh && (
+                  <Button onPress={() => handleMenuAction('refresh')}>
+                    Refresh Item
+                  </Button>
+                )}
+                {onShare && (
+                  <Button onPress={() => handleMenuAction('share')}>
+                    Share Item
+                  </Button>
+                )}
+                {onArchive && (
+                  <Button onPress={() => handleMenuAction('archive')}>
+                    Archive Item
+                  </Button>
+                )}
+              </>
             )}
-            <Button onPress={() => handleMenuAction('moveToSpace')}>
-              Move to Space
-            </Button>
-            {onRefresh && (
-              <Button onPress={() => handleMenuAction('refresh')}>
-                Refresh Item
-              </Button>
-            )}
-            {onShare && (
-              <Button onPress={() => handleMenuAction('share')}>
-                Share Item
-              </Button>
-            )}
-            {item?.is_archived && onUnarchive ? (
+            {item?.is_archived && onUnarchive && (
               <Button onPress={() => handleMenuAction('unarchive')}>
                 Unarchive Item
               </Button>
-            ) : onArchive && !item?.is_archived ? (
-              <Button onPress={() => handleMenuAction('archive')}>
-                Archive Item
-              </Button>
-            ) : null}
+            )}
             {onDelete && (
               <Button onPress={() => handleMenuAction('delete')}>
                 Delete Item
