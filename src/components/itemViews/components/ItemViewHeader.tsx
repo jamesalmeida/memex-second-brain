@@ -17,6 +17,7 @@ interface ItemViewHeaderProps {
   hasImage?: boolean;
   onAddImage?: () => void;
   onChangeContentType?: () => void;
+  onMoveToSpace?: () => void;
 }
 
 const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
@@ -29,6 +30,7 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   hasImage = true,
   onAddImage,
   onChangeContentType,
+  onMoveToSpace,
 }) => {
   const { onAdminPress } = useDrawer();
   const userIsAdmin = isAdminComputed(); // Reactive check - will re-render when role changes
@@ -44,6 +46,10 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
     }
     if (action === 'changeContentType' && onChangeContentType) {
       onChangeContentType();
+      return;
+    }
+    if (action === 'moveToSpace' && onMoveToSpace) {
+      onMoveToSpace();
       return;
     }
     // Placeholder for future menu actions
@@ -115,7 +121,7 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
                 Add Image
               </Button>
             )}
-            <Button onPress={() => handleMenuAction('action4')}>
+            <Button onPress={() => handleMenuAction('moveToSpace')}>
               Move to Space
             </Button>
             <Button onPress={() => handleMenuAction('action3')}>

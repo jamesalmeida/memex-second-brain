@@ -571,6 +571,7 @@ const YouTubeItemView = observer(({
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
+        onMoveToSpace={() => setShowSpaceModal(true)}
       />
 
       {/* YouTube Video Embed */}

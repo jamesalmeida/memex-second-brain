@@ -670,6 +670,7 @@ const DefaultItemView = observer(({
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
+        onMoveToSpace={() => setShowSpaceModal(true)}
       />
 
       {/* Hero Media Section */}

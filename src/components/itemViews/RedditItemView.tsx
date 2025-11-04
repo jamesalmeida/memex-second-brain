@@ -538,6 +538,7 @@ const RedditItemView = observer(({
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
+        onMoveToSpace={() => setShowSpaceModal(true)}
       />
 
       {/* Reddit Header with Orange Border */}

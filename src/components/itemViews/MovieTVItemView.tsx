@@ -309,6 +309,7 @@ const MovieTVItemView = observer(({
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
+        onMoveToSpace={() => setShowSpaceModal(true)}
       />
 
       {/* Media Section */}
