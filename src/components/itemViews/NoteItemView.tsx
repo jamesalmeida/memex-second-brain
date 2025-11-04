@@ -16,6 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import ImageUploadModal, { ImageUploadModalHandle } from '../ImageUploadModal';
 import { HeroMediaSection } from './components';
 import SpaceSelectorModal from '../SpaceSelectorModal';
+import ContentTypeSelectorModal from '../ContentTypeSelectorModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_PADDING = 20;
@@ -41,6 +42,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
   const [displayItem, setDisplayItem] = useState<Item | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
   const imageUploadModalRef = useRef<ImageUploadModalHandle>(null);
   // Note: currentImageIndex and scrollViewRef now handled by HeroMediaSection
@@ -157,6 +159,7 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         placeholder="Title"
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
+        onChangeContentType={() => setShowTypeModal(true)}
       />
 
       {/* Hero Image / Images Carousel */}
@@ -328,6 +331,15 @@ const NoteItemView = observer(({ item, onClose, onChat, onArchive, onUnarchive, 
         currentSpaceId={selectedSpaceId}
         onClose={() => setShowSpaceModal(false)}
         onSpaceChange={(spaceId) => setSelectedSpaceId(spaceId)}
+      />
+
+      {/* Content Type Selector Modal */}
+      <ContentTypeSelectorModal
+        visible={showTypeModal}
+        itemId={itemToDisplay?.id || ''}
+        currentType={itemToDisplay.content_type}
+        onClose={() => setShowTypeModal(false)}
+        onTypeChange={() => {}}
       />
     </View>
   );

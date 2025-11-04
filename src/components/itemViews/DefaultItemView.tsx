@@ -669,6 +669,7 @@ const DefaultItemView = observer(({
         placeholder="Title"
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
+        onChangeContentType={() => setShowTypeModal(true)}
       />
 
       {/* Hero Media Section */}

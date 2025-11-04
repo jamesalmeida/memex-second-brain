@@ -685,6 +685,7 @@ const XItemView = observer(({
         placeholder="Title"
         hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
+        onChangeContentType={() => setShowTypeModal(true)}
       />
 
       {/* X/Twitter Header */}

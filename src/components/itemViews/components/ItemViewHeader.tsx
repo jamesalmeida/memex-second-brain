@@ -16,6 +16,7 @@ interface ItemViewHeaderProps {
   style?: TextStyle;
   hasImage?: boolean;
   onAddImage?: () => void;
+  onChangeContentType?: () => void;
 }
 
 const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
@@ -27,6 +28,7 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   style,
   hasImage = true,
   onAddImage,
+  onChangeContentType,
 }) => {
   const { onAdminPress } = useDrawer();
   const userIsAdmin = isAdminComputed(); // Reactive check - will re-render when role changes
@@ -38,6 +40,10 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
     }
     if (action === 'admin') {
       onAdminPress();
+      return;
+    }
+    if (action === 'changeContentType' && onChangeContentType) {
+      onChangeContentType();
       return;
     }
     // Placeholder for future menu actions
@@ -101,8 +107,8 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
                 Admin Settings
               </Button>
             )}
-            <Button onPress={() => handleMenuAction('action2')}>
-              This is the wrong content type for this item
+            <Button onPress={() => handleMenuAction('changeContentType')}>
+              Change Content Type
             </Button>
             {!hasImage && (
               <Button onPress={() => handleMenuAction('addImage')}>
