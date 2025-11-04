@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, LayoutChangeEvent } from 'react-native';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 
 interface InlineEditableTextProps {
@@ -42,6 +42,7 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
+  const [textTruncated, setTextTruncated] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -90,6 +91,15 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
     await saveValue('');
   };
 
+  const handleTextLayout = (event: any) => {
+    // Check if text is actually truncated by comparing number of lines
+    if (collapsible && collapsed && event.nativeEvent.lines) {
+      const lines = event.nativeEvent.lines;
+      const maxLines = collapsedLines || 8;
+      setTextTruncated(lines.length > maxLines);
+    }
+  };
+
   if (!isEditing) {
     const showPlaceholder = !value || value.trim().length === 0;
     const canCollapse = !!multiline && !!collapsible && !!value && value.trim().length > showMoreThreshold;
@@ -120,6 +130,7 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
               ]}
               numberOfLines={displayLines}
               ellipsizeMode={ellipsizeMode}
+              onTextLayout={handleTextLayout}
             >
               {showPlaceholder ? placeholder : value}
             </Text>
@@ -131,7 +142,7 @@ const InlineEditableText: React.FC<InlineEditableTextProps> = ({
             )}
           </View>
         </TouchableOpacity>
-        {canCollapse && (
+        {canCollapse && textTruncated && (
           <TouchableOpacity onPress={() => setCollapsed(!collapsed)} activeOpacity={0.7}>
             <Text style={[styles.toggleText, isDarkMode && styles.toggleTextDark]}>
               {collapsed ? 'Show more ▼' : 'Show less ▲'}
