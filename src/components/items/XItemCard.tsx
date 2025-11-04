@@ -142,47 +142,50 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
             )}
           </View>
         ) : hasMultipleImages ? (
-          <View style={styles.mediaContainer}>
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(event.nativeEvent.contentOffset.x / mediaWidth);
-                setCurrentImageIndex(newIndex);
-              }}
-              scrollEventThrottle={16}
-            >
-              {imageUrls!.map((imageUrl, index) => (
-                <Image
-                  key={index}
-                  source={{ uri: imageUrl }}
-                  style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
-                  contentFit="cover"
-                  onLoad={(e: any) => {
-                    if (index === 0 && e.source && e.source.width && e.source.height) {
-                      const aspectRatio = e.source.height / e.source.width;
-                      const calculatedHeight = mediaWidth * aspectRatio;
-                      setImageHeight(calculatedHeight);
-                    }
-                  }}
-                />
-              ))}
-            </ScrollView>
+          <>
+            <View style={styles.mediaContainer}>
+              <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(event) => {
+                  const newIndex = Math.round(event.nativeEvent.contentOffset.x / mediaWidth);
+                  setCurrentImageIndex(newIndex);
+                }}
+                scrollEventThrottle={16}
+              >
+                {imageUrls!.map((imageUrl, index) => (
+                  <Image
+                    key={index}
+                    source={{ uri: imageUrl }}
+                    style={[styles.media, { width: mediaWidth, height: imageHeight || 200 }]}
+                    contentFit="cover"
+                    onLoad={(e: any) => {
+                      if (index === 0 && e.source && e.source.width && e.source.height) {
+                        const aspectRatio = e.source.height / e.source.width;
+                        const calculatedHeight = mediaWidth * aspectRatio;
+                        setImageHeight(calculatedHeight);
+                      }
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            </View>
             {/* Dots indicator */}
-            <View style={styles.dotsContainer} pointerEvents="none">
+            <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
               {imageUrls!.map((_, index) => (
                 <View
                   key={index}
                   style={[
                     styles.dot,
-                    index === currentImageIndex && styles.activeDot
+                    isDarkMode && styles.dotDark,
+                    index === currentImageIndex && (isDarkMode ? styles.activeDotDark : styles.activeDot)
                   ]}
                 />
               ))}
             </View>
-          </View>
+          </>
         ) : imageUrls && imageUrls.length === 1 ? (
           <View style={styles.mediaContainer}>
             <Image
@@ -328,23 +331,33 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   dotsContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 12,
-    right: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingBottom: 12,
+  },
+  dotsContainerDark: {
+    // No additional styles needed, but kept for consistency
   },
   dot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     marginHorizontal: 2,
   },
+  dotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
   activeDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     width: 6,
     height: 6,
     borderRadius: 3,
