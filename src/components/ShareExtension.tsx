@@ -21,7 +21,7 @@ import { Item, ContentType } from '../types';
 
 const { height: screenHeight } = Dimensions.get('window');
 
-export const ShareExtension = observer((props: InitialProps) => {
+const ShareExtension = (props: InitialProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
@@ -34,9 +34,10 @@ export const ShareExtension = observer((props: InitialProps) => {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isDarkMode = themeStore.isDarkMode.get();
-  const spaces = spacesStore.spaces.get().filter(s => !s.is_deleted && !s.is_archived);
-  const user = authStore.user.get();
+  // Safely access stores with fallbacks
+  const isDarkMode = themeStore?.isDarkMode?.get() ?? false;
+  const spaces = (spacesStore?.spaces?.get() ?? []).filter(s => !s.is_deleted && !s.is_archived);
+  const user = authStore?.user?.get() ?? null;
 
   // Initialize stores on mount
   useEffect(() => {
@@ -360,7 +361,7 @@ export const ShareExtension = observer((props: InitialProps) => {
       </View>
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -589,4 +590,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ShareExtension;
+export default observer(ShareExtension);
