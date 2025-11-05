@@ -73,6 +73,7 @@ const ChatSheet = observer(
     const [modelSwitchMessage, setModelSwitchMessage] = useState('');
     const [actualModelUsed, setActualModelUsed] = useState<string | null>(null);
     const [hasShownModelSwitchBanner, setHasShownModelSwitchBanner] = useState(false);
+    const [showManualSuggestions, setShowManualSuggestions] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -86,6 +87,7 @@ const ChatSheet = observer(
       setHasShownModelSwitchBanner(false); // Reset banner flag for new chat
       setShowModelSwitchBanner(false);
       setActualModelUsed(null);
+      setShowManualSuggestions(false); // Reset manual suggestions when switching items
     }, [item?.id]);
 
     // Load or create chat when item changes
@@ -930,6 +932,9 @@ const ChatSheet = observer(
                     </TouchableOpacity>
                   </ContextMenu.Trigger>
                   <ContextMenu.Items>
+                    <Button onPress={() => setShowManualSuggestions(!showManualSuggestions)}>
+                      {showManualSuggestions ? 'Hide Suggestions' : 'Show Suggestions'}
+                    </Button>
                     <Button onPress={handleShareChat}>
                       Share Chat
                     </Button>
@@ -985,7 +990,7 @@ const ChatSheet = observer(
             ]}
           >
             {/* Suggestion Pills */}
-            {messages.length === 0 && !isTyping && (
+            {(messages.length === 0 || showManualSuggestions) && !isTyping && (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
