@@ -210,7 +210,7 @@ const AdminSheet = observer(
               />
               <View style={styles.rowContent}>
                 <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Use Thumbnail for YouTube
+                  Youtube: Swap Embed for Thumbnails
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
                   Show thumbnail + play button instead of embed (opens in YouTube app)
