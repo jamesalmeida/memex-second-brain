@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useRef, useState, useCallback, ReactNode } from 'react';
+import { DrawerLayout } from 'react-native-drawer-layout';
 
 interface DrawerContextType {
   openDrawer: () => void;
   closeDrawer: () => void;
   isDrawerOpen: boolean;
-  drawerRef: React.MutableRefObject<any>;
+  drawerRef: React.RefObject<DrawerLayout>;
   onSettingsPress: () => void;
   registerSettingsHandler: (handler: () => void) => void;
   onAdminPress: () => void;
@@ -66,7 +67,7 @@ interface DrawerProviderProps {
 export const DrawerProvider = ({ children }: DrawerProviderProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentView, setCurrentView] = useState<'everything' | 'spaces' | null>(null);
-  const drawerRef = useRef<any>(null);
+  const drawerRef = useRef<DrawerLayout>(null);
   const settingsHandlerRef = useRef<(() => void) | null>(null);
   const adminHandlerRef = useRef<(() => void) | null>(null);
   const tagManagerHandlerRef = useRef<(() => void) | null>(null);

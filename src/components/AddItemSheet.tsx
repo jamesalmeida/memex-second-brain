@@ -237,7 +237,7 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
         }
       }}
     >
-      <View style={[styles.header, isDarkMode && styles.headerDark]}>
+      <View style={styles.header}>
         <View style={styles.headerButtonRow}>
           <Animated.View
             style={[
