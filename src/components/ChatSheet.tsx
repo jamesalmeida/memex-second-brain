@@ -689,9 +689,11 @@ const ChatSheet = observer(
 
       const basePills = [
         { label: 'TL;DR', prompt: 'Give me a concise TL;DR summary of this content.' },
-        { label: 'Green text', prompt: 'Create a TLDR summary in 4chan greentext format. Use the ">" prefix for each line and tell the story connecting all the facts and context from this content in a narrative greentext style.' },
         { label: 'Key Takeaways', prompt: 'What are the key takeaways from this content?' },
         { label: 'Questions I Should Ask', prompt: 'What questions should I ask to better understand this content?' },
+        { label: 'Green txt 1', prompt: 'Create a 4chan-style greentext summary. Each line begins with ">". If the content has many unrelated topics, focus on the most cohesive or story-worthy one and build a short narrative around it.' },
+        { label: 'Green txt 2', prompt: 'Summarize this content as a 4chan-style greentext story. Start each line with ">". If there are multiple topics, choose the one that forms the clearest or most entertaining narrative and focus on that.' },
+        { label: 'Green txt 3', prompt: 'If this content covers many topics, pick the most interesting or coherent story to turn into a 4chan-style greentext. Start each line with ">". Keep it short, readable, and connect the key moments naturally.' },
       ];
 
       const videoAudioTypes = ['youtube', 'youtube_short', 'podcast', 'audio', 'video'];
