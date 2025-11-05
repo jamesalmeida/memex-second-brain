@@ -201,6 +201,30 @@ const AdminSheet = observer(
                 thumbColor={adminSettingsStore.settings.ui_show_description.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="play-circle-outline"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Use Thumbnail for YouTube
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Show thumbnail + play button instead of embed (opens in YouTube app)
+                </Text>
+              </View>
+              <Switch
+                value={adminSettingsStore.settings.youtube_use_thumbnail.get() ?? false}
+                onValueChange={(value) => {
+                  adminSettingsActions.setYoutubeUseThumbnail(value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={adminSettingsStore.settings.youtube_use_thumbnail.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
           </View>
 
           {/* AI Automation Section */}
