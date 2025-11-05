@@ -749,7 +749,6 @@ const ChatSheet = observer(
       if (!chat || isTyping) return;
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setInputText(prompt);
       setIsTyping(true);
 
       try {
@@ -844,7 +843,6 @@ const ChatSheet = observer(
         setMessages(prev => [...prev, errorMsg]);
       } finally {
         setIsTyping(false);
-        setInputText('');
       }
     };
 
