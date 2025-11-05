@@ -13,11 +13,12 @@ import { observer } from '@legendapp/state/react';
 import { close, openHostApp, type InitialProps } from 'expo-share-extension';
 import uuid from 'react-native-uuid';
 import { themeStore, themeActions } from '../stores/theme';
-import { spacesStore, spacesActions } from '../stores/spaces';
+import { spacesStore } from '../stores/spaces';
 import { itemsActions } from '../stores/items';
 import { authStore, authActions } from '../stores/auth';
+import { auth } from '../services/supabase';
 import { extractURLMetadata } from '../services/urlMetadata';
-import { Item, ContentType } from '../types';
+import { Item, ContentType, User } from '../types';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -49,11 +50,35 @@ const ShareExtension = (props: InitialProps) => {
         // Load theme preference
         await themeActions.loadThemePreference();
 
-        // Load auth state
-        await authActions.initializeAuth();
+        // Initialize auth state (replicate useAuth logic)
+        authActions.setLoading(true);
+        try {
+          const { data: { session }, error } = await auth.getSession();
 
-        // Load spaces
-        await spacesActions.loadSpaces();
+          if (error) {
+            console.error('[ShareExtension] Auth session error:', error);
+          }
+
+          if (session?.user) {
+            const user: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              user_metadata: session.user.user_metadata,
+            };
+            authActions.setUser(user);
+            authActions.setSession(session);
+            console.log('[ShareExtension] User authenticated:', user.email);
+          } else {
+            console.log('[ShareExtension] No active session');
+          }
+        } catch (authError) {
+          console.error('[ShareExtension] Auth initialization error:', authError);
+        } finally {
+          authActions.setLoading(false);
+        }
+
+        // Spaces auto-load on import, just give them a moment
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Extract metadata from shared content
         if (props.url) {
@@ -154,9 +179,9 @@ const ShareExtension = (props: InitialProps) => {
   };
 
   const handleOpenHostApp = () => {
-    // Open the main app with the shared URL
-    const path = props.url ? `create?url=${encodeURIComponent(props.url)}` : '';
-    openHostApp(path);
+    // Just open the main app without a specific path
+    // The useAuth hook will handle routing to the correct screen based on auth state
+    openHostApp('');
   };
 
   if (isLoading) {
