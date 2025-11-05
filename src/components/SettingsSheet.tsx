@@ -26,9 +26,7 @@ import { itemMetadataActions } from '../stores/itemMetadata';
 import { itemTypeMetadataActions } from '../stores/itemTypeMetadata';
 import { offlineQueueActions } from '../stores/offlineQueue';
 import { syncStatusStore, syncStatusComputed } from '../stores/syncStatus';
-import { aiSettingsStore, aiSettingsActions, aiSettingsComputed } from '../stores/aiSettings';
 import { expandedItemUIStore, expandedItemUIActions } from '../stores/expandedItemUI';
-import ModelPickerSheet from './ModelPickerSheet';
 import { useState } from 'react';
 import { ReactNativeLegal } from 'react-native-legal';
 import UniversalButton from './UniversalButton';
@@ -42,7 +40,6 @@ const SettingsSheet = observer(
     const { user, signOut } = useAuth();
     const isDarkMode = themeStore.isDarkMode.get();
     const { showToast } = useToast();
-    const [modelPickerVisible, setModelPickerVisible] = useState(false);
 
     // Sync status observables
     const pendingChanges = syncStatusStore.pendingChanges.get();
@@ -52,22 +49,11 @@ const SettingsSheet = observer(
     const statusText = syncStatusComputed.statusText();
     const statusColor = syncStatusComputed.statusColor();
 
-    // AI settings observables
-    const selectedModel = aiSettingsStore.selectedModel.get();
-    const metadataModel = aiSettingsStore.metadataModel.get();
-    const availableModels = aiSettingsStore.availableModels.get();
-    const hasApiKey = aiSettingsStore.hasApiKey.get();
-    const isLoadingModels = aiSettingsStore.isLoadingModels.get();
-    const timeSinceLastFetch = aiSettingsComputed.timeSinceLastFetch();
-    const autoGenerateTranscripts = aiSettingsStore.autoGenerateTranscripts.get();
-    const autoGenerateImageDescriptions = aiSettingsStore.autoGenerateImageDescriptions.get();
-    const [modelPickerType, setModelPickerType] = useState<'chat' | 'metadata'>('chat');
-
     // Expanded item UI settings
     const autoplayXVideos = expandedItemUIStore.autoplayXVideos.get();
 
-    // Snap points for the bottom sheet - single point at 82%
-    const snapPoints = useMemo(() => ['82%'], []);
+    // Snap points for the bottom sheet
+    const snapPoints = useMemo(() => ['70%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -186,141 +172,6 @@ const SettingsSheet = observer(
               />
             </View>
 
-          </View>
-
-          {/* AI & Chat Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              AI & CHAT
-            </Text>
-
-            <TouchableOpacity
-              style={styles.row}
-              onPress={() => {
-                if (availableModels.length === 0 || !hasApiKey) {
-                  Alert.alert(
-                    'No Models Available',
-                    hasApiKey
-                      ? 'Please refresh the models list first.'
-                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
-                  );
-                  return;
-                }
-
-                // Open chat model picker
-                setModelPickerType('chat');
-                setModelPickerVisible(true);
-              }}
-            >
-              <MaterialIcons
-                name="chat"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Chat Model Selection
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {selectedModel}
-                </Text>
-              </View>
-              <MaterialIcons
-                name="chevron-right"
-                size={24}
-                color={isDarkMode ? '#666' : '#999'}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.row}
-              onPress={() => {
-                if (availableModels.length === 0 || !hasApiKey) {
-                  Alert.alert(
-                    'No Models Available',
-                    hasApiKey
-                      ? 'Please refresh the models list first.'
-                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
-                  );
-                  return;
-                }
-
-                // Open metadata model picker
-                setModelPickerType('metadata');
-                setModelPickerVisible(true);
-              }}
-            >
-              <MaterialIcons
-                name="label"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Metadata Model Selection
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {metadataModel} · Used for title/description extraction
-                </Text>
-              </View>
-              <MaterialIcons
-                name="chevron-right"
-                size={24}
-                color={isDarkMode ? '#666' : '#999'}
-              />
-            </TouchableOpacity>
-
-            <View style={styles.row}>
-              <MaterialIcons
-                name="vpn-key"
-                size={24}
-                color={hasApiKey ? (isDarkMode ? '#FFFFFF' : '#333333') : '#FF9500'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  OpenAI API Key
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {hasApiKey ? 'Configured ✅' : 'Not configured ⚠️'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <MaterialIcons
-                name="refresh"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#333333'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  Refresh Models List
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {availableModels.length > 0
-                    ? `${availableModels.length} models • Last updated: ${timeSinceLastFetch}`
-                    : 'No models loaded'}
-                </Text>
-                <View style={{ marginTop: 8 }}>
-                  <UniversalButton
-                    label="Refresh Models"
-                    icon="refresh"
-                    onPress={async () => {
-                      if (!hasApiKey) {
-                        throw new Error('API Key Required. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.');
-                      }
-                      await aiSettingsActions.fetchModels(true);
-                    }}
-                    variant="secondary"
-                    size="small"
-                    showToastOnSuccess
-                    successMessage={`Loaded ${availableModels.length} models`}
-                    errorMessage="Failed to refresh models"
-                    disabled={!hasApiKey || isLoadingModels}
-                  />
-                </View>
-              </View>
-            </View>
           </View>
 
           {/* Data & Sync Section */}
@@ -610,18 +461,7 @@ const SettingsSheet = observer(
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
-
-      {/* Model Picker Modal */}
-      <ModelPickerSheet
-        visible={modelPickerVisible}
-        onClose={() => setModelPickerVisible(false)}
-        modelType={modelPickerType}
-        onModelSelected={(modelId) => {
-          console.log(`Selected ${modelPickerType} model:`, modelId);
-          setModelPickerVisible(false);
-        }}
-      />
-    </>
+      </>
     );
   })
 );

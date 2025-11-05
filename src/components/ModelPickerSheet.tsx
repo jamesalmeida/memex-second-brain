@@ -9,7 +9,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import { aiSettingsStore, aiSettingsActions, OpenAIModel } from '../stores/aiSettings';
+import { aiSettingsComputed, aiSettingsActions, OpenAIModel } from '../stores/aiSettings';
 import { COLORS } from '../constants';
 import { BaseModal, ModalHeader } from './modals';
 
@@ -22,9 +22,9 @@ interface ModelPickerSheetProps {
 
 const ModelPickerSheet = observer(({ visible, onClose, onModelSelected, modelType = 'chat' }: ModelPickerSheetProps) => {
     const isDarkMode = themeStore.isDarkMode.get();
-    const selectedChatModel = aiSettingsStore.selectedModel.get();
-    const selectedMetadataModel = aiSettingsStore.metadataModel.get();
-    const availableModels = aiSettingsStore.availableModels.get();
+    const selectedChatModel = aiSettingsComputed.selectedModel();
+    const selectedMetadataModel = aiSettingsComputed.metadataModel();
+    const availableModels = aiSettingsComputed.availableModels();
 
     // Use appropriate selected model based on type
     const selectedModel = modelType === 'metadata' ? selectedMetadataModel : selectedChatModel;

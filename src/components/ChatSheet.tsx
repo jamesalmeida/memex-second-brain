@@ -73,6 +73,7 @@ const ChatSheet = observer(
     const [modelSwitchMessage, setModelSwitchMessage] = useState('');
     const [actualModelUsed, setActualModelUsed] = useState<string | null>(null);
     const [hasShownModelSwitchBanner, setHasShownModelSwitchBanner] = useState(false);
+    const [showManualSuggestions, setShowManualSuggestions] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // const snapPoints = useMemo(() => ['90%'], []);
@@ -86,6 +87,7 @@ const ChatSheet = observer(
       setHasShownModelSwitchBanner(false); // Reset banner flag for new chat
       setShowModelSwitchBanner(false);
       setActualModelUsed(null);
+      setShowManualSuggestions(false); // Reset manual suggestions when switching items
     }, [item?.id]);
 
     // Load or create chat when item changes
@@ -691,6 +693,9 @@ const ChatSheet = observer(
         { label: 'TL;DR', prompt: 'Give me a concise TL;DR summary of this content.' },
         { label: 'Key Takeaways', prompt: 'What are the key takeaways from this content?' },
         { label: 'Questions I Should Ask', prompt: 'What questions should I ask to better understand this content?' },
+        { label: 'Green txt 1', prompt: 'Create a 4chan-style greentext summary. Each line begins with ">". If the content has many unrelated topics, focus on the most cohesive or story-worthy one and build a short narrative around it.' },
+        { label: 'Green txt 2', prompt: 'Summarize this content as a 4chan-style greentext story. Start each line with ">". If there are multiple topics, choose the one that forms the clearest or most entertaining narrative and focus on that.' },
+        { label: 'Green txt 3', prompt: 'If this content covers many topics, pick the most interesting or coherent story to turn into a 4chan-style greentext. Start each line with ">". Keep it short, readable, and connect the key moments naturally.' },
       ];
 
       const videoAudioTypes = ['youtube', 'youtube_short', 'podcast', 'audio', 'video'];
@@ -744,7 +749,6 @@ const ChatSheet = observer(
       if (!chat || isTyping) return;
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setInputText(prompt);
       setIsTyping(true);
 
       try {
@@ -839,7 +843,6 @@ const ChatSheet = observer(
         setMessages(prev => [...prev, errorMsg]);
       } finally {
         setIsTyping(false);
-        setInputText('');
       }
     };
 
@@ -927,6 +930,9 @@ const ChatSheet = observer(
                     </TouchableOpacity>
                   </ContextMenu.Trigger>
                   <ContextMenu.Items>
+                    <Button onPress={() => setShowManualSuggestions(!showManualSuggestions)}>
+                      {showManualSuggestions ? 'Hide Suggestions' : 'Show Suggestions'}
+                    </Button>
                     <Button onPress={handleShareChat}>
                       Share Chat
                     </Button>
@@ -982,7 +988,7 @@ const ChatSheet = observer(
             ]}
           >
             {/* Suggestion Pills */}
-            {messages.length === 0 && !isTyping && (
+            {(messages.length === 0 || showManualSuggestions) && !isTyping && (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
