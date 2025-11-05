@@ -11,7 +11,7 @@ import MovieTVItemView from './itemViews/MovieTVItemView';
 import DefaultItemView from './itemViews/DefaultItemView';
 import NoteItemView from './itemViews/NoteItemView';
 import PodcastItemView from './itemViews/PodcastItemView';
-import LoadingModal from './LoadingModal';
+import LoadingOverlay from './LoadingOverlay';
 
 interface ExpandedItemViewProps {
   item: Item | null;
@@ -145,8 +145,8 @@ const ExpandedItemView = observer(
         {renderItemView()}
       </BottomSheetScrollView>
 
-      {/* Loading Modal for various operations */}
-      <LoadingModal
+      {/* Loading Overlay for various operations */}
+      <LoadingOverlay
         visible={isUnarchiving || isArchiving || isDeleting || isRefreshing}
         text={
           isArchiving ? 'Archiving...' :

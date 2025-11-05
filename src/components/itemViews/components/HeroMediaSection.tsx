@@ -150,67 +150,70 @@ const HeroMediaSection = observer(({
         </View>
       ) : hasMultipleImages ? (
         /* Image Carousel */
-        <View style={styles.carouselContainer}>
-          <ScrollView
-            ref={scrollViewRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            nestedScrollEnabled={true}
-            directionalLockEnabled={true}
-            onMomentumScrollEnd={(event) => {
-              const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
-              setCurrentImageIndex(newIndex);
-            }}
-            scrollEventThrottle={16}
-            style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
-            contentContainerStyle={{ height: CONTENT_WIDTH }}
-          >
-            {imageUrls!.map((imageUrl, index) => (
-              <View key={index} style={{ position: 'relative' }}>
-                <ImageWithActions
-                  source={{ uri: imageUrl }}
-                  imageUrl={imageUrl}
-                  style={[
-                    {
-                      width: CONTENT_WIDTH,
-                      height: CONTENT_WIDTH,
-                      backgroundColor: '#000000'
-                    },
-                    imageStyle
-                  ]}
-                  contentFit="contain"
-                  canAddAnother
-                  canRemove
-                  onImageAdd={onImageAdd}
-                  onImageRemove={() => {
-                    // If this is the thumbnail, use thumbnail remove handler
-                    if (imageUrl === item.thumbnail_url) {
-                      onThumbnailRemove();
-                    } else {
-                      // Otherwise it's a metadata image
-                      onImageRemove(imageUrl);
-                    }
-                  }}
-                />
-                {/* Optional overlay (e.g., Reddit duration badge) */}
-                {renderOverlay && renderOverlay(imageUrl)}
-              </View>
-            ))}
-          </ScrollView>
+        <>
+          <View style={styles.carouselContainer}>
+            <ScrollView
+              ref={scrollViewRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled={true}
+              directionalLockEnabled={true}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / CONTENT_WIDTH);
+                setCurrentImageIndex(newIndex);
+              }}
+              scrollEventThrottle={16}
+              style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
+              contentContainerStyle={{ height: CONTENT_WIDTH }}
+            >
+              {imageUrls!.map((imageUrl, index) => (
+                <View key={index} style={{ position: 'relative' }}>
+                  <ImageWithActions
+                    source={{ uri: imageUrl }}
+                    imageUrl={imageUrl}
+                    style={[
+                      {
+                        width: CONTENT_WIDTH,
+                        height: CONTENT_WIDTH,
+                        backgroundColor: '#000000'
+                      },
+                      imageStyle
+                    ]}
+                    contentFit="contain"
+                    canAddAnother
+                    canRemove
+                    onImageAdd={onImageAdd}
+                    onImageRemove={() => {
+                      // If this is the thumbnail, use thumbnail remove handler
+                      if (imageUrl === item.thumbnail_url) {
+                        onThumbnailRemove();
+                      } else {
+                        // Otherwise it's a metadata image
+                        onImageRemove(imageUrl);
+                      }
+                    }}
+                  />
+                  {/* Optional overlay (e.g., Reddit duration badge) */}
+                  {renderOverlay && renderOverlay(imageUrl)}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
           {/* Dots indicator */}
-          <View style={styles.dotsContainer}>
+          <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]}>
             {imageUrls!.map((_, index) => (
               <View
                 key={index}
                 style={[
                   styles.dot,
-                  index === currentImageIndex && styles.activeDot
+                  isDarkMode && styles.dotDark,
+                  index === currentImageIndex && (isDarkMode ? styles.activeDotDark : styles.activeDot)
                 ]}
               />
             ))}
           </View>
-        </View>
+        </>
       ) : hasSingleImage ? (
         /* Single Image */
         <View style={{ position: 'relative' }}>
@@ -308,23 +311,32 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   dotsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 12,
+  },
+  dotsContainerDark: {
+    // No additional styles needed, but kept for consistency
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     marginHorizontal: 4,
   },
+  dotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
   activeDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  activeDotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     width: 10,
     height: 10,
     borderRadius: 5,

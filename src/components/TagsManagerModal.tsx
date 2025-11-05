@@ -4,7 +4,6 @@ import {
   Keyboard,
   KeyboardEvent,
   LayoutChangeEvent,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { BaseModal, ModalHeader } from './modals';
 
 const LIST_MAX_HEIGHT = 240;
 
@@ -362,42 +362,12 @@ const TagsManagerModal = observer(({
   }, [onCancel]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleCancel}
-    >
-      <View
-        style={[
-          styles.modalOverlay,
-          keyboardVisible ? styles.modalOverlayKeyboard : styles.modalOverlayCentered,
-          keyboardVisible ? { paddingBottom: keyboardOffset + 16 } : null,
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.backdrop,
-            keyboardVisible ? styles.backdropKeyboard : styles.backdropCentered,
-          ]}
-          activeOpacity={1}
-          onPress={handleCancel}
-          focusable={false}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(event) => event.stopPropagation()}
-            style={[styles.modalContent, isDarkMode && styles.modalContentDark]}
-            focusable={false}
-          >
-            <View style={styles.header}>
-              <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-                Add Tags
-              </Text>
-              <TouchableOpacity onPress={handleCancel} style={styles.closeButton} focusable={false}>
-                <MaterialIcons name="close" size={22} color={isDarkMode ? '#FFFFFF' : '#3A3A3C'} />
-              </TouchableOpacity>
-            </View>
+    <BaseModal visible={visible} onClose={handleCancel} keyboardAware={true}>
+      <ModalHeader
+        title="Add Tags"
+        onClose={handleCancel}
+        isDarkMode={isDarkMode}
+      />
 
             <View
               style={[
@@ -478,69 +448,30 @@ const TagsManagerModal = observer(({
               )}
             </View>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.doneButton,
-                isDarkMode && styles.doneButtonDark,
-                (isSubmitting || pressed) && styles.doneButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              android_disableSound
-              focusable={false}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.doneButtonText}>Done</Text>
-              )}
-            </Pressable>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+      <Pressable
+        style={({ pressed }) => [
+          styles.doneButton,
+          isDarkMode && styles.doneButtonDark,
+          (isSubmitting || pressed) && styles.doneButtonDisabled,
+        ]}
+        onPress={handleSubmit}
+        disabled={isSubmitting}
+        android_disableSound
+        focusable={false}
+      >
+        {isSubmitting ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.doneButtonText}>Done</Text>
+        )}
+      </Pressable>
+    </BaseModal>
   );
 });
 
 export default TagsManagerModal;
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    paddingHorizontal: 20,
-  },
-  modalOverlayCentered: {
-    justifyContent: 'center',
-  },
-  modalOverlayKeyboard: {
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  backdropCentered: {
-    justifyContent: 'center',
-  },
-  backdropKeyboard: {
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    paddingBottom: 20,
-  },
-  modalContentDark: {
-    backgroundColor: '#1C1C1E',
-  },
   measureContainer: {
     position: 'absolute',
     opacity: 0,
@@ -548,28 +479,6 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     zIndex: -1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#3A3A3C',
-    letterSpacing: 0.5,
-  },
-  titleDark: {
-    color: '#FFFFFF',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   selectedTagsSection: {
     marginTop: 0,

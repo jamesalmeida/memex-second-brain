@@ -19,9 +19,6 @@ import { filterActions } from '../stores/filter';
 import { userSettingsActions } from '../stores/userSettings';
 import { adminSettingsActions } from '../stores/adminSettings';
 
-// Global flag to ensure auth initialization happens only once
-let isAuthInitialized = false;
-
 export function useAuth() {
   // Direct access to Legend-State observables
   const isAuthenticated = authStore.isAuthenticated.get();
@@ -33,12 +30,11 @@ export function useAuth() {
 
   useEffect(() => {
     // Prevent multiple initializations
-    if (isAuthInitialized || hasInitialized.current) {
+    if (hasInitialized.current) {
       console.log('🚀 useAuth: Already initialized, skipping...');
       return;
     }
 
-    isAuthInitialized = true;
     hasInitialized.current = true;
     
     console.log('🚀 useAuth hook initialized');
@@ -168,27 +164,19 @@ export function useAuth() {
             console.error('Failed to stop real-time sync:', error);
           });
 
-          // Clear all user data from AsyncStorage
+          // Clear all user data from AsyncStorage INCLUDING Supabase auth session
           console.log('🧹 Clearing all user data from storage...');
           try {
-            await AsyncStorage.multiRemove([
-              STORAGE_KEYS.ITEMS,
-              STORAGE_KEYS.SPACES,
-              STORAGE_KEYS.ITEM_SPACES,
-              STORAGE_KEYS.ITEM_METADATA,
-              STORAGE_KEYS.ITEM_TYPE_METADATA,
-              STORAGE_KEYS.OFFLINE_QUEUE,
-              STORAGE_KEYS.VIDEO_TRANSCRIPTS,
-              STORAGE_KEYS.SYNC_STATUS,
-              STORAGE_KEYS.ITEM_CHATS,
-              STORAGE_KEYS.CHAT_MESSAGES,
-              STORAGE_KEYS.AI_SETTINGS,
-              STORAGE_KEYS.AI_MODELS,
-              STORAGE_KEYS.FILTERS,
-              STORAGE_KEYS.USER_SETTINGS,
-              STORAGE_KEYS.ADMIN_SETTINGS,
-            ]);
-            console.log('✅ Cleared all user data from storage');
+            // Get all AsyncStorage keys
+            const allKeys = await AsyncStorage.getAllKeys();
+            console.log('🔑 All AsyncStorage keys:', allKeys);
+
+            // Filter out theme preference (we want to keep that across logout)
+            const keysToRemove = allKeys.filter(key => key !== 'theme');
+
+            // Remove everything except theme
+            await AsyncStorage.multiRemove(keysToRemove);
+            console.log('✅ Cleared all user data from storage (including Supabase session)');
           } catch (error) {
             console.error('❌ Error clearing storage:', error);
           }
@@ -205,6 +193,7 @@ export function useAuth() {
           await aiSettingsActions.clearAll();
           await filterActions.clearAll();
           await userSettingsActions.clearSettings();
+          // Note: adminSettings are global (not user-specific) so we don't clear them
 
           // Reset auth store
           authActions.reset();
@@ -279,25 +268,18 @@ export function useAuth() {
 
       // Fallback: proactively clear local state and storage in case event is delayed
       try {
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.ITEMS,
-          STORAGE_KEYS.SPACES,
-          STORAGE_KEYS.ITEM_SPACES,
-          STORAGE_KEYS.ITEM_METADATA,
-          STORAGE_KEYS.ITEM_TYPE_METADATA,
-          STORAGE_KEYS.OFFLINE_QUEUE,
-          STORAGE_KEYS.VIDEO_TRANSCRIPTS,
-          STORAGE_KEYS.SYNC_STATUS,
-          STORAGE_KEYS.ITEM_CHATS,
-          STORAGE_KEYS.CHAT_MESSAGES,
-          STORAGE_KEYS.AI_SETTINGS,
-          STORAGE_KEYS.AI_MODELS,
-          STORAGE_KEYS.FILTERS,
-          STORAGE_KEYS.USER_SETTINGS,
-          STORAGE_KEYS.ADMIN_SETTINGS,
-        ]);
+        // Get all AsyncStorage keys
+        const allKeys = await AsyncStorage.getAllKeys();
+        console.log('🔑 [signOut fallback] All AsyncStorage keys:', allKeys);
+
+        // Filter out theme preference (we want to keep that across logout)
+        const keysToRemove = allKeys.filter(key => key !== 'theme');
+
+        // Remove everything except theme
+        await AsyncStorage.multiRemove(keysToRemove);
+        console.log('✅ [signOut fallback] Cleared all storage (including Supabase session)');
       } catch (err) {
-        // swallow
+        console.error('❌ [signOut fallback] Error clearing storage:', err);
       }
 
       itemsActions.clearAll();
@@ -311,6 +293,7 @@ export function useAuth() {
       await aiSettingsActions.clearAll();
       await filterActions.clearAll();
       await userSettingsActions.clearSettings();
+      // Note: adminSettings are global (not user-specific) so we don't clear them
 
       authActions.reset();
       authActions.setLoading(false);

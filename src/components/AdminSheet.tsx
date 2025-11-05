@@ -6,17 +6,19 @@ import {
   Switch,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { Host, Picker } from '@expo/ui/swift-ui';
 import { themeStore } from '../stores/theme';
-import { COLORS } from '../constants';
+import { COLORS, API } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
 import { isAPIConfigured } from '../config/api';
-import { adminSettingsStore, adminSettingsActions } from '../stores/adminSettings';
+import { adminSettingsStore, adminSettingsActions, adminSettingsComputed } from '../stores/adminSettings';
+import ModelPickerSheet from './ModelPickerSheet';
 
 interface AdminSheetProps {
   onOpen?: () => void;
@@ -35,6 +37,18 @@ const AdminSheet = observer(
     const [serpError, setSerpError] = useState<string | null>(null);
     const [serpAccount, setSerpAccount] = useState<SerpApiAccount | null>(null);
     const [serpLastUpdated, setSerpLastUpdated] = useState<number | null>(null);
+
+    // Model picker state
+    const [modelPickerVisible, setModelPickerVisible] = useState(false);
+    const [modelPickerType, setModelPickerType] = useState<'chat' | 'metadata'>('chat');
+    const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+
+    // AI settings observables
+    const selectedModel = adminSettingsComputed.aiChatModel();
+    const metadataModel = adminSettingsComputed.aiMetadataModel();
+    const availableModels = adminSettingsComputed.aiAvailableModels();
+    const hasApiKey = !!API.OPENAI_API_KEY;
+    const timeSinceLastFetch = adminSettingsComputed.timeSinceLastFetch();
 
     // YouTube source picker indices (computed from adminSettingsStore)
     const youtubeSourceIndex = (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' ? 0 : 1;
@@ -65,7 +79,7 @@ const AdminSheet = observer(
 
 
     // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['40%'], []);
+    const snapPoints = useMemo(() => ['82%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -81,6 +95,7 @@ const AdminSheet = observer(
     );
 
     return (
+      <>
       <BottomSheet
         ref={ref}
         index={-1}
@@ -322,6 +337,168 @@ const AdminSheet = observer(
 
           </View>
 
+          {/* AI & CHAT Section (Global) */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              AI & CHAT (Global)
+            </Text>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="vpn-key"
+                size={24}
+                color={hasApiKey ? (isDarkMode ? '#FFFFFF' : '#333333') : '#FF9500'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  OpenAI API Key
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {hasApiKey ? 'Configured ✅' : 'Not configured ⚠️'}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                if (availableModels.length === 0 || !hasApiKey) {
+                  Alert.alert(
+                    'No Models Available',
+                    hasApiKey
+                      ? 'Please refresh the models list first.'
+                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
+                  );
+                  return;
+                }
+
+                // Open chat model picker
+                setModelPickerType('chat');
+                setModelPickerVisible(true);
+              }}
+            >
+              <MaterialIcons
+                name="chat"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Chat Model Selection
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {selectedModel} · Used for all chat conversations (applies to all users)
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                if (availableModels.length === 0 || !hasApiKey) {
+                  Alert.alert(
+                    'No Models Available',
+                    hasApiKey
+                      ? 'Please refresh the models list first.'
+                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
+                  );
+                  return;
+                }
+
+                // Open metadata model picker
+                setModelPickerType('metadata');
+                setModelPickerVisible(true);
+              }}
+            >
+              <MaterialIcons
+                name="label"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Metadata Model Selection
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {metadataModel} · Used for title/description extraction (applies to all users)
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+
+            
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={async () => {
+                if (!hasApiKey) {
+                  Alert.alert(
+                    'API Key Required',
+                    'Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file to use AI features.'
+                  );
+                  return;
+                }
+
+                setIsRefreshingModels(true);
+                try {
+                  await adminSettingsActions.fetchModels(true);
+                  showToast({ message: `Loaded ${availableModels.length} models`, type: 'success' });
+                } catch (error: any) {
+                  Alert.alert('Error', error.message || 'Failed to refresh models');
+                } finally {
+                  setIsRefreshingModels(false);
+                }
+              }}
+              disabled={isRefreshingModels}
+            >
+              <MaterialIcons
+                name="refresh"
+                size={24}
+                color={
+                  isRefreshingModels
+                    ? '#999'
+                    : isDarkMode
+                    ? '#FFFFFF'
+                    : '#333333'
+                }
+              />
+              <View style={styles.rowContent}>
+                <Text
+                  style={[
+                    styles.rowTitle,
+                    isDarkMode && styles.rowTitleDark,
+                    isRefreshingModels && styles.rowDisabled,
+                  ]}
+                >
+                  {isRefreshingModels ? 'Refreshing...' : 'Refresh Models List'}
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {availableModels.length > 0
+                    ? `${availableModels.length} models • Last updated: ${timeSinceLastFetch}`
+                    : 'No models loaded'}
+                </Text>
+              </View>
+              {isRefreshingModels ? (
+                <ActivityIndicator color={COLORS.primary} />
+              ) : (
+                <MaterialIcons
+                  name="chevron-right"
+                  size={24}
+                  color={isDarkMode ? '#666' : '#999'}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+
           {/* SerpAPI Status Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
@@ -430,6 +607,31 @@ const AdminSheet = observer(
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
+
+      {/* Model Picker Modal */}
+      <ModelPickerSheet
+        visible={modelPickerVisible}
+        onClose={() => setModelPickerVisible(false)}
+        modelType={modelPickerType}
+        onModelSelected={async (modelId) => {
+          console.log(`Selected ${modelPickerType} model:`, modelId);
+          try {
+            if (modelPickerType === 'chat') {
+              await adminSettingsActions.setAiChatModel(modelId);
+            } else {
+              await adminSettingsActions.setAiMetadataModel(modelId);
+            }
+            showToast({
+              message: `${modelPickerType === 'chat' ? 'Chat' : 'Metadata'} model updated successfully`,
+              type: 'success'
+            });
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to update model');
+          }
+          setModelPickerVisible(false);
+        }}
+      />
+      </>
     );
   })
 );
@@ -521,6 +723,9 @@ const styles = StyleSheet.create({
   },
   rowSubtitleDark: {
     color: '#666666',
+  },
+  rowDisabled: {
+    opacity: 0.5,
   },
   valueText: {
     fontSize: 16,
