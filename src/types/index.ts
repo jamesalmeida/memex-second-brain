@@ -245,6 +245,16 @@ export interface AdminSettings {
   auto_generate_transcripts: boolean;
   auto_generate_image_descriptions: boolean;
   auto_generate_tldr: boolean;
+  // AI Model Configuration (Global)
+  ai_chat_model: string;
+  ai_metadata_model: string;
+  ai_available_models: Array<{
+    id: string;
+    object: string;
+    created: number;
+    owned_by: string;
+  }>;
+  ai_last_models_fetch: string | null;
   // API Source Preferences
   youtube_source: 'youtubei' | 'serpapi';
   youtube_transcript_source: 'youtubei' | 'serpapi';
