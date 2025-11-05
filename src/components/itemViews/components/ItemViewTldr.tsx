@@ -14,6 +14,29 @@ interface TldrSectionProps {
 const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
   const [tldr, setTldr] = useState<string>(item.tldr || '');
   const [isGeneratingTldr, setIsGeneratingTldr] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [textTruncated, setTextTruncated] = useState(false);
+  const [fullLineCount, setFullLineCount] = useState<number | null>(null);
+
+  const showMoreThreshold = 300;
+  const collapsedLines = 6;
+
+  const handleTextLayout = (event: any) => {
+    // Detect full line count when text is rendered without truncation
+    if (event.nativeEvent.lines && fullLineCount === null) {
+      const lines = event.nativeEvent.lines;
+      const lineCount = lines.length;
+      setFullLineCount(lineCount);
+      const isTruncated = lineCount > collapsedLines;
+      console.log('📏 Text layout detected:', {
+        lineCount,
+        collapsedLines,
+        isTruncated,
+        tldrLength: tldr.length,
+      });
+      setTextTruncated(isTruncated);
+    }
+  };
 
   const generateTldr = async () => {
     if (!item) return;
@@ -38,6 +61,10 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
 
       if (generatedTldr && generatedTldr !== 'Summary not available') {
         setTldr(generatedTldr);
+        // Reset line count detection for new TLDR
+        setFullLineCount(null);
+        setTextTruncated(false);
+        setCollapsed(true);
         // Save to database
         await itemsActions.updateItemWithSync(item.id, { tldr: generatedTldr });
         console.log('TLDR generated and saved successfully');
@@ -58,22 +85,40 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
         TLDR
       </Text>
       {tldr ? (
-        <View style={styles.tldrContent}>
-          <Text style={[styles.tldrText, isDarkMode && styles.tldrTextDark]} numberOfLines={0}>
-            {tldr}
-          </Text>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={generateTldr}
-            disabled={isGeneratingTldr}
-            activeOpacity={0.7}
-          >
-            {isGeneratingTldr ? (
-              <ActivityIndicator size="small" color={isDarkMode ? '#E5E5E7' : '#333'} />
-            ) : (
-              <Feather name="refresh-cw" size={18} color={isDarkMode ? '#E5E5E7' : '#555'} />
-            )}
-          </TouchableOpacity>
+        <View>
+          <View style={styles.tldrContent}>
+            <Text
+              style={[styles.tldrText, isDarkMode && styles.tldrTextDark]}
+              numberOfLines={
+                tldr.length > showMoreThreshold && collapsed && fullLineCount !== null
+                  ? collapsedLines
+                  : 0
+              }
+              ellipsizeMode="tail"
+              onTextLayout={handleTextLayout}
+            >
+              {tldr}
+            </Text>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={generateTldr}
+              disabled={isGeneratingTldr}
+              activeOpacity={0.7}
+            >
+              {isGeneratingTldr ? (
+                <ActivityIndicator size="small" color={isDarkMode ? '#E5E5E7' : '#333'} />
+              ) : (
+                <Feather name="refresh-cw" size={18} color={isDarkMode ? '#E5E5E7' : '#555'} />
+              )}
+            </TouchableOpacity>
+          </View>
+          {tldr.length > showMoreThreshold && textTruncated && (
+            <TouchableOpacity onPress={() => setCollapsed(!collapsed)} activeOpacity={0.7}>
+              <Text style={[styles.toggleText, isDarkMode && styles.toggleTextDark]}>
+                {collapsed ? 'Show more ▼' : 'Show less ▲'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <TouchableOpacity
@@ -167,6 +212,21 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  toggleText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
+    textAlign: 'center',
+    position: 'absolute',
+    bottom: -17,
+    alignSelf: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 5,
+  },
+  toggleTextDark: {
+    color: '#5AC8FA',
+    backgroundColor: '#1C1C1E',
   },
 });
 
