@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = {
   youtube_source: 'youtubei' as const,
   youtube_transcript_source: 'youtubei' as const,
   ui_show_description: false,
+  youtube_use_thumbnail: false,
 };
 
 const initialState: AdminSettingsState = {
@@ -46,6 +47,7 @@ export const adminSettingsComputed = {
   youtubeSource: () => adminSettingsStore.settings.get()?.youtube_source ?? DEFAULT_SETTINGS.youtube_source,
   youtubeTranscriptSource: () => adminSettingsStore.settings.get()?.youtube_transcript_source ?? DEFAULT_SETTINGS.youtube_transcript_source,
   showDescription: () => adminSettingsStore.settings.get()?.ui_show_description ?? DEFAULT_SETTINGS.ui_show_description,
+  youtubeUseThumbnail: () => adminSettingsStore.settings.get()?.youtube_use_thumbnail ?? DEFAULT_SETTINGS.youtube_use_thumbnail,
   isLoading: () => adminSettingsStore.isLoading.get(),
 
   // Check if models need refresh (24h cache)
@@ -281,6 +283,10 @@ export const adminSettingsActions = {
 
   setShowDescription: async (enabled: boolean) => {
     await adminSettingsActions.updateSetting('ui_show_description', enabled);
+  },
+
+  setYoutubeUseThumbnail: async (enabled: boolean) => {
+    await adminSettingsActions.updateSetting('youtube_use_thumbnail', enabled);
   },
 
   setAiChatModel: async (modelId: string) => {
