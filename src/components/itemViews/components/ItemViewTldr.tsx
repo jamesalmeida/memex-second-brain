@@ -1,20 +1,42 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Item } from '../../../types';
 import { itemsActions } from '../../../stores/items';
 import { openai } from '../../../services/openai';
 import { buildItemContext } from '../../../services/contextBuilder';
-import InlineEditableText from '../../InlineEditableText';
 
 interface TldrSectionProps {
   item: Item;
   isDarkMode: boolean;
-  onTldrChange?: (tldr: string) => void;
 }
 
-const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChange }) => {
+const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
   const [tldr, setTldr] = useState<string>(item.tldr || '');
   const [isGeneratingTldr, setIsGeneratingTldr] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [textTruncated, setTextTruncated] = useState(false);
+  const [fullLineCount, setFullLineCount] = useState<number | null>(null);
+
+  const showMoreThreshold = 300;
+  const collapsedLines = 6;
+
+  const handleTextLayout = (event: any) => {
+    // Detect full line count when text is rendered without truncation
+    if (event.nativeEvent.lines && fullLineCount === null) {
+      const lines = event.nativeEvent.lines;
+      const lineCount = lines.length;
+      setFullLineCount(lineCount);
+      const isTruncated = lineCount > collapsedLines;
+      console.log('📏 Text layout detected:', {
+        lineCount,
+        collapsedLines,
+        isTruncated,
+        tldrLength: tldr.length,
+      });
+      setTextTruncated(isTruncated);
+    }
+  };
 
   const generateTldr = async () => {
     if (!item) return;
@@ -39,9 +61,12 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChang
 
       if (generatedTldr && generatedTldr !== 'Summary not available') {
         setTldr(generatedTldr);
+        // Reset line count detection for new TLDR
+        setFullLineCount(null);
+        setTextTruncated(false);
+        setCollapsed(true);
         // Save to database
         await itemsActions.updateItemWithSync(item.id, { tldr: generatedTldr });
-        onTldrChange?.(generatedTldr);
         console.log('TLDR generated and saved successfully');
       } else {
         alert('Failed to generate TLDR. Please try again.');
@@ -54,32 +79,46 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChang
     }
   };
 
-  const handleSaveTldr = async (newTldr: string) => {
-    setTldr(newTldr);
-    await itemsActions.updateItemWithSync(item.id, { tldr: newTldr });
-    onTldrChange?.(newTldr);
-  };
-
   return (
     <View style={[styles.tldrContainer, isDarkMode && styles.tldrContainerDark]}>
       <Text style={[styles.tldrLabel, isDarkMode && styles.tldrLabelDark]}>
         TLDR
       </Text>
       {tldr ? (
-        <View style={styles.tldrContent}>
-          <InlineEditableText
-            value={tldr}
-            placeholder="AI-generated summary"
-            onSave={handleSaveTldr}
-            style={[styles.tldrText, isDarkMode && styles.tldrTextDark]}
-            multiline
-            maxLines={20}
-            collapsible
-            collapsedLines={6}
-            showMoreThreshold={200}
-            isDarkMode={isDarkMode}
-            hideEditIcon={true}
-          />
+        <View>
+          <View style={styles.tldrContent}>
+            <Text
+              style={[styles.tldrText, isDarkMode && styles.tldrTextDark]}
+              numberOfLines={
+                tldr.length > showMoreThreshold && collapsed && fullLineCount !== null
+                  ? collapsedLines
+                  : 0
+              }
+              ellipsizeMode="tail"
+              onTextLayout={handleTextLayout}
+            >
+              {tldr}
+            </Text>
+            <TouchableOpacity
+              style={[styles.refreshButton, isDarkMode && styles.refreshButtonDark]}
+              onPress={generateTldr}
+              disabled={isGeneratingTldr}
+              activeOpacity={0.7}
+            >
+              {isGeneratingTldr ? (
+                <ActivityIndicator size="small" color={isDarkMode ? '#E5E5E7' : '#333'} />
+              ) : (
+                <Feather name="refresh-cw" size={18} color={isDarkMode ? '#E5E5E7' : '#555'} />
+              )}
+            </TouchableOpacity>
+          </View>
+          {tldr.length > showMoreThreshold && textTruncated && (
+            <TouchableOpacity onPress={() => setCollapsed(!collapsed)} activeOpacity={0.7}>
+              <Text style={[styles.toggleText, isDarkMode && styles.toggleTextDark]}>
+                {collapsed ? 'Show more ▼' : 'Show less ▲'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <TouchableOpacity
@@ -129,7 +168,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -9,
     left: 15,
-    right: 0,
     backgroundColor: 'white',
     maxWidth: 44,
   },
@@ -137,8 +175,21 @@ const styles = StyleSheet.create({
     color: '#FF8A8A',
     backgroundColor: '#1C1C1E',
   },
+  refreshButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: -4,
+    padding: 4,
+    zIndex: 10,
+    backgroundColor: 'white',
+    borderRadius: 13,
+  },
+  refreshButtonDark: {
+    backgroundColor: '#1C1C1E',
+  },
   tldrContent: {
     flex: 1,
+    position: 'relative',
   },
   tldrText: {
     fontSize: 15,
@@ -166,6 +217,21 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  toggleText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
+    textAlign: 'center',
+    position: 'absolute',
+    bottom: -17,
+    alignSelf: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 5,
+  },
+  toggleTextDark: {
+    color: '#5AC8FA',
+    backgroundColor: '#1C1C1E',
   },
 });
 

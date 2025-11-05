@@ -64,7 +64,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             </View>
           </View>
       ) : hasMultipleImages ? (
-        <View style={{ position: 'relative' }}>
+        <>
           <ScrollView
             ref={scrollViewRef}
             horizontal
@@ -98,18 +98,19 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             ))}
           </ScrollView>
           {/* Dots indicator */}
-          <View style={styles.dotsContainer} pointerEvents="none">
+          <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
             {imageUrls!.map((_, index) => (
               <View
                 key={index}
                 style={[
                   styles.dot,
-                  index === currentImageIndex && styles.activeDot
+                  isDarkMode && styles.dotDark,
+                  index === currentImageIndex && (isDarkMode ? styles.activeDotDark : styles.activeDot)
                 ]}
               />
             ))}
           </View>
-        </View>
+        </>
       ) : item.thumbnail_url ? (
         <View>
           <Image
@@ -337,23 +338,32 @@ const styles = StyleSheet.create({
     color: '#CCCCCC',
   },
   dotsContainer: {
-    position: 'absolute',
-    bottom: 8,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 8,
+  },
+  dotsContainerDark: {
+    // No additional styles needed, but kept for consistency
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     marginHorizontal: 3,
   },
+  dotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
   activeDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  activeDotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     width: 8,
     height: 8,
     borderRadius: 4,

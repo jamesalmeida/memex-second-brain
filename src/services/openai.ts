@@ -29,6 +29,59 @@ export interface ChatCompletionResult extends ChatCompletion {
   requestedModel?: string;
 }
 
+// OpenAI Usage API types
+export interface OpenAIUsageData {
+  object: string;
+  data: Array<{
+    aggregation_timestamp: number;
+    n_requests: number;
+    operation: string;
+    snapshot_id: string;
+    n_context_tokens_total: number;
+    n_generated_tokens_total: number;
+  }>;
+  ft_data?: any[];
+  dalle_api_data?: any[];
+  whisper_api_data?: any[];
+  tts_api_data?: any[];
+  current_usage_usd?: number;
+}
+
+export interface OpenAICostsData {
+  object: string;
+  data: Array<{
+    timestamp: number;
+    line_items: Array<{
+      name: string;
+      cost: number;
+    }>;
+  }>;
+  has_more: boolean;
+  next_page?: string;
+}
+
+export interface OpenAIRateLimits {
+  requestsLimit?: number;
+  requestsRemaining?: number;
+  tokensLimit?: number;
+  tokensRemaining?: number;
+  resetRequests?: string;
+  resetTokens?: string;
+}
+
+export interface OpenAIAccountStatus {
+  isValid: boolean;
+  error?: string;
+  rateLimits?: OpenAIRateLimits;
+  organizationId?: string;
+  availableModelsCount?: number;
+  lastChecked: number;
+}
+
+export interface OpenAIError {
+  error: string;
+}
+
 // OpenAI API helpers
 export const openai = {
   async createChatCompletion(
@@ -322,6 +375,156 @@ export const openai = {
     } catch (error) {
       console.error('Error fetching OpenAI models:', error);
       return [];
+    }
+  },
+
+  // Extract rate limit information from response headers
+  extractRateLimits(headers: Headers): OpenAIRateLimits {
+    return {
+      requestsLimit: headers.get('x-ratelimit-limit-requests')
+        ? parseInt(headers.get('x-ratelimit-limit-requests')!)
+        : undefined,
+      requestsRemaining: headers.get('x-ratelimit-remaining-requests')
+        ? parseInt(headers.get('x-ratelimit-remaining-requests')!)
+        : undefined,
+      tokensLimit: headers.get('x-ratelimit-limit-tokens')
+        ? parseInt(headers.get('x-ratelimit-limit-tokens')!)
+        : undefined,
+      tokensRemaining: headers.get('x-ratelimit-remaining-tokens')
+        ? parseInt(headers.get('x-ratelimit-remaining-tokens')!)
+        : undefined,
+      resetRequests: headers.get('x-ratelimit-reset-requests') || undefined,
+      resetTokens: headers.get('x-ratelimit-reset-tokens') || undefined,
+    };
+  },
+
+  // Fetch organization costs (daily breakdown)
+  async fetchCosts(
+    startDate?: Date,
+    endDate?: Date,
+    limit: number = 7
+  ): Promise<OpenAICostsData | OpenAIError> {
+    if (!API.OPENAI_API_KEY) {
+      return { error: 'API key not configured' };
+    }
+
+    try {
+      // Default to last 7 days if no dates provided
+      const end = endDate || new Date();
+      const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const startTime = Math.floor(start.getTime() / 1000);
+      const endTime = Math.floor(end.getTime() / 1000);
+
+      const url = `https://api.openai.com/v1/organization/costs?start_time=${startTime}&end_time=${endTime}&bucket_width=1d&limit=${limit}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { error: errorData.error?.message || `HTTP ${response.status}` };
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching OpenAI costs:', error);
+      return { error: error.message || 'Failed to fetch costs' };
+    }
+  },
+
+  // Fetch usage data
+  async fetchUsage(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<OpenAIUsageData | OpenAIError> {
+    if (!API.OPENAI_API_KEY) {
+      return { error: 'API key not configured' };
+    }
+
+    try {
+      // Default to last 7 days if no dates provided
+      const end = endDate || new Date();
+      const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const startDateStr = start.toISOString().split('T')[0];
+      const endDateStr = end.toISOString().split('T')[0];
+
+      const url = `https://api.openai.com/v1/usage?date=${startDateStr}&date=${endDateStr}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { error: errorData.error?.message || `HTTP ${response.status}` };
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching OpenAI usage:', error);
+      return { error: error.message || 'Failed to fetch usage' };
+    }
+  },
+
+  // Fetch account status (validates API key and gets rate limits)
+  async fetchAccountStatus(): Promise<OpenAIAccountStatus> {
+    if (!API.OPENAI_API_KEY) {
+      return {
+        isValid: false,
+        error: 'API key not configured',
+        lastChecked: Date.now(),
+      };
+    }
+
+    try {
+      // Make a minimal API call to check key validity and get rate limits
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return {
+          isValid: false,
+          error: errorData.error?.message || `HTTP ${response.status}`,
+          lastChecked: Date.now(),
+        };
+      }
+
+      const data = await response.json();
+      const rateLimits = this.extractRateLimits(response.headers);
+
+      // Try to get organization ID from headers
+      const organizationId = response.headers.get('openai-organization') || undefined;
+
+      return {
+        isValid: true,
+        rateLimits,
+        organizationId,
+        availableModelsCount: data.data?.length || 0,
+        lastChecked: Date.now(),
+      };
+    } catch (error: any) {
+      console.error('Error fetching OpenAI account status:', error);
+      return {
+        isValid: false,
+        error: error.message || 'Failed to fetch account status',
+        lastChecked: Date.now(),
+      };
     }
   },
 };

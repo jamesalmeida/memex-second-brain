@@ -101,6 +101,7 @@ const YouTubeItemView = observer(({
 }: YouTubeItemViewProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const showDescription = adminSettingsStore.settings.ui_show_description.get() ?? false;
+  const useThumbnail = adminSettingsStore.settings.youtube_use_thumbnail.get() ?? false;
   const { showToast } = useToast();
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(currentSpaceId || null);
@@ -580,28 +581,89 @@ const YouTubeItemView = observer(({
         item={itemToDisplay}
       />
 
-      {/* YouTube Video Embed */}
+      {/* YouTube Video Embed or Thumbnail */}
       {getYouTubeVideoId(itemToDisplay?.url) && (
         console.log('🔍 [YouTubeItemView] YouTube video ID:', getYouTubeVideoId(itemToDisplay.url)),
         <View style={styles.videoContainer}>
-          <View style={isShort ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
-            <WebView
-              source={{
-                // uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&referrerpolicy=strict-origin-when-cross-origin`
-                uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=http://localhost`
-
+          {useThumbnail ? (
+            // Thumbnail Mode: Show thumbnail with play button, tap opens YouTube app
+            <TouchableOpacity
+              style={isShort ? styles.youtubeShortEmbed : styles.youtubeEmbed}
+              onPress={() => {
+                const videoId = getYouTubeVideoId(itemToDisplay.url);
+                if (videoId) {
+                  const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                  Linking.openURL(youtubeUrl).catch(err => {
+                    console.error('Failed to open YouTube:', err);
+                    showToast({ message: 'Failed to open YouTube app', type: 'error' });
+                  });
+                }
               }}
-              style={styles.webView}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              mixedContentMode="compatibility"
-              originWhitelist={['*']}
-              // userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
-            />
-          </View>
+              activeOpacity={0.9}
+            >
+              {itemToDisplay.thumbnail_url ? (
+                <Image
+                  source={{ uri: itemToDisplay.thumbnail_url }}
+                  style={styles.thumbnailImageFull}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.placeholderThumbnailFull}>
+                  <Text style={styles.placeholderPlayIcon}>▶</Text>
+                </View>
+              )}
+              {/* Play Button Overlay */}
+              <View style={styles.playButtonOverlayFull} pointerEvents="none">
+                {isShort ? (
+                  <>
+                    <Image
+                      source={require('../../../assets/icon_youtube_shorts.svg')}
+                      style={styles.shortsLogoFull}
+                      contentFit="contain"
+                    />
+                    <Image
+                      source={require('../../../assets/icon_youtube_play.svg')}
+                      style={styles.shortsPlayIconFull}
+                      contentFit="contain"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Image
+                      source={require('../../../assets/icon_youtube.svg')}
+                      style={styles.youtubeLogoFull}
+                      contentFit="contain"
+                    />
+                    <Image
+                      source={require('../../../assets/icon_youtube_play.svg')}
+                      style={styles.youtubePlayIconFull}
+                      contentFit="contain"
+                    />
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          ) : (
+            // Embed Mode: Show WebView embed
+            <View style={isShort ? styles.youtubeShortEmbed : styles.youtubeEmbed}>
+              <WebView
+                source={{
+                  // uri: `https://www.youtube-nocookie.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&referrerpolicy=strict-origin-when-cross-origin`
+                  uri: `https://www.youtube.com/embed/${getYouTubeVideoId(itemToDisplay.url)}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=http://localhost`
+
+                }}
+                style={styles.webView}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                startInLoadingState={true}
+                mixedContentMode="compatibility"
+                originWhitelist={['*']}
+                // userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+              />
+            </View>
+          )}
         </View>
       )}
 
@@ -1620,5 +1682,53 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  // Thumbnail mode styles
+  thumbnailImageFull: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000000',
+  },
+  placeholderThumbnailFull: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FF0000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderPlayIcon: {
+    fontSize: 72,
+    color: '#FFFFFF',
+  },
+  playButtonOverlayFull: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  youtubeLogoFull: {
+    width: 84,
+    height: 60,
+    opacity: 0.75,
+  },
+  youtubePlayIconFull: {
+    position: 'absolute',
+    width: 84,
+    height: 60,
+    opacity: 1,
+  },
+  shortsLogoFull: {
+    width: 96,
+    height: 120,
+    opacity: 0.75,
+  },
+  shortsPlayIconFull: {
+    position: 'absolute',
+    width: 112,
+    height: 136,
+    opacity: 1,
   },
 });

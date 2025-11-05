@@ -17,9 +17,14 @@ const DEFAULT_SETTINGS = {
   auto_generate_transcripts: false,
   auto_generate_image_descriptions: false,
   auto_generate_tldr: false,
+  ai_chat_model: 'gpt-4o-mini',
+  ai_metadata_model: 'gpt-4o-mini',
+  ai_available_models: [],
+  ai_last_models_fetch: null,
   youtube_source: 'youtubei' as const,
   youtube_transcript_source: 'youtubei' as const,
   ui_show_description: false,
+  youtube_use_thumbnail: false,
 };
 
 const initialState: AdminSettingsState = {
@@ -35,10 +40,45 @@ export const adminSettingsComputed = {
   autoGenerateTranscripts: () => adminSettingsStore.settings.get()?.auto_generate_transcripts ?? DEFAULT_SETTINGS.auto_generate_transcripts,
   autoGenerateImageDescriptions: () => adminSettingsStore.settings.get()?.auto_generate_image_descriptions ?? DEFAULT_SETTINGS.auto_generate_image_descriptions,
   autoGenerateTldr: () => adminSettingsStore.settings.get()?.auto_generate_tldr ?? DEFAULT_SETTINGS.auto_generate_tldr,
+  aiChatModel: () => adminSettingsStore.settings.get()?.ai_chat_model ?? DEFAULT_SETTINGS.ai_chat_model,
+  aiMetadataModel: () => adminSettingsStore.settings.get()?.ai_metadata_model ?? DEFAULT_SETTINGS.ai_metadata_model,
+  aiAvailableModels: () => adminSettingsStore.settings.get()?.ai_available_models ?? DEFAULT_SETTINGS.ai_available_models,
+  aiLastModelsFetch: () => adminSettingsStore.settings.get()?.ai_last_models_fetch ?? DEFAULT_SETTINGS.ai_last_models_fetch,
   youtubeSource: () => adminSettingsStore.settings.get()?.youtube_source ?? DEFAULT_SETTINGS.youtube_source,
   youtubeTranscriptSource: () => adminSettingsStore.settings.get()?.youtube_transcript_source ?? DEFAULT_SETTINGS.youtube_transcript_source,
   showDescription: () => adminSettingsStore.settings.get()?.ui_show_description ?? DEFAULT_SETTINGS.ui_show_description,
+  youtubeUseThumbnail: () => adminSettingsStore.settings.get()?.youtube_use_thumbnail ?? DEFAULT_SETTINGS.youtube_use_thumbnail,
   isLoading: () => adminSettingsStore.isLoading.get(),
+
+  // Check if models need refresh (24h cache)
+  needsRefresh: (): boolean => {
+    const lastFetch = adminSettingsStore.settings.get()?.ai_last_models_fetch;
+    if (!lastFetch) return true;
+
+    const lastFetchTime = new Date(lastFetch).getTime();
+    const now = new Date().getTime();
+    const hoursSinceLastFetch = (now - lastFetchTime) / (1000 * 60 * 60);
+
+    return hoursSinceLastFetch >= 24;
+  },
+
+  // Get formatted time since last fetch
+  timeSinceLastFetch: (): string => {
+    const lastFetch = adminSettingsStore.settings.get()?.ai_last_models_fetch;
+    if (!lastFetch) return 'Never';
+
+    const lastFetchTime = new Date(lastFetch).getTime();
+    const now = new Date().getTime();
+    const minutesAgo = Math.floor((now - lastFetchTime) / (1000 * 60));
+
+    if (minutesAgo < 60) return `${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago`;
+
+    const hoursAgo = Math.floor(minutesAgo / 60);
+    if (hoursAgo < 24) return `${hoursAgo} hour${hoursAgo !== 1 ? 's' : ''} ago`;
+
+    const daysAgo = Math.floor(hoursAgo / 24);
+    return `${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago`;
+  },
 };
 
 // Actions
@@ -243,6 +283,78 @@ export const adminSettingsActions = {
 
   setShowDescription: async (enabled: boolean) => {
     await adminSettingsActions.updateSetting('ui_show_description', enabled);
+  },
+
+  setYoutubeUseThumbnail: async (enabled: boolean) => {
+    await adminSettingsActions.updateSetting('youtube_use_thumbnail', enabled);
+  },
+
+  setAiChatModel: async (modelId: string) => {
+    await adminSettingsActions.updateSetting('ai_chat_model', modelId);
+  },
+
+  setAiMetadataModel: async (modelId: string) => {
+    await adminSettingsActions.updateSetting('ai_metadata_model', modelId);
+  },
+
+  /**
+   * Fetch available models from OpenAI API
+   * @param force - Force refresh even if cache is still valid
+   */
+  fetchModels: async (force: boolean = false) => {
+    // Check if we need to refresh
+    if (!force && !adminSettingsComputed.needsRefresh()) {
+      console.log('🔧 Using cached models list');
+      return;
+    }
+
+    const { API } = require('../constants');
+    if (!API.OPENAI_API_KEY) {
+      console.warn('🔧 OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured');
+    }
+
+    try {
+      console.log('🔧 Fetching available models from OpenAI...');
+
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Filter to only chat-compatible models (gpt-* models)
+      const chatModels = data.data
+        .filter((model: any) =>
+          model.id.startsWith('gpt-') &&
+          !model.id.includes('instruct') && // Exclude instruct models
+          !model.id.includes('vision') // Vision models handled separately
+        )
+        .sort((a: any, b: any) => {
+          // Sort by model version (newer first)
+          if (a.id.includes('4') && !b.id.includes('4')) return -1;
+          if (!a.id.includes('4') && b.id.includes('4')) return 1;
+          return b.created - a.created;
+        });
+
+      // Update admin settings with new models
+      await adminSettingsActions.updateSettings({
+        ai_available_models: chatModels,
+        ai_last_models_fetch: new Date().toISOString(),
+      });
+
+      console.log(`🔧 Fetched ${chatModels.length} chat models`);
+    } catch (error) {
+      console.error('🔧 Error fetching models:', error);
+      throw error;
+    }
   },
 };
 

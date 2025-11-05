@@ -6,17 +6,20 @@ import {
   Switch,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { Host, Picker } from '@expo/ui/swift-ui';
 import { themeStore } from '../stores/theme';
-import { COLORS } from '../constants';
+import { COLORS, API } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
+import { openai, OpenAIAccountStatus, OpenAICostsData, OpenAIError } from '../services/openai';
 import { isAPIConfigured } from '../config/api';
-import { adminSettingsStore, adminSettingsActions } from '../stores/adminSettings';
+import { adminSettingsStore, adminSettingsActions, adminSettingsComputed } from '../stores/adminSettings';
+import ModelPickerSheet from './ModelPickerSheet';
 
 interface AdminSheetProps {
   onOpen?: () => void;
@@ -36,6 +39,25 @@ const AdminSheet = observer(
     const [serpAccount, setSerpAccount] = useState<SerpApiAccount | null>(null);
     const [serpLastUpdated, setSerpLastUpdated] = useState<number | null>(null);
 
+    // OpenAI account status state
+    const [openaiLoading, setOpenaiLoading] = useState(false);
+    const [openaiError, setOpenaiError] = useState<string | null>(null);
+    const [openaiStatus, setOpenaiStatus] = useState<OpenAIAccountStatus | null>(null);
+    const [openaiCosts, setOpenaiCosts] = useState<OpenAICostsData | null>(null);
+    const [openaiLastUpdated, setOpenaiLastUpdated] = useState<number | null>(null);
+
+    // Model picker state
+    const [modelPickerVisible, setModelPickerVisible] = useState(false);
+    const [modelPickerType, setModelPickerType] = useState<'chat' | 'metadata'>('chat');
+    const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+
+    // AI settings observables
+    const selectedModel = adminSettingsComputed.aiChatModel();
+    const metadataModel = adminSettingsComputed.aiMetadataModel();
+    const availableModels = adminSettingsComputed.aiAvailableModels();
+    const hasApiKey = !!API.OPENAI_API_KEY;
+    const timeSinceLastFetch = adminSettingsComputed.timeSinceLastFetch();
+
     // YouTube source picker indices (computed from adminSettingsStore)
     const youtubeSourceIndex = (adminSettingsStore.settings.youtube_source.get() ?? 'youtubei') === 'youtubei' ? 0 : 1;
     const youtubeTranscriptSourceIndex = (adminSettingsStore.settings.youtube_transcript_source.get() ?? 'youtubei') === 'youtubei' ? 0 : 1;
@@ -49,7 +71,7 @@ const AdminSheet = observer(
       }
       setSerpLoading(true);
       setSerpError(null);
-      
+
       // Fetch account status (doesn't count against limit)
       const res = await serpapi.fetchAccount();
       if ((res as SerpApiError).error) {
@@ -59,13 +81,53 @@ const AdminSheet = observer(
         setSerpAccount(res as SerpApiAccount);
         setSerpLastUpdated(Date.now());
       }
-      
+
       setSerpLoading(false);
     }, []);
 
+    const fetchOpenAIStatus = useCallback(async () => {
+      if (!hasApiKey) {
+        setOpenaiError('API key not configured');
+        setOpenaiStatus(null);
+        setOpenaiCosts(null);
+        setOpenaiLoading(false);
+        return;
+      }
+      setOpenaiLoading(true);
+      setOpenaiError(null);
+
+      try {
+        // Fetch account status and rate limits
+        const status = await openai.fetchAccountStatus();
+        setOpenaiStatus(status);
+
+        if (!status.isValid) {
+          setOpenaiError(status.error || 'Failed to validate API key');
+          setOpenaiCosts(null);
+        } else {
+          // Fetch costs data for last 7 days
+          const costs = await openai.fetchCosts();
+          if ((costs as OpenAIError).error) {
+            // Costs endpoint might not be available for all account types
+            console.warn('Could not fetch OpenAI costs:', (costs as OpenAIError).error);
+            setOpenaiCosts(null);
+          } else {
+            setOpenaiCosts(costs as OpenAICostsData);
+          }
+          setOpenaiLastUpdated(Date.now());
+        }
+      } catch (error: any) {
+        setOpenaiError(error.message || 'Failed to fetch OpenAI status');
+        setOpenaiStatus(null);
+        setOpenaiCosts(null);
+      }
+
+      setOpenaiLoading(false);
+    }, [hasApiKey]);
+
 
     // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['40%'], []);
+    const snapPoints = useMemo(() => ['82%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -81,6 +143,7 @@ const AdminSheet = observer(
     );
 
     return (
+      <>
       <BottomSheet
         ref={ref}
         index={-1}
@@ -101,9 +164,12 @@ const AdminSheet = observer(
             onClose?.();
           } else if (index >= 0) {
             onOpen?.();
-            // Automatically refresh SerpAPI status when sheet opens
+            // Automatically refresh API statuses when sheet opens
             if (isAPIConfigured.serpapi()) {
               fetchSerpApiStatus();
+            }
+            if (hasApiKey) {
+              fetchOpenAIStatus();
             }
           }
         }}
@@ -184,6 +250,30 @@ const AdminSheet = observer(
                 }}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
                 thumbColor={adminSettingsStore.settings.ui_show_description.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="play-circle-outline"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Youtube: Swap Embed for Thumbnails
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Show thumbnail + play button instead of embed (opens in YouTube app)
+                </Text>
+              </View>
+              <Switch
+                value={adminSettingsStore.settings.youtube_use_thumbnail.get() ?? false}
+                onValueChange={(value) => {
+                  adminSettingsActions.setYoutubeUseThumbnail(value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={adminSettingsStore.settings.youtube_use_thumbnail.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
           </View>
@@ -322,6 +412,296 @@ const AdminSheet = observer(
 
           </View>
 
+          {/* AI & CHAT Section (Global) */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              AI & CHAT (Global)
+            </Text>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="vpn-key"
+                size={24}
+                color={hasApiKey ? (isDarkMode ? '#FFFFFF' : '#333333') : '#FF9500'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  OpenAI API Key
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {hasApiKey ? 'Configured ✅' : 'Not configured ⚠️'}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                if (availableModels.length === 0 || !hasApiKey) {
+                  Alert.alert(
+                    'No Models Available',
+                    hasApiKey
+                      ? 'Please refresh the models list first.'
+                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
+                  );
+                  return;
+                }
+
+                // Open chat model picker
+                setModelPickerType('chat');
+                setModelPickerVisible(true);
+              }}
+            >
+              <MaterialIcons
+                name="chat"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Chat Model Selection
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {selectedModel} · Used for all chat conversations (applies to all users)
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => {
+                if (availableModels.length === 0 || !hasApiKey) {
+                  Alert.alert(
+                    'No Models Available',
+                    hasApiKey
+                      ? 'Please refresh the models list first.'
+                      : 'OpenAI API key is not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.'
+                  );
+                  return;
+                }
+
+                // Open metadata model picker
+                setModelPickerType('metadata');
+                setModelPickerVisible(true);
+              }}
+            >
+              <MaterialIcons
+                name="label"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Metadata Model Selection
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {metadataModel} · Used for title/description extraction (applies to all users)
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={isDarkMode ? '#666' : '#999'}
+              />
+            </TouchableOpacity>
+
+            
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={async () => {
+                if (!hasApiKey) {
+                  Alert.alert(
+                    'API Key Required',
+                    'Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file to use AI features.'
+                  );
+                  return;
+                }
+
+                setIsRefreshingModels(true);
+                try {
+                  await adminSettingsActions.fetchModels(true);
+                  showToast({ message: `Loaded ${availableModels.length} models`, type: 'success' });
+                } catch (error: any) {
+                  Alert.alert('Error', error.message || 'Failed to refresh models');
+                } finally {
+                  setIsRefreshingModels(false);
+                }
+              }}
+              disabled={isRefreshingModels}
+            >
+              <MaterialIcons
+                name="refresh"
+                size={24}
+                color={
+                  isRefreshingModels
+                    ? '#999'
+                    : isDarkMode
+                    ? '#FFFFFF'
+                    : '#333333'
+                }
+              />
+              <View style={styles.rowContent}>
+                <Text
+                  style={[
+                    styles.rowTitle,
+                    isDarkMode && styles.rowTitleDark,
+                    isRefreshingModels && styles.rowDisabled,
+                  ]}
+                >
+                  {isRefreshingModels ? 'Refreshing...' : 'Refresh Models List'}
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {availableModels.length > 0
+                    ? `${availableModels.length} models • Last updated: ${timeSinceLastFetch}`
+                    : 'No models loaded'}
+                </Text>
+              </View>
+              {isRefreshingModels ? (
+                <ActivityIndicator color={COLORS.primary} />
+              ) : (
+                <MaterialIcons
+                  name="chevron-right"
+                  size={24}
+                  color={isDarkMode ? '#666' : '#999'}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* OpenAI Status Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+                OpenAI Account Status
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={fetchOpenAIStatus}
+                style={styles.iconButton}
+                disabled={!hasApiKey}
+              >
+                <MaterialIcons
+                  name="refresh"
+                  size={20}
+                  color={!hasApiKey ? '#999' : isDarkMode ? '#FFFFFF' : '#333333'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {!hasApiKey ? (
+              <Text style={[styles.infoText, isDarkMode && styles.infoTextDark]}>API key not configured</Text>
+            ) : openaiLoading ? (
+              <View style={styles.row}>
+                <ActivityIndicator color={COLORS.primary} />
+                <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>Loading...</Text>
+              </View>
+            ) : openaiError ? (
+              <Text style={[styles.errorText, isDarkMode && styles.errorTextDark]}>{openaiError}</Text>
+            ) : openaiStatus ? (
+              <View>
+                {/* API Key Status */}
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>API Key</Text>
+                  <Text style={[styles.valueText, isDarkMode && styles.valueTextDark, openaiStatus.isValid && styles.successText]}>
+                    {openaiStatus.isValid ? 'Valid ✅' : 'Invalid ❌'}
+                  </Text>
+                </View>
+
+                {/* Organization ID */}
+                {openaiStatus.organizationId && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Organization ID</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{openaiStatus.organizationId}</Text>
+                  </View>
+                )}
+
+                {/* Available Models */}
+                {openaiStatus.availableModelsCount !== undefined && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Available Models</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{openaiStatus.availableModelsCount}</Text>
+                  </View>
+                )}
+
+                {/* Rate Limits */}
+                {openaiStatus.rateLimits && (
+                  <>
+                    {openaiStatus.rateLimits.requestsLimit !== undefined && (
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Requests Limit (per min)</Text>
+                        <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
+                          {openaiStatus.rateLimits.requestsRemaining !== undefined
+                            ? `${openaiStatus.rateLimits.requestsRemaining.toLocaleString()} / ${openaiStatus.rateLimits.requestsLimit.toLocaleString()}`
+                            : openaiStatus.rateLimits.requestsLimit.toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                    {openaiStatus.rateLimits.tokensLimit !== undefined && (
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Tokens Limit (per min)</Text>
+                        <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
+                          {openaiStatus.rateLimits.tokensRemaining !== undefined
+                            ? `${openaiStatus.rateLimits.tokensRemaining.toLocaleString()} / ${openaiStatus.rateLimits.tokensLimit.toLocaleString()}`
+                            : openaiStatus.rateLimits.tokensLimit.toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {/* Costs Summary */}
+                {openaiCosts && openaiCosts.data && openaiCosts.data.length > 0 && (
+                  <>
+                    <View style={styles.divider} />
+                    <Text style={[styles.subsectionTitle, isDarkMode && styles.subsectionTitleDark]}>
+                      Last 7 Days Costs
+                    </Text>
+                    {openaiCosts.data.slice().reverse().map((day, index) => {
+                      const totalCost = day.line_items.reduce((sum, item) => sum + item.cost, 0);
+                      const date = new Date(day.timestamp * 1000);
+                      return (
+                        <View key={index} style={styles.rowBetween}>
+                          <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                            {date.toLocaleDateString()}
+                          </Text>
+                          <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
+                            ${totalCost.toFixed(4)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    {openaiCosts.data.length > 0 && (
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark, styles.boldText]}>Total (7 days)</Text>
+                        <Text style={[styles.valueText, isDarkMode && styles.valueTextDark, styles.boldText]}>
+                          ${openaiCosts.data.reduce((sum, day) =>
+                            sum + day.line_items.reduce((daySum, item) => daySum + item.cost, 0), 0
+                          ).toFixed(4)}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {openaiLastUpdated && (
+                  <Text style={[styles.metaText, isDarkMode && styles.metaTextDark]}>
+                    Updated {new Date(openaiLastUpdated).toLocaleTimeString()}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity onPress={fetchOpenAIStatus}>
+                <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>Tap to load OpenAI status</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* SerpAPI Status Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
@@ -430,6 +810,31 @@ const AdminSheet = observer(
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
+
+      {/* Model Picker Modal */}
+      <ModelPickerSheet
+        visible={modelPickerVisible}
+        onClose={() => setModelPickerVisible(false)}
+        modelType={modelPickerType}
+        onModelSelected={async (modelId) => {
+          console.log(`Selected ${modelPickerType} model:`, modelId);
+          try {
+            if (modelPickerType === 'chat') {
+              await adminSettingsActions.setAiChatModel(modelId);
+            } else {
+              await adminSettingsActions.setAiMetadataModel(modelId);
+            }
+            showToast({
+              message: `${modelPickerType === 'chat' ? 'Chat' : 'Metadata'} model updated successfully`,
+              type: 'success'
+            });
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to update model');
+          }
+          setModelPickerVisible(false);
+        }}
+      />
+      </>
     );
   })
 );
@@ -522,6 +927,9 @@ const styles = StyleSheet.create({
   rowSubtitleDark: {
     color: '#666666',
   },
+  rowDisabled: {
+    opacity: 0.5,
+  },
   valueText: {
     fontSize: 16,
     color: '#111111',
@@ -571,6 +979,26 @@ const styles = StyleSheet.create({
   },
   pickerContainer: {
     marginTop: 12,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E5E7',
+    marginVertical: 12,
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+    marginBottom: 8,
+  },
+  subsectionTitleDark: {
+    color: '#999999',
+  },
+  boldText: {
+    fontWeight: '600',
+  },
+  successText: {
+    color: '#34C759',
   },
 });
 
