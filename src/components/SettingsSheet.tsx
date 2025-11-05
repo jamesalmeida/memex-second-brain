@@ -476,6 +476,7 @@ const SettingsSheet = observer(
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
+      </>
     );
   })
 );

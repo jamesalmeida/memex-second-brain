@@ -95,6 +95,7 @@ const AdminSheet = observer(
     );
 
     return (
+      <>
       <BottomSheet
         ref={ref}
         index={-1}
@@ -342,6 +343,22 @@ const AdminSheet = observer(
               AI & CHAT (Global)
             </Text>
 
+            <View style={styles.row}>
+              <MaterialIcons
+                name="vpn-key"
+                size={24}
+                color={hasApiKey ? (isDarkMode ? '#FFFFFF' : '#333333') : '#FF9500'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  OpenAI API Key
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  {hasApiKey ? 'Configured ✅' : 'Not configured ⚠️'}
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={styles.row}
               onPress={() => {
@@ -418,21 +435,7 @@ const AdminSheet = observer(
               />
             </TouchableOpacity>
 
-            <View style={styles.row}>
-              <MaterialIcons
-                name="vpn-key"
-                size={24}
-                color={hasApiKey ? (isDarkMode ? '#FFFFFF' : '#333333') : '#FF9500'}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
-                  OpenAI API Key
-                </Text>
-                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
-                  {hasApiKey ? 'Configured ✅' : 'Not configured ⚠️'}
-                </Text>
-              </View>
-            </View>
+            
 
             <TouchableOpacity
               style={styles.row}
@@ -628,7 +631,8 @@ const AdminSheet = observer(
           setModelPickerVisible(false);
         }}
       />
-    </>;
+      </>
+    );
   })
 );
 
