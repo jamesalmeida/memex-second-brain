@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Item } from '../../../types';
 import { itemsActions } from '../../../stores/items';
 import { openai } from '../../../services/openai';
 import { buildItemContext } from '../../../services/contextBuilder';
-import InlineEditableText from '../../InlineEditableText';
 
 interface TldrSectionProps {
   item: Item;
   isDarkMode: boolean;
-  onTldrChange?: (tldr: string) => void;
 }
 
-const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChange }) => {
+const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
   const [tldr, setTldr] = useState<string>(item.tldr || '');
   const [isGeneratingTldr, setIsGeneratingTldr] = useState(false);
 
@@ -41,7 +40,6 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChang
         setTldr(generatedTldr);
         // Save to database
         await itemsActions.updateItemWithSync(item.id, { tldr: generatedTldr });
-        onTldrChange?.(generatedTldr);
         console.log('TLDR generated and saved successfully');
       } else {
         alert('Failed to generate TLDR. Please try again.');
@@ -54,12 +52,6 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChang
     }
   };
 
-  const handleSaveTldr = async (newTldr: string) => {
-    setTldr(newTldr);
-    await itemsActions.updateItemWithSync(item.id, { tldr: newTldr });
-    onTldrChange?.(newTldr);
-  };
-
   return (
     <View style={[styles.tldrContainer, isDarkMode && styles.tldrContainerDark]}>
       <Text style={[styles.tldrLabel, isDarkMode && styles.tldrLabelDark]}>
@@ -67,19 +59,21 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode, onTldrChang
       </Text>
       {tldr ? (
         <View style={styles.tldrContent}>
-          <InlineEditableText
-            value={tldr}
-            placeholder="AI-generated summary"
-            onSave={handleSaveTldr}
-            style={[styles.tldrText, isDarkMode && styles.tldrTextDark]}
-            multiline
-            maxLines={20}
-            collapsible
-            collapsedLines={6}
-            showMoreThreshold={200}
-            isDarkMode={isDarkMode}
-            hideEditIcon={true}
-          />
+          <Text style={[styles.tldrText, isDarkMode && styles.tldrTextDark]} numberOfLines={0}>
+            {tldr}
+          </Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={generateTldr}
+            disabled={isGeneratingTldr}
+            activeOpacity={0.7}
+          >
+            {isGeneratingTldr ? (
+              <ActivityIndicator size="small" color={isDarkMode ? '#E5E5E7' : '#333'} />
+            ) : (
+              <Feather name="refresh-cw" size={18} color={isDarkMode ? '#E5E5E7' : '#555'} />
+            )}
+          </TouchableOpacity>
         </View>
       ) : (
         <TouchableOpacity
@@ -129,7 +123,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -9,
     left: 15,
-    right: 0,
     backgroundColor: 'white',
     maxWidth: 44,
   },
@@ -137,8 +130,16 @@ const styles = StyleSheet.create({
     color: '#FF8A8A',
     backgroundColor: '#1C1C1E',
   },
+  refreshButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: -4,
+    padding: 4,
+    zIndex: 10,
+  },
   tldrContent: {
     flex: 1,
+    position: 'relative',
   },
   tldrText: {
     fontSize: 15,
