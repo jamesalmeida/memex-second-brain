@@ -100,7 +100,7 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
               {tldr}
             </Text>
             <TouchableOpacity
-              style={styles.refreshButton}
+              style={[styles.refreshButton, isDarkMode && styles.refreshButtonDark]}
               onPress={generateTldr}
               disabled={isGeneratingTldr}
               activeOpacity={0.7}
@@ -181,6 +181,11 @@ const styles = StyleSheet.create({
     right: -4,
     padding: 4,
     zIndex: 10,
+    backgroundColor: 'white',
+    borderRadius: 13,
+  },
+  refreshButtonDark: {
+    backgroundColor: '#1C1C1E',
   },
   tldrContent: {
     flex: 1,
