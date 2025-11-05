@@ -413,15 +413,14 @@ const SettingsSheet = observer(
                   ]
                 );
               }}
-              disabled={isSyncing}
             >
               <MaterialIcons
                 name="cleaning-services"
                 size={24}
-                color={isSyncing ? '#999' : (isDarkMode ? '#FFFFFF' : '#333333')}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark, isSyncing && styles.rowDisabled]}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
                   Clean Orphaned Data
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
@@ -438,7 +437,6 @@ const SettingsSheet = observer(
             <TouchableOpacity
               style={styles.row}
               onPress={() => {
-                if (isSyncing) return;
                 Alert.alert(
                   'Clear Local Data',
                   'This will delete all locally stored items and spaces. Data in the cloud will remain. Are you sure?',
@@ -475,15 +473,14 @@ const SettingsSheet = observer(
                   ]
                 );
               }}
-              disabled={isSyncing}
             >
               <MaterialIcons
                 name="delete-sweep"
                 size={24}
-                color={isSyncing ? '#999' : '#FF3B30'}
+                color="#FF3B30"
               />
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isSyncing ? '#999' : '#FF3B30' }, isSyncing && styles.rowDisabled]}>
+                <Text style={[styles.rowTitle, { color: '#FF3B30' }]}>
                   Clear All Local Data
                 </Text>
                 <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
