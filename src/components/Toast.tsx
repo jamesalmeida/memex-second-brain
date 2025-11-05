@@ -36,8 +36,8 @@ const Toast: React.FC<ToastProps> = ({
   useEffect(() => {
     // Slide in
     translateY.value = withSpring(0, {
-      damping: 15,
-      stiffness: 150,
+      damping: 50,
+      stiffness: 500,
     });
     opacity.value = withTiming(1, { duration: 200 });
 
@@ -71,7 +71,7 @@ const Toast: React.FC<ToastProps> = ({
 
       if (event.translationY < DISMISS_THRESHOLD) {
         // Swipe was far enough - dismiss the toast
-        gestureTranslateY.value = withTiming(-150, { duration: 200 });
+        gestureTranslateY.value = withTiming(-100, { duration: 200 });
         opacity.value = withTiming(0, { duration: 200 }, () => {
           if (onDismiss) {
             runOnJS(onDismiss)();
@@ -80,8 +80,8 @@ const Toast: React.FC<ToastProps> = ({
       } else {
         // Swipe wasn't far enough - snap back
         gestureTranslateY.value = withSpring(0, {
-          damping: 15,
-          stiffness: 150,
+          damping: 50,
+          stiffness: 500,
         });
       }
     });
