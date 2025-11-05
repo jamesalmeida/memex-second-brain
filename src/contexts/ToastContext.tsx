@@ -74,7 +74,6 @@ export const ToastProvider = observer(({ children }: { children: ReactNode }) =>
               styles.toastWrapper,
               { top: index * 70 }, // Stack toasts if multiple
             ]}
-            pointerEvents="box-none"
           >
             <Toast
               message={toast.message}
