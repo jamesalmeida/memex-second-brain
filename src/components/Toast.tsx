@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -30,6 +31,7 @@ const Toast: React.FC<ToastProps> = ({
   const insets = useSafeAreaInsets();
   const translateY = useSharedValue(-100);
   const opacity = useSharedValue(0);
+  const gestureTranslateY = useSharedValue(0);
 
   useEffect(() => {
     // Slide in
@@ -56,8 +58,36 @@ const Toast: React.FC<ToastProps> = ({
     });
   };
 
+  // Pan gesture for swipe-to-dismiss
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      // Only allow upward swipes (negative translationY)
+      if (event.translationY < 0) {
+        gestureTranslateY.value = event.translationY;
+      }
+    })
+    .onEnd((event) => {
+      const DISMISS_THRESHOLD = -50; // Swipe up at least 50px to dismiss
+
+      if (event.translationY < DISMISS_THRESHOLD) {
+        // Swipe was far enough - dismiss the toast
+        gestureTranslateY.value = withTiming(-150, { duration: 200 });
+        opacity.value = withTiming(0, { duration: 200 }, () => {
+          if (onDismiss) {
+            runOnJS(onDismiss)();
+          }
+        });
+      } else {
+        // Swipe wasn't far enough - snap back
+        gestureTranslateY.value = withSpring(0, {
+          damping: 15,
+          stiffness: 150,
+        });
+      }
+    });
+
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.value + gestureTranslateY.value }],
     opacity: opacity.value,
   }));
 
@@ -104,29 +134,31 @@ const Toast: React.FC<ToastProps> = ({
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          top: insets.top + 10,
-          backgroundColor: getBackgroundColor(),
-        },
-        animatedStyle,
-      ]}
-    >
-      <View style={styles.content}>
-        {getIcon()}
-        <Text
-          style={[
-            styles.message,
-            isDarkMode ? styles.messageDark : styles.messageLight,
-          ]}
-          numberOfLines={2}
-        >
-          {message}
-        </Text>
-      </View>
-    </Animated.View>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            top: insets.top + 10,
+            backgroundColor: getBackgroundColor(),
+          },
+          animatedStyle,
+        ]}
+      >
+        <View style={styles.content}>
+          {getIcon()}
+          <Text
+            style={[
+              styles.message,
+              isDarkMode ? styles.messageDark : styles.messageLight,
+            ]}
+            numberOfLines={2}
+          >
+            {message}
+          </Text>
+        </View>
+      </Animated.View>
+    </GestureDetector>
   );
 };
 
