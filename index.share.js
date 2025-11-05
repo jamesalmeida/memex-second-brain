@@ -1,10 +1,6 @@
-import { registerRootComponent } from 'expo';
-import { ShareExtension } from 'expo-share-extension';
+// Share extension entry point
+import { AppRegistry } from "react-native";
+import ShareExtension from "./src/components/ShareExtension";
 
-// Simple share extension that just closes immediately
-// You can customize this later to handle shared content
-const App = () => {
-  return null;
-};
-
-registerRootComponent(App);
+// IMPORTANT: The first argument must be "shareExtension" (required by expo-share-extension)
+AppRegistry.registerComponent("shareExtension", () => ShareExtension);
