@@ -128,18 +128,28 @@ const TabLayout = observer(() => {
   }, [pathname]);
 
   // Watch chatUI store and control chat sheet
-  const isChatOpen = chatUIStore.isOpen.get();
   useEffect(() => {
-    console.log('🔔 [TabLayout] isChatOpen changed to:', isChatOpen);
-    console.log('🔔 [TabLayout] chatSheetRef.current exists?', !!chatSheetRef.current);
-    if (isChatOpen) {
-      console.log('🔔 [TabLayout] Calling expand()...');
-      chatSheetRef.current?.expand();
-    } else {
-      console.log('🔔 [TabLayout] Calling close()...');
-      chatSheetRef.current?.close();
+    const unsubscribe = chatUIStore.isOpen.onChange(({ value }) => {
+      console.log('🔔 [TabLayout] isChatOpen changed to:', value);
+      console.log('🔔 [TabLayout] chatSheetRef.current exists?', !!chatSheetRef.current);
+      if (value) {
+        console.log('🔔 [TabLayout] Calling expand()...');
+        // Use snapToIndex for more reliable opening
+        chatSheetRef.current?.snapToIndex(0);
+      } else {
+        console.log('🔔 [TabLayout] Calling close()...');
+        chatSheetRef.current?.close();
+      }
+    });
+
+    // Initialize if already open
+    if (chatUIStore.isOpen.get()) {
+      console.log('🔔 [TabLayout] Chat already open on mount, expanding...');
+      chatSheetRef.current?.snapToIndex(0);
     }
-  }, [isChatOpen]);
+
+    return unsubscribe;
+  }, []);
 
   // Log when isExpandedItemOpen changes
   useEffect(() => {
