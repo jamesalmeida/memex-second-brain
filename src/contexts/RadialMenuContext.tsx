@@ -388,10 +388,10 @@ const RadialMenuOverlay = observer(({
   };
 
   // Filter actions based on user configuration
-  // Replace 'archive' with 'unarchive' if item is archived (manually or auto-archived)
-  const adjustedActionIds = configuredActionIds.map(id =>
-    id === 'archive' && item?.is_archived ? 'unarchive' : id
-  );
+  // For archived items, only show 'unarchive' and 'delete' actions (override user configuration)
+  const adjustedActionIds = item?.is_archived
+    ? ['unarchive', 'delete'] as RadialActionId[]
+    : configuredActionIds;
   const actionButtons: ActionButton[] = adjustedActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
@@ -700,10 +700,10 @@ export const RadialMenuProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Filter actions based on user configuration
-  // Replace 'archive' with 'unarchive' if item is archived (manually or auto-archived)
-  const adjustedActionIds = configuredActionIds.map(id =>
-    id === 'archive' && item?.is_archived ? 'unarchive' : id
-  );
+  // For archived items, only show 'unarchive' and 'delete' actions (override user configuration)
+  const adjustedActionIds = item?.is_archived
+    ? ['unarchive', 'delete'] as RadialActionId[]
+    : configuredActionIds;
   const actionButtons: ActionButton[] = adjustedActionIds.map(id => allActions[id]);
 
   const getButtonPositions = useCallback((touchX: number, touchY: number) => {
