@@ -446,4 +446,20 @@ export const subscriptions = {
       )
       .subscribe();
   },
+
+  pendingItems: (userId: string, callback: (payload: any) => void) => {
+    return supabase
+      .channel('pending_items')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pending_items',
+          filter: `user_id=eq.${userId}`,
+        },
+        callback
+      )
+      .subscribe();
+  },
 };

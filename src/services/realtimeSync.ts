@@ -7,7 +7,8 @@ import { adminSettingsStore } from '../stores/adminSettings';
 import { syncService } from './syncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import { Item, Space, AdminSettings } from '../types';
+import { Item, Space, AdminSettings, PendingItem } from '../types';
+import { toastActions } from '../stores/toast';
 
 /**
  * Real-time sync service that listens for changes from other devices
@@ -17,6 +18,7 @@ class RealtimeSyncService {
   private itemsChannel: RealtimeChannel | null = null;
   private spacesChannel: RealtimeChannel | null = null;
   private adminSettingsChannel: RealtimeChannel | null = null;
+  private pendingItemsChannel: RealtimeChannel | null = null;
   private isActive = false;
 
   /**
@@ -54,6 +56,12 @@ class RealtimeSyncService {
       await this.handleAdminSettingsChange(payload);
     });
 
+    // Subscribe to pending items changes
+    this.pendingItemsChannel = subscriptions.pendingItems(user.id, async (payload) => {
+      console.log('📡 [RealtimeSync] Pending item change received:', payload.eventType, payload.new?.status);
+      await this.handlePendingItemChange(payload);
+    });
+
     this.isActive = true;
     console.log('✅ [RealtimeSync] Real-time subscriptions active');
   }
@@ -77,6 +85,11 @@ class RealtimeSyncService {
     if (this.adminSettingsChannel) {
       await this.adminSettingsChannel.unsubscribe();
       this.adminSettingsChannel = null;
+    }
+
+    if (this.pendingItemsChannel) {
+      await this.pendingItemsChannel.unsubscribe();
+      this.pendingItemsChannel = null;
     }
 
     this.isActive = false;
@@ -233,6 +246,42 @@ class RealtimeSyncService {
       }
     } catch (error) {
       console.error('❌ [RealtimeSync] Error handling admin settings change:', error);
+    }
+  }
+
+  /**
+   * Handle pending item changes (share extension saves)
+   */
+  private async handlePendingItemChange(payload: any) {
+    const { eventType, new: newPendingItem } = payload;
+
+    try {
+      if (eventType === 'INSERT') {
+        // Show "processing" toast when new pending item is created
+        console.log('⏳ [RealtimeSync] New pending item created:', newPendingItem.url);
+        toastActions.show('Processing shared item...', 'info');
+      } else if (eventType === 'UPDATE' && newPendingItem) {
+        const status = newPendingItem.status;
+
+        if (status === 'processing') {
+          console.log('⏳ [RealtimeSync] Pending item processing:', newPendingItem.url);
+          toastActions.show('Processing shared item...', 'info');
+        } else if (status === 'completed') {
+          console.log('✅ [RealtimeSync] Pending item completed, refreshing items');
+          toastActions.show('Item saved successfully!', 'success');
+
+          // Refresh items from Supabase to get the new item
+          await syncService.forceSync();
+        } else if (status === 'failed') {
+          console.error('❌ [RealtimeSync] Pending item failed:', newPendingItem.error_message);
+          toastActions.show(
+            newPendingItem.error_message || 'Failed to process shared item',
+            'error'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('❌ [RealtimeSync] Error handling pending item change:', error);
     }
   }
 
