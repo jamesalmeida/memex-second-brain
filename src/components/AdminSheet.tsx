@@ -16,6 +16,7 @@ import { themeStore } from '../stores/theme';
 import { COLORS, API } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
+import { openai, OpenAIAccountStatus, OpenAICostsData, OpenAIError } from '../services/openai';
 import { isAPIConfigured } from '../config/api';
 import { adminSettingsStore, adminSettingsActions, adminSettingsComputed } from '../stores/adminSettings';
 import ModelPickerSheet from './ModelPickerSheet';
@@ -37,6 +38,13 @@ const AdminSheet = observer(
     const [serpError, setSerpError] = useState<string | null>(null);
     const [serpAccount, setSerpAccount] = useState<SerpApiAccount | null>(null);
     const [serpLastUpdated, setSerpLastUpdated] = useState<number | null>(null);
+
+    // OpenAI account status state
+    const [openaiLoading, setOpenaiLoading] = useState(false);
+    const [openaiError, setOpenaiError] = useState<string | null>(null);
+    const [openaiStatus, setOpenaiStatus] = useState<OpenAIAccountStatus | null>(null);
+    const [openaiCosts, setOpenaiCosts] = useState<OpenAICostsData | null>(null);
+    const [openaiLastUpdated, setOpenaiLastUpdated] = useState<number | null>(null);
 
     // Model picker state
     const [modelPickerVisible, setModelPickerVisible] = useState(false);
@@ -63,7 +71,7 @@ const AdminSheet = observer(
       }
       setSerpLoading(true);
       setSerpError(null);
-      
+
       // Fetch account status (doesn't count against limit)
       const res = await serpapi.fetchAccount();
       if ((res as SerpApiError).error) {
@@ -73,9 +81,49 @@ const AdminSheet = observer(
         setSerpAccount(res as SerpApiAccount);
         setSerpLastUpdated(Date.now());
       }
-      
+
       setSerpLoading(false);
     }, []);
+
+    const fetchOpenAIStatus = useCallback(async () => {
+      if (!hasApiKey) {
+        setOpenaiError('API key not configured');
+        setOpenaiStatus(null);
+        setOpenaiCosts(null);
+        setOpenaiLoading(false);
+        return;
+      }
+      setOpenaiLoading(true);
+      setOpenaiError(null);
+
+      try {
+        // Fetch account status and rate limits
+        const status = await openai.fetchAccountStatus();
+        setOpenaiStatus(status);
+
+        if (!status.isValid) {
+          setOpenaiError(status.error || 'Failed to validate API key');
+          setOpenaiCosts(null);
+        } else {
+          // Fetch costs data for last 7 days
+          const costs = await openai.fetchCosts();
+          if ((costs as OpenAIError).error) {
+            // Costs endpoint might not be available for all account types
+            console.warn('Could not fetch OpenAI costs:', (costs as OpenAIError).error);
+            setOpenaiCosts(null);
+          } else {
+            setOpenaiCosts(costs as OpenAICostsData);
+          }
+          setOpenaiLastUpdated(Date.now());
+        }
+      } catch (error: any) {
+        setOpenaiError(error.message || 'Failed to fetch OpenAI status');
+        setOpenaiStatus(null);
+        setOpenaiCosts(null);
+      }
+
+      setOpenaiLoading(false);
+    }, [hasApiKey]);
 
 
     // Snap points for the bottom sheet
@@ -116,9 +164,12 @@ const AdminSheet = observer(
             onClose?.();
           } else if (index >= 0) {
             onOpen?.();
-            // Automatically refresh SerpAPI status when sheet opens
+            // Automatically refresh API statuses when sheet opens
             if (isAPIConfigured.serpapi()) {
               fetchSerpApiStatus();
+            }
+            if (hasApiKey) {
+              fetchOpenAIStatus();
             }
           }
         }}
@@ -199,6 +250,30 @@ const AdminSheet = observer(
                 }}
                 trackColor={{ false: '#767577', true: COLORS.primary }}
                 thumbColor={adminSettingsStore.settings.ui_show_description.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <MaterialIcons
+                name="play-circle-outline"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Youtube: Swap Embed for Thumbnails
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Show thumbnail + play button instead of embed (opens in YouTube app)
+                </Text>
+              </View>
+              <Switch
+                value={adminSettingsStore.settings.youtube_use_thumbnail.get() ?? false}
+                onValueChange={(value) => {
+                  adminSettingsActions.setYoutubeUseThumbnail(value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={adminSettingsStore.settings.youtube_use_thumbnail.get() ? '#fff' : '#f4f3f4'}
               />
             </View>
           </View>
@@ -499,6 +574,134 @@ const AdminSheet = observer(
             </TouchableOpacity>
           </View>
 
+          {/* OpenAI Status Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+                OpenAI Account Status
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={fetchOpenAIStatus}
+                style={styles.iconButton}
+                disabled={!hasApiKey}
+              >
+                <MaterialIcons
+                  name="refresh"
+                  size={20}
+                  color={!hasApiKey ? '#999' : isDarkMode ? '#FFFFFF' : '#333333'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {!hasApiKey ? (
+              <Text style={[styles.infoText, isDarkMode && styles.infoTextDark]}>API key not configured</Text>
+            ) : openaiLoading ? (
+              <View style={styles.row}>
+                <ActivityIndicator color={COLORS.primary} />
+                <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>Loading...</Text>
+              </View>
+            ) : openaiError ? (
+              <Text style={[styles.errorText, isDarkMode && styles.errorTextDark]}>{openaiError}</Text>
+            ) : openaiStatus ? (
+              <View>
+                {/* API Key Status */}
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>API Key</Text>
+                  <Text style={[styles.valueText, isDarkMode && styles.valueTextDark, openaiStatus.isValid && styles.successText]}>
+                    {openaiStatus.isValid ? 'Valid ✅' : 'Invalid ❌'}
+                  </Text>
+                </View>
+
+                {/* Organization ID */}
+                {openaiStatus.organizationId && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Organization ID</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{openaiStatus.organizationId}</Text>
+                  </View>
+                )}
+
+                {/* Available Models */}
+                {openaiStatus.availableModelsCount !== undefined && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Available Models</Text>
+                    <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>{openaiStatus.availableModelsCount}</Text>
+                  </View>
+                )}
+
+                {/* Rate Limits */}
+                {openaiStatus.rateLimits && (
+                  <>
+                    {openaiStatus.rateLimits.requestsLimit !== undefined && (
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Requests Limit (per min)</Text>
+                        <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
+                          {openaiStatus.rateLimits.requestsRemaining !== undefined
+                            ? `${openaiStatus.rateLimits.requestsRemaining.toLocaleString()} / ${openaiStatus.rateLimits.requestsLimit.toLocaleString()}`
+                            : openaiStatus.rateLimits.requestsLimit.toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                    {openaiStatus.rateLimits.tokensLimit !== undefined && (
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>Tokens Limit (per min)</Text>
+                        <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
+                          {openaiStatus.rateLimits.tokensRemaining !== undefined
+                            ? `${openaiStatus.rateLimits.tokensRemaining.toLocaleString()} / ${openaiStatus.rateLimits.tokensLimit.toLocaleString()}`
+                            : openaiStatus.rateLimits.tokensLimit.toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {/* Costs Summary */}
+                {openaiCosts && openaiCosts.data && openaiCosts.data.length > 0 && (
+                  <>
+                    <View style={styles.divider} />
+                    <Text style={[styles.subsectionTitle, isDarkMode && styles.subsectionTitleDark]}>
+                      Last 7 Days Costs
+                    </Text>
+                    {openaiCosts.data.slice().reverse().map((day, index) => {
+                      const totalCost = day.line_items.reduce((sum, item) => sum + item.cost, 0);
+                      const date = new Date(day.timestamp * 1000);
+                      return (
+                        <View key={index} style={styles.rowBetween}>
+                          <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                            {date.toLocaleDateString()}
+                          </Text>
+                          <Text style={[styles.valueText, isDarkMode && styles.valueTextDark]}>
+                            ${totalCost.toFixed(4)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    {openaiCosts.data.length > 0 && (
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark, styles.boldText]}>Total (7 days)</Text>
+                        <Text style={[styles.valueText, isDarkMode && styles.valueTextDark, styles.boldText]}>
+                          ${openaiCosts.data.reduce((sum, day) =>
+                            sum + day.line_items.reduce((daySum, item) => daySum + item.cost, 0), 0
+                          ).toFixed(4)}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {openaiLastUpdated && (
+                  <Text style={[styles.metaText, isDarkMode && styles.metaTextDark]}>
+                    Updated {new Date(openaiLastUpdated).toLocaleTimeString()}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity onPress={fetchOpenAIStatus}>
+                <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>Tap to load OpenAI status</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* SerpAPI Status Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
@@ -776,6 +979,26 @@ const styles = StyleSheet.create({
   },
   pickerContainer: {
     marginTop: 12,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E5E7',
+    marginVertical: 12,
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+    marginBottom: 8,
+  },
+  subsectionTitleDark: {
+    color: '#999999',
+  },
+  boldText: {
+    fontWeight: '600',
+  },
+  successText: {
+    color: '#34C759',
   },
 });
 

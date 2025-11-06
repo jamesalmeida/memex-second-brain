@@ -5,6 +5,8 @@ import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
 import { syncService } from '../services/syncService';
 import { realtimeSyncService } from '../services/realtimeSync';
+import { getItemsFromSharedQueue, clearSharedQueue } from '../services/sharedItemQueue';
+import { saveSharedAuth, clearSharedAuth } from '../services/sharedAuth';
 import { STORAGE_KEYS } from '../constants';
 import { itemsActions } from '../stores/items';
 import { spacesActions } from '../stores/spaces';
@@ -19,6 +21,74 @@ import { filterActions } from '../stores/filter';
 import { userSettingsActions } from '../stores/userSettings';
 import { adminSettingsActions } from '../stores/adminSettings';
 
+/**
+ * Clears all authentication-related state, storage, and data stores.
+ * This is the single source of truth for cleanup logic during sign-out.
+ */
+async function clearAuthState() {
+  console.log('🧹 Clearing all auth state and user data...');
+
+  // Stop real-time sync
+  console.log('📡 Stopping real-time sync...');
+  await realtimeSyncService.stop().catch(error => {
+    console.error('Failed to stop real-time sync:', error);
+  });
+
+  // Clear all user data from AsyncStorage INCLUDING Supabase auth session
+  console.log('🧹 Clearing all user data from storage...');
+  try {
+    // Get all AsyncStorage keys
+    const allKeys = await AsyncStorage.getAllKeys();
+    console.log('🔑 All AsyncStorage keys:', allKeys);
+
+    // Filter out theme preference (we want to keep that across logout)
+    const keysToRemove = allKeys.filter(key => key !== 'theme');
+
+    // Remove everything except theme
+    await AsyncStorage.multiRemove(keysToRemove);
+    console.log('✅ Cleared all user data from storage (including Supabase session)');
+
+    // Extra safety: Explicitly clear any Supabase session keys that might remain
+    // These follow the pattern: sb-<project-ref>-auth-token
+    const supabaseKeys = allKeys.filter(key => key.startsWith('sb-') && key.includes('-auth-token'));
+    if (supabaseKeys.length > 0) {
+      console.log('🔑 Found Supabase session keys to clear:', supabaseKeys);
+      await AsyncStorage.multiRemove(supabaseKeys);
+      console.log('✅ Explicitly cleared Supabase session keys');
+    }
+  } catch (error) {
+    console.error('❌ Error clearing storage:', error);
+  }
+
+  // Reset all stores to initial state
+  console.log('🔄 Resetting all data stores...');
+  itemsActions.clearAll();
+  spacesActions.clearAll();
+  itemSpacesActions.reset();
+  itemMetadataActions.reset();
+  itemTypeMetadataActions.reset();
+  offlineQueueActions.reset();
+  await itemChatsActions.clearAll();
+  await chatMessagesActions.clearAll();
+  await aiSettingsActions.clearAll();
+  await filterActions.clearAll();
+  await userSettingsActions.clearSettings();
+  // Note: adminSettings are global (not user-specific) so we don't clear them
+
+  // Clear shared auth for share extension
+  console.log('🔐 Clearing shared auth...');
+  await clearSharedAuth().catch(error => {
+    console.error('Failed to clear shared auth:', error);
+  });
+
+  // Reset auth store
+  console.log('🔐 Resetting auth store...');
+  authActions.reset();
+  authActions.setLoading(false);
+
+  console.log('✅ Auth state cleared successfully');
+}
+
 export function useAuth() {
   // Direct access to Legend-State observables
   const isAuthenticated = authStore.isAuthenticated.get();
@@ -26,16 +96,24 @@ export function useAuth() {
   const user = authStore.user.get();
   const segments = useSegments();
 
-  const hasInitialized = useRef(false);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const isInitializing = useRef(false);
+  const signOutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Prevent multiple initializations
-    if (hasInitialized.current) {
-      console.log('🚀 useAuth: Already initialized, skipping...');
+    // Prevent concurrent initializations, but allow re-initialization after cleanup
+    if (isInitializing.current) {
+      console.log('🚀 useAuth: Currently initializing, skipping...');
       return;
     }
 
-    hasInitialized.current = true;
+    // If we already have an active subscription, don't create another
+    if (subscriptionRef.current) {
+      console.log('🚀 useAuth: Subscription already active, skipping...');
+      return;
+    }
+
+    isInitializing.current = true;
     
     console.log('🚀 useAuth hook initialized');
 
@@ -59,6 +137,12 @@ export function useAuth() {
           });
           authActions.setSession(session);
 
+          // Save auth to shared container for share extension
+          console.log('🔐 Saving auth to shared container...');
+          await saveSharedAuth(session).catch(error => {
+            console.error('Failed to save shared auth:', error);
+          });
+
           // Load user settings from cloud FIRST
           console.log('⚙️ Loading user settings from cloud...');
           await userSettingsActions.loadSettings().catch(error => {
@@ -76,6 +160,29 @@ export function useAuth() {
           await aiSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load AI settings:', error);
           });
+
+          // Import items from share extension queue
+          console.log('📥 Checking for items from share extension...');
+          try {
+            const sharedItems = await getItemsFromSharedQueue();
+            if (sharedItems.length > 0) {
+              console.log(`📥 Found ${sharedItems.length} items from share extension, importing...`);
+              for (const item of sharedItems) {
+                // Update user_id if it was 'pending'
+                if (item.user_id === 'pending') {
+                  item.user_id = session.user.id;
+                }
+                // Add item with sync
+                await itemsActions.addItemWithSync(item);
+                console.log(`✅ Imported item: ${item.title}`);
+              }
+              // Clear the queue after successful import
+              await clearSharedQueue();
+              console.log('✅ Cleared share extension queue');
+            }
+          } catch (error) {
+            console.error('❌ Error importing items from share extension:', error);
+          }
 
           // Trigger sync for existing session
           console.log('🔄 Starting sync for existing session...');
@@ -113,6 +220,7 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
+        isInitializing.current = false; // Initialization complete once listener is set up
 
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in successfully!');
@@ -122,6 +230,12 @@ export function useAuth() {
           });
           authActions.setSession(session);
           authActions.setLoading(false);
+
+          // Save auth to shared container for share extension
+          console.log('🔐 Saving auth to shared container...');
+          await saveSharedAuth(session).catch(error => {
+            console.error('Failed to save shared auth:', error);
+          });
 
           // Load user settings from cloud FIRST
           console.log('⚙️ Loading user settings from cloud...');
@@ -156,48 +270,17 @@ export function useAuth() {
           // Navigate to home screen - the state change will trigger navigation
           console.log('🔄 User authenticated, state updated');
         } else if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out');
+          console.log('👋 User signed out - SIGNED_OUT event received');
 
-          // Stop real-time sync
-          console.log('📡 Stopping real-time sync...');
-          realtimeSyncService.stop().catch(error => {
-            console.error('Failed to stop real-time sync:', error);
-          });
-
-          // Clear all user data from AsyncStorage INCLUDING Supabase auth session
-          console.log('🧹 Clearing all user data from storage...');
-          try {
-            // Get all AsyncStorage keys
-            const allKeys = await AsyncStorage.getAllKeys();
-            console.log('🔑 All AsyncStorage keys:', allKeys);
-
-            // Filter out theme preference (we want to keep that across logout)
-            const keysToRemove = allKeys.filter(key => key !== 'theme');
-
-            // Remove everything except theme
-            await AsyncStorage.multiRemove(keysToRemove);
-            console.log('✅ Cleared all user data from storage (including Supabase session)');
-          } catch (error) {
-            console.error('❌ Error clearing storage:', error);
+          // Clear the sign-out timeout if it was set (since we got the event successfully)
+          if (signOutTimeoutRef.current) {
+            clearTimeout(signOutTimeoutRef.current);
+            signOutTimeoutRef.current = null;
+            console.log('✅ Cleared sign-out timeout (event received successfully)');
           }
 
-          // Reset all stores to initial state
-          itemsActions.clearAll();
-          spacesActions.clearAll();
-          itemSpacesActions.reset();
-          itemMetadataActions.reset();
-          itemTypeMetadataActions.reset();
-          offlineQueueActions.reset();
-          await itemChatsActions.clearAll();
-          await chatMessagesActions.clearAll();
-          await aiSettingsActions.clearAll();
-          await filterActions.clearAll();
-          await userSettingsActions.clearSettings();
-          // Note: adminSettings are global (not user-specific) so we don't clear them
-
-          // Reset auth store
-          authActions.reset();
-          authActions.setLoading(false);
+          // Use consolidated cleanup function
+          await clearAuthState();
 
           // Navigate to auth screen - the state change will trigger navigation
           console.log('🔄 User signed out, state updated');
@@ -218,9 +301,21 @@ export function useAuth() {
       }
     );
 
+    // Store the subscription reference
+    subscriptionRef.current = subscription;
+    isInitializing.current = false;
+
     return () => {
+      console.log('🧹 useAuth cleanup: Unsubscribing from auth listener');
       clearTimeout(loadingTimeout);
-      subscription.unsubscribe();
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      if (signOutTimeoutRef.current) {
+        clearTimeout(signOutTimeoutRef.current);
+        signOutTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -258,47 +353,56 @@ export function useAuth() {
   const signOut = async () => {
     try {
       console.log('🚪 Starting sign out process...');
+      console.log('🔍 Current auth state:', { isAuthenticated, user: user?.email });
+      console.log('🔍 Subscription active?', !!subscriptionRef.current);
 
-      // Stop real-time sync before signing out
-      console.log('📡 Stopping real-time sync...');
-      await realtimeSyncService.stop();
+      // Call Supabase signOut - this should trigger the SIGNED_OUT event
+      console.log('📤 Calling Supabase auth.signOut()...');
+      const { error } = await auth.signOut();
 
-      await auth.signOut();
-      console.log('🚪 Sign out completed');
-
-      // Fallback: proactively clear local state and storage in case event is delayed
-      try {
-        // Get all AsyncStorage keys
-        const allKeys = await AsyncStorage.getAllKeys();
-        console.log('🔑 [signOut fallback] All AsyncStorage keys:', allKeys);
-
-        // Filter out theme preference (we want to keep that across logout)
-        const keysToRemove = allKeys.filter(key => key !== 'theme');
-
-        // Remove everything except theme
-        await AsyncStorage.multiRemove(keysToRemove);
-        console.log('✅ [signOut fallback] Cleared all storage (including Supabase session)');
-      } catch (err) {
-        console.error('❌ [signOut fallback] Error clearing storage:', err);
+      if (error) {
+        console.error('❌ Supabase signOut returned error:', error);
+        throw error;
       }
 
-      itemsActions.clearAll();
-      spacesActions.clearAll();
-      itemSpacesActions.reset();
-      itemMetadataActions.reset();
-      itemTypeMetadataActions.reset();
-      offlineQueueActions.reset();
-      await itemChatsActions.clearAll();
-      await chatMessagesActions.clearAll();
-      await aiSettingsActions.clearAll();
-      await filterActions.clearAll();
-      await userSettingsActions.clearSettings();
-      // Note: adminSettings are global (not user-specific) so we don't clear them
+      console.log('✅ Supabase signOut() completed successfully');
 
-      authActions.reset();
-      authActions.setLoading(false);
+      // Set a timeout to force cleanup if the SIGNED_OUT event doesn't fire
+      // This is especially important in dev builds with React Strict Mode
+      console.log('⏱️ Setting 3-second timeout for fallback cleanup...');
+      signOutTimeoutRef.current = setTimeout(async () => {
+        console.warn('⚠️ SIGNED_OUT event not received within 3 seconds, forcing cleanup...');
+        console.warn('⚠️ This indicates the auth listener may be dead (React Strict Mode issue)');
+
+        // Force cleanup since the event listener might be dead (React Strict Mode issue)
+        await clearAuthState();
+
+        // Force navigation to auth screen
+        console.log('🔄 Forcing navigation to auth screen...');
+        router.replace('/auth');
+
+        signOutTimeoutRef.current = null;
+      }, 3000); // 3 second timeout
+
+      console.log('✅ Sign-out timeout set - waiting for SIGNED_OUT event or timeout...');
+
     } catch (error) {
-      console.error('❌ Error signing out:', error);
+      console.error('❌ Exception caught during sign out:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+
+      // Even if signOut fails, try to clean up local state
+      console.log('🧹 Attempting cleanup despite sign-out error...');
+      try {
+        await clearAuthState();
+        console.log('✅ Cleanup completed, navigating to auth...');
+        router.replace('/auth');
+      } catch (cleanupError) {
+        console.error('❌ Error during cleanup:', cleanupError);
+        // Last resort: force navigation even if cleanup partially fails
+        console.log('🔄 Last resort: forcing navigation to auth...');
+        router.replace('/auth');
+      }
     }
   };
 

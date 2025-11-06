@@ -260,6 +260,7 @@ export interface AdminSettings {
   youtube_transcript_source: 'youtubei' | 'serpapi';
   // UI Debug Settings
   ui_show_description: boolean;
+  youtube_use_thumbnail: boolean;
   // Timestamps
   created_at: string;
   updated_at: string;

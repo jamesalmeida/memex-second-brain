@@ -33,7 +33,7 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
   const spaceChatSheetRef = useRef<SpaceChatSheetRef>(null);
-  const cardRefs = useRef<{ [key: string]: any }>({});
+  const cardRefs = useRef<{ [key: string]: View | null }>({});
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
 
   // Clear search query
@@ -112,7 +112,6 @@ const SpacesScreen = observer(({ onSpaceOpen, onSpaceClose }: SpacesScreenProps 
         keyExtractor={item => item.id}
         masonry
         numColumns={2}
-        estimatedItemSize={150}
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 60 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={EmptyState}
