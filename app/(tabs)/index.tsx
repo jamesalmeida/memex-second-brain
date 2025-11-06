@@ -9,6 +9,7 @@ import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import { syncStatusStore } from '../../src/stores/syncStatus';
+import { pendingItemsStore } from '../../src/stores/pendingItems';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
@@ -37,6 +38,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const allItems = itemsStore.items.get();
+  const pendingItems = pendingItemsStore.items.get();
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
@@ -60,8 +62,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       await filterActions.load();
     };
 
+    const initializePendingItems = async () => {
+      // Load pending items from storage
+      const { pendingItemsActions } = await import('../../src/stores/pendingItems');
+      await pendingItemsActions.loadItems();
+    };
+
     initializeItems();
     initializeFilters();
+    initializePendingItems();
   }, []);
 
   // Expanded item is orchestrated by TabLayout; no local subscription needed here
@@ -139,7 +148,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }
 
     // Sort by created_at based on sortOrder
-    return filtered.sort((a, b) => {
+    const sorted = filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
 
@@ -149,7 +158,49 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
+
+    // Add pending items as processing placeholders (only for non-archive views)
+    if (!isArchiveView && pendingItems.length > 0) {
+      // Get URLs of existing items to avoid duplicates
+      const existingUrls = new Set(sorted.map(item => item.url));
+
+      // Convert pending items to temporary Item objects
+      const pendingAsItems: Item[] = pendingItems
+        .filter(p => p.status === 'pending' || p.status === 'processing')
+        .filter(p => !existingUrls.has(p.url)) // Don't show if real item already exists
+        .map(pending => ({
+          id: `pending-${pending.id}`, // Prefix with 'pending-' to mark as processing
+          user_id: pending.user_id,
+          title: pending.url,
+          url: pending.url,
+          content_type: 'bookmark' as const,
+          desc: undefined,
+          thumbnail_url: undefined,
+          content: undefined,
+          space_id: undefined,
+          tags: [],
+          created_at: pending.created_at,
+          updated_at: pending.created_at,
+          is_archived: false,
+          is_deleted: false,
+        }));
+
+      // Merge pending items with regular items, sorted by created_at
+      const combined = [...pendingAsItems, ...sorted];
+      return combined.sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+
+        if (sortOrder === 'recent') {
+          return dateB - dateA; // Newest first
+        } else {
+          return dateA - dateB; // Oldest first
+        }
+      });
+    }
+
+    return sorted;
+  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
     return displayItems.filter(item => item.space_id === spaceId && !item.is_archived);
@@ -345,6 +396,11 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     );
   };
 
+  // Count processing items
+  const processingCount = useMemo(() => {
+    return pendingItems.filter(p => p.status === 'pending' || p.status === 'processing').length;
+  }, [pendingItems]);
+
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <HeaderBar
@@ -356,6 +412,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       />
 
       <FilterPills />
+
+      {/* Processing count badge */}
+      {processingCount > 0 && (
+        <View style={[styles.processingBanner, isDarkMode && styles.processingBannerDark]}>
+          <Text style={[styles.processingText, isDarkMode && styles.processingTextDark]}>
+            Processing {processingCount} {processingCount === 1 ? 'item' : 'items'}...
+          </Text>
+        </View>
+      )}
 
       <ScrollView
         ref={pagerRef}
@@ -549,5 +614,25 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
     fontWeight: '300',
+  },
+  processingBanner: {
+    backgroundColor: '#FFF9E6',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE082',
+  },
+  processingBannerDark: {
+    backgroundColor: '#332800',
+    borderBottomColor: '#665000',
+  },
+  processingText: {
+    fontSize: 13,
+    color: '#F57C00',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  processingTextDark: {
+    color: '#FFB74D',
   },
 });

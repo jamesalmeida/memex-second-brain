@@ -9,6 +9,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
 import { Item, Space, AdminSettings, PendingItem } from '../types';
 import { toastActions } from '../stores/toast';
+import { processingItemsActions } from '../stores/processingItems';
+import { pendingItemsActions, PendingItemDisplay } from '../stores/pendingItems';
 
 /**
  * Real-time sync service that listens for changes from other devices
@@ -264,27 +266,55 @@ class RealtimeSyncService {
       }
 
       if (eventType === 'INSERT') {
-        // Show "processing" toast when new pending item is created
+        // Add to pending items store (shows processing card in grid)
         console.log('⏳ [RealtimeSync] New pending item created:', newPendingItem.url);
-        toastActions.show('Processing shared item...', 'info');
+        await pendingItemsActions.add({
+          id: newPendingItem.id,
+          url: newPendingItem.url,
+          status: 'pending',
+          created_at: newPendingItem.created_at,
+          user_id: newPendingItem.user_id,
+        });
+
+        // Mark as processing in processing items store (use prefixed ID to match display items)
+        processingItemsActions.add(`pending-${newPendingItem.id}`);
       } else if (eventType === 'UPDATE' && newPendingItem) {
         const status = newPendingItem.status;
 
         if (status === 'processing') {
           console.log('⏳ [RealtimeSync] Pending item processing:', newPendingItem.url);
-          toastActions.show('Processing shared item...', 'info');
+          // Update status in pending items store
+          await pendingItemsActions.updateStatus(newPendingItem.id, 'processing');
         } else if (status === 'completed') {
-          console.log('✅ [RealtimeSync] Pending item completed, refreshing items');
-          toastActions.show('Item saved successfully!', 'success');
+          console.log('✅ [RealtimeSync] Pending item completed, removing placeholder and syncing');
 
-          // Refresh items from Supabase to get the new item
+          // Remove from processing store FIRST (before sync) to hide processing card
+          processingItemsActions.remove(`pending-${newPendingItem.id}`);
+
+          // Remove from pending items store IMMEDIATELY (no delay)
+          await pendingItemsActions.remove(newPendingItem.id);
+
+          // Now refresh items from Supabase to get the new item
           await syncService.forceSync();
         } else if (status === 'failed') {
           console.error('❌ [RealtimeSync] Pending item failed:', newPendingItem.error_message);
+
+          // Remove from processing store IMMEDIATELY
+          processingItemsActions.remove(`pending-${newPendingItem.id}`);
+
+          // Update status in pending items store
+          await pendingItemsActions.updateStatus(newPendingItem.id, 'failed', newPendingItem.error_message);
+
+          // Show error toast
           toastActions.show(
             newPendingItem.error_message || 'Failed to process shared item',
             'error'
           );
+
+          // Remove failed item after 5 seconds
+          setTimeout(() => {
+            pendingItemsActions.remove(newPendingItem.id);
+          }, 5000);
         }
       }
     } catch (error) {

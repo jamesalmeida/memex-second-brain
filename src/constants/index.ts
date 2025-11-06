@@ -111,6 +111,7 @@ export const STORAGE_KEYS = {
   FILTERS: '@memex_filters',
   USER_SETTINGS: '@memex_user_settings', // Cloud-synced user settings
   ADMIN_SETTINGS: '@memex_admin_settings', // Cloud-synced global admin settings
+  PENDING_ITEMS: '@memex_pending_items', // Shared items being processed
 };
 
 // Special spaces
