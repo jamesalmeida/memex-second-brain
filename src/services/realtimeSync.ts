@@ -56,8 +56,8 @@ class RealtimeSyncService {
       await this.handleAdminSettingsChange(payload);
     });
 
-    // Subscribe to pending items changes
-    this.pendingItemsChannel = subscriptions.pendingItems(user.id, async (payload) => {
+    // Subscribe to pending items changes (no user filter - client-side filtering in handler)
+    this.pendingItemsChannel = subscriptions.pendingItems(async (payload) => {
       console.log('📡 [RealtimeSync] Pending item change received:', payload.eventType, payload.new?.status);
       await this.handlePendingItemChange(payload);
     });
@@ -256,6 +256,13 @@ class RealtimeSyncService {
     const { eventType, new: newPendingItem } = payload;
 
     try {
+      // Client-side filter: only process events for current user
+      const currentUserId = authStore.user.get()?.id;
+      if (!currentUserId || newPendingItem?.user_id !== currentUserId) {
+        console.log('📡 [RealtimeSync] Ignoring pending item for different user');
+        return;
+      }
+
       if (eventType === 'INSERT') {
         // Show "processing" toast when new pending item is created
         console.log('⏳ [RealtimeSync] New pending item created:', newPendingItem.url);

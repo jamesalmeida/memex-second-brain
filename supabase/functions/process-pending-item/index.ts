@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Simple metadata extraction (can be enhanced with full extractURLMetadata logic)
+// Enhanced metadata extraction using Jina AI
 const extractMetadata = async (url: string) => {
   try {
     // Detect content type from URL
@@ -25,7 +25,74 @@ const extractMetadata = async (url: string) => {
       contentType = 'movie'
     }
 
-    // Fetch page for OG tags
+    // Try Jina AI first for better metadata extraction
+    const jinaApiKey = Deno.env.get('JINA_AI_API_KEY')
+
+    if (jinaApiKey) {
+      console.log('[ProcessPendingItem] Using Jina AI for metadata extraction')
+
+      const jinaUrl = `https://r.jina.ai/${encodeURIComponent(url)}`
+      const jinaResponse = await fetch(jinaUrl, {
+        headers: {
+          'Authorization': `Bearer ${jinaApiKey}`,
+          'Accept': 'application/json',
+          'X-With-Images-Summary': 'true',
+          'X-With-Links-Summary': 'true',
+        },
+      })
+
+      if (jinaResponse.ok) {
+        const jinaData = await jinaResponse.json()
+        const jinaContent = jinaData.data || jinaData
+        const metadata = jinaContent.metadata || {}
+
+        // Extract metadata with fallbacks (same priority as app)
+        const title = metadata['og:title'] ||
+                      metadata.ogTitle ||
+                      jinaContent.ogTitle ||
+                      metadata['twitter:title'] ||
+                      metadata.title ||
+                      jinaContent.title ||
+                      url
+
+        const description = metadata['og:description'] ||
+                            metadata.ogDescription ||
+                            jinaContent.ogDescription ||
+                            metadata['twitter:description'] ||
+                            metadata.description ||
+                            jinaContent.description ||
+                            jinaContent.excerpt ||
+                            null
+
+        const thumbnail_url = metadata['og:image'] ||
+                              metadata.ogImage ||
+                              jinaContent.ogImage ||
+                              metadata['twitter:image'] ||
+                              jinaContent.images?.[0]?.url ||
+                              jinaContent.image ||
+                              null
+
+        console.log('[ProcessPendingItem] Jina AI extraction successful:', {
+          hasTitle: !!title,
+          hasDescription: !!description,
+          hasThumbnail: !!thumbnail_url
+        })
+
+        return {
+          title,
+          description,
+          thumbnail_url,
+          content_type: contentType,
+        }
+      } else {
+        console.warn('[ProcessPendingItem] Jina AI request failed:', jinaResponse.status)
+      }
+    } else {
+      console.log('[ProcessPendingItem] Jina AI key not configured, falling back to basic extraction')
+    }
+
+    // Fallback: Basic OG tag extraction
+    console.log('[ProcessPendingItem] Falling back to basic HTML extraction')
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; MemexBot/1.0)',
@@ -33,7 +100,6 @@ const extractMetadata = async (url: string) => {
     })
     const html = await response.text()
 
-    // Extract OG tags (simplified)
     const titleMatch = html.match(/<meta property="og:title" content="([^"]*)"/) ||
                       html.match(/<title>([^<]*)<\/title>/)
     const descMatch = html.match(/<meta property="og:description" content="([^"]*)"/) ||
@@ -47,7 +113,7 @@ const extractMetadata = async (url: string) => {
       content_type: contentType,
     }
   } catch (error) {
-    console.error('Metadata extraction error:', error)
+    console.error('[ProcessPendingItem] Metadata extraction error:', error)
     return {
       title: url,
       description: null,
@@ -119,6 +185,9 @@ serve(async (req) => {
       has_title: !!metadata.title,
       has_url: !!url,
     });
+
+    // Add source flag for app-side enrichment
+    itemData.source = 'share_extension';
 
     // Insert into items table
     const { data: item, error: insertError } = await supabase

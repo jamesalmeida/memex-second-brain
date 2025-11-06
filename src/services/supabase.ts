@@ -447,7 +447,7 @@ export const subscriptions = {
       .subscribe();
   },
 
-  pendingItems: (userId: string, callback: (payload: any) => void) => {
+  pendingItems: (callback: (payload: any) => void) => {
     return supabase
       .channel('pending_items')
       .on(
@@ -456,7 +456,8 @@ export const subscriptions = {
           event: '*',
           schema: 'public',
           table: 'pending_items',
-          filter: `user_id=eq.${userId}`,
+          // No user filter - broadcast all events (client-side filtering in handler)
+          // This allows events from Share Extension to reach main app despite different sessions
         },
         callback
       )
