@@ -994,6 +994,18 @@ useEffect(() => {
     - Integrates with filterStore for reactive updates
     - Full theme support (light/dark mode)
   - **Bottom Sheets**: Expanded Items, Capture, New Space, Edit Space, Settings, Tag Manager, Item Chats (dismiss via swipe or button). `@gorhom/bottom-sheet` for sliding chat UI; covers prior view; swipe-down to dismiss.
+    - **Shared Bottom Sheet Components** (`src/components/SharedBottomSheet.tsx`, `src/components/SharedBottomSheetOverlay.tsx`): Reusable bottom sheet wrappers to reduce code duplication and maintain consistent styling:
+      - **SharedBottomSheet**: Base component for standard bottom sheets (zIndex: 500). Features:
+        - Automatic light/dark mode styling (white/dark backgrounds, themed handle indicators)
+        - Customizable snap points, keyboard behavior, and backdrop opacity
+        - Exposes all imperative methods (snapToIndex, expand, close, etc.)
+        - Props: `snapPoints`, `keyboardBehavior`, `backdropOpacity`, `onClose`, `onChange`, etc.
+        - Usage: AddItemSheet, CreateSpaceSheet, EditSpaceSheet, SettingsSheet, AdminSheet, TagManagerSheet, ReorderSpacesSheet
+      - **SharedBottomSheetOverlay**: Variant for overlay contexts like chat (zIndex: 1000, higher backdrop opacity: 0.7)
+        - Designed for bottom sheets that appear above other bottom sheets
+        - Same features as SharedBottomSheet with elevated z-index
+        - Usage: ChatSheet, SpaceChatSheet
+      - **Benefits**: Eliminates duplicate styling code across 10+ bottom sheet components; single source of truth for theme colors and styling; easier maintenance
   - **ChatSheet**: Bottom sheet for item/space AI chat with three-dot context menu in header:
     - Header displays "AI Chat" title, model name, and three-dot menu button
     - Context menu uses native `ContextMenu` from `@expo/ui/swift-ui` (same as DrawerContent)

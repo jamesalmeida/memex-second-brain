@@ -1,6 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAccessoryView, Button, Alert, Animated } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import * as Clipboard from 'expo-clipboard';
@@ -8,6 +8,7 @@ import { themeStore } from '../stores/theme';
 import { authComputed } from '../stores/auth';
 import { spacesComputed } from '../stores/spaces';
 import { itemProcessingQueue } from '../services/itemProcessingQueue';
+import { SharedBottomSheet } from './SharedBottomSheet';
 
 interface AddItemSheetProps {
   preSelectedSpaceId?: string | null;
@@ -68,10 +69,6 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
     open: () => openSheet(null),
     openWithSpace: (spaceId: string) => openSheet(spaceId),
   }), [openSheet]);
-
-  const renderBackdrop = (props: any) => (
-    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-  );
 
   const performSave = useCallback(async (value: string) => {
     const url = value.trim();
@@ -170,15 +167,9 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
   }, []);
 
   return (
-    <BottomSheet
+    <SharedBottomSheet
       ref={bottomSheetRef}
-      index={-1}
       snapPoints={snapPoints}
-      enablePanDownToClose
-      enableDynamicSizing={false}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBackground, isDarkMode && styles.sheetBackgroundDark]}
-      handleIndicatorStyle={[styles.handleIndicator, isDarkMode && styles.handleIndicatorDark]}
       keyboardBehavior={Platform.OS === 'ios' ? 'extend' : 'interactive'}
       keyboardBlurBehavior="restore"
       onChange={(index) => {
@@ -293,17 +284,13 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
           </View>
         </InputAccessoryView>
       )}
-    </BottomSheet>
+    </SharedBottomSheet>
   );
 }));
 
 export default AddItemSheet;
 
 const styles = StyleSheet.create({
-  sheetBackground: { backgroundColor: '#FFFFFF' },
-  sheetBackgroundDark: { backgroundColor: '#1C1C1E' },
-  handleIndicator: { backgroundColor: '#CCCCCC', width: 40 },
-  handleIndicatorDark: { backgroundColor: '#666666' },
   header: { paddingHorizontal: 20, paddingVertical: 0 },
   headerButtonRow: { marginTop: 0, alignItems: 'stretch', width: '100%' },
   saveButtonWrapper: {

@@ -11,7 +11,8 @@ import {
   Pressable,
   Share,
 } from 'react-native';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { SharedBottomSheetOverlay } from './SharedBottomSheetOverlay';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { observer } from '@legendapp/state/react';
@@ -622,18 +623,6 @@ const ChatSheet = observer(
       }
     };
 
-    const renderBackdrop = useCallback(
-      (props: any) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      []
-    );
-
     const renderSystemMessage = () => {
       if (!item) return null;
 
@@ -877,23 +866,12 @@ const ChatSheet = observer(
     };
 
     return (
-      <BottomSheet
+      <SharedBottomSheetOverlay
         ref={ref}
-        index={-1}
         snapPoints={snapPoints}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        topInset={50}
         keyboardBehavior="extend"
         android_keyboardInputMode="adjustResize"
-        backgroundStyle={[
-          styles.sheetBackground,
-          isDarkMode && styles.sheetBackgroundDark,
-        ]}
-        handleIndicatorStyle={[
-          styles.handleIndicator,
-          isDarkMode && styles.handleIndicatorDark,
-        ]}
+        backdropOpacity={0.7}
         onChange={(index) => {
           if (index === -1) {
             onClose?.();
@@ -1047,7 +1025,7 @@ const ChatSheet = observer(
             </View>
           </View>
         </View>
-      </BottomSheet>
+      </SharedBottomSheetOverlay>
     );
   })
 );
@@ -1164,21 +1142,6 @@ const TypingIndicator = observer(({ isDarkMode }: { isDarkMode: boolean }) => {
 });
 
 const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: '#FFFFFF',
-    elevation: 20, // Android shadow/z-index
-  },
-  sheetBackgroundDark: {
-    backgroundColor: '#1C1C1E',
-    elevation: 20, // Android shadow/z-index
-  },
-  handleIndicator: {
-    backgroundColor: '#CCCCCC',
-    width: 40,
-  },
-  handleIndicatorDark: {
-    backgroundColor: '#666666',
-  },
   container: {
     flex: 1,
   },
