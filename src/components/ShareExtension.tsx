@@ -37,6 +37,9 @@ const ShareExtension = (props: InitialProps) => {
     contentType: ContentType;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasKeychainAuth, setHasKeychainAuth] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Safely access stores with fallbacks
   const isDarkMode = themeStore?.isDarkMode?.get() ?? false;
@@ -82,6 +85,11 @@ const ShareExtension = (props: InitialProps) => {
 
         // Spaces auto-load on import, just give them a moment
         await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Check for Keychain auth
+        const keychainAuth = await getSharedAuth();
+        setHasKeychainAuth(!!keychainAuth);
+        console.log('[ShareExtension] Keychain auth available:', !!keychainAuth);
 
         // Extract metadata from shared content
         if (props.url) {
@@ -135,6 +143,27 @@ const ShareExtension = (props: InitialProps) => {
 
     initialize();
   }, []);
+
+  // Auto-save effect: triggers when metadata is ready and user is authenticated
+  useEffect(() => {
+    if (!isLoading && metadata && hasKeychainAuth && !autoSaveTimer && !showSuccess) {
+      console.log('[ShareExtension] Starting auto-save timer (2s)...');
+      const timer = setTimeout(async () => {
+        console.log('[ShareExtension] Auto-save triggered');
+        await handleSave();
+      }, 2000); // 2 second delay to show preview
+      setAutoSaveTimer(timer);
+    }
+  }, [isLoading, metadata, hasKeychainAuth, autoSaveTimer, showSuccess]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+      }
+    };
+  }, [autoSaveTimer]);
 
   const handleSave = async () => {
     if (!metadata) {
@@ -205,8 +234,14 @@ const ShareExtension = (props: InitialProps) => {
 
           console.log('[ShareExtension] ✅ Item synced directly to Supabase:', newItem.id);
 
-          // Close the share extension
-          close();
+          // Show success banner
+          setIsSaving(false);
+          setShowSuccess(true);
+
+          // Auto-dismiss after 1 second
+          setTimeout(() => {
+            close();
+          }, 1000);
           return;
         } catch (supabaseError) {
           console.error('[ShareExtension] Supabase sync failed, falling back to queue:', supabaseError);
@@ -221,8 +256,14 @@ const ShareExtension = (props: InitialProps) => {
       await addItemToSharedQueue(newItem);
       console.log('[ShareExtension] Item added to queue:', newItem.id);
 
-      // Close the share extension
-      close();
+      // Show success banner
+      setIsSaving(false);
+      setShowSuccess(true);
+
+      // Auto-dismiss after 1 second
+      setTimeout(() => {
+        close();
+      }, 1000);
     } catch (err) {
       console.error('[ShareExtension] Error saving item:', err);
       setError('Failed to save item. Please try again.');
@@ -231,6 +272,11 @@ const ShareExtension = (props: InitialProps) => {
   };
 
   const handleCancel = () => {
+    // Clear auto-save timer if active
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+      setAutoSaveTimer(null);
+    }
     close();
   };
 
@@ -291,11 +337,20 @@ const ShareExtension = (props: InitialProps) => {
           </Text>
         </View>
 
-        {/* Not Signed In Warning */}
-        {!user && (
+        {/* Success Banner */}
+        {showSuccess && (
+          <View style={[styles.successBanner, isDarkMode && styles.successBannerDark]}>
+            <Text style={styles.successText}>
+              ✓ Saved successfully!
+            </Text>
+          </View>
+        )}
+
+        {/* Not Signed In Warning - Only show if no Keychain auth */}
+        {!hasKeychainAuth && (
           <View style={[styles.warningBanner, isDarkMode && styles.warningBannerDark]}>
             <Text style={[styles.warningText, isDarkMode && styles.warningTextDark]}>
-              ⚠️ Not signed in - item will sync when you open the app
+              Please sign in to save items
             </Text>
           </View>
         )}
@@ -333,7 +388,15 @@ const ShareExtension = (props: InitialProps) => {
           </Text>
           <TouchableOpacity
             style={[styles.selector, isDarkMode && styles.selectorDark]}
-            onPress={() => setShowSpaceSelector(!showSpaceSelector)}
+            onPress={() => {
+              // Pause auto-save when user opens space selector
+              if (autoSaveTimer && !showSpaceSelector) {
+                console.log('[ShareExtension] Pausing auto-save - user opening space selector');
+                clearTimeout(autoSaveTimer);
+                setAutoSaveTimer(null);
+              }
+              setShowSpaceSelector(!showSpaceSelector);
+            }}
             activeOpacity={0.7}
           >
             {selectedSpace ? (
@@ -409,26 +472,41 @@ const ShareExtension = (props: InitialProps) => {
       </ScrollView>
 
       {/* Action Buttons */}
-      <View style={[styles.footer, isDarkMode && styles.footerDark]}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={handleCancel}
-          disabled={isSaving}
-        >
-          <Text style={styles.buttonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.primaryButton, isSaving && styles.buttonDisabled]}
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Save</Text>
+      {!hasKeychainAuth ? (
+        // Not authenticated - Show "Open Memex to Sign In" button
+        <View style={[styles.footer, isDarkMode && styles.footerDark]}>
+          <TouchableOpacity
+            style={[styles.button, styles.primaryButton]}
+            onPress={handleOpenHostApp}
+          >
+            <Text style={styles.buttonText}>Open Memex to Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      ) : !showSuccess ? (
+        // Authenticated - Show Cancel button (and Save if space selector is open or manual trigger needed)
+        <View style={[styles.footer, isDarkMode && styles.footerDark]}>
+          <TouchableOpacity
+            style={[styles.button, styles.cancelButton]}
+            onPress={handleCancel}
+            disabled={isSaving}
+          >
+            <Text style={styles.buttonText}>Cancel</Text>
+          </TouchableOpacity>
+          {(showSpaceSelector || !autoSaveTimer) && (
+            <TouchableOpacity
+              style={[styles.button, styles.primaryButton, isSaving && styles.buttonDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Save</Text>
+              )}
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-      </View>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -502,6 +580,21 @@ const styles = StyleSheet.create({
   },
   warningTextDark: {
     color: '#FFEB3B',
+  },
+  successBanner: {
+    backgroundColor: '#D4EDDA',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  successBannerDark: {
+    backgroundColor: '#1B4332',
+  },
+  successText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#155724',
+    textAlign: 'center',
   },
   previewContainer: {
     backgroundColor: '#F2F2F7',
