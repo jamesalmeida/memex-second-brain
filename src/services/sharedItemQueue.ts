@@ -43,8 +43,9 @@ const getSharedStorage = (): MMKV | null => {
     console.log('[SharedItemQueue] ✅ MMKV initialized with app group');
     return sharedStorage;
   } catch (error) {
-    console.error('[SharedItemQueue] ❌ Failed to initialize MMKV with app group:', error);
-    console.error('[SharedItemQueue] This may happen if JSI is not available (Metro bundler, remote debugger, etc.)');
+    // This is expected in development mode (Metro bundler) where JSI isn't available
+    // The queue is only a fallback - primary sync uses Keychain + Supabase
+    console.log('[SharedItemQueue] ⚠️ MMKV queue not available (dev mode - this is OK, using Keychain auth instead)');
     return null;
   }
 };

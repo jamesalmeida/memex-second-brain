@@ -382,7 +382,7 @@ const ShareExtension = (props: InitialProps) => {
         </View>
 
         {/* Space Selector */}
-        <View style={styles.spaceSelectorContainer}>
+        {/* <View style={styles.spaceSelectorContainer}>
           <Text style={[styles.label, isDarkMode && styles.labelDark]}>
             SPACE
           </Text>
@@ -412,12 +412,11 @@ const ShareExtension = (props: InitialProps) => {
               </Text>
             )}
             <Text style={styles.chevron}>{showSpaceSelector ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Space Options Dropdown */}
-          {showSpaceSelector && (
+          {/* {showSpaceSelector && (
             <View style={[styles.spaceOptions, isDarkMode && styles.spaceOptionsDark]}>
-              {/* Everything Option */}
               <TouchableOpacity
                 style={styles.spaceOption}
                 onPress={() => {
@@ -440,7 +439,6 @@ const ShareExtension = (props: InitialProps) => {
                 </View>
               </TouchableOpacity>
 
-              {/* Space Options */}
               {spaces.map((space) => (
                 <TouchableOpacity
                   key={space.id}
@@ -468,7 +466,8 @@ const ShareExtension = (props: InitialProps) => {
               ))}
             </View>
           )}
-        </View>
+        </View> */}
+      
       </ScrollView>
 
       {/* Action Buttons */}
