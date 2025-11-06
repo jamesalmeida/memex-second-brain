@@ -1,7 +1,7 @@
 {
   "name": "memex-second-brain",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -44,6 +44,7 @@
     "expo-notifications": "~0.32.12",
     "expo-router": "~6.0.14",
     "expo-secure-store": "~15.0.7",
+    "expo-share-extension": "^5.0.1",
     "expo-sharing": "~14.0.7",
     "expo-status-bar": "~3.0.8",
     "expo-video": "~3.0.14",

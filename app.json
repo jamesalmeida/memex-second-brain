@@ -2,7 +2,7 @@
   "expo": {
     "name": "Memex",
     "slug": "memex-second-brain",
-    "version": "0.2.3",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,12 +20,22 @@
       },
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
-      "buildNumber": "7",
+      "buildNumber": "2025.11.05.1",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "This app needs local network access to connect to the Metro development server.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to let you choose images for your items.",
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to save images to your photo library."
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -54,7 +64,46 @@
         }
       ],
       "react-native-legal",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-share-extension",
+        {
+          "activationRules": [
+            {
+              "type": "url",
+              "max": 1
+            },
+            {
+              "type": "text"
+            },
+            {
+              "type": "image",
+              "max": 3
+            },
+            {
+              "type": "video",
+              "max": 1
+            },
+            {
+              "type": "file",
+              "max": 3
+            }
+          ],
+          "excludedPackages": [
+            "expo-dev-client",
+            "expo-splash-screen",
+            "expo-updates",
+            "expo-font"
+          ],
+          "backgroundColor": {
+            "red": 255,
+            "green": 255,
+            "blue": 255,
+            "alpha": 0.5
+          },
+          "height": 500
+        }
+      ]
     ]
   }
 }
