@@ -12,12 +12,15 @@ import {
 import { observer } from '@legendapp/state/react';
 import { close, openHostApp, type InitialProps } from 'expo-share-extension';
 import uuid from 'react-native-uuid';
+import { createClient } from '@supabase/supabase-js';
 import { themeStore, themeActions } from '../stores/theme';
 import { spacesStore } from '../stores/spaces';
-import { itemsActions } from '../stores/items';
 import { authStore, authActions } from '../stores/auth';
 import { auth } from '../services/supabase';
+import { SUPABASE } from '../constants';
 import { extractURLMetadata } from '../services/urlMetadata';
+import { addItemToSharedQueue } from '../services/sharedItemQueue';
+import { getSharedAuth } from '../services/sharedAuth';
 import { Item, ContentType, User } from '../types';
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -134,8 +137,8 @@ const ShareExtension = (props: InitialProps) => {
   }, []);
 
   const handleSave = async () => {
-    if (!metadata || !user) {
-      setError('Unable to save. Please make sure you are signed in.');
+    if (!metadata) {
+      setError('Unable to save. No content to save.');
       return;
     }
 
@@ -145,7 +148,7 @@ const ShareExtension = (props: InitialProps) => {
       // Create new item
       const newItem: Item = {
         id: uuid.v4() as string,
-        user_id: user.id,
+        user_id: 'pending', // Will be updated below
         title: metadata.title,
         url: props.url,
         content_type: metadata.contentType,
@@ -160,10 +163,63 @@ const ShareExtension = (props: InitialProps) => {
         is_deleted: false,
       };
 
-      // Add item with sync
-      await itemsActions.addItemWithSync(newItem);
+      // Try to get shared auth credentials
+      const authData = await getSharedAuth();
 
-      console.log('[ShareExtension] Item saved successfully:', newItem.id);
+      if (authData) {
+        // We have auth! Sync directly to Supabase
+        console.log('[ShareExtension] Auth found, syncing directly to Supabase...');
+
+        try {
+          // Create authenticated Supabase client
+          const supabase = createClient(SUPABASE.URL, SUPABASE.ANON_KEY, {
+            auth: {
+              persistSession: false, // Don't persist in extension
+              autoRefreshToken: false, // Don't auto-refresh in extension
+            },
+          });
+
+          // Set the session from shared storage
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+          });
+
+          if (sessionError) {
+            console.error('[ShareExtension] Session error:', sessionError);
+            throw sessionError;
+          }
+
+          // Update user_id with actual user ID
+          newItem.user_id = authData.user_id;
+
+          // Insert directly to Supabase
+          const { error: insertError } = await supabase
+            .from('items')
+            .insert(newItem);
+
+          if (insertError) {
+            console.error('[ShareExtension] Insert error:', insertError);
+            throw insertError;
+          }
+
+          console.log('[ShareExtension] ✅ Item synced directly to Supabase:', newItem.id);
+
+          // Close the share extension
+          close();
+          return;
+        } catch (supabaseError) {
+          console.error('[ShareExtension] Supabase sync failed, falling back to queue:', supabaseError);
+          // Fall through to queue mechanism
+        }
+      } else {
+        console.log('[ShareExtension] No auth found, using queue mechanism');
+      }
+
+      // Fallback: Add to queue if auth is missing or sync failed
+      newItem.user_id = authData?.user_id || 'pending';
+      await addItemToSharedQueue(newItem);
+      console.log('[ShareExtension] Item added to queue:', newItem.id);
 
       // Close the share extension
       close();
@@ -179,9 +235,13 @@ const ShareExtension = (props: InitialProps) => {
   };
 
   const handleOpenHostApp = () => {
-    // Just open the main app without a specific path
-    // The useAuth hook will handle routing to the correct screen based on auth state
-    openHostApp('');
+    // Open the main app
+    // Use the scheme without path to go to root
+    try {
+      openHostApp('/');
+    } catch (error) {
+      console.error('[ShareExtension] Error opening host app:', error);
+    }
   };
 
   if (isLoading) {
@@ -215,30 +275,6 @@ const ShareExtension = (props: InitialProps) => {
     );
   }
 
-  if (!user) {
-    return (
-      <View style={[styles.container, isDarkMode && styles.containerDark]}>
-        <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, isDarkMode && styles.errorTextDark]}>
-            Please sign in to the Memex app first.
-          </Text>
-          <TouchableOpacity
-            style={[styles.button, styles.primaryButton]}
-            onPress={handleOpenHostApp}
-          >
-            <Text style={styles.buttonText}>Open Memex</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={handleCancel}
-          >
-            <Text style={styles.buttonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   const selectedSpace = spaces.find(s => s.id === selectedSpaceId);
 
   return (
@@ -254,6 +290,15 @@ const ShareExtension = (props: InitialProps) => {
             Save to Memex
           </Text>
         </View>
+
+        {/* Not Signed In Warning */}
+        {!user && (
+          <View style={[styles.warningBanner, isDarkMode && styles.warningBannerDark]}>
+            <Text style={[styles.warningText, isDarkMode && styles.warningTextDark]}>
+              ⚠️ Not signed in - item will sync when you open the app
+            </Text>
+          </View>
+        )}
 
         {/* Content Preview */}
         <View style={[styles.previewContainer, isDarkMode && styles.previewContainerDark]}>
@@ -440,6 +485,23 @@ const styles = StyleSheet.create({
   },
   headerTitleDark: {
     color: '#fff',
+  },
+  warningBanner: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  warningBannerDark: {
+    backgroundColor: '#4A4220',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#856404',
+    textAlign: 'center',
+  },
+  warningTextDark: {
+    color: '#FFEB3B',
   },
   previewContainer: {
     backgroundColor: '#F2F2F7',

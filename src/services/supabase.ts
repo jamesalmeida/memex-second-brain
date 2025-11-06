@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { sharedStorage } from './sharedStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SUPABASE } from '../constants';
 import { Database } from '../types/database';
 
@@ -10,7 +10,7 @@ export const supabase = createClient<Database>(
   SUPABASE.ANON_KEY,
   {
     auth: {
-      storage: sharedStorage as any, // Use shared MMKV storage for cross-target session sharing
+      storage: AsyncStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true, // Enable for OAuth redirects

@@ -5,6 +5,8 @@ import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
 import { syncService } from '../services/syncService';
 import { realtimeSyncService } from '../services/realtimeSync';
+import { getItemsFromSharedQueue, clearSharedQueue } from '../services/sharedItemQueue';
+import { saveSharedAuth, clearSharedAuth } from '../services/sharedAuth';
 import { STORAGE_KEYS } from '../constants';
 import { itemsActions } from '../stores/items';
 import { spacesActions } from '../stores/spaces';
@@ -73,6 +75,12 @@ async function clearAuthState() {
   await userSettingsActions.clearSettings();
   // Note: adminSettings are global (not user-specific) so we don't clear them
 
+  // Clear shared auth for share extension
+  console.log('🔐 Clearing shared auth...');
+  await clearSharedAuth().catch(error => {
+    console.error('Failed to clear shared auth:', error);
+  });
+
   // Reset auth store
   console.log('🔐 Resetting auth store...');
   authActions.reset();
@@ -129,6 +137,12 @@ export function useAuth() {
           });
           authActions.setSession(session);
 
+          // Save auth to shared container for share extension
+          console.log('🔐 Saving auth to shared container...');
+          await saveSharedAuth(session).catch(error => {
+            console.error('Failed to save shared auth:', error);
+          });
+
           // Load user settings from cloud FIRST
           console.log('⚙️ Loading user settings from cloud...');
           await userSettingsActions.loadSettings().catch(error => {
@@ -146,6 +160,29 @@ export function useAuth() {
           await aiSettingsActions.loadSettings().catch(error => {
             console.error('Failed to load AI settings:', error);
           });
+
+          // Import items from share extension queue
+          console.log('📥 Checking for items from share extension...');
+          try {
+            const sharedItems = await getItemsFromSharedQueue();
+            if (sharedItems.length > 0) {
+              console.log(`📥 Found ${sharedItems.length} items from share extension, importing...`);
+              for (const item of sharedItems) {
+                // Update user_id if it was 'pending'
+                if (item.user_id === 'pending') {
+                  item.user_id = session.user.id;
+                }
+                // Add item with sync
+                await itemsActions.addItemWithSync(item);
+                console.log(`✅ Imported item: ${item.title}`);
+              }
+              // Clear the queue after successful import
+              await clearSharedQueue();
+              console.log('✅ Cleared share extension queue');
+            }
+          } catch (error) {
+            console.error('❌ Error importing items from share extension:', error);
+          }
 
           // Trigger sync for existing session
           console.log('🔄 Starting sync for existing session...');
@@ -193,6 +230,12 @@ export function useAuth() {
           });
           authActions.setSession(session);
           authActions.setLoading(false);
+
+          // Save auth to shared container for share extension
+          console.log('🔐 Saving auth to shared container...');
+          await saveSharedAuth(session).catch(error => {
+            console.error('Failed to save shared auth:', error);
+          });
 
           // Load user settings from cloud FIRST
           console.log('⚙️ Loading user settings from cloud...');
