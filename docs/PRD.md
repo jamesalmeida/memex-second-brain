@@ -134,8 +134,26 @@
     - Extra credits, last hour searches, hourly rate limit
     - Auto-refreshes when sheet opens for real-time data
     - Manual refresh button for on-demand updates
+  - **Console Logs Section**: Granular control over console log output for debugging:
+    - **Master Toggle**: Enable/disable all console logs across the app
+    - **Category Toggles**: Individual controls for specific app sections:
+      - Sync & Offline Queue - Sync operations, offline queue, data synchronization
+      - Chat & Messaging - Chat operations, message handling, chat sheet lifecycle
+      - Authentication & Login - Login/logout, session management, keychain operations
+      - Transcript Generation - Video transcript fetching from YouTube, X, etc.
+      - Drawer & Bottom Sheets - Drawer and bottom sheet lifecycle and interactions
+      - Item Saving & Creation - Item CRUD operations, updates, deletions
+      - Enrichment Pipeline - Content type detection, metadata enrichment steps
+      - External API Integration - YouTube, X/Twitter, Instagram, Reddit, OpenAI calls
+      - Data Metadata & Storage - Metadata operations, storage management
+      - UI/Navigation & Drawer Context - Navigation state, drawer context handlers
+      - Admin Settings & Configuration - Admin panel operations, model selection
+      - Image Operations & Uploads - Image description generation, upload operations
+    - Settings stored in MMKV via `consoleLogSettingsStore` and persist across sessions
+    - Usage: Developers use `logger.{category}.log()` instead of `console.log()` for controlled logging
+    - Implementation: `src/stores/consoleLogSettings.ts`, `src/utils/console.ts`
   - **UI Debug Tools**: Test toast notifications, etc.
-  - Implementation: `src/components/AdminSheet.tsx`, `src/stores/adminSettings.ts`, `src/utils/adminCheck.ts`
+  - Implementation: `src/components/AdminSheet.tsx`, `src/stores/adminSettings.ts`, `src/stores/consoleLogSettings.ts`, `src/utils/adminCheck.ts`, `src/utils/console.ts`
 - **Search**: Global fuzzy search across items (client-side via Fuse.js, using Legend-State cache offline).  
 - **Infinite Scroll/Pagination**: Load 20 items per page using FlatList’s `onEndReached`. Cache in Legend-State for offline access.  
 - **Real-Time Updates**: Supabase real-time subscriptions for item changes (add/update/delete) when online, synced to Legend-State.  

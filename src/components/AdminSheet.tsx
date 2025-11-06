@@ -19,6 +19,7 @@ import { serpapi, SerpApiAccount, SerpApiError } from '../services/serpapi';
 import { openai, OpenAIAccountStatus, OpenAICostsData, OpenAIError } from '../services/openai';
 import { isAPIConfigured } from '../config/api';
 import { adminSettingsStore, adminSettingsActions, adminSettingsComputed } from '../stores/adminSettings';
+import { consoleLogSettingsStore, consoleLogSettingsActions, consoleLogSettingsComputed } from '../stores/consoleLogSettings';
 import ModelPickerSheet from './ModelPickerSheet';
 
 interface AdminSheetProps {
@@ -184,6 +185,350 @@ const AdminSheet = observer(
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Console Logs Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
+              Console Logs
+            </Text>
+
+            {/* Master Toggle */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="code"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Enable All Console Logs
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Master toggle - disables all console logs when off
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.enabled.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setEnabled(value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.enabled.get() ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            {/* Sync & Offline Queue */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="sync"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Sync & Offline Queue
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for sync operations, offline queue, and data synchronization
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.sync.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('sync', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.sync.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Chat & Messaging */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="chat-bubble"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Chat & Messaging
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for sending/receiving chats, chat sheet operations
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.chat.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('chat', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.chat.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Authentication */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="lock"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Authentication & Login
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for login, logout, session management, and keychain operations
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.auth.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('auth', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.auth.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Transcripts */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="subtitles"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Transcript Generation
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for generating video transcripts from YouTube, X, etc.
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.transcripts.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('transcripts', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.transcripts.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Drawer & Bottom Sheets */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="layers"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Drawer & Bottom Sheets
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for drawer opening/closing and bottom sheet lifecycle
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.drawer.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('drawer', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.drawer.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Items */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="bookmark"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Item Saving & Creation
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for saving new items, updates, and deletions
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.items.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('items', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.items.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Enrichment Pipeline */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="auto-fix-high"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Enrichment Pipeline
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for content type detection and metadata enrichment steps
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.enrichment.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('enrichment', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.enrichment.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* External APIs */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="api"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  External API Integration
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for YouTube, X/Twitter, Instagram, Reddit, OpenAI API calls
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.api.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('api', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.api.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Metadata */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="info"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Data Metadata & Storage
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for metadata operations and storage management
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.metadata.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('metadata', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.metadata.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Navigation */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="navigation"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  UI/Navigation & Drawer Context
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for navigation state and drawer context handlers
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.navigation.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('navigation', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.navigation.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Admin Settings */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="settings"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Admin Settings & Configuration
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for admin panel operations and model selection
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.admin.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('admin', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.admin.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+
+            {/* Images */}
+            <View style={styles.row}>
+              <MaterialIcons
+                name="image"
+                size={24}
+                color={isDarkMode ? '#FFFFFF' : '#333333'}
+              />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, isDarkMode && styles.rowTitleDark]}>
+                  Image Operations & Uploads
+                </Text>
+                <Text style={[styles.rowSubtitle, isDarkMode && styles.rowSubtitleDark]}>
+                  Logs for image description generation and upload operations
+                </Text>
+              </View>
+              <Switch
+                value={consoleLogSettingsStore.categories.images.get() ?? true}
+                onValueChange={(value) => {
+                  consoleLogSettingsActions.setCategoryEnabled('images', value);
+                }}
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={consoleLogSettingsStore.categories.images.get() ? '#fff' : '#f4f3f4'}
+                disabled={!consoleLogSettingsStore.enabled.get()}
+              />
+            </View>
+          </View>
+
           {/* UI Debug Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
