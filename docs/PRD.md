@@ -1,5 +1,31 @@
 # Memex: Second Brain - Product Requirements Document (PRD)
 
+## Table of Contents
+1. [Product Overview](#1-product-overview)
+2. [Core Features](#2-core-features)
+   - 2.1 [Authentication](#21-authentication)
+   - 2.2 [Dashboard & Views](#22-dashboard--views)
+   - 2.3 [Item Management](#23-item-management)
+   - 2.4 [Capture/Save](#24-capturesave)
+   - 2.5 [Search & Filtering](#25-search--filtering)
+   - 2.6 [Chat/Intelligence](#26-chatintelligence)
+   - 2.7 [Integrations & Tools](#27-integrations--tools)
+   - 2.8 [iOS Share Extension](#28-ios-share-extension)
+3. [Data Models (Supabase Schema)](#3-data-models-supabase-schema)
+4. [UI/UX Requirements](#4-uiux-requirements)
+5. [APIs & Architecture](#5-apis--architecture)
+   - 5.1 [Authentication](#51-authentication-srcservicessupabasets)
+   - 5.2 [Database Operations](#52-database-operations-srcservicessupabasets-and-srcservicessyncoperationsts)
+   - 5.3 [Supabase Edge Functions](#53-supabase-edge-functions)
+   - 5.4 [External APIs (Client-Side)](#54-external-apis-client-side)
+   - 5.5 [Sync Service & Offline Handling](#55-sync-service--offline-handling-srcservicessyncservicets)
+   - 5.6 [Real-time Cross-Device Sync](#56-real-time-cross-device-sync-srcservicesrealtimesyncts)
+   - 5.7 [ItemView Component Architecture](#57-itemview-component-architecture)
+6. [Non-Functional Requirements](#6-non-functional-requirements)
+7. [Later Nice-to-Have To-Dos](#7-later-nice-to-have-to-dos)
+
+---
+
 ## 1. Product Overview
 **Name**: Memex: Second Brain  
 **Description**: A personal knowledge management tool for capturing, organizing, and searching digital content (links, text, images, files) in an intelligent inbox with spaces (projects/folders), tags, and metadata extraction. Supports cross-platform capture via Chrome extension (web) and iOS Sharesheet/Android Intent (mobile). Users can chat with an LLM about individual items or spaces, using content as context.  
