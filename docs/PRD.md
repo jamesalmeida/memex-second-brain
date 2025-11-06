@@ -243,14 +243,354 @@
 - **UX**: Clear context indication (e.g., “Chatting about [item title/space name]”) in bottom sheet header.
 
 ### 2.7 Integrations & Tools
-- **X/Twitter API**: Extract metadata (tweets, videos); handle rate limits with Legend-State persistence.  
-- **YouTube API**: Fetch metadata/transcripts via youtubei.js; support video downloads (Expo FileSystem).  
-- **Other Services**:  
-  - Jina AI for content type detection (if needed).  
-  - OpenAI for tags/summaries/chat.  
-  - Cheerio for HTML parsing (server-side).  
-- **Chrome Extension**: Reuses existing web extension; mobile app consumes same `/api/capture` endpoint.  
-- **Mobile Sharing**: iOS Sharesheet via `expo-share-extension`; Android Intent via Expo Sharing API.
+- **X/Twitter API**: Extract metadata (tweets, videos); handle rate limits with Legend-State persistence.
+- **YouTube API**: Fetch metadata/transcripts via youtubei.js; support video downloads (Expo FileSystem).
+- **Other Services**:
+  - Jina AI for content type detection (if needed).
+  - OpenAI for tags/summaries/chat.
+  - Cheerio for HTML parsing (server-side).
+- **Chrome Extension**: Reuses existing web extension; mobile app consumes same `/api/capture` endpoint.
+- **Mobile Sharing**: iOS Sharesheet via `expo-share-extension` (see Section 2.8 for complete implementation); Android Intent via Expo Sharing API.
+
+### 2.8 iOS Share Extension
+Comprehensive documentation for the iOS Share Extension implementation using `expo-share-extension` v5.0.1.
+
+#### Architecture Overview
+- **Package**: `expo-share-extension` v5.0.1 - Enables sharing content from other iOS apps into Memex
+- **Entry Points**:
+  - Main app: `/index.js` → expo-router
+  - Share extension: `/index.share.js` → ShareExtension component
+- **Component**: `/src/components/ShareExtension.tsx` - Main React Native UI
+- **Metro Config**: `/metro.config.js` - Uses `withShareExtension()` wrapper for dual-bundle support
+- **Bundle ID**: `com.jamesalmeida.memex.ShareExtension`
+
+#### Polyfills & Dependencies
+The share extension requires these polyfills in `index.share.js`:
+- `event-target-polyfill` - Event handling compatibility
+- `web-streams-polyfill` - Streams API support
+- `text-encoding-polyfill` - TextEncoder/TextDecoder
+- `react-native-url-polyfill` - URL parsing
+- `base-64` - Base64 encoding/decoding (btoa/atob)
+
+#### Authentication Sharing via Keychain Access Groups
+Uses iOS Keychain with Access Groups to securely share Supabase credentials between main app and share extension.
+
+**Configuration**:
+- **Team ID**: `WZRRA4NFBY`
+- **Access Group**: `$(AppIdentifierPrefix)com.jamesalmeida.memex` (resolves to `WZRRA4NFBY.com.jamesalmeida.memex`)
+- **Storage Key**: `supabase.session.min`
+- **Package**: `expo-secure-store` v15.0.7 with `accessGroup` option
+
+**Stored Credentials** (`SharedAuthData` interface):
+```typescript
+{
+  access_token: string;    // Supabase JWT
+  refresh_token: string;   // For token refresh
+  user_id: string;         // User UUID
+  expires_at?: number;     // Unix timestamp
+}
+```
+
+**Implementation Files**:
+- `/src/services/sharedAuth.ts` - Save/read/clear auth from Keychain
+- `/src/config/keychain.ts` - Configuration constants
+- `/ios/Memex/Memex.entitlements` - Main app entitlements
+- `/ios/MemexShareExtension/MemexShareExtension.entitlements` - Extension entitlements
+
+**Entitlements Configuration** (both files):
+```xml
+<key>com.apple.security.application-groups</key>
+<array>
+  <string>group.com.jamesalmeida.memex</string>
+</array>
+<key>keychain-access-groups</key>
+<array>
+  <string>$(AppIdentifierPrefix)com.jamesalmeida.memex</string>
+</array>
+```
+
+**Authentication Flow**:
+1. **Main App** (saves auth):
+   - User signs in via Supabase Auth
+   - `saveSharedAuth(session)` called in `useAuth.ts` (lines 142, 236)
+   - Minimal session data stored in Keychain (2048-byte limit)
+   - Also triggered on token refresh and app launch with existing session
+2. **Share Extension** (reads auth):
+   - `getSharedAuth()` called on initialization
+   - Reads credentials from shared Keychain
+   - Validates token expiration (60-second buffer)
+   - Returns null if missing or expired
+3. **Sign Out** (clears auth):
+   - `clearSharedAuth()` called in `clearAuthState()` function
+   - Removes credentials from Keychain
+   - Extension loses access immediately
+
+#### User Experience & Auto-Save Flow
+
+**UI Dimensions**:
+- Height: 520px (configured in app.json)
+- Background: White/dark theme aware
+- Layout: Scrollable with header, preview, space selector, footer
+
+**Flow Timeline**:
+1. User taps Share → Memex (< 1s)
+2. Extension opens, loading state displayed (< 1s)
+3. Metadata extraction begins via `extractURLMetadata()` (1-3s)
+4. Preview displayed with title, description, image, URL (instant)
+5. **Auto-save timer starts** (2 second countdown if authenticated)
+6. Success banner appears: "✓ Saved successfully!" (1 second)
+7. Extension auto-dismisses (total: ~3-6 seconds from open to close)
+
+**Metadata Extraction**:
+- Uses same pipeline as main app (`src/services/urlMetadata.ts`)
+- Supports all content types: YouTube, X/Twitter, Instagram, Reddit, TikTok, Amazon, IMDb, generic URLs
+- Extracts: title, description, thumbnail, author, published date, type-specific data
+- Multiple fallbacks: Direct HTML fetch → OG tags → Jina.ai API → URL parsing
+
+**Auto-Save Implementation** (`ShareExtension.tsx` lines 148-157):
+```typescript
+useEffect(() => {
+  if (!isLoading && metadata && hasKeychainAuth && !autoSaveTimer && !showSuccess) {
+    const timer = setTimeout(async () => {
+      await handleSave();
+    }, 2000); // 2 second delay to show preview
+    setAutoSaveTimer(timer);
+  }
+}, [isLoading, metadata, hasKeychainAuth, autoSaveTimer, showSuccess]);
+```
+
+**User Actions**:
+- **Cancel Button**: Visible when authenticated; clears auto-save timer and closes immediately
+- **Space Selector**: Tap to select space for item (pauses auto-save, shows Save button)
+- **Open Memex Button**: Shown when not authenticated; launches main app via `openHostApp('/')`
+
+#### Direct Supabase Sync (Primary Path)
+
+When Keychain auth is available, the extension syncs directly to Supabase without opening the main app.
+
+**Flow** (`ShareExtension.tsx` lines 169-243):
+1. Get auth from Keychain: `getSharedAuth()`
+2. Create temporary Supabase client with `persistSession: false`
+3. Set session: `await supabase.auth.setSession({ access_token, refresh_token })`
+4. Create item object with extracted metadata and selected `space_id`
+5. Update item with real `user_id` from Keychain auth
+6. Insert directly: `await supabase.from('items').insert(newItem)`
+7. On success: Show success banner → Auto-dismiss after 1 second
+8. On error: Fall back to MMKV queue
+
+**Benefits**:
+- Immediate sync (no waiting for main app to open)
+- Real-time updates propagate to all devices instantly
+- No duplicate items
+- Reduced queue complexity
+
+#### MMKV Queue Fallback (Offline Path)
+
+When direct sync fails or auth is unavailable, items are queued in MMKV storage shared via App Groups.
+
+**Configuration**:
+- **App Group ID**: `group.com.jamesalmeida.memex`
+- **Queue Key**: `shared-items-queue`
+- **Storage**: MMKV with `appGroupId` support (iOS only)
+- **File**: `/src/services/sharedItemQueue.ts`
+
+**Queue Used When**:
+- No Keychain auth available
+- Supabase session setup fails
+- Network error during insert
+- User not signed in
+
+**Queue Flow**:
+1. **Share Extension** (adds to queue):
+   ```typescript
+   newItem.user_id = authData?.user_id || 'pending';
+   await addItemToSharedQueue(newItem);
+   ```
+2. **Main App** (imports queue):
+   - Called in `useAuth.ts` during initial session (lines 164-185)
+   - `getItemsFromSharedQueue()` reads all queued items
+   - Updates `user_id` if 'pending'
+   - Syncs each item: `itemsActions.addItemWithSync(item)`
+   - Clears queue: `clearSharedQueue()`
+
+**MMKV Initialization**:
+- Lazy initialization (only when first accessed)
+- Requires JSI (JavaScript Interface) - not available in Metro dev mode
+- Error handling: Logs warning but doesn't crash ("⚠️ MMKV queue not available (dev mode - this is OK)")
+- Graceful fallback: Primary path is Keychain auth; queue is safety net
+
+#### UI Components & States
+
+**Authenticated State** (`hasKeychainAuth = true`):
+- Content preview with metadata
+- Cancel button (aborts auto-save timer)
+- Space selector dropdown (optional, pauses auto-save)
+- Auto-save countdown (2 seconds)
+- Success banner → auto-dismiss
+
+**Not Authenticated State** (`hasKeychainAuth = false`):
+- Warning banner: "Please sign in to save items"
+- Content preview (read-only)
+- "Open Memex to Sign In" button (calls `openHostApp('/')`)
+- No auto-save or Save button
+
+**Loading State**:
+- Activity indicator with "Loading..." text
+- Theme-aware spinner color
+- Displayed during metadata extraction
+
+**Error State**:
+- Red error text
+- Close button
+- Manual dismissal only
+
+**Success State**:
+- Green banner: "✓ Saved successfully!"
+- Displayed for 1 second before auto-dismiss
+- Replaces other UI elements
+
+#### app.json Configuration
+
+```json
+{
+  "plugins": [
+    ["expo-share-extension", {
+      "activationRules": [
+        { "type": "url", "max": 1 },
+        { "type": "text" },
+        { "type": "image", "max": 3 },
+        { "type": "video", "max": 1 },
+        { "type": "file", "max": 3 }
+      ],
+      "excludedPackages": [
+        "expo-dev-client",
+        "expo-splash-screen",
+        "expo-updates",
+        "expo-font"
+      ],
+      "backgroundColor": {
+        "red": 255,
+        "green": 255,
+        "blue": 255,
+        "alpha": 1
+      },
+      "height": 520
+    }]
+  ]
+}
+```
+
+**Activation Rules**:
+- URLs: Single URL sharing (most common)
+- Text: Plain text content (converted to notes if not URL)
+- Images: Up to 3 images simultaneously
+- Videos: Single video sharing
+- Files: Up to 3 files
+
+**Excluded Packages**:
+- Development tools excluded to reduce bundle size
+- Fonts excluded (use system fonts)
+- Splash screen unnecessary in extension
+- Updates handled by main app
+
+#### Theme Support
+
+**Dark Mode**:
+- Loaded via `themeActions.loadThemePreference()`
+- Reads from `userSettingsStore` (cloud-synced)
+- All UI components have dark variants
+- Consistent with main app theme
+
+**Colors**:
+- Light mode: White background, black text, #007AFF accent
+- Dark mode: Black background, white text, #0A84FF accent
+- Success: Green (#D4EDDA light, #1B4332 dark)
+- Warning: Yellow (#FFF3CD light, #4A4220 dark)
+- Error: Red (#FF3B30 light, #FF453A dark)
+
+#### Performance & Optimization
+
+**Bundle Size**:
+- Separate bundle from main app (only includes necessary code)
+- Excluded packages reduce size (~30% smaller than main app)
+- Polyfills loaded on-demand
+
+**Metadata Extraction**:
+- Runs in background during preview display
+- Non-blocking UI (shows preview with loading states)
+- Cached in local state (no persistence in extension)
+
+**Network Efficiency**:
+- Single API call per save (metadata extraction OR Supabase insert)
+- No polling or real-time subscriptions in extension
+- Minimal battery impact
+
+**Memory Management**:
+- Extension unloads immediately after dismissal
+- No state persistence between launches
+- MMKV provides memory-efficient queue storage
+
+#### Error Handling & Reliability
+
+**Graceful Degradation**:
+1. **Metadata extraction fails** → Save with minimal data (URL + title)
+2. **Keychain auth unavailable** → Fall back to queue
+3. **Supabase insert fails** → Fall back to queue
+4. **Network offline** → Queue for later sync
+5. **MMKV unavailable (dev mode)** → Log warning, primary path still works
+
+**User Feedback**:
+- Loading states during operations
+- Success banner on completion
+- Error messages for failures
+- Toast notifications in main app after queue import
+
+**Data Integrity**:
+- Tombstone pattern prevents data loss
+- Queue ensures items never lost even if extension crashes
+- Main app retry logic for failed syncs
+- Real-time sync provides redundancy
+
+#### Testing Considerations
+
+**Manual Testing**:
+- Share from Safari, X, YouTube, Instagram, Reddit, Notes
+- Test with auth (auto-save) and without auth (queue)
+- Verify metadata extraction for all content types
+- Test Cancel button during auto-save countdown
+- Verify space selection (when enabled)
+- Test offline scenarios (airplane mode)
+
+**Edge Cases**:
+- Invalid URLs → Converted to notes
+- Expired Keychain auth → Falls back to queue
+- Network timeout during metadata extraction → Saves minimal data
+- MMKV unavailable (dev mode) → Primary path unaffected
+
+**Device Testing**:
+- Test on physical device (JSI not available in simulator dev mode)
+- Verify Keychain access on clean install
+- Test after main app uninstall/reinstall
+- Verify entitlements properly applied in build
+
+#### Known Limitations
+
+**Expo Constraints**:
+- No access to native iOS Share Extension API directly
+- Limited customization of system share sheet
+- Height is fixed (no dynamic sizing)
+- Cannot preview shared content before extension opens
+
+**Development Mode**:
+- MMKV JSI not available in Metro bundler (expected)
+- Keychain works correctly
+- Queue fallback logs warnings but functions properly
+
+**iOS Restrictions**:
+- Share extensions have memory limits (stricter than main app)
+- Background execution limited
+- Cannot play media or open external URLs
+- Must close after save completes
 
 ## 3. Data Models (Supabase Schema)
 - **Users**:  
