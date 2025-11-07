@@ -210,6 +210,7 @@ const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) =>
         <ScrollView
           style={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
         >
           {isUpdating && (
             <View style={styles.loadingOverlay}>
