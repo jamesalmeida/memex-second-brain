@@ -11,6 +11,7 @@ import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import { syncStatusStore } from '../../src/stores/syncStatus';
 import { pendingItemsStore } from '../../src/stores/pendingItems';
+import { processingItemsComputed } from '../../src/stores/processingItems';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
@@ -260,6 +261,13 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const handleItemPress = (item: Item) => {
     console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
+
+    // Don't open ExpandedItemView for items that are still being processed
+    if (processingItemsComputed.isProcessing(item.id)) {
+      console.log('⏳ [HomeScreen] Item is still processing, ignoring press');
+      return;
+    }
+
     onExpandedItemOpen?.(); // Hint TabLayout to hide nav immediately
     expandedItemUIActions.expandItem(item); // Open expanded item via global store
   };

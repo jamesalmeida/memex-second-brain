@@ -1,6 +1,7 @@
 import React from 'react';
 import { observer } from '@legendapp/state/react';
 import { Item } from '../../types';
+import { processingItemsComputed } from '../../stores/processingItems';
 import XItemCard from './XItemCard';
 import YoutubeItemCard from './YoutubeItemCard';
 import MovieTVItemCard from './MovieTVItemCard';
@@ -9,6 +10,7 @@ import ProductItemCard from './ProductItemCard';
 import PodcastItemCard from './PodcastItemCard';
 import DefaultItemCard from './DefaultItemCard';
 import NoteItemCard from './NoteItemCard';
+import ProcessingItemCard from './ProcessingItemCard';
 
 interface ItemCardProps {
   item: Item;
@@ -17,6 +19,11 @@ interface ItemCardProps {
 }
 
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
+  // Check if item is currently being processed
+  if (processingItemsComputed.isProcessing(item.id)) {
+    return <ProcessingItemCard title={item.title || item.url} />;
+  }
+
   // Get the appropriate card component based on type
   const getCardComponent = (cardItem: Item) => {
     switch (cardItem.content_type) {
