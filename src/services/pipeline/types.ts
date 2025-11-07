@@ -5,6 +5,7 @@ export interface StepContext {
   url: string;
   preferences?: {
     youtubeSource?: 'youtubei' | 'serpapi';
+    youtubeTranscriptSource?: 'youtubei' | 'serpapi';
   };
 }
 

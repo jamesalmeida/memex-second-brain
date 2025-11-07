@@ -3,19 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, Keyboard, Platform, InputAcce
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
-import uuid from 'react-native-uuid';
 import * as Clipboard from 'expo-clipboard';
 import { themeStore } from '../stores/theme';
-import { itemsActions } from '../stores/items';
 import { authComputed } from '../stores/auth';
-import { Item } from '../types';
-import { processingItemsActions } from '../stores/processingItems';
-import { runPipeline } from '../services/pipeline/runPipeline';
 import { spacesComputed } from '../stores/spaces';
-import { adminSettingsComputed } from '../stores/adminSettings';
-import { buildItemContext } from '../services/contextBuilder';
-import { openai } from '../services/openai';
-import { itemsStore } from '../stores/items';
+import { itemProcessingQueue } from '../services/itemProcessingQueue';
 
 interface AddItemSheetProps {
   preSelectedSpaceId?: string | null;
@@ -96,73 +88,39 @@ const AddItemSheet = observer(forwardRef<AddItemSheetHandle, AddItemSheetProps>(
 
     setIsSaving(true);
     try {
-      const id = uuid.v4() as string;
-      const now = new Date().toISOString();
+      // Generate provisional title for UI feedback
       let provisionalTitle = url;
-      try { provisionalTitle = new URL(url).hostname.replace('www.', ''); } catch {}
+      try { 
+        provisionalTitle = new URL(url).hostname.replace('www.', ''); 
+      } catch {
+        // Invalid URL, use as-is
+      }
 
-      const newItem: Item = {
-        id,
-        user_id: userId,
-        title: provisionalTitle,
+      // Enqueue item for processing via unified service (don't await - process in background)
+      itemProcessingQueue.enqueue({
         url,
-        content_type: 'bookmark',
-        is_archived: false,
-        space_id: selectedSpaceId || null,
-        created_at: now,
-        updated_at: now,
-      };
+        spaceId: selectedSpaceId || null,
+        source: 'manual',
+      }).catch(error => {
+        // Log error but don't block UI - item will show as processing card
+        console.error('Error processing item in background:', error);
+      });
 
-      await itemsActions.addItemWithSync(newItem);
-      processingItemsActions.add(id);
-
-      // Optimistic success UI in the sheet
+      // Show success UI immediately (optimistic)
       setSavedUI({ visible: true, title: provisionalTitle });
       Keyboard.dismiss();
 
-      // Auto-close the sheet after 0.8 second on success
+      // Auto-close the sheet after 1 second
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
       closeTimerRef.current = setTimeout(() => {
         bottomSheetRef.current?.close();
-      }, 800);
+      }, 1000);
 
-      // Run the numbered pipeline (detect type, parse, enrich)
-      runPipeline({ itemId: id, url })
-        .then(async () => {
-          // Auto-generate TLDR if enabled (global admin setting)
-          if (adminSettingsComputed.autoGenerateTldr()) {
-            try {
-              // Get the latest item data after pipeline completion
-              const updatedItem = itemsStore.items.get().find(i => i.id === id);
-              if (updatedItem && !updatedItem.tldr) {
-                console.log('🤖 Auto-generating TLDR for item:', id);
-
-                // Build full context including transcript, images, metadata, etc.
-                const contextResult = buildItemContext(updatedItem);
-
-                // Generate summary using full context
-                const generatedTldr = await openai.summarizeContent(
-                  contextResult.contextString,
-                  contextResult.metadata.contentType
-                );
-
-                if (generatedTldr && generatedTldr !== 'Summary not available') {
-                  // Save to database
-                  await itemsActions.updateItemWithSync(id, { tldr: generatedTldr });
-                  console.log('✅ Auto-generated TLDR saved successfully');
-                }
-              }
-            } catch (error) {
-              console.error('❌ Error auto-generating TLDR:', error);
-              // Fail silently - don't block item creation
-            }
-          }
-        })
-        .catch(() => {})
-        .finally(() => {
-          processingItemsActions.remove(id);
-        });
       return true;
+    } catch (error) {
+      console.error('Error saving item:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save item');
+      return false;
     } finally {
       setIsSaving(false);
     }

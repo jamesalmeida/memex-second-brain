@@ -1,6 +1,8 @@
 import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
+import { supabase } from '../services/supabase';
+import { authStore } from './auth';
 
 export interface PendingItemDisplay {
   id: string;
@@ -9,6 +11,8 @@ export interface PendingItemDisplay {
   error_message?: string;
   created_at: string;
   user_id: string;
+  space_id?: string | null;
+  content?: string;
   addedAt?: number; // Timestamp when item was added to store (for minimum display time)
   completed_item_id?: string; // Real item ID when status is 'completed' (for cross-fade)
 }
@@ -21,6 +25,76 @@ export const pendingItemsStore = observable({
 
 // Actions for managing pending items
 export const pendingItemsActions = {
+  /**
+   * Fetch pending items from Supabase (for items created while app was closed)
+   */
+  async fetchFromSupabase() {
+    try {
+      const user = authStore.user.get();
+      if (!user) {
+        console.log('📥 [PendingItems] No user, skipping Supabase fetch');
+        return;
+      }
+
+      console.log('📥 [PendingItems] Fetching pending items from Supabase...');
+      
+      // Fetch pending items from last 10 minutes
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      
+      const { data, error } = await supabase
+        .from('pending_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'processing'])
+        .gte('created_at', tenMinutesAgo)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ [PendingItems] Error fetching from Supabase:', error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.log('📥 [PendingItems] No pending items found in Supabase');
+        return;
+      }
+
+      console.log(`📥 [PendingItems] Found ${data.length} pending items in Supabase`);
+
+      // Convert Supabase format to display format and add to store
+      const current = pendingItemsStore.items.get();
+      const newItems: PendingItemDisplay[] = data.map(item => ({
+        id: item.id,
+        url: item.url || '',
+        status: (item.status || 'pending') as PendingItemDisplay['status'],
+        error_message: item.error_message || undefined,
+        created_at: item.created_at,
+        user_id: item.user_id,
+        space_id: item.space_id || null,
+        content: item.content || undefined,
+        addedAt: Date.now(),
+      }));
+
+      // Merge with existing items (avoid duplicates)
+      const existingIds = new Set(current.map(i => i.id));
+      const itemsToAdd = newItems.filter(item => !existingIds.has(item.id));
+
+      if (itemsToAdd.length > 0) {
+        const updated = [...current, ...itemsToAdd];
+        pendingItemsStore.items.set(updated);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.PENDING_ITEMS || '@pending_items',
+          JSON.stringify(updated)
+        );
+        console.log(`➕ [PendingItems] Added ${itemsToAdd.length} pending items from Supabase`);
+      } else {
+        console.log('ℹ️ [PendingItems] All Supabase items already in local store');
+      }
+    } catch (error) {
+      console.error('❌ [PendingItems] Error fetching from Supabase:', error);
+    }
+  },
+
   /**
    * Load pending items from AsyncStorage
    */

@@ -11,6 +11,7 @@ import { Item, Space, AdminSettings, PendingItem } from '../types';
 import { toastActions } from '../stores/toast';
 import { processingItemsActions } from '../stores/processingItems';
 import { pendingItemsActions, pendingItemsStore, PendingItemDisplay } from '../stores/pendingItems';
+import { pendingItemsProcessor } from './pendingItemsProcessor';
 
 /**
  * Real-time sync service that listens for changes from other devices
@@ -274,7 +275,15 @@ class RealtimeSyncService {
           status: 'pending',
           created_at: newPendingItem.created_at,
           user_id: newPendingItem.user_id,
+          space_id: newPendingItem.space_id || null,
+          content: newPendingItem.content || undefined,
           addedAt: Date.now(), // Track when added for minimum banner display time
+        });
+
+        // Trigger automatic processing of this item
+        console.log('⚙️ [RealtimeSync] Triggering automatic processing for:', newPendingItem.url);
+        pendingItemsProcessor.processPendingItemByUrl(newPendingItem.url, newPendingItem.id).catch(error => {
+          console.error('❌ [RealtimeSync] Error processing pending item:', error);
         });
       } else if (eventType === 'UPDATE' && newPendingItem) {
         const status = newPendingItem.status;

@@ -5,6 +5,7 @@ import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
 import { syncService } from '../services/syncService';
 import { realtimeSyncService } from '../services/realtimeSync';
+import { pendingItemsProcessor } from '../services/pendingItemsProcessor';
 import { getItemsFromSharedQueue, clearSharedQueue } from '../services/sharedItemQueue';
 import { saveSharedAuth, clearSharedAuth } from '../services/sharedAuth';
 import { STORAGE_KEYS } from '../constants';
@@ -147,7 +148,7 @@ export function useAuth() {
           console.log('⚙️ Loading user settings from cloud...');
           await Promise.race([
             userSettingsActions.loadSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('User settings load timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('User settings load timeout')), 10000))
           ]).catch(error => {
             console.error('Failed to load user settings:', error);
           });
@@ -156,7 +157,7 @@ export function useAuth() {
           console.log('🔧 Loading admin settings...');
           await Promise.race([
             adminSettingsActions.loadSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin settings load timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin settings load timeout')), 10000))
           ]).catch(error => {
             console.error('Failed to load admin settings:', error);
           });
@@ -165,7 +166,7 @@ export function useAuth() {
           console.log('🤖 Loading AI settings...');
           await Promise.race([
             aiSettingsActions.loadSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('AI settings load timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('AI settings load timeout')), 10000))
           ]).catch(error => {
             console.error('Failed to load AI settings:', error);
           });
@@ -207,6 +208,12 @@ export function useAuth() {
           console.log('📡 Starting real-time sync for existing session...');
           realtimeSyncService.start().catch(error => {
             console.error('❌ Failed to start real-time sync:', error);
+          });
+
+          // Process pending items from Share Extension in background
+          console.log('⚙️ Starting automatic processing of pending items...');
+          pendingItemsProcessor.processPendingItemsOnStartup().catch(error => {
+            console.error('❌ Failed to process pending items:', error);
           });
         } else {
           console.log('ℹ️ No user in session (expected for first-time users)');
@@ -254,7 +261,7 @@ export function useAuth() {
           console.log('⚙️ Loading user settings from cloud...');
           await Promise.race([
             userSettingsActions.loadSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('User settings load timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('User settings load timeout')), 10000))
           ]).catch(error => {
             console.error('Failed to load user settings:', error);
           });
@@ -263,7 +270,7 @@ export function useAuth() {
           console.log('🔧 Loading admin settings...');
           await Promise.race([
             adminSettingsActions.loadSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin settings load timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin settings load timeout')), 10000))
           ]).catch(error => {
             console.error('Failed to load admin settings:', error);
           });
@@ -272,7 +279,7 @@ export function useAuth() {
           console.log('🤖 Loading AI settings...');
           await Promise.race([
             aiSettingsActions.loadSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('AI settings load timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('AI settings load timeout')), 10000))
           ]).catch(error => {
             console.error('Failed to load AI settings:', error);
           });
@@ -291,6 +298,12 @@ export function useAuth() {
           console.log('📡 Starting real-time sync after sign in...');
           realtimeSyncService.start().catch(error => {
             console.error('❌ Failed to start real-time sync:', error);
+          });
+
+          // Process pending items from Share Extension in background
+          console.log('⚙️ Starting automatic processing of pending items...');
+          pendingItemsProcessor.processPendingItemsOnStartup().catch(error => {
+            console.error('❌ Failed to process pending items:', error);
           });
 
           // Navigate to home screen - the state change will trigger navigation
