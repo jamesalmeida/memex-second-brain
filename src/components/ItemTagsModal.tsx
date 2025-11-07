@@ -190,14 +190,20 @@ const ItemTagsModal = observer(({
     const lower = trimmed.toLowerCase();
     if (normalizedSelectedKeys.includes(lower)) {
       setQuery('');
+      // Refocus input to keep keyboard open
+      setTimeout(() => inputRef.current?.focus(), 0);
       return;
     }
     setSelectedTags(prev => [...prev, trimmed]);
     setQuery('');
+    // Refocus input to keep keyboard open after adding tag
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
     setSelectedTags(prev => prev.filter(tag => tag !== tagToRemove));
+    // Refocus input to keep keyboard open after removing tag
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleChangeQuery = (text: string) => {
@@ -206,6 +212,8 @@ const ItemTagsModal = observer(({
 
   const handleToggleRecents = () => {
     setRecentExpanded(prev => !prev);
+    // Refocus input to keep keyboard open after toggling recents
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleListContentSizeChange = useCallback((_: number, height: number) => {
@@ -221,6 +229,7 @@ const ItemTagsModal = observer(({
 
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
+    Keyboard.dismiss();
     try {
       await Promise.resolve(onDone(selectedTags));
     } catch (error) {
