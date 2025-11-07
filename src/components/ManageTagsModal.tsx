@@ -360,8 +360,8 @@ const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) =>
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 20,
-    flexGrow: 1,
+    flexShrink: 1,
+    marginBottom: 16,
   },
   section: {
     paddingTop: 10,
