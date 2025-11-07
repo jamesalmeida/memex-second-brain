@@ -209,8 +209,8 @@ const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) =>
 
         <ScrollView
           style={styles.scrollContent}
+          contentContainerStyle={styles.scrollContentContainer}
           showsVerticalScrollIndicator={false}
-          nestedScrollEnabled
         >
           {isUpdating && (
             <View style={styles.loadingOverlay}>
@@ -236,7 +236,7 @@ const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) =>
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <>
               {tagStats.map(({ tag, count }) => {
                 const isThisTagUpdating = updatingTag === tag;
                 const isAnyTagUpdating = isUpdating;
@@ -352,7 +352,7 @@ const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) =>
                   </View>
                 );
               })}
-            </View>
+            </>
           )}
         </ScrollView>
       </BaseModal>
@@ -362,16 +362,15 @@ const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) =>
 const styles = StyleSheet.create({
   scrollContent: {
     flexShrink: 1,
-    marginBottom: 16,
   },
-  section: {
+  scrollContentContainer: {
     paddingTop: 10,
-    paddingHorizontal: 20,
   },
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5E7',
   },

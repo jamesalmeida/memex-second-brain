@@ -54,9 +54,7 @@ const BaseModal = observer(({
             { maxWidth, maxHeight, borderRadius },
           ]}
         >
-          <View style={styles.modalInner}>
-            {children}
-          </View>
+          {children}
         </TouchableOpacity>
       </TouchableOpacity>
     </View>
@@ -118,9 +116,7 @@ const BaseModal = observer(({
               { maxWidth, maxHeight, borderRadius },
             ]}
           >
-            <View style={styles.modalInner}>
-              {children}
-            </View>
+            {children}
           </TouchableOpacity>
         </TouchableOpacity>
       </View>
@@ -150,13 +146,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     paddingBottom: 20,
-    overflow: 'hidden',
-    flexShrink: 1,
   },
   modalContentDark: {
     backgroundColor: '#1C1C1E',
-  },
-  modalInner: {
-    flex: 1,
   },
 });
