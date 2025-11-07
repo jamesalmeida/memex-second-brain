@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,42 +7,26 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
 import { itemsStore, itemsActions } from '../stores/items';
+import { BaseModal, ModalHeader } from './modals';
 
-interface TagManagerSheetProps {
-  onOpen?: () => void;
-  onClose?: () => void;
+interface ManageTagsModalProps {
+  visible: boolean;
+  onClose: () => void;
 }
 
-const TagManagerSheet = observer(
-  forwardRef<BottomSheet, TagManagerSheetProps>(({ onOpen, onClose }, ref) => {
+const ManageTagsModal = observer(({ visible, onClose }: ManageTagsModalProps) => {
     const isDarkMode = themeStore.isDarkMode.get();
     const allItems = itemsStore.items.get();
     const [editingTag, setEditingTag] = useState<string | null>(null);
     const [editedValue, setEditedValue] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [updatingTag, setUpdatingTag] = useState<string | null>(null);
-
-    // Snap points for the bottom sheet - same as settings sheet
-    const snapPoints = useMemo(() => ['82%'], []);
-
-    // Render backdrop
-    const renderBackdrop = useCallback(
-      (props: any) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      []
-    );
 
     // Calculate tag statistics
     const tagStats = useMemo(() => {
@@ -209,42 +193,22 @@ const TagManagerSheet = observer(
       console.log(`✅ Deleted tag "${tagToDelete}" from ${itemsToUpdate.length} items`);
     };
 
-    return (
-      <BottomSheet
-        ref={ref}
-        index={-1}
-        snapPoints={snapPoints}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        topInset={50}
-        backgroundStyle={[
-          styles.sheetBackground,
-          isDarkMode && styles.sheetBackgroundDark,
-        ]}
-        handleIndicatorStyle={[
-          styles.handleIndicator,
-          isDarkMode && styles.handleIndicatorDark,
-        ]}
-        onChange={(index) => {
-          if (index === -1) {
-            onClose?.();
-            handleCancelEdit(); // Reset editing state when closed
-          } else if (index >= 0) {
-            onOpen?.();
-          }
-        }}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-            Manage Tags
-          </Text>
-          <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-            {tagStats.length} {tagStats.length === 1 ? 'tag' : 'tags'}
-          </Text>
-        </View>
+    const handleClose = useCallback(() => {
+      handleCancelEdit();
+      onClose();
+    }, [onClose]);
 
-        <BottomSheetScrollView
-          contentContainerStyle={styles.scrollContent}
+    return (
+      <BaseModal visible={visible} onClose={handleClose}>
+        <ModalHeader
+          title="Manage Tags"
+          subtitle={`${tagStats.length} ${tagStats.length === 1 ? 'tag' : 'tags'}`}
+          onClose={handleClose}
+          isDarkMode={isDarkMode}
+        />
+
+        <ScrollView
+          style={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {isUpdating && (
@@ -389,50 +353,15 @@ const TagManagerSheet = observer(
               })}
             </View>
           )}
-        </BottomSheetScrollView>
-      </BottomSheet>
+        </ScrollView>
+      </BaseModal>
     );
-  })
-);
+});
 
 const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: '#FFFFFF',
-  },
-  sheetBackgroundDark: {
-    backgroundColor: '#1C1C1E',
-  },
-  handleIndicator: {
-    backgroundColor: '#CCCCCC',
-    width: 40,
-  },
-  handleIndicatorDark: {
-    backgroundColor: '#666666',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5E7',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  titleDark: {
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  subtitleDark: {
-    color: '#999',
-  },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
   section: {
     paddingTop: 10,
@@ -527,4 +456,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TagManagerSheet;
+export default ManageTagsModal;

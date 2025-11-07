@@ -1001,14 +1001,14 @@ useEffect(() => {
     - All menu actions provide haptic feedback and toast notifications
     - Full light/dark theme support with proper contrast ratios
     - Clear Chat requires confirmation dialog before deleting messages
-  - **TagManagerSheet**: Bottom sheet for managing all tags. Features:
+  - **ManageTagsModal**: Modal for managing all tags globally. Features:
     - Accessible via "Manage Tags" button in drawer (below Settings)
     - Lists all tags with item counts sorted alphabetically
     - Inline editing: tap edit icon to modify tag name
     - Delete functionality: tap delete icon, confirm via alert
     - Tag merging: editing a tag to an existing name triggers merge confirmation
     - Updates sync to all items immediately via itemsActions.updateItemWithSync
-    - 82% screen height (matches SettingsSheet)
+    - Uses BaseModal component (consistent with other modals)
     - Covers bottom navigation when open
     - Empty state for no tags
     - Loading overlay during tag operations
@@ -1018,7 +1018,7 @@ useEffect(() => {
     - "Everything (No Space)" option at top
     - Scrollable list of active spaces
     - Auto-closes on selection
-    - Matches TagsManagerModal styling pattern
+    - Matches ItemTagsModal styling pattern
     - Dark mode support
   - **ContentTypeSelectorModal**: Modal-based UI for changing item's content type. Features:
     - Single-select with radio buttons (bookmark, note, YouTube, X, etc.)

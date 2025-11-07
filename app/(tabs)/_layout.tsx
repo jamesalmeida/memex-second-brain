@@ -12,7 +12,7 @@ import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import BottomNavigation from '../../src/components/BottomNavigation';
 import SettingsSheet from '../../src/components/SettingsSheet';
 import AdminSheet from '../../src/components/AdminSheet';
-import TagManagerSheet from '../../src/components/TagManagerSheet';
+import ManageTagsModal from '../../src/components/ManageTagsModal';
 import AddItemSheet, { AddItemSheetHandle } from '../../src/components/AddItemSheet';
 import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
@@ -102,7 +102,6 @@ const TabLayout = observer(() => {
   // Bottom sheet refs
   const settingsSheetRef = useRef<BottomSheet>(null);
   const adminSheetRef = useRef<BottomSheet>(null);
-  const tagManagerSheetRef = useRef<BottomSheet>(null);
   const addItemSheetRef = useRef<AddItemSheetHandle>(null);
   const createSpaceSheetRef = useRef<BottomSheet>(null);
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
@@ -216,7 +215,6 @@ const TabLayout = observer(() => {
         setIsSettingsOpen(false);
       }
       if (isTagManagerOpen) {
-        tagManagerSheetRef.current?.close();
         setIsTagManagerOpen(false);
       }
       adminSheetRef.current?.expand();
@@ -232,7 +230,6 @@ const TabLayout = observer(() => {
   const handleTagManagerPress = useCallback(() => {
     console.log('🏷️ [TabLayout] handleTagManagerPress called');
     if (isTagManagerOpen) {
-      tagManagerSheetRef.current?.close();
       setIsTagManagerOpen(false);
     } else {
       // Close other sheets if open before opening tag manager
@@ -245,7 +242,6 @@ const TabLayout = observer(() => {
         settingsSheetRef.current?.close();
         setIsSettingsOpen(false);
       }
-      tagManagerSheetRef.current?.expand();
       setIsTagManagerOpen(true);
     }
   }, [isTagManagerOpen, isAddSheetOpen, isSettingsOpen]);
@@ -269,7 +265,6 @@ const TabLayout = observer(() => {
         setIsSettingsOpen(false);
       }
       if (isTagManagerOpen) {
-        tagManagerSheetRef.current?.close();
         setIsTagManagerOpen(false);
       }
       // Show different sheet based on current view
@@ -308,7 +303,6 @@ const TabLayout = observer(() => {
       setIsAdminOpen(false);
     }
     if (isTagManagerOpen) {
-      tagManagerSheetRef.current?.close();
       setIsTagManagerOpen(false);
     }
 
@@ -533,9 +527,8 @@ const TabLayout = observer(() => {
           onOpen={() => setIsAdminOpen(true)}
           onClose={() => setIsAdminOpen(false)}
         />
-        <TagManagerSheet
-          ref={tagManagerSheetRef}
-          onOpen={() => setIsTagManagerOpen(true)}
+        <ManageTagsModal
+          visible={isTagManagerOpen}
           onClose={() => setIsTagManagerOpen(false)}
         />
         <AddItemSheet

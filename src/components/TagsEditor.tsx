@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import TagsManagerModal from './TagsManagerModal';
+import ItemTagsModal from './ItemTagsModal';
 
 export interface TagsEditorProps {
   tags: string[];
@@ -143,7 +143,7 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
         )}
       </View>
 
-      <TagsManagerModal
+      <ItemTagsModal
         visible={isModalVisible}
         initialTags={tags}
         onCancel={handleModalCancel}

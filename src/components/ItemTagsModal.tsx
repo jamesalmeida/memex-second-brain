@@ -29,7 +29,7 @@ import { BaseModal, ModalHeader } from './modals';
 
 const LIST_MAX_HEIGHT = 240;
 
-interface TagsManagerModalProps {
+interface ItemTagsModalProps {
   visible: boolean;
   initialTags: string[];
   onDone: (tags: string[]) => void | Promise<void>;
@@ -42,14 +42,14 @@ interface TagsManagerModalProps {
   filteredItems?: Item[];
 }
 
-const TagsManagerModal = observer(({
+const ItemTagsModal = observer(({
   visible,
   initialTags,
   onDone,
   onCancel,
   isSubmitting = false,
   filteredItems,
-}: TagsManagerModalProps) => {
+}: ItemTagsModalProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const allItems = itemsStore.items.get();
 
@@ -369,12 +369,13 @@ const TagsManagerModal = observer(({
         isDarkMode={isDarkMode}
       />
 
-            <View
+            <Pressable
               style={[
                 styles.inputRow,
                 isDarkMode && styles.inputRowDark,
                 showListContainer ? styles.inputRowConnected : styles.inputRowStandalone,
               ]}
+              onPress={() => inputRef.current?.focus()}
             >
               <TextInput
                 ref={inputRef}
@@ -402,7 +403,7 @@ const TagsManagerModal = observer(({
                   <MaterialIcons name="expand-more" size={22} color={isDarkMode ? '#FFFFFF' : '#3A3A3C'} />
                 </Animated.View>
               </TouchableOpacity>
-            </View>
+            </Pressable>
 
             {showListContainer && (
               <View style={styles.measureContainer} pointerEvents="none">
@@ -469,7 +470,7 @@ const TagsManagerModal = observer(({
   );
 });
 
-export default TagsManagerModal;
+export default ItemTagsModal;
 
 const styles = StyleSheet.create({
   measureContainer: {
