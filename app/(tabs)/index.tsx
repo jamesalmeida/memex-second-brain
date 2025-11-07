@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResp
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
@@ -148,7 +149,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }
 
     // Sort by created_at based on sortOrder
-    const sorted = filtered.sort((a, b) => {
+    return filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
 
@@ -158,48 +159,6 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-
-    // Add pending items as processing placeholders (only for non-archive views)
-    if (!isArchiveView && pendingItems.length > 0) {
-      // Get URLs of existing items to avoid duplicates
-      const existingUrls = new Set(sorted.map(item => item.url));
-
-      // Convert pending items to temporary Item objects
-      const pendingAsItems: Item[] = pendingItems
-        .filter(p => p.status === 'pending' || p.status === 'processing')
-        .filter(p => !existingUrls.has(p.url)) // Don't show if real item already exists
-        .map(pending => ({
-          id: `pending-${pending.id}`, // Prefix with 'pending-' to mark as processing
-          user_id: pending.user_id,
-          title: pending.url,
-          url: pending.url,
-          content_type: 'bookmark' as const,
-          desc: undefined,
-          thumbnail_url: undefined,
-          content: undefined,
-          space_id: undefined,
-          tags: [],
-          created_at: pending.created_at,
-          updated_at: pending.created_at,
-          is_archived: false,
-          is_deleted: false,
-        }));
-
-      // Merge pending items with regular items, sorted by created_at
-      const combined = [...pendingAsItems, ...sorted];
-      return combined.sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-
-        if (sortOrder === 'recent') {
-          return dateB - dateA; // Newest first
-        } else {
-          return dateA - dateB; // Oldest first
-        }
-      });
-    }
-
-    return sorted;
   }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
@@ -401,6 +360,45 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     return pendingItems.filter(p => p.status === 'pending' || p.status === 'processing').length;
   }, [pendingItems]);
 
+  // Animated banner height with minimum display time
+  const bannerHeight = useSharedValue(0);
+  const [showBanner, setShowBanner] = useState(false);
+  const bannerShowTimestamp = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (processingCount > 0) {
+      // Show banner
+      if (!showBanner) {
+        setShowBanner(true);
+        bannerShowTimestamp.current = Date.now();
+        bannerHeight.value = withTiming(40, {
+          duration: 300,
+          easing: Easing.out(Easing.ease),
+        });
+      }
+    } else if (showBanner) {
+      // Hide banner with minimum display time (500ms)
+      const elapsed = bannerShowTimestamp.current ? Date.now() - bannerShowTimestamp.current : 500;
+      const delay = Math.max(0, 500 - elapsed);
+
+      setTimeout(() => {
+        bannerHeight.value = withTiming(0, {
+          duration: 300,
+          easing: Easing.in(Easing.ease),
+        }, () => {
+          // After animation completes, hide the component
+          // Use runOnJS to safely call state setter from animation callback
+          runOnJS(setShowBanner)(false);
+        });
+      }, delay);
+    }
+  }, [processingCount, showBanner]);
+
+  const bannerStyle = useAnimatedStyle(() => ({
+    height: bannerHeight.value,
+    overflow: 'hidden',
+  }));
+
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <HeaderBar
@@ -413,13 +411,13 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
       <FilterPills />
 
-      {/* Processing count badge */}
-      {processingCount > 0 && (
-        <View style={[styles.processingBanner, isDarkMode && styles.processingBannerDark]}>
+      {/* Processing count badge with slide animation */}
+      {showBanner && (
+        <Animated.View style={[bannerStyle, styles.processingBanner, isDarkMode && styles.processingBannerDark]}>
           <Text style={[styles.processingText, isDarkMode && styles.processingTextDark]}>
             Processing {processingCount} {processingCount === 1 ? 'item' : 'items'}...
           </Text>
-        </View>
+        </Animated.View>
       )}
 
       <ScrollView

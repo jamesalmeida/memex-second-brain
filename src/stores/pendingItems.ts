@@ -9,6 +9,8 @@ export interface PendingItemDisplay {
   error_message?: string;
   created_at: string;
   user_id: string;
+  addedAt?: number; // Timestamp when item was added to store (for minimum display time)
+  completed_item_id?: string; // Real item ID when status is 'completed' (for cross-fade)
 }
 
 // Observable store for pending items
@@ -28,14 +30,37 @@ export const pendingItemsActions = {
       if (stored) {
         const items: PendingItemDisplay[] = JSON.parse(stored);
 
-        // Clean up stale items on load (older than 10 minutes)
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        console.log(`📥 [PendingItems] Loading ${items.length} items from storage...`);
+
+        // Clean up stale items on load
+        const now = Date.now();
+        const tenMinutesAgo = new Date(now - 10 * 60 * 1000);
+        const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
+
         const cleaned = items.filter(item => {
           const itemDate = new Date(item.created_at);
           const isRecent = itemDate > tenMinutesAgo;
+          const age = now - itemDate.getTime();
+          const ageMinutes = Math.floor(age / 60000);
 
+          // Log each item for debugging
+          console.log(`🔍 [PendingItems] Item: ${item.url.substring(0, 50)}... | Status: ${item.status} | Age: ${ageMinutes}m`);
+
+          // Remove items older than 10 minutes
           if (!isRecent) {
-            console.log(`🧹 [PendingItems] Removing stale item: ${item.url} (${item.status})`);
+            console.log(`🧹 [PendingItems] Removing stale item (${ageMinutes}m old): ${item.url} (${item.status})`);
+            return false;
+          }
+
+          // Remove completed/failed items (they should have been removed after cross-fade)
+          if (item.status === 'completed' || item.status === 'failed') {
+            console.log(`🧹 [PendingItems] Removing ${item.status} item on load: ${item.url}`);
+            return false;
+          }
+
+          // Remove pending/processing items older than 5 minutes (likely stuck)
+          if ((item.status === 'pending' || item.status === 'processing') && itemDate < fiveMinutesAgo) {
+            console.log(`🧹 [PendingItems] Removing stuck ${item.status} item (${ageMinutes}m old): ${item.url}`);
             return false;
           }
 
@@ -88,18 +113,18 @@ export const pendingItemsActions = {
   /**
    * Update the status of a pending item
    */
-  async updateStatus(id: string, status: PendingItemDisplay['status'], error_message?: string) {
+  async updateStatus(id: string, status: PendingItemDisplay['status'], error_message?: string, completed_item_id?: string) {
     try {
       const current = pendingItemsStore.items.get();
       const updated = current.map(item =>
-        item.id === id ? { ...item, status, error_message } : item
+        item.id === id ? { ...item, status, error_message, completed_item_id } : item
       );
       pendingItemsStore.items.set(updated);
       await AsyncStorage.setItem(
         STORAGE_KEYS.PENDING_ITEMS || '@pending_items',
         JSON.stringify(updated)
       );
-      console.log(`🔄 [PendingItems] Updated item ${id} status to: ${status}`);
+      console.log(`🔄 [PendingItems] Updated item ${id} status to: ${status}${completed_item_id ? ` (item: ${completed_item_id})` : ''}`);
     } catch (error) {
       console.error('❌ [PendingItems] Error updating status:', error);
     }
@@ -111,7 +136,22 @@ export const pendingItemsActions = {
   async remove(id: string) {
     try {
       const current = pendingItemsStore.items.get();
+
+      // Check if item exists before removing
+      const itemToRemove = current.find(item => item.id === id);
+      if (!itemToRemove) {
+        console.log(`⚠️ [PendingItems] Item ${id} not found, already removed`);
+        return;
+      }
+
       const updated = current.filter(item => item.id !== id);
+
+      // Only update if we actually removed something
+      if (updated.length === current.length) {
+        console.log(`⚠️ [PendingItems] No items removed for id: ${id}`);
+        return;
+      }
+
       pendingItemsStore.items.set(updated);
       await AsyncStorage.setItem(
         STORAGE_KEYS.PENDING_ITEMS || '@pending_items',
@@ -120,6 +160,7 @@ export const pendingItemsActions = {
       console.log(`🗑️ [PendingItems] Removed pending item: ${id}`);
     } catch (error) {
       console.error('❌ [PendingItems] Error removing item:', error);
+      // Don't rethrow - let the caller continue
     }
   },
 

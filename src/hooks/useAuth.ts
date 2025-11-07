@@ -143,21 +143,30 @@ export function useAuth() {
             console.error('Failed to save shared auth:', error);
           });
 
-          // Load user settings from cloud FIRST
+          // Load user settings from cloud FIRST (with timeout)
           console.log('⚙️ Loading user settings from cloud...');
-          await userSettingsActions.loadSettings().catch(error => {
+          await Promise.race([
+            userSettingsActions.loadSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('User settings load timeout')), 5000))
+          ]).catch(error => {
             console.error('Failed to load user settings:', error);
           });
 
-          // Load admin settings (global settings for all users)
+          // Load admin settings (global settings for all users) (with timeout)
           console.log('🔧 Loading admin settings...');
-          await adminSettingsActions.loadSettings().catch(error => {
+          await Promise.race([
+            adminSettingsActions.loadSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin settings load timeout')), 5000))
+          ]).catch(error => {
             console.error('Failed to load admin settings:', error);
           });
 
-          // Load AI settings AFTER user settings are loaded
+          // Load AI settings AFTER user settings are loaded (with timeout)
           console.log('🤖 Loading AI settings...');
-          await aiSettingsActions.loadSettings().catch(error => {
+          await Promise.race([
+            aiSettingsActions.loadSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('AI settings load timeout')), 5000))
+          ]).catch(error => {
             console.error('Failed to load AI settings:', error);
           });
 
@@ -186,14 +195,18 @@ export function useAuth() {
 
           // Trigger sync for existing session
           console.log('🔄 Starting sync for existing session...');
-          syncService.forceSync().catch(error => {
-            console.error('Failed to sync for existing session:', error);
-          });
+          try {
+            syncService.forceSync().catch(error => {
+              console.error('Failed to sync for existing session:', error);
+            });
+          } catch (error) {
+            console.error('❌ Error calling forceSync:', error);
+          }
 
-          // Start real-time sync
+          // Start real-time sync (must happen regardless of sync status)
           console.log('📡 Starting real-time sync for existing session...');
           realtimeSyncService.start().catch(error => {
-            console.error('Failed to start real-time sync:', error);
+            console.error('❌ Failed to start real-time sync:', error);
           });
         } else {
           console.log('ℹ️ No user in session (expected for first-time users)');
@@ -237,34 +250,47 @@ export function useAuth() {
             console.error('Failed to save shared auth:', error);
           });
 
-          // Load user settings from cloud FIRST
+          // Load user settings from cloud FIRST (with timeout)
           console.log('⚙️ Loading user settings from cloud...');
-          await userSettingsActions.loadSettings().catch(error => {
+          await Promise.race([
+            userSettingsActions.loadSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('User settings load timeout')), 5000))
+          ]).catch(error => {
             console.error('Failed to load user settings:', error);
           });
 
-          // Load admin settings (global settings for all users)
+          // Load admin settings (global settings for all users) (with timeout)
           console.log('🔧 Loading admin settings...');
-          await adminSettingsActions.loadSettings().catch(error => {
+          await Promise.race([
+            adminSettingsActions.loadSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin settings load timeout')), 5000))
+          ]).catch(error => {
             console.error('Failed to load admin settings:', error);
           });
 
-          // Load AI settings AFTER user settings are loaded
+          // Load AI settings AFTER user settings are loaded (with timeout)
           console.log('🤖 Loading AI settings...');
-          await aiSettingsActions.loadSettings().catch(error => {
+          await Promise.race([
+            aiSettingsActions.loadSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('AI settings load timeout')), 5000))
+          ]).catch(error => {
             console.error('Failed to load AI settings:', error);
           });
 
           // Trigger sync with Supabase after sign in
           console.log('🔄 Starting sync after sign in...');
-          syncService.forceSync().catch(error => {
-            console.error('Failed to sync after sign in:', error);
-          });
+          try {
+            syncService.forceSync().catch(error => {
+              console.error('Failed to sync after sign in:', error);
+            });
+          } catch (error) {
+            console.error('❌ Error calling forceSync:', error);
+          }
 
-          // Start real-time sync
+          // Start real-time sync (must happen regardless of sync status)
           console.log('📡 Starting real-time sync after sign in...');
           realtimeSyncService.start().catch(error => {
-            console.error('Failed to start real-time sync:', error);
+            console.error('❌ Failed to start real-time sync:', error);
           });
 
           // Navigate to home screen - the state change will trigger navigation
