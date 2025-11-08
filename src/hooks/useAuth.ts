@@ -5,6 +5,7 @@ import { supabase, auth } from '../services/supabase';
 import { authActions, authStore } from '../stores';
 import { syncService } from '../services/syncService';
 import { realtimeSyncService } from '../services/realtimeSync';
+import { pendingItemsProcessor } from '../services/pendingItemsProcessor';
 import { getItemsFromSharedQueue, clearSharedQueue } from '../services/sharedItemQueue';
 import { saveSharedAuth, clearSharedAuth } from '../services/sharedAuth';
 import { STORAGE_KEYS } from '../constants';
@@ -89,6 +90,54 @@ async function clearAuthState() {
   console.log('✅ Auth state cleared successfully');
 }
 
+interface TimeoutOptions<T> {
+  promise: Promise<T>;
+  timeoutMs: number;
+  context: string;
+  onTimeout?: () => Promise<void> | void;
+}
+
+/**
+ * Wait for a promise with a soft timeout so we can keep app startup responsive.
+ * Returns true when completed before the timeout, false when still running.
+ * Underlying promise continues running even after the timeout fires.
+ */
+async function waitForPromiseWithTimeout<T>({ promise, timeoutMs, context, onTimeout }: TimeoutOptions<T>): Promise<boolean> {
+  let timeoutId: NodeJS.Timeout | null = null;
+  let didFail = false;
+
+  const monitoredPromise = promise.catch(error => {
+    didFail = true;
+    console.error(`Failed to ${context}:`, error);
+  });
+
+  const result = await Promise.race([
+    monitoredPromise.then(() => 'completed' as const),
+    new Promise<'timeout'>(resolve => {
+      timeoutId = setTimeout(() => resolve('timeout'), timeoutMs);
+    }),
+  ]);
+
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  }
+
+  if (result === 'timeout') {
+    console.warn(`⚠️ ${context} is taking longer than expected (${timeoutMs}ms). Continuing while it finishes in the background...`);
+    if (onTimeout) {
+      try {
+        await onTimeout();
+      } catch (timeoutError) {
+        console.error(`Fallback for ${context} failed:`, timeoutError);
+      }
+    }
+    return false;
+  }
+
+  return !didFail;
+}
+
 export function useAuth() {
   // Direct access to Legend-State observables
   const isAuthenticated = authStore.isAuthenticated.get();
@@ -99,6 +148,7 @@ export function useAuth() {
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const isInitializing = useRef(false);
   const signOutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Prevent concurrent initializations, but allow re-initialization after cleanup
@@ -116,6 +166,13 @@ export function useAuth() {
     isInitializing.current = true;
     
     console.log('🚀 useAuth hook initialized');
+
+    const clearLoadingTimeout = () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
 
     // Get initial session
     const getInitialSession = async () => {
@@ -143,22 +200,30 @@ export function useAuth() {
             console.error('Failed to save shared auth:', error);
           });
 
-          // Load user settings from cloud FIRST
+          // Load user settings from cloud FIRST (with timeout)
           console.log('⚙️ Loading user settings from cloud...');
-          await userSettingsActions.loadSettings().catch(error => {
-            console.error('Failed to load user settings:', error);
+          await waitForPromiseWithTimeout({
+            promise: userSettingsActions.loadSettings(),
+            timeoutMs: 10000,
+            context: 'load user settings',
+            onTimeout: () => userSettingsActions.loadFromAsyncStorage(),
           });
 
-          // Load admin settings (global settings for all users)
+          // Load admin settings (global settings for all users) (with timeout)
           console.log('🔧 Loading admin settings...');
-          await adminSettingsActions.loadSettings().catch(error => {
-            console.error('Failed to load admin settings:', error);
+          await waitForPromiseWithTimeout({
+            promise: adminSettingsActions.loadSettings(),
+            timeoutMs: 10000,
+            context: 'load admin settings',
+            onTimeout: () => adminSettingsActions.loadFromAsyncStorage(),
           });
 
-          // Load AI settings AFTER user settings are loaded
+          // Load AI settings AFTER user settings are loaded (with timeout)
           console.log('🤖 Loading AI settings...');
-          await aiSettingsActions.loadSettings().catch(error => {
-            console.error('Failed to load AI settings:', error);
+          await waitForPromiseWithTimeout({
+            promise: aiSettingsActions.loadSettings(),
+            timeoutMs: 10000,
+            context: 'load AI settings',
           });
 
           // Import items from share extension queue
@@ -186,14 +251,24 @@ export function useAuth() {
 
           // Trigger sync for existing session
           console.log('🔄 Starting sync for existing session...');
-          syncService.forceSync().catch(error => {
-            console.error('Failed to sync for existing session:', error);
-          });
+          try {
+            syncService.forceSync().catch(error => {
+              console.error('Failed to sync for existing session:', error);
+            });
+          } catch (error) {
+            console.error('❌ Error calling forceSync:', error);
+          }
 
-          // Start real-time sync
+          // Start real-time sync (must happen regardless of sync status)
           console.log('📡 Starting real-time sync for existing session...');
           realtimeSyncService.start().catch(error => {
-            console.error('Failed to start real-time sync:', error);
+            console.error('❌ Failed to start real-time sync:', error);
+          });
+
+          // Process pending items from Share Extension in background
+          console.log('⚙️ Starting automatic processing of pending items...');
+          pendingItemsProcessor.processPendingItemsOnStartup().catch(error => {
+            console.error('❌ Failed to process pending items:', error);
           });
         } else {
           console.log('ℹ️ No user in session (expected for first-time users)');
@@ -204,11 +279,12 @@ export function useAuth() {
         console.log('🔄 Setting loading to false');
         authActions.setLoading(false);
         console.log('🔄 Loading state after setting:', authStore.isLoading.get());
+        clearLoadingTimeout();
       }
     };
 
     // Add a timeout to ensure loading doesn't get stuck
-    const loadingTimeout = setTimeout(() => {
+    loadingTimeoutRef.current = setTimeout(() => {
       console.log('⏰ Loading timeout reached, forcing loading to false');
       authActions.setLoading(false);
       console.log('⏰ Loading state after timeout:', authStore.isLoading.get());
@@ -237,34 +313,52 @@ export function useAuth() {
             console.error('Failed to save shared auth:', error);
           });
 
-          // Load user settings from cloud FIRST
+          // Load user settings from cloud FIRST (with timeout)
           console.log('⚙️ Loading user settings from cloud...');
-          await userSettingsActions.loadSettings().catch(error => {
-            console.error('Failed to load user settings:', error);
+          await waitForPromiseWithTimeout({
+            promise: userSettingsActions.loadSettings(),
+            timeoutMs: 10000,
+            context: 'load user settings',
+            onTimeout: () => userSettingsActions.loadFromAsyncStorage(),
           });
 
-          // Load admin settings (global settings for all users)
+          // Load admin settings (global settings for all users) (with timeout)
           console.log('🔧 Loading admin settings...');
-          await adminSettingsActions.loadSettings().catch(error => {
-            console.error('Failed to load admin settings:', error);
+          await waitForPromiseWithTimeout({
+            promise: adminSettingsActions.loadSettings(),
+            timeoutMs: 10000,
+            context: 'load admin settings',
+            onTimeout: () => adminSettingsActions.loadFromAsyncStorage(),
           });
 
-          // Load AI settings AFTER user settings are loaded
+          // Load AI settings AFTER user settings are loaded (with timeout)
           console.log('🤖 Loading AI settings...');
-          await aiSettingsActions.loadSettings().catch(error => {
-            console.error('Failed to load AI settings:', error);
+          await waitForPromiseWithTimeout({
+            promise: aiSettingsActions.loadSettings(),
+            timeoutMs: 10000,
+            context: 'load AI settings',
           });
 
           // Trigger sync with Supabase after sign in
           console.log('🔄 Starting sync after sign in...');
-          syncService.forceSync().catch(error => {
-            console.error('Failed to sync after sign in:', error);
-          });
+          try {
+            syncService.forceSync().catch(error => {
+              console.error('Failed to sync after sign in:', error);
+            });
+          } catch (error) {
+            console.error('❌ Error calling forceSync:', error);
+          }
 
-          // Start real-time sync
+          // Start real-time sync (must happen regardless of sync status)
           console.log('📡 Starting real-time sync after sign in...');
           realtimeSyncService.start().catch(error => {
-            console.error('Failed to start real-time sync:', error);
+            console.error('❌ Failed to start real-time sync:', error);
+          });
+
+          // Process pending items from Share Extension in background
+          console.log('⚙️ Starting automatic processing of pending items...');
+          pendingItemsProcessor.processPendingItemsOnStartup().catch(error => {
+            console.error('❌ Failed to process pending items:', error);
           });
 
           // Navigate to home screen - the state change will trigger navigation
@@ -307,7 +401,7 @@ export function useAuth() {
 
     return () => {
       console.log('🧹 useAuth cleanup: Unsubscribing from auth listener');
-      clearTimeout(loadingTimeout);
+      clearLoadingTimeout();
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
         subscriptionRef.current = null;

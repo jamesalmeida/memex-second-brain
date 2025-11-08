@@ -14,6 +14,7 @@ import { RadialMenuProvider } from '../src/contexts/RadialMenuContext';
 import { DrawerProvider, useDrawer } from '../src/contexts/DrawerContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
 import DrawerContentView from '../src/components/DrawerContent';
+import { ToastContainer } from '../src/components/ToastContainer';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const BOTTOM_TAB_HEIGHT = 100; // Approximate height of bottom navigation including safe area
@@ -113,6 +114,9 @@ const RootLayoutContent = observer(() => {
           />
         </Stack>
         <StatusBar style={isDarkMode ? "light" : "dark"} />
+
+        {/* Toast notifications for pending items status */}
+        <ToastContainer />
 
         {/* Gesture blocker for bottom tab area - prevents drawer swipe from interfering with tab taps */}
         <View

@@ -80,6 +80,19 @@ export interface ItemTypeMetadata {
   };
 }
 
+export interface PendingItem {
+  id: string;
+  user_id: string;
+  url: string;
+  space_id: string | null;
+  content: string | null;
+  created_at: string;
+  processed_at: string | null;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error_message: string | null;
+  retry_count: number;
+}
+
 export interface Space {
   id: string;
   user_id: string;

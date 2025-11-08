@@ -3,12 +3,15 @@ import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResp
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import { syncStatusStore } from '../../src/stores/syncStatus';
+import { pendingItemsStore } from '../../src/stores/pendingItems';
+import { processingItemsComputed } from '../../src/stores/processingItems';
 import ItemCard from '../../src/components/items/ItemCard';
 // Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
@@ -37,6 +40,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const allItems = itemsStore.items.get();
+  const pendingItems = pendingItemsStore.items.get();
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
@@ -60,8 +64,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       await filterActions.load();
     };
 
+    const initializePendingItems = async () => {
+      // Load pending items from storage
+      const { pendingItemsActions } = await import('../../src/stores/pendingItems');
+      await pendingItemsActions.loadItems();
+    };
+
     initializeItems();
     initializeFilters();
+    initializePendingItems();
   }, []);
 
   // Expanded item is orchestrated by TabLayout; no local subscription needed here
@@ -149,7 +160,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
+  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
 
   const getItemsForSpace = useCallback((spaceId: string) => {
     return displayItems.filter(item => item.space_id === spaceId && !item.is_archived);
@@ -250,6 +261,13 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   const handleItemPress = (item: Item) => {
     console.log('📱 [HomeScreen] handleItemPress called with item:', item.title);
+
+    // Don't open ExpandedItemView for items that are still being processed
+    if (processingItemsComputed.isProcessing(item.id)) {
+      console.log('⏳ [HomeScreen] Item is still processing, ignoring press');
+      return;
+    }
+
     onExpandedItemOpen?.(); // Hint TabLayout to hide nav immediately
     expandedItemUIActions.expandItem(item); // Open expanded item via global store
   };
@@ -345,6 +363,50 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     );
   };
 
+  // Count processing items
+  const processingCount = useMemo(() => {
+    return pendingItems.filter(p => p.status === 'pending' || p.status === 'processing').length;
+  }, [pendingItems]);
+
+  // Animated banner height with minimum display time
+  const bannerHeight = useSharedValue(0);
+  const [showBanner, setShowBanner] = useState(false);
+  const bannerShowTimestamp = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (processingCount > 0) {
+      // Show banner
+      if (!showBanner) {
+        setShowBanner(true);
+        bannerShowTimestamp.current = Date.now();
+        bannerHeight.value = withTiming(40, {
+          duration: 300,
+          easing: Easing.out(Easing.ease),
+        });
+      }
+    } else if (showBanner) {
+      // Hide banner with minimum display time (500ms)
+      const elapsed = bannerShowTimestamp.current ? Date.now() - bannerShowTimestamp.current : 500;
+      const delay = Math.max(0, 500 - elapsed);
+
+      setTimeout(() => {
+        bannerHeight.value = withTiming(0, {
+          duration: 300,
+          easing: Easing.in(Easing.ease),
+        }, () => {
+          // After animation completes, hide the component
+          // Use runOnJS to safely call state setter from animation callback
+          runOnJS(setShowBanner)(false);
+        });
+      }, delay);
+    }
+  }, [processingCount, showBanner]);
+
+  const bannerStyle = useAnimatedStyle(() => ({
+    height: bannerHeight.value,
+    overflow: 'hidden',
+  }));
+
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <HeaderBar
@@ -356,6 +418,15 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       />
 
       <FilterPills />
+
+      {/* Processing count badge with slide animation */}
+      {showBanner && (
+        <Animated.View style={[bannerStyle, styles.processingBanner, isDarkMode && styles.processingBannerDark]}>
+          <Text style={[styles.processingText, isDarkMode && styles.processingTextDark]}>
+            Processing {processingCount} {processingCount === 1 ? 'item' : 'items'}...
+          </Text>
+        </Animated.View>
+      )}
 
       <ScrollView
         ref={pagerRef}
@@ -549,5 +620,25 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
     fontWeight: '300',
+  },
+  processingBanner: {
+    backgroundColor: '#FFF9E6',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE082',
+  },
+  processingBannerDark: {
+    backgroundColor: '#332800',
+    borderBottomColor: '#665000',
+  },
+  processingText: {
+    fontSize: 13,
+    color: '#F57C00',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  processingTextDark: {
+    color: '#FFB74D',
   },
 });

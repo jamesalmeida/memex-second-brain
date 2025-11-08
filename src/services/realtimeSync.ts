@@ -7,7 +7,11 @@ import { adminSettingsStore } from '../stores/adminSettings';
 import { syncService } from './syncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import { Item, Space, AdminSettings } from '../types';
+import { Item, Space, AdminSettings, PendingItem } from '../types';
+import { toastActions } from '../stores/toast';
+import { processingItemsActions } from '../stores/processingItems';
+import { pendingItemsActions, pendingItemsStore, PendingItemDisplay } from '../stores/pendingItems';
+import { pendingItemsProcessor } from './pendingItemsProcessor';
 
 /**
  * Real-time sync service that listens for changes from other devices
@@ -17,6 +21,7 @@ class RealtimeSyncService {
   private itemsChannel: RealtimeChannel | null = null;
   private spacesChannel: RealtimeChannel | null = null;
   private adminSettingsChannel: RealtimeChannel | null = null;
+  private pendingItemsChannel: RealtimeChannel | null = null;
   private isActive = false;
 
   /**
@@ -54,6 +59,12 @@ class RealtimeSyncService {
       await this.handleAdminSettingsChange(payload);
     });
 
+    // Subscribe to pending items changes (no user filter - client-side filtering in handler)
+    this.pendingItemsChannel = subscriptions.pendingItems(async (payload) => {
+      console.log('📡 [RealtimeSync] Pending item change received:', payload.eventType, payload.new?.status);
+      await this.handlePendingItemChange(payload);
+    });
+
     this.isActive = true;
     console.log('✅ [RealtimeSync] Real-time subscriptions active');
   }
@@ -77,6 +88,11 @@ class RealtimeSyncService {
     if (this.adminSettingsChannel) {
       await this.adminSettingsChannel.unsubscribe();
       this.adminSettingsChannel = null;
+    }
+
+    if (this.pendingItemsChannel) {
+      await this.pendingItemsChannel.unsubscribe();
+      this.pendingItemsChannel = null;
     }
 
     this.isActive = false;
@@ -233,6 +249,113 @@ class RealtimeSyncService {
       }
     } catch (error) {
       console.error('❌ [RealtimeSync] Error handling admin settings change:', error);
+    }
+  }
+
+  /**
+   * Handle pending item changes (share extension saves)
+   */
+  private async handlePendingItemChange(payload: any) {
+    const { eventType, new: newPendingItem } = payload;
+
+    try {
+      // Client-side filter: only process events for current user
+      const currentUserId = authStore.user.get()?.id;
+      if (!currentUserId || newPendingItem?.user_id !== currentUserId) {
+        console.log('📡 [RealtimeSync] Ignoring pending item for different user');
+        return;
+      }
+
+      if (eventType === 'INSERT') {
+        // Add to pending items store (for banner count)
+        console.log('⏳ [RealtimeSync] New pending item created:', newPendingItem.url);
+        await pendingItemsActions.add({
+          id: newPendingItem.id,
+          url: newPendingItem.url,
+          status: 'pending',
+          created_at: newPendingItem.created_at,
+          user_id: newPendingItem.user_id,
+          space_id: newPendingItem.space_id || null,
+          content: newPendingItem.content || undefined,
+          addedAt: Date.now(), // Track when added for minimum banner display time
+        });
+
+        // Trigger automatic processing of this item
+        console.log('⚙️ [RealtimeSync] Triggering automatic processing for:', newPendingItem.url);
+        pendingItemsProcessor.processPendingItemByUrl(newPendingItem.url, newPendingItem.id).catch(error => {
+          console.error('❌ [RealtimeSync] Error processing pending item:', error);
+        });
+      } else if (eventType === 'UPDATE' && newPendingItem) {
+        const status = newPendingItem.status;
+
+        if (status === 'processing') {
+          console.log('⏳ [RealtimeSync] Pending item processing:', newPendingItem.url);
+          // Update status in pending items store
+          await pendingItemsActions.updateStatus(newPendingItem.id, 'processing');
+        } else if (status === 'completed') {
+          console.log('✅ [RealtimeSync] Pending item completed:', newPendingItem.url);
+
+          // Get pending item to check minimum banner display time
+          const pendingItems = pendingItemsStore.items.get();
+          const pendingItem = pendingItems.find(p => p.id === newPendingItem.id);
+
+          // Calculate minimum display time delay (500ms minimum for banner)
+          const timeElapsed = pendingItem?.addedAt ? Date.now() - pendingItem.addedAt : 500;
+          const delayBeforeRemove = Math.max(0, 500 - timeElapsed);
+
+          console.log(`⏱️ [RealtimeSync] Banner displayed for ${timeElapsed}ms, waiting ${delayBeforeRemove}ms before removal`);
+
+          // Wait for minimum display time, then remove from pending items
+          setTimeout(async () => {
+            try {
+              // Verify item still exists before removing
+              const currentItems = pendingItemsStore.items.get();
+              if (!currentItems.find(p => p.id === newPendingItem.id)) {
+                console.log('⚠️ [RealtimeSync] Item already removed, skipping');
+                return;
+              }
+
+              await pendingItemsActions.remove(newPendingItem.id);
+              console.log('✨ [RealtimeSync] Pending item removed from banner');
+              // No need to sync - the real item already arrived via realtime INSERT
+            } catch (error) {
+              console.error('❌ [RealtimeSync] Error removing pending item:', error);
+              // Don't crash - just log the error
+            }
+          }, delayBeforeRemove);
+        } else if (status === 'failed') {
+          console.error('❌ [RealtimeSync] Pending item failed:', newPendingItem.error_message);
+
+          // Update status in pending items store
+          await pendingItemsActions.updateStatus(newPendingItem.id, 'failed', newPendingItem.error_message);
+
+          // Show error toast
+          toastActions.show(
+            newPendingItem.error_message || 'Failed to process shared item',
+            'error'
+          );
+
+          // Remove failed item after 5 seconds
+          setTimeout(async () => {
+            try {
+              // Verify item still exists before removing
+              const currentItems = pendingItemsStore.items.get();
+              if (!currentItems.find(p => p.id === newPendingItem.id)) {
+                console.log('⚠️ [RealtimeSync] Failed item already removed, skipping');
+                return;
+              }
+
+              await pendingItemsActions.remove(newPendingItem.id);
+              console.log('🗑️ [RealtimeSync] Failed item removed from banner');
+            } catch (error) {
+              console.error('❌ [RealtimeSync] Error removing failed item:', error);
+              // Don't crash - just log the error
+            }
+          }, 5000);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [RealtimeSync] Error handling pending item change:', error);
     }
   }
 

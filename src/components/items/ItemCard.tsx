@@ -1,6 +1,7 @@
 import React from 'react';
 import { observer } from '@legendapp/state/react';
 import { Item } from '../../types';
+import { processingItemsComputed } from '../../stores/processingItems';
 import XItemCard from './XItemCard';
 import YoutubeItemCard from './YoutubeItemCard';
 import MovieTVItemCard from './MovieTVItemCard';
@@ -8,9 +9,8 @@ import RedditItemCard from './RedditItemCard';
 import ProductItemCard from './ProductItemCard';
 import PodcastItemCard from './PodcastItemCard';
 import DefaultItemCard from './DefaultItemCard';
-import ProcessingItemCard from './ProcessingItemCard';
-import { processingItemsComputed } from '../../stores/processingItems';
 import NoteItemCard from './NoteItemCard';
+import ProcessingItemCard from './ProcessingItemCard';
 
 interface ItemCardProps {
   item: Item;
@@ -19,36 +19,30 @@ interface ItemCardProps {
 }
 
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
+  // Check if item is currently being processed
   if (processingItemsComputed.isProcessing(item.id)) {
-    return <ProcessingItemCard title={item.title} />;
+    return <ProcessingItemCard title={item.title || item.url} />;
   }
-  switch (item.content_type) {
-    case 'note':
-      return <NoteItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
-    case 'x':
-      return <XItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
 
-    case 'youtube':
-    case 'youtube_short':
-      return <YoutubeItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
+  // Get the appropriate card component based on type
+  const getCardComponent = (cardItem: Item) => {
+    switch (cardItem.content_type) {
+      case 'note': return NoteItemCard;
+      case 'x': return XItemCard;
+      case 'youtube':
+      case 'youtube_short': return YoutubeItemCard;
+      case 'movie':
+      case 'tv_show': return MovieTVItemCard;
+      case 'reddit': return RedditItemCard;
+      case 'product': return ProductItemCard;
+      case 'podcast':
+      case 'podcast_episode': return PodcastItemCard;
+      default: return DefaultItemCard;
+    }
+  };
 
-    case 'movie':
-    case 'tv_show':
-      return <MovieTVItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
-
-    case 'reddit':
-      return <RedditItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
-
-    case 'product':
-      return <ProductItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
-
-    case 'podcast':
-    case 'podcast_episode':
-      return <PodcastItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
-
-    default:
-      return <DefaultItemCard item={item} onPress={onPress} onLongPress={onLongPress} />;
-  }
+  const CardComponent = getCardComponent(item);
+  return <CardComponent item={item} onPress={onPress} onLongPress={onLongPress} />;
 });
 
 export default ItemCard;

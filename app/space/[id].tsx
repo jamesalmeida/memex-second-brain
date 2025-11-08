@@ -33,6 +33,7 @@ import { Item, Space } from '../../src/types';
 import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { spacesComputed } from '../../src/stores/spaces';
 import { itemsStore, itemsActions } from '../../src/stores/items';
+import { processingItemsComputed } from '../../src/stores/processingItems';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -176,6 +177,12 @@ const SpaceDetailScreen = observer(() => {
   }, []);
 
   const handleItemPress = (item: Item) => {
+    // Don't open ExpandedItemView for items that are still being processed
+    if (processingItemsComputed.isProcessing(item.id)) {
+      console.log('⏳ [SpaceDetail] Item is still processing, ignoring press');
+      return;
+    }
+
     setSelectedItem(item);
     // ExpandedItemView will handle opening via its controlled index prop
   };

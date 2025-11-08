@@ -446,4 +446,21 @@ export const subscriptions = {
       )
       .subscribe();
   },
+
+  pendingItems: (callback: (payload: any) => void) => {
+    return supabase
+      .channel('pending_items')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pending_items',
+          // No user filter - broadcast all events (client-side filtering in handler)
+          // This allows events from Share Extension to reach main app despite different sessions
+        },
+        callback
+      )
+      .subscribe();
+  },
 };

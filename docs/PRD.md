@@ -1,5 +1,31 @@
 # Memex: Second Brain - Product Requirements Document (PRD)
 
+## Table of Contents
+1. [Product Overview](#1-product-overview)
+2. [Core Features](#2-core-features)
+   - 2.1 [Authentication](#21-authentication)
+   - 2.2 [Dashboard & Views](#22-dashboard--views)
+   - 2.3 [Item Management](#23-item-management)
+   - 2.4 [Capture/Save](#24-capturesave)
+   - 2.5 [Search & Filtering](#25-search--filtering)
+   - 2.6 [Chat/Intelligence](#26-chatintelligence)
+   - 2.7 [Integrations & Tools](#27-integrations--tools)
+   - 2.8 [iOS Share Extension](#28-ios-share-extension)
+3. [Data Models (Supabase Schema)](#3-data-models-supabase-schema)
+4. [UI/UX Requirements](#4-uiux-requirements)
+5. [APIs & Architecture](#5-apis--architecture)
+   - 5.1 [Authentication](#51-authentication-srcservicessupabasets)
+   - 5.2 [Database Operations](#52-database-operations-srcservicessupabasets-and-srcservicessyncoperationsts)
+   - 5.3 [Supabase Edge Functions](#53-supabase-edge-functions)
+   - 5.4 [External APIs (Client-Side)](#54-external-apis-client-side)
+   - 5.5 [Sync Service & Offline Handling](#55-sync-service--offline-handling-srcservicessyncservicets)
+   - 5.6 [Real-time Cross-Device Sync](#56-real-time-cross-device-sync-srcservicesrealtimesyncts)
+   - 5.7 [ItemView Component Architecture](#57-itemview-component-architecture)
+6. [Non-Functional Requirements](#6-non-functional-requirements)
+7. [Later Nice-to-Have To-Dos](#7-later-nice-to-have-to-dos)
+
+---
+
 ## 1. Product Overview
 **Name**: Memex: Second Brain  
 **Description**: A personal knowledge management tool for capturing, organizing, and searching digital content (links, text, images, files) in an intelligent inbox with spaces (projects/folders), tags, and metadata extraction. Supports cross-platform capture via Chrome extension (web) and iOS Sharesheet/Android Intent (mobile). Users can chat with an LLM about individual items or spaces, using content as context.  
@@ -243,14 +269,546 @@
 - **UX**: Clear context indication (e.g., “Chatting about [item title/space name]”) in bottom sheet header.
 
 ### 2.7 Integrations & Tools
-- **X/Twitter API**: Extract metadata (tweets, videos); handle rate limits with Legend-State persistence.  
-- **YouTube API**: Fetch metadata/transcripts via youtubei.js; support video downloads (Expo FileSystem).  
-- **Other Services**:  
-  - Jina AI for content type detection (if needed).  
-  - OpenAI for tags/summaries/chat.  
-  - Cheerio for HTML parsing (server-side).  
-- **Chrome Extension**: Reuses existing web extension; mobile app consumes same `/api/capture` endpoint.  
-- **Mobile Sharing**: iOS Sharesheet via `expo-share-extension`; Android Intent via Expo Sharing API.
+- **X/Twitter API**: Extract metadata (tweets, videos); handle rate limits with Legend-State persistence.
+- **YouTube API**: Fetch metadata/transcripts via youtubei.js; support video downloads (Expo FileSystem).
+- **Other Services**:
+  - Jina AI for content type detection (if needed).
+  - OpenAI for tags/summaries/chat.
+  - Cheerio for HTML parsing (server-side).
+- **Chrome Extension**: Reuses existing web extension; mobile app consumes same `/api/capture` endpoint.
+- **Mobile Sharing**: iOS Sharesheet via `expo-share-extension` (see Section 2.8 for complete implementation); Android Intent via Expo Sharing API.
+
+### 2.8 iOS Share Extension
+Comprehensive documentation for the iOS Share Extension implementation using `expo-share-extension` v5.0.1.
+
+**Processing Architecture**: The share extension uses a **pending items processing flow** where items are saved to a `pending_items` table and processed asynchronously via database triggers and Edge Functions. This provides fast extension dismissal (~1-2 seconds) while heavy metadata extraction and AI processing happens in the background. The main app displays a processing banner and receives real-time updates via Supabase Realtime subscriptions.
+
+#### Architecture Overview
+- **Package**: `expo-share-extension` v5.0.1 - Enables sharing content from other iOS apps into Memex
+- **Entry Points**:
+  - Main app: `/index.js` → expo-router
+  - Share extension: `/index.share.js` → ShareExtension component
+- **Component**: `/src/components/ShareExtension.tsx` - Main React Native UI
+- **Metro Config**: `/metro.config.js` - Uses `withShareExtension()` wrapper for dual-bundle support
+- **Bundle ID**: `com.jamesalmeida.memex.ShareExtension`
+
+#### Polyfills & Dependencies
+The share extension requires these polyfills in `index.share.js`:
+- `event-target-polyfill` - Event handling compatibility
+- `web-streams-polyfill` - Streams API support
+- `text-encoding-polyfill` - TextEncoder/TextDecoder
+- `react-native-url-polyfill` - URL parsing
+- `base-64` - Base64 encoding/decoding (btoa/atob)
+
+#### Authentication Sharing via Keychain Access Groups
+Uses iOS Keychain with Access Groups to securely share Supabase credentials between main app and share extension.
+
+**Configuration**:
+- **Team ID**: `WZRRA4NFBY`
+- **Access Group**: `$(AppIdentifierPrefix)com.jamesalmeida.memex` (resolves to `WZRRA4NFBY.com.jamesalmeida.memex`)
+- **Storage Key**: `supabase.session.min`
+- **Package**: `expo-secure-store` v15.0.7 with `accessGroup` option
+
+**Stored Credentials** (`SharedAuthData` interface):
+```typescript
+{
+  access_token: string;    // Supabase JWT
+  refresh_token: string;   // For token refresh
+  user_id: string;         // User UUID
+  expires_at?: number;     // Unix timestamp
+}
+```
+
+**Implementation Files**:
+- `/src/services/sharedAuth.ts` - Save/read/clear auth from Keychain
+- `/src/config/keychain.ts` - Configuration constants
+- `/ios/Memex/Memex.entitlements` - Main app entitlements
+- `/ios/MemexShareExtension/MemexShareExtension.entitlements` - Extension entitlements
+
+**Entitlements Configuration** (both files):
+```xml
+<key>com.apple.security.application-groups</key>
+<array>
+  <string>group.com.jamesalmeida.memex</string>
+</array>
+<key>keychain-access-groups</key>
+<array>
+  <string>$(AppIdentifierPrefix)com.jamesalmeida.memex</string>
+</array>
+```
+
+**Authentication Flow**:
+1. **Main App** (saves auth):
+   - User signs in via Supabase Auth
+   - `saveSharedAuth(session)` called in `useAuth.ts` (lines 142, 236)
+   - Minimal session data stored in Keychain (2048-byte limit)
+   - Also triggered on token refresh and app launch with existing session
+2. **Share Extension** (reads auth):
+   - `getSharedAuth()` called on initialization
+   - Reads credentials from shared Keychain
+   - Validates token expiration (60-second buffer)
+   - Returns null if missing or expired
+3. **Sign Out** (clears auth):
+   - `clearSharedAuth()` called in `clearAuthState()` function
+   - Removes credentials from Keychain
+   - Extension loses access immediately
+
+#### User Experience & Auto-Save Flow
+
+**UI Dimensions**:
+- Height: 520px (configured in app.json)
+- Background: White/dark theme aware
+- Layout: Scrollable with header, preview, space selector, footer
+
+**Flow Timeline**:
+1. User taps Share → Memex (< 1s)
+2. Extension opens, theme and auth state loaded (< 1s)
+3. **Auto-save timer starts** (1 second countdown if authenticated)
+4. Item saved to `pending_items` table (lightweight database insert)
+5. Success banner appears: "✓ Saved successfully!" (800ms)
+6. Extension auto-dismisses (total: ~1-2 seconds from open to close)
+7. **Background**: Database trigger invokes Edge Function for metadata extraction and processing
+
+**Why This is Fast**:
+- No heavy metadata extraction in extension (happens server-side)
+- Single lightweight database INSERT to `pending_items` table
+- Extension closes immediately after saving, doesn't wait for processing
+- Processing happens asynchronously via database triggers and Edge Functions
+
+**Auto-Save Implementation** (`ShareExtension.tsx` lines 121-135):
+```typescript
+useEffect(() => {
+  if (!isLoading && hasKeychainAuth && !autoSaveTriggered && !showSuccess) {
+    console.log('[ShareExtension] Auto-save timer starting (1s)...');
+    const timer = setTimeout(async () => {
+      console.log('[ShareExtension] Auto-save triggered');
+      await handleSave();
+      setAutoSaveTriggered(true);
+    }, 1000); // 1 second delay
+    setAutoSaveTimer(timer);
+    return () => clearTimeout(timer);
+  }
+}, [isLoading, hasKeychainAuth, autoSaveTriggered, showSuccess]);
+```
+
+**User Actions**:
+- **Cancel Button**: Visible when authenticated; clears auto-save timer and closes immediately
+- **Space Selector**: Tap to select space for item (pauses auto-save, shows Save button)
+- **Open Memex Button**: Shown when not authenticated; launches main app via `openHostApp('/')`
+
+#### Pending Items Processing Architecture
+
+The share extension uses a **two-stage processing flow** for optimal performance:
+
+**Stage 1: Share Extension** (1-2 seconds)
+- Lightweight database INSERT to `pending_items` table
+- Minimal data: `user_id`, `url`, `space_id`, `content`
+- Fast extension dismissal without waiting for metadata extraction
+
+**Stage 2: Background Processing** (async)
+- Database trigger fires on INSERT to `pending_items`
+- Trigger invokes Edge Function via `pg_net` HTTP POST
+- Edge Function extracts metadata, generates tags, creates final item
+- Updates `pending_items.status`: `pending` → `processing` → `completed`/`failed`
+
+**Database Table Schema** (`pending_items`):
+```sql
+CREATE TABLE pending_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  url TEXT,
+  space_id UUID REFERENCES spaces(id),
+  content TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  error_message TEXT,
+  retry_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_pending_items_status ON pending_items(status);
+CREATE INDEX idx_pending_items_user_id ON pending_items(user_id);
+CREATE INDEX idx_pending_items_created_at ON pending_items(created_at);
+```
+
+**Database Trigger** (`process_pending_item_trigger`):
+- Fires on INSERT to `pending_items` table
+- Uses `pg_net.http_post()` to invoke Edge Function
+- Passes item data as JSON payload
+- Non-blocking (doesn't slow down INSERT operation)
+
+**Edge Function** (`process-pending-item`):
+- Receives pending item from database trigger
+- Updates status to `'processing'`
+- Runs metadata extraction pipeline (same as main app)
+- Creates final item in `items` table with all metadata
+- Updates `pending_items.status` to `'completed'` or `'failed'`
+- Sets `error_message` if processing fails
+
+**Implementation Files**:
+- Database migration: `supabase/migrations/20250206_create_pending_items.sql`
+- Trigger migration: `supabase/migrations/20250206_pending_items_trigger.sql`
+- Edge Function: `supabase/functions/process-pending-item/index.ts`
+- Share Extension save: `src/components/ShareExtension.tsx` lines 174-247
+
+#### Direct Supabase Sync (Primary Path)
+
+When Keychain auth is available, the extension saves directly to Supabase `pending_items` table without opening the main app.
+
+**Flow** (`ShareExtension.tsx` lines 174-247):
+1. Get auth from Keychain: `getSharedAuth()`
+2. Create temporary Supabase client with `persistSession: false`
+3. Set session: `await supabase.auth.setSession({ access_token, refresh_token })`
+4. Create pending item object with minimal data:
+   ```typescript
+   {
+     user_id: authData.user_id,
+     url: urlToSave || '',
+     space_id: selectedSpaceId,
+     content: contentToSave
+   }
+   ```
+5. Insert to `pending_items`: `await supabase.from('pending_items').insert(pendingItem)`
+6. On success: Show success banner → Auto-dismiss after 800ms
+7. On error: Fall back to MMKV queue
+8. **Background**: Database trigger invokes Edge Function for processing
+
+**Benefits**:
+- **Fast extension dismissal** (~1-2 seconds vs 3-6 seconds previously)
+- **No blocking metadata extraction** in extension
+- **Background processing** via database triggers and Edge Functions
+- **Real-time updates** propagate processing status to all devices
+- **Automatic retries** on failure (Edge Function can retry)
+- **No duplicate items** (single source of truth in database)
+
+#### MMKV Queue Fallback (Offline Path)
+
+When direct sync fails or auth is unavailable, items are queued in MMKV storage shared via App Groups.
+
+**Configuration**:
+- **App Group ID**: `group.com.jamesalmeida.memex`
+- **Queue Key**: `shared-items-queue`
+- **Storage**: MMKV with `appGroupId` support (iOS only)
+- **File**: `/src/services/sharedItemQueue.ts`
+
+**Queue Used When**:
+- No Keychain auth available
+- Supabase session setup fails
+- Network error during insert
+- User not signed in
+
+**Queue Flow**:
+1. **Share Extension** (adds to queue):
+   ```typescript
+   newItem.user_id = authData?.user_id || 'pending';
+   await addItemToSharedQueue(newItem);
+   ```
+2. **Main App** (imports queue):
+   - Called in `useAuth.ts` during initial session (lines 164-185)
+   - `getItemsFromSharedQueue()` reads all queued items
+   - Updates `user_id` if 'pending'
+   - Syncs each item: `itemsActions.addItemWithSync(item)`
+   - Clears queue: `clearSharedQueue()`
+
+**MMKV Initialization**:
+- Lazy initialization (only when first accessed)
+- Requires JSI (JavaScript Interface) - not available in Metro dev mode
+- Error handling: Logs warning but doesn't crash ("⚠️ MMKV queue not available (dev mode - this is OK)")
+- Graceful fallback: Primary path is Keychain auth; queue is safety net
+
+#### Real-time Processing Updates
+
+The main app receives processing status updates via Supabase Realtime subscriptions and displays visual feedback.
+
+**Supabase Realtime Subscription** (`realtimeSync.ts` lines 257-351):
+- Subscribes to `pending_items` table with WebSocket connection
+- Filters events by `user_id` for security and performance
+- Listens for INSERT, UPDATE events (no DELETE needed)
+- Configuration: `ALTER PUBLICATION supabase_realtime ADD TABLE pending_items`
+
+**Event Handling**:
+1. **INSERT (new pending item)**:
+   - Adds item to `pendingItemsStore` with `addedAt` timestamp
+   - Triggers processing banner to slide down
+   - Logs: `📡 [RealtimeSync] Pending item change received: INSERT pending`
+
+2. **UPDATE (status=processing)**:
+   - Updates status in `pendingItemsStore`
+   - Banner continues showing "Processing X items..."
+   - Logs: `📡 [RealtimeSync] Pending item change received: UPDATE processing`
+
+3. **UPDATE (status=completed)**:
+   - Calculates time elapsed since `addedAt`
+   - Enforces 500ms minimum display time for smooth UX
+   - Removes item from store after delay: `await pendingItemsActions.remove(id)`
+   - Banner slides up when `processingCount` reaches 0
+   - Logs: `✅ [RealtimeSync] Pending item completed` → `⏱️ Banner displayed for Xms, waiting Yms before removal`
+
+4. **UPDATE (status=failed)**:
+   - Shows error toast notification with `error_message`
+   - Removes failed item after 5 seconds
+   - Logs: `❌ [RealtimeSync] Pending item failed: {error_message}`
+
+**Local Store Management** (`pendingItems.ts`):
+- **Store**: `pendingItemsStore` with `items` array and `isLoading` flag
+- **Interface**: `PendingItemDisplay` with fields: `id`, `url`, `status`, `error_message`, `created_at`, `user_id`, `addedAt`, `completed_item_id`
+- **Persistence**: Synced to AsyncStorage at key `@memex_pending_items`
+- **Cleanup**: Removes stale items on load (>10min old or completed/failed)
+- **Minimum Display Time**: Tracks `addedAt` timestamp to enforce 500ms visibility
+
+**Error Handling**:
+- Defensive checks before removing items (verify item exists)
+- Try/catch blocks prevent crashes from AsyncStorage failures
+- Graceful fallback if real-time connection drops (manual sync fills gaps)
+
+#### Processing Banner UI
+
+The main app displays a processing banner at the top of the home screen when items are being processed.
+
+**Visual Design**:
+- **Location**: Home screen, positioned between HeaderBar/FilterPills and content grid
+- **Layout**: Full-width banner with centered text
+- **Height**: 40px when visible, 0px when hidden
+- **Colors**:
+  - Light mode: Background `#FFF9E6` (cream), Text `#F57C00` (orange), Border `#FFE082` (light orange)
+  - Dark mode: Background `#332800` (dark brown), Text `#FFB74D` (light orange), Border `#665000` (brown)
+- **Typography**: 13px font, 500 weight, center-aligned
+- **Text**: "Processing X items..." (or "Processing 1 item..." singular)
+
+**Animation**:
+- **Slide Down** (when `processingCount` becomes > 0):
+  - Animates height from 0 to 40px over 300ms
+  - Easing: `Easing.out(Easing.ease)` for smooth deceleration
+  - Sets `showBanner` state to true
+  - Records `bannerShowTimestamp` for minimum display time calculation
+
+- **Slide Up** (when `processingCount` becomes 0):
+  - Enforces 500ms minimum display time
+  - Calculates delay: `Math.max(0, 500 - timeElapsed)`
+  - Waits for delay, then animates height from 40px to 0 over 300ms
+  - Easing: `Easing.in(Easing.ease)` for smooth acceleration
+  - Sets `showBanner` state to false after animation completes
+  - Uses `runOnJS()` to safely update state from animation callback
+
+**Implementation** (`index.tsx` lines 358-395):
+```typescript
+// Count processing items
+const processingCount = useMemo(() => {
+  return pendingItems.filter(p => p.status === 'pending' || p.status === 'processing').length;
+}, [pendingItems]);
+
+// Animated banner height with minimum display time
+const bannerHeight = useSharedValue(0);
+const [showBanner, setShowBanner] = useState(false);
+const bannerShowTimestamp = useRef<number | null>(null);
+
+useEffect(() => {
+  if (processingCount > 0) {
+    // Show banner
+    if (!showBanner) {
+      setShowBanner(true);
+      bannerShowTimestamp.current = Date.now();
+      bannerHeight.value = withTiming(40, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
+    }
+  } else if (showBanner) {
+    // Hide banner with minimum display time (500ms)
+    const elapsed = bannerShowTimestamp.current ? Date.now() - bannerShowTimestamp.current : 500;
+    const delay = Math.max(0, 500 - elapsed);
+
+    setTimeout(() => {
+      bannerHeight.value = withTiming(0, {
+        duration: 300,
+        easing: Easing.in(Easing.ease),
+      }, () => {
+        // After animation completes, hide the component
+        runOnJS(setShowBanner)(false);
+      });
+    }, delay);
+  }
+}, [processingCount, showBanner]);
+```
+
+**UX Benefits**:
+- **No flashing**: 500ms minimum display prevents banner from appearing/disappearing too quickly
+- **Smooth animations**: 300ms transitions feel natural and polished
+- **Real-time feedback**: Users see processing status immediately when items are shared
+- **Non-blocking**: Banner doesn't prevent interaction with the app
+- **Clear messaging**: Simple text indicates number of items being processed
+
+#### UI Components & States
+
+**Authenticated State** (`hasKeychainAuth = true`):
+- Content preview with metadata
+- Cancel button (aborts auto-save timer)
+- Space selector dropdown (optional, pauses auto-save)
+- Auto-save countdown (2 seconds)
+- Success banner → auto-dismiss
+
+**Not Authenticated State** (`hasKeychainAuth = false`):
+- Warning banner: "Please sign in to save items"
+- Content preview (read-only)
+- "Open Memex to Sign In" button (calls `openHostApp('/')`)
+- No auto-save or Save button
+
+**Loading State**:
+- Activity indicator with "Loading..." text
+- Theme-aware spinner color
+- Displayed during metadata extraction
+
+**Error State**:
+- Red error text
+- Close button
+- Manual dismissal only
+
+**Success State**:
+- Green banner: "✓ Saved successfully!"
+- Displayed for 1 second before auto-dismiss
+- Replaces other UI elements
+
+#### app.json Configuration
+
+```json
+{
+  "plugins": [
+    ["expo-share-extension", {
+      "activationRules": [
+        { "type": "url", "max": 1 },
+        { "type": "text" },
+        { "type": "image", "max": 3 },
+        { "type": "video", "max": 1 },
+        { "type": "file", "max": 3 }
+      ],
+      "excludedPackages": [
+        "expo-dev-client",
+        "expo-splash-screen",
+        "expo-updates",
+        "expo-font"
+      ],
+      "backgroundColor": {
+        "red": 255,
+        "green": 255,
+        "blue": 255,
+        "alpha": 1
+      },
+      "height": 520
+    }]
+  ]
+}
+```
+
+**Activation Rules**:
+- URLs: Single URL sharing (most common)
+- Text: Plain text content (converted to notes if not URL)
+- Images: Up to 3 images simultaneously
+- Videos: Single video sharing
+- Files: Up to 3 files
+
+**Excluded Packages**:
+- Development tools excluded to reduce bundle size
+- Fonts excluded (use system fonts)
+- Splash screen unnecessary in extension
+- Updates handled by main app
+
+#### Theme Support
+
+**Dark Mode**:
+- Loaded via `themeActions.loadThemePreference()`
+- Reads from `userSettingsStore` (cloud-synced)
+- All UI components have dark variants
+- Consistent with main app theme
+
+**Colors**:
+- Light mode: White background, black text, #007AFF accent
+- Dark mode: Black background, white text, #0A84FF accent
+- Success: Green (#D4EDDA light, #1B4332 dark)
+- Warning: Yellow (#FFF3CD light, #4A4220 dark)
+- Error: Red (#FF3B30 light, #FF453A dark)
+
+#### Performance & Optimization
+
+**Bundle Size**:
+- Separate bundle from main app (only includes necessary code)
+- Excluded packages reduce size (~30% smaller than main app)
+- Polyfills loaded on-demand
+
+**Metadata Extraction**:
+- Runs in background during preview display
+- Non-blocking UI (shows preview with loading states)
+- Cached in local state (no persistence in extension)
+
+**Network Efficiency**:
+- Single API call per save (metadata extraction OR Supabase insert)
+- No polling or real-time subscriptions in extension
+- Minimal battery impact
+
+**Memory Management**:
+- Extension unloads immediately after dismissal
+- No state persistence between launches
+- MMKV provides memory-efficient queue storage
+
+#### Error Handling & Reliability
+
+**Graceful Degradation**:
+1. **Metadata extraction fails** → Save with minimal data (URL + title)
+2. **Keychain auth unavailable** → Fall back to queue
+3. **Supabase insert fails** → Fall back to queue
+4. **Network offline** → Queue for later sync
+5. **MMKV unavailable (dev mode)** → Log warning, primary path still works
+
+**User Feedback**:
+- Loading states during operations
+- Success banner on completion
+- Error messages for failures
+- Toast notifications in main app after queue import
+
+**Data Integrity**:
+- Tombstone pattern prevents data loss
+- Queue ensures items never lost even if extension crashes
+- Main app retry logic for failed syncs
+- Real-time sync provides redundancy
+
+#### Testing Considerations
+
+**Manual Testing**:
+- Share from Safari, X, YouTube, Instagram, Reddit, Notes
+- Test with auth (auto-save) and without auth (queue)
+- Verify metadata extraction for all content types
+- Test Cancel button during auto-save countdown
+- Verify space selection (when enabled)
+- Test offline scenarios (airplane mode)
+
+**Edge Cases**:
+- Invalid URLs → Converted to notes
+- Expired Keychain auth → Falls back to queue
+- Network timeout during metadata extraction → Saves minimal data
+- MMKV unavailable (dev mode) → Primary path unaffected
+
+**Device Testing**:
+- Test on physical device (JSI not available in simulator dev mode)
+- Verify Keychain access on clean install
+- Test after main app uninstall/reinstall
+- Verify entitlements properly applied in build
+
+#### Known Limitations
+
+**Expo Constraints**:
+- No access to native iOS Share Extension API directly
+- Limited customization of system share sheet
+- Height is fixed (no dynamic sizing)
+- Cannot preview shared content before extension opens
+
+**Development Mode**:
+- MMKV JSI not available in Metro bundler (expected)
+- Keychain works correctly
+- Queue fallback logs warnings but functions properly
+
+**iOS Restrictions**:
+- Share extensions have memory limits (stricter than main app)
+- Background execution limited
+- Cannot play media or open external URLs
+- Must close after save completes
 
 ## 3. Data Models (Supabase Schema)
 - **Users**:  
@@ -331,6 +889,24 @@
   - Loading: Auto-loads on user login via `useAuth` hook after userSettings
   - Usage: Pipeline steps and enrichment services check these flags to determine whether to auto-run AI operations
   - RLS Policies: Only admins can read/write (checked via `user_settings.is_admin` column)
+- **Pending_Items**:
+  - Fields: `id` (UUID, PK), `user_id` (UUID, FK to Users), `url` (text, nullable), `space_id` (UUID, FK to Spaces, nullable), `content` (text, nullable), `status` (text, default 'pending', CHECK status IN ('pending', 'processing', 'completed', 'failed')), `error_message` (text, nullable), `retry_count` (integer, default 0), `created_at` (timestamp).
+  - Purpose: **Temporary table for iOS Share Extension processing**. Items saved from Share Extension are inserted here, then processed asynchronously via database triggers and Edge Functions. Once processing completes, the final item is created in `items` table and the pending_items record is removed.
+  - Processing Flow:
+    1. Share Extension inserts minimal data (`user_id`, `url`, `space_id`, `content`) with `status='pending'`
+    2. Database trigger fires on INSERT, invokes Edge Function via `pg_net.http_post()`
+    3. Edge Function updates `status` to `'processing'`, extracts metadata, generates tags
+    4. Edge Function creates final item in `items` table with all metadata
+    5. Edge Function updates `status` to `'completed'` or `'failed'` (with `error_message`)
+    6. Main app receives real-time updates via Supabase Realtime subscriptions
+    7. Main app displays processing banner and removes completed/failed items after delay
+  - Real-time Sync: Enabled via `ALTER PUBLICATION supabase_realtime ADD TABLE pending_items` to notify main app of status changes
+  - Indexes: `idx_pending_items_status` (status), `idx_pending_items_user_id` (user_id), `idx_pending_items_created_at` (created_at)
+  - RLS Policies: Users can read/write their own pending items only (WHERE user_id = auth.uid())
+  - Service Role: Full access for Edge Function processing (bypasses RLS)
+  - Cleanup: Pending items table is ephemeral - completed/failed items removed by main app, stale items (>10min old) cleaned up on app launch
+  - Migration: Created in `supabase/migrations/20250206_create_pending_items.sql`
+  - Trigger: `process_pending_item_trigger()` function created in `supabase/migrations/20250206_pending_items_trigger.sql`
 - **Item_Spaces** (DEPRECATED):
   - Fields: `item_id` (UUID, PK/FK to Items), `space_id` (UUID, PK/FK to Spaces), `created_at` (timestamp).
   - **Status**: Deprecated in favor of `Items.space_id`. This table is no longer used for new data but remains for historical records.
@@ -586,6 +1162,53 @@ All data operations use **Supabase Client SDK** via the `db` helper object and `
   - Request: `{ url: string, contentType?: string }`
   - Response: `{ title, description, thumbnail_url, domain, author, published_date, content_type }`
   - Supports: YouTube, Twitter/X, GitHub, generic web pages
+
+- **`POST /functions/v1/process-pending-item`** (`supabase/functions/process-pending-item/index.ts`):
+  - **Purpose**: Processes pending items from iOS Share Extension asynchronously
+  - **Trigger**: Invoked automatically by database trigger when item inserted into `pending_items` table
+  - **Invocation Method**: Database trigger uses `pg_net.http_post()` to call Edge Function (not direct HTTP call from client)
+  - **Request** (from database trigger):
+    ```typescript
+    {
+      pending_item_id: string,  // UUID of pending item to process
+      user_id: string,           // User UUID
+      url?: string,              // URL to extract metadata from
+      space_id?: string,         // Space UUID (optional)
+      content?: string           // Plain text content (for notes)
+    }
+    ```
+  - **Processing Flow**:
+    1. Validates request and pending item exists
+    2. Updates `pending_items.status` to `'processing'`
+    3. Runs metadata extraction pipeline (same as main app):
+       - URL type detection via `Step01_DetectType`
+       - AI type detection via `Step02_DetectTypeAI` (if needed)
+       - Linkedom HTML parsing via `Step03_ParseLinkedom` (fallback)
+       - Platform-specific enrichment via `Step04_*` enrichers
+    4. Generates AI tags via OpenAI (if enabled in admin settings)
+    5. Creates final item in `items` table with all metadata:
+       ```typescript
+       {
+         user_id, url, space_id, content,
+         title, desc, thumbnail_url, content_type,
+         tags, created_at, updated_at
+       }
+       ```
+    6. Creates related records in `item_metadata`, `item_type_metadata` (if applicable)
+    7. Updates `pending_items.status` to `'completed'` on success
+    8. On error: Updates `pending_items.status` to `'failed'` with `error_message`
+  - **Response**: `{ success: boolean, item_id?: string, error?: string }`
+  - **Error Handling**:
+    - Catches all exceptions and updates pending item with error details
+    - Increments `retry_count` for potential automatic retries
+    - Logs errors to Supabase Edge Function logs for debugging
+  - **Real-time Updates**: Status changes in `pending_items` table trigger Supabase Realtime events to main app
+  - **Security**: Uses service role key to bypass RLS for database operations
+  - **Performance**: Runs asynchronously without blocking Share Extension, typically completes in 2-5 seconds
+  - **Implementation Files**:
+    - Edge Function: `supabase/functions/process-pending-item/index.ts`
+    - Database trigger: `supabase/migrations/20250206_pending_items_trigger.sql`
+    - Trigger function: `process_pending_item_trigger()` uses `pg_net.http_post()`
 
 ### 5.4 External APIs (Client-Side)
 All external API calls are made directly from the client (`src/services/` and `src/config/api.ts`):

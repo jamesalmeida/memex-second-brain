@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,8 @@ import { spacesStore } from '../stores/spaces';
 import { authStore, authActions } from '../stores/auth';
 import { auth } from '../services/supabase';
 import { SUPABASE } from '../constants';
-import { extractURLMetadata } from '../services/urlMetadata';
-import { addItemToSharedQueue } from '../services/sharedItemQueue';
 import { getSharedAuth } from '../services/sharedAuth';
-import { Item, ContentType, User } from '../types';
+import { ContentType, User } from '../types';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -29,22 +27,38 @@ const ShareExtension = (props: InitialProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
-  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
-  const [metadata, setMetadata] = useState<{
-    title: string;
-    description?: string;
-    image?: string;
-    contentType: ContentType;
-  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasKeychainAuth, setHasKeychainAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
+  // Store the URL to save (might be from props.url or extracted from props.text)
+  const [urlToSave, setUrlToSave] = useState<string | null>(null);
+  const [contentToSave, setContentToSave] = useState<string | null>(null);
+
   // Safely access stores with fallbacks
   const isDarkMode = themeStore?.isDarkMode?.get() ?? false;
   const spaces = (spacesStore?.spaces?.get() ?? []).filter(s => !s.is_deleted && !s.is_archived);
   const user = authStore?.user?.get() ?? null;
+
+  // Helper function to detect if text is actually a URL
+  const isValidURL = (text: string): string | null => {
+    // Remove whitespace
+    const cleaned = text.trim();
+
+    // Try to parse as URL
+    try {
+      const url = new URL(cleaned);
+      // Only accept http/https protocols
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        return url.href;
+      }
+    } catch {
+      // Not a valid URL
+    }
+
+    return null;
+  };
 
   // Initialize stores on mount
   useEffect(() => {
@@ -91,44 +105,36 @@ const ShareExtension = (props: InitialProps) => {
         setHasKeychainAuth(!!keychainAuth);
         console.log('[ShareExtension] Keychain auth available:', !!keychainAuth);
 
-        // Extract metadata from shared content
+        // Detect what type of content was shared
         if (props.url) {
-          console.log('[ShareExtension] Extracting metadata for URL:', props.url);
-          try {
-            const urlMetadata = await extractURLMetadata(props.url);
-            setMetadata({
-              title: urlMetadata.title || props.url,
-              description: urlMetadata.description,
-              image: urlMetadata.image,
-              contentType: urlMetadata.contentType as ContentType,
-            });
-          } catch (err) {
-            console.error('[ShareExtension] Error extracting metadata:', err);
-            setMetadata({
-              title: props.url,
-              contentType: 'bookmark',
-            });
-          }
+          console.log('[ShareExtension] URL shared:', props.url);
+          setUrlToSave(props.url);
+          setContentToSave(props.text || null);
         } else if (props.text) {
-          // For shared text, create a note
-          setMetadata({
-            title: props.text.length > 100 ? props.text.substring(0, 100) + '...' : props.text,
-            description: props.text,
-            contentType: 'note',
-          });
+          // Check if text is actually a URL (iOS sometimes passes URLs as text)
+          const extractedURL = isValidURL(props.text);
+
+          if (extractedURL) {
+            // Text contains a URL
+            console.log('[ShareExtension] Detected URL in text:', extractedURL);
+            setUrlToSave(extractedURL);
+            setContentToSave(null);
+          } else {
+            // Text is not a URL, save as note content
+            console.log('[ShareExtension] Text shared as note');
+            setUrlToSave(null);
+            setContentToSave(props.text);
+          }
         } else if (props.images && props.images.length > 0) {
-          // For shared images
-          setMetadata({
-            title: `Shared Image${props.images.length > 1 ? 's' : ''}`,
-            image: props.images[0],
-            contentType: 'image',
-          });
+          // For shared images (save image URL)
+          console.log('[ShareExtension] Image(s) shared');
+          setUrlToSave(props.images[0]);
+          setContentToSave(null);
         } else if (props.videos && props.videos.length > 0) {
           // For shared videos
-          setMetadata({
-            title: 'Shared Video',
-            contentType: 'video',
-          });
+          console.log('[ShareExtension] Video shared');
+          setUrlToSave(props.videos[0]);
+          setContentToSave(null);
         } else {
           setError('No content to share');
         }
@@ -144,17 +150,17 @@ const ShareExtension = (props: InitialProps) => {
     initialize();
   }, []);
 
-  // Auto-save effect: triggers when metadata is ready and user is authenticated
+  // Auto-save effect: triggers when content is ready and user is authenticated
   useEffect(() => {
-    if (!isLoading && metadata && hasKeychainAuth && !autoSaveTimer && !showSuccess) {
-      console.log('[ShareExtension] Starting auto-save timer (2s)...');
+    if (!isLoading && (urlToSave || contentToSave) && hasKeychainAuth && !autoSaveTimer && !showSuccess) {
+      console.log('[ShareExtension] Starting auto-save timer (1s)...');
       const timer = setTimeout(async () => {
         console.log('[ShareExtension] Auto-save triggered');
         await handleSave();
-      }, 2000); // 2 second delay to show preview
+      }, 1000); // 1 second delay (faster since no heavy metadata extraction)
       setAutoSaveTimer(timer);
     }
-  }, [isLoading, metadata, hasKeychainAuth, autoSaveTimer, showSuccess]);
+  }, [isLoading, urlToSave, contentToSave, hasKeychainAuth, autoSaveTimer, showSuccess]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -166,7 +172,7 @@ const ShareExtension = (props: InitialProps) => {
   }, [autoSaveTimer]);
 
   const handleSave = async () => {
-    if (!metadata) {
+    if (!urlToSave && !contentToSave) {
       setError('Unable to save. No content to save.');
       return;
     }
@@ -174,96 +180,65 @@ const ShareExtension = (props: InitialProps) => {
     setIsSaving(true);
 
     try {
-      // Create new item
-      const newItem: Item = {
-        id: uuid.v4() as string,
-        user_id: 'pending', // Will be updated below
-        title: metadata.title,
-        url: props.url,
-        content_type: metadata.contentType,
-        desc: metadata.description,
-        thumbnail_url: metadata.image,
-        content: props.text,
-        tags: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        space_id: selectedSpaceId,
-        is_archived: false,
-        is_deleted: false,
-      };
-
       // Try to get shared auth credentials
       const authData = await getSharedAuth();
 
-      if (authData) {
-        // We have auth! Sync directly to Supabase
-        console.log('[ShareExtension] Auth found, syncing directly to Supabase...');
-
-        try {
-          // Create authenticated Supabase client
-          const supabase = createClient(SUPABASE.URL, SUPABASE.ANON_KEY, {
-            auth: {
-              persistSession: false, // Don't persist in extension
-              autoRefreshToken: false, // Don't auto-refresh in extension
-            },
-          });
-
-          // Set the session from shared storage
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: authData.access_token,
-            refresh_token: authData.refresh_token,
-          });
-
-          if (sessionError) {
-            console.error('[ShareExtension] Session error:', sessionError);
-            throw sessionError;
-          }
-
-          // Update user_id with actual user ID
-          newItem.user_id = authData.user_id;
-
-          // Insert directly to Supabase
-          const { error: insertError } = await supabase
-            .from('items')
-            .insert(newItem);
-
-          if (insertError) {
-            console.error('[ShareExtension] Insert error:', insertError);
-            throw insertError;
-          }
-
-          console.log('[ShareExtension] ✅ Item synced directly to Supabase:', newItem.id);
-
-          // Show success banner
-          setIsSaving(false);
-          setShowSuccess(true);
-
-          // Auto-dismiss after 1 second
-          setTimeout(() => {
-            close();
-          }, 1000);
-          return;
-        } catch (supabaseError) {
-          console.error('[ShareExtension] Supabase sync failed, falling back to queue:', supabaseError);
-          // Fall through to queue mechanism
-        }
-      } else {
-        console.log('[ShareExtension] No auth found, using queue mechanism');
+      if (!authData) {
+        console.error('[ShareExtension] No auth found - cannot save');
+        setError('Please sign in to save items');
+        setIsSaving(false);
+        return;
       }
 
-      // Fallback: Add to queue if auth is missing or sync failed
-      newItem.user_id = authData?.user_id || 'pending';
-      await addItemToSharedQueue(newItem);
-      console.log('[ShareExtension] Item added to queue:', newItem.id);
+      console.log('[ShareExtension] Auth found, saving to pending_items...');
+
+      // Create authenticated Supabase client
+      const supabase = createClient(SUPABASE.URL, SUPABASE.ANON_KEY, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      });
+
+      // Set the session from shared storage
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: authData.access_token,
+        refresh_token: authData.refresh_token,
+      });
+
+      if (sessionError) {
+        console.error('[ShareExtension] Session error:', sessionError);
+        throw sessionError;
+      }
+
+      // Insert to pending_items table
+      const { data: pendingItem, error: insertError } = await supabase
+        .from('pending_items')
+        .insert({
+          user_id: authData.user_id,
+          url: urlToSave || '',
+          space_id: selectedSpaceId,
+          content: contentToSave,
+        })
+        .select()
+        .single();
+
+      if (insertError || !pendingItem) {
+        console.error('[ShareExtension] Insert error:', insertError);
+        throw insertError;
+      }
+
+      console.log('[ShareExtension] ✅ Pending item created:', pendingItem.id);
+      console.log('[ShareExtension] Database trigger will automatically process this item');
 
       // Show success banner
       setIsSaving(false);
       setShowSuccess(true);
 
-      // Auto-dismiss after 1 second
+      // Auto-dismiss after 800ms
       setTimeout(() => {
         close();
-      }, 1000);
+      }, 800);
     } catch (err) {
       console.error('[ShareExtension] Error saving item:', err);
       setError('Failed to save item. Please try again.');
@@ -357,27 +332,30 @@ const ShareExtension = (props: InitialProps) => {
 
         {/* Content Preview */}
         <View style={[styles.previewContainer, isDarkMode && styles.previewContainerDark]}>
-          {metadata?.image && (
-            <Image
-              source={{ uri: metadata.image }}
-              style={styles.previewImage}
-              resizeMode="cover"
-            />
-          )}
           <View style={styles.previewText}>
-            <Text style={[styles.previewTitle, isDarkMode && styles.previewTitleDark]} numberOfLines={3}>
-              {metadata?.title || 'Untitled'}
+            {urlToSave && (
+              <>
+                <Text style={[styles.previewLabel, isDarkMode && styles.previewLabelDark]}>
+                  URL
+                </Text>
+                <Text style={[styles.previewUrl, isDarkMode && styles.previewUrlDark]} numberOfLines={3}>
+                  {urlToSave}
+                </Text>
+              </>
+            )}
+            {contentToSave && (
+              <>
+                <Text style={[styles.previewLabel, isDarkMode && styles.previewLabelDark]}>
+                  NOTE
+                </Text>
+                <Text style={[styles.previewDescription, isDarkMode && styles.previewDescriptionDark]} numberOfLines={5}>
+                  {contentToSave}
+                </Text>
+              </>
+            )}
+            <Text style={[styles.previewHint, isDarkMode && styles.previewHintDark]}>
+              Processing will happen in the background
             </Text>
-            {metadata?.description && (
-              <Text style={[styles.previewDescription, isDarkMode && styles.previewDescriptionDark]} numberOfLines={2}>
-                {metadata.description}
-              </Text>
-            )}
-            {props.url && (
-              <Text style={[styles.previewUrl, isDarkMode && styles.previewUrlDark]} numberOfLines={1}>
-                {props.url}
-              </Text>
-            )}
           </View>
         </View>
 
@@ -482,7 +460,7 @@ const ShareExtension = (props: InitialProps) => {
           </TouchableOpacity>
         </View>
       ) : !showSuccess ? (
-        // Authenticated - Show Cancel button (and Save if space selector is open or manual trigger needed)
+        // Authenticated - Show Cancel button only (auto-save handles saving)
         <View style={[styles.footer, isDarkMode && styles.footerDark]}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
@@ -491,19 +469,6 @@ const ShareExtension = (props: InitialProps) => {
           >
             <Text style={styles.buttonText}>Cancel</Text>
           </TouchableOpacity>
-          {(showSpaceSelector || !autoSaveTimer) && (
-            <TouchableOpacity
-              style={[styles.button, styles.primaryButton, isSaving && styles.buttonDisabled]}
-              onPress={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          )}
         </View>
       ) : null}
     </View>
@@ -611,30 +576,42 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   previewText: {
-    gap: 8,
+    gap: 12,
   },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-  },
-  previewTitleDark: {
-    color: '#fff',
-  },
-  previewDescription: {
-    fontSize: 14,
+  previewLabel: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#666',
-    lineHeight: 20,
+    letterSpacing: 0.8,
+    marginBottom: -8,
   },
-  previewDescriptionDark: {
+  previewLabelDark: {
     color: '#999',
   },
+  previewDescription: {
+    fontSize: 15,
+    color: '#000',
+    lineHeight: 22,
+  },
+  previewDescriptionDark: {
+    color: '#fff',
+  },
   previewUrl: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#007AFF',
+    lineHeight: 20,
   },
   previewUrlDark: {
     color: '#0A84FF',
+  },
+  previewHint: {
+    fontSize: 13,
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  previewHintDark: {
+    color: '#666',
   },
   spaceSelectorContainer: {
     marginBottom: 20,
