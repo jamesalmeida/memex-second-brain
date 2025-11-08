@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,19 +12,34 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { observer } from '@legendapp/state/react';
+import { useObservable } from '@legendapp/state/react';
 import { auth } from '../../src/services/supabase';
 import { syncService } from '../../src/services/syncService';
 import { authActions } from '../../src/stores';
 import { COLORS, UI } from '../../src/constants';
 import { themeStore } from '../../src/stores/theme';
 
-const AuthScreen = observer(() => {
+const AuthScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const isDarkMode = themeStore.isDarkMode.get();
+  const isDarkMode = useObservable(themeStore.isDarkMode);
+
+  // Log component lifecycle to debug unexpected remounts
+  useEffect(() => {
+    console.log('🔐 AuthScreen mounted');
+    return () => {
+      console.log('🔐 AuthScreen unmounted');
+    };
+  }, []);
+
+  // Log when inputs are cleared to help debug
+  useEffect(() => {
+    if (email === '' && password === '') {
+      console.log('🔐 AuthScreen: Both inputs are empty');
+    }
+  }, [email, password]);
 
   const handleAuth = async () => {
     if (!email.trim() || !password.trim()) {
@@ -165,7 +180,7 @@ const AuthScreen = observer(() => {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-});
+};
 
 export default AuthScreen;
 

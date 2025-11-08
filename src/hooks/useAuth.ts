@@ -422,25 +422,29 @@ export function useAuth() {
 
     const inAuthGroup = segments[0] === 'auth';
     const inTabsGroup = segments[0] === '(tabs)';
+    const hasNoSegments = segments.length === 0;
 
-    console.log('🔄 Navigation check:', { 
-      isAuthenticated, 
-      isLoading, 
+    console.log('🔄 Navigation check:', {
+      isAuthenticated,
+      isLoading,
       segments: segments.join('/'),
       inAuthGroup,
       inTabsGroup,
+      hasNoSegments,
       shouldGoToTabs: isAuthenticated && !inTabsGroup,
       shouldGoToAuth: !isAuthenticated && !inAuthGroup
     });
 
-    if (isAuthenticated && !inTabsGroup) {
+    // Only navigate if we're not already on the correct route
+    // This prevents unnecessary router.replace() calls that can cause screen remounts
+    if (isAuthenticated && !inTabsGroup && !hasNoSegments) {
       console.log('✅ Navigating authenticated user to tabs');
       router.replace('/(tabs)');
-    } else if (!isAuthenticated && !inAuthGroup) {
+    } else if (!isAuthenticated && !inAuthGroup && !hasNoSegments) {
       console.log('✅ Navigating unauthenticated user to auth');
       router.replace('/auth');
     } else {
-      console.log('✅ User is already on the correct screen');
+      console.log('✅ User is already on the correct screen or segments not ready');
     }
   }, [isAuthenticated, isLoading, segments]);
 
