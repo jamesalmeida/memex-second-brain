@@ -1,6 +1,7 @@
 import { observable } from '@legendapp/state';
-import { ObservablePersistMMKV } from '@legendapp/state/persist-plugins/mmkv';
-import { syncObservable } from '@legendapp/state/sync';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEY = '@memex_console_log_settings';
 
 /**
  * Console Log Settings Store
@@ -50,54 +51,78 @@ const defaultSettings: ConsoleLogSettings = {
 
 export const consoleLogSettingsStore = observable<ConsoleLogSettings>(defaultSettings);
 
-// Persist to MMKV storage
-syncObservable(consoleLogSettingsStore, {
-  persist: {
-    name: 'consoleLogSettings',
-    plugin: ObservablePersistMMKV,
-  },
-});
-
 // Actions for updating console log settings
 export const consoleLogSettingsActions = {
   /**
+   * Load settings from AsyncStorage
+   */
+  async loadSettings() {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const settings = JSON.parse(saved);
+        consoleLogSettingsStore.set(settings);
+      }
+    } catch (error) {
+      console.error('Error loading console log settings:', error);
+    }
+  },
+
+  /**
+   * Save settings to AsyncStorage
+   */
+  async saveSettings() {
+    try {
+      const settings = consoleLogSettingsStore.get();
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving console log settings:', error);
+    }
+  },
+
+  /**
    * Enable or disable all console logs
    */
-  setEnabled(enabled: boolean) {
+  async setEnabled(enabled: boolean) {
     consoleLogSettingsStore.enabled.set(enabled);
+    await this.saveSettings();
   },
 
   /**
    * Enable or disable a specific category
    */
-  setCategoryEnabled(category: keyof ConsoleLogSettings['categories'], enabled: boolean) {
+  async setCategoryEnabled(category: keyof ConsoleLogSettings['categories'], enabled: boolean) {
     consoleLogSettingsStore.categories[category].set(enabled);
+    await this.saveSettings();
   },
 
   /**
    * Enable all categories
    */
-  enableAll() {
+  async enableAll() {
     consoleLogSettingsStore.enabled.set(true);
     Object.keys(consoleLogSettingsStore.categories.get()).forEach((key) => {
       consoleLogSettingsStore.categories[key as keyof ConsoleLogSettings['categories']].set(true);
     });
+    await this.saveSettings();
   },
 
   /**
    * Disable all categories
    */
-  disableAll() {
+  async disableAll() {
     Object.keys(consoleLogSettingsStore.categories.get()).forEach((key) => {
       consoleLogSettingsStore.categories[key as keyof ConsoleLogSettings['categories']].set(false);
     });
+    await this.saveSettings();
   },
 
   /**
    * Reset to default settings
    */
-  reset() {
+  async reset() {
     consoleLogSettingsStore.set(defaultSettings);
+    await this.saveSettings();
   },
 };
 
@@ -134,3 +159,6 @@ export const consoleLogSettingsComputed = {
     return Object.keys(consoleLogSettingsStore.categories.get()).length;
   },
 };
+
+// Initialize settings on app start
+consoleLogSettingsActions.loadSettings();

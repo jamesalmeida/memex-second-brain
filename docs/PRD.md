@@ -149,7 +149,7 @@
       - UI/Navigation & Drawer Context - Navigation state, drawer context handlers
       - Admin Settings & Configuration - Admin panel operations, model selection
       - Image Operations & Uploads - Image description generation, upload operations
-    - Settings stored in MMKV via `consoleLogSettingsStore` and persist across sessions
+    - Settings stored in AsyncStorage via `consoleLogSettingsStore` and persist across sessions
     - Usage: Developers use `logger.{category}.log()` instead of `console.log()` for controlled logging
     - Implementation: `src/stores/consoleLogSettings.ts`, `src/utils/console.ts`
   - **UI Debug Tools**: Test toast notifications, etc.
