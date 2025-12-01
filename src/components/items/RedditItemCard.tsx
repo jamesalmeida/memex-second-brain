@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -21,10 +21,24 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Get video URL from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
+
+  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
+  const imageUrls = useMemo(() => {
+    const images = [...metadataImageUrls];
+
+    // Prepend thumbnail if it exists and isn't already in the metadata images
+    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
+      images.unshift(item.thumbnail_url);
+    }
+
+    return images;
+  }, [item.thumbnail_url, metadataImageUrls]);
 
   // Set up video player
   const player = useVideoPlayer(videoUrl || null, player => {
@@ -36,10 +50,8 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
     }
   });
 
-  // Get image URLs from item type metadata
-  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
-
-  const hasMultipleImages = imageUrls && imageUrls.length > 1;
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
   const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
   const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
 
@@ -107,7 +119,7 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                     }}
                     scrollEventThrottle={16}
                   >
-                    {imageUrls!.map((imageUrl, index) => (
+                    {imageUrls.map((imageUrl, index) => (
                       <Image
                         key={index}
                         source={{ uri: imageUrl }}
@@ -120,13 +132,19 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                             setImageHeight(calculatedHeight);
                           }
                         }}
+                        onError={() => {
+                          // If first image fails to load, hide images
+                          if (index === 0) {
+                            setImageLoadError(true);
+                          }
+                        }}
                       />
                     ))}
                   </ScrollView>
                 </View>
                 {/* Dots indicator */}
                 <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-                  {imageUrls!.map((_, index) => (
+                  {imageUrls.map((_, index) => (
                     <View
                       key={index}
                       style={[
@@ -138,7 +156,7 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                   ))}
                 </View>
               </>
-            ) : imageUrls && imageUrls.length === 1 ? (
+            ) : hasSingleImage && !imageLoadError ? (
               <View style={styles.mediaContainer}>
                 <Image
                   source={{ uri: imageUrls[0] }}
@@ -151,20 +169,8 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                       setImageHeight(calculatedHeight);
                     }
                   }}
-                />
-              </View>
-            ) : item.thumbnail_url ? (
-              <View style={styles.mediaContainer}>
-                <Image
-                  source={{ uri: item.thumbnail_url }}
-                  style={[styles.media, imageHeight ? { height: imageHeight } : { height: 200 }]}
-                  contentFit="cover"
-                  onLoad={(e: any) => {
-                    if (e.source && e.source.width && e.source.height) {
-                      const aspectRatio = e.source.height / e.source.width;
-                      const calculatedHeight = mediaWidth * aspectRatio;
-                      setImageHeight(calculatedHeight);
-                    }
+                  onError={() => {
+                    setImageLoadError(true);
                   }}
                 />
               </View>

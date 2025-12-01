@@ -25,12 +25,25 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   const autoplayEnabled = expandedItemUIStore.autoplayXVideos.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Get video URL and image URLs from item type metadata
+  // Get video URL and metadata from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
-  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
+
+  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
+  const imageUrls = useMemo(() => {
+    const images = [...metadataImageUrls];
+
+    // Prepend thumbnail if it exists and isn't already in the metadata images
+    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
+      images.unshift(item.thumbnail_url);
+    }
+
+    return images;
+  }, [item.thumbnail_url, metadataImageUrls]);
 
   // Set up video player if item has video
   // Grid view: Always muted, only autoplays if setting is enabled
@@ -76,6 +89,11 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
     }
   }, [player, videoUrl]);
 
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
+  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
+  const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
+
   // Calculate video height based on actual aspect ratio
   const videoHeight = useMemo(() => {
     if (videoDimensions) {
@@ -85,10 +103,6 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
     // Fallback while dimensions are loading
     return 200;
   }, [videoDimensions, mediaWidth]);
-
-  const hasMultipleImages = imageUrls && imageUrls.length > 1;
-  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
-  const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
   const metadataForItem = itemMetadataComputed.getMetadataForItem(item.id);
   const username = metadataForItem?.username || extractUsername(item);
 
@@ -155,7 +169,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                 }}
                 scrollEventThrottle={16}
               >
-                {imageUrls!.map((imageUrl, index) => (
+                {imageUrls.map((imageUrl, index) => (
                   <Image
                     key={index}
                     source={{ uri: imageUrl }}
@@ -168,13 +182,19 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                         setImageHeight(calculatedHeight);
                       }
                     }}
+                    onError={() => {
+                      // If first image fails to load, hide images
+                      if (index === 0) {
+                        setImageLoadError(true);
+                      }
+                    }}
                   />
                 ))}
               </ScrollView>
             </View>
             {/* Dots indicator */}
             <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-              {imageUrls!.map((_, index) => (
+              {imageUrls.map((_, index) => (
                 <View
                   key={index}
                   style={[
@@ -186,7 +206,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
               ))}
             </View>
           </>
-        ) : imageUrls && imageUrls.length === 1 ? (
+        ) : hasSingleImage && !imageLoadError ? (
           <View style={styles.mediaContainer}>
             <Image
               source={{ uri: imageUrls[0] }}
@@ -198,6 +218,9 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                   const calculatedHeight = mediaWidth * aspectRatio;
                   setImageHeight(calculatedHeight);
                 }
+              }}
+              onError={() => {
+                setImageLoadError(true);
               }}
             />
           </View>

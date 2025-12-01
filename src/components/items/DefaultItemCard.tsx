@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -22,12 +22,25 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Get video URL and image URLs from item type metadata
+  // Get video URL and metadata from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
-  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
   const siteIconUrl = itemTypeMetadataComputed.getSiteIconUrl(item.id);
+
+  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
+  const imageUrls = useMemo(() => {
+    const images = [...metadataImageUrls];
+
+    // Prepend thumbnail if it exists and isn't already in the metadata images
+    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
+      images.unshift(item.thumbnail_url);
+    }
+
+    return images;
+  }, [item.thumbnail_url, metadataImageUrls]);
 
   // Set up video player if item has video
   const player = useVideoPlayer(videoUrl || null, player => {
@@ -39,7 +52,8 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
     }
   });
 
-  const hasMultipleImages = imageUrls && imageUrls.length > 1;
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
   const cardWidth = screenWidth / 2 - 18;
 
   return (
@@ -77,7 +91,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             scrollEventThrottle={16}
             style={{ width: '100%' }}
           >
-            {imageUrls!.map((imageUrl, index) => (
+            {imageUrls.map((imageUrl, index) => (
               <Image
                 key={index}
                 source={{ uri: imageUrl }}
@@ -94,12 +108,18 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
                     setImageHeight(finalHeight);
                   }
                 }}
+                onError={() => {
+                  // If first image fails to load, show placeholder
+                  if (index === 0) {
+                    setImageLoadError(true);
+                  }
+                }}
               />
             ))}
           </ScrollView>
           {/* Dots indicator */}
           <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-            {imageUrls!.map((_, index) => (
+            {imageUrls.map((_, index) => (
               <View
                 key={index}
                 style={[
@@ -111,10 +131,10 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
             ))}
           </View>
         </>
-      ) : item.thumbnail_url ? (
+      ) : hasSingleImage && !imageLoadError ? (
         <View>
           <Image
-            source={{ uri: item.thumbnail_url }}
+            source={{ uri: imageUrls[0] }}
             style={[
               styles.thumbnail,
               imageHeight ? { height: imageHeight } : null
@@ -128,9 +148,12 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
                 setImageHeight(finalHeight);
               }
             }}
+            onError={() => {
+              setImageLoadError(true);
+            }}
           />
         </View>
-      ) : (!item.thumbnail_url && siteIconUrl) ? (
+      ) : (!hasSingleImage && siteIconUrl) ? (
         null
       ) : item.content ? (
         <View style={[styles.textPreview, { backgroundColor: getContentTypeColor(item.content_type) + '15' }]}>

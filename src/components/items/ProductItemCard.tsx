@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useState, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
+import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain, getContentTypeIcon } from '../../utils/itemCardHelpers';
 import { isAmazonUrl } from '../../utils/urlHelpers';
@@ -21,11 +22,32 @@ interface ProductItemCardProps {
 const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceTitleWhite }: ProductItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const cardWidth = screenWidth / 2 - 18;
 
   // Check if this is an Amazon product by URL
   const isAmazon = isAmazonUrl(item.url);
+
+  // Get image URLs from item type metadata
+  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
+
+  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
+  const imageUrls = useMemo(() => {
+    const images = [...metadataImageUrls];
+
+    // Prepend thumbnail if it exists and isn't already in the metadata images
+    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
+      images.unshift(item.thumbnail_url);
+    }
+
+    return images;
+  }, [item.thumbnail_url, metadataImageUrls]);
+
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
@@ -35,10 +57,64 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
           isDarkMode && styles.cardDark,
           isAmazon && styles.cardAmazon
         ]}>
-          {/* Product Thumbnail */}
-          {item.thumbnail_url ? (
+          {/* Product Media - Carousel or Single Image */}
+          {hasMultipleImages ? (
+            <>
+              <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(event) => {
+                  const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+                  setCurrentImageIndex(newIndex);
+                }}
+                scrollEventThrottle={16}
+              >
+                {imageUrls.map((imageUrl, index) => (
+                  <Image
+                    key={index}
+                    source={{ uri: imageUrl }}
+                    style={[
+                      styles.thumbnail,
+                      { width: cardWidth },
+                      imageHeight ? { height: imageHeight } : null
+                    ]}
+                    contentFit="cover"
+                    onLoad={(e: any) => {
+                      if (index === 0 && e.source && e.source.width && e.source.height) {
+                        const aspectRatio = e.source.height / e.source.width;
+                        const calculatedHeight = cardWidth * aspectRatio;
+                        const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                        setImageHeight(finalHeight);
+                      }
+                    }}
+                    onError={() => {
+                      // If first image fails to load, show placeholder
+                      if (index === 0) {
+                        setImageLoadError(true);
+                      }
+                    }}
+                  />
+                ))}
+              </ScrollView>
+              {/* Dots indicator */}
+              <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
+                {imageUrls.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.dot,
+                      isDarkMode && styles.dotDark,
+                      index === currentImageIndex && (isDarkMode ? styles.activeDotDark : styles.activeDot)
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          ) : hasSingleImage && !imageLoadError ? (
             <Image
-              source={{ uri: item.thumbnail_url }}
+              source={{ uri: imageUrls[0] }}
               style={[
                 styles.thumbnail,
                 imageHeight ? { height: imageHeight } : null
@@ -51,6 +127,9 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
                   const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
                   setImageHeight(finalHeight);
                 }
+              }}
+              onError={() => {
+                setImageLoadError(true);
               }}
             />
           ) : (
@@ -204,5 +283,39 @@ const styles = StyleSheet.create({
   },
   dateDark: {
     color: '#666666',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotsContainerDark: {
+    // No additional styles needed, but kept for consistency
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 2,
+  },
+  dotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });
