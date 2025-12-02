@@ -91,7 +91,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
 
   const hasMultipleImages = imageUrls.length > 1;
   const hasSingleImage = imageUrls.length === 1;
-  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
+  const [cardWidth, setCardWidth] = useState(isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18);
   const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
 
   // Calculate video height based on actual aspect ratio
@@ -113,7 +113,10 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* X Icon Badge - Top Right */}
           <View style={styles.xIconContainer}>
             <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
@@ -163,6 +166,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
+                style={{ width: mediaWidth }}
                 onMomentumScrollEnd={(event) => {
                   const newIndex = Math.round(event.nativeEvent.contentOffset.x / mediaWidth);
                   setCurrentImageIndex(newIndex);

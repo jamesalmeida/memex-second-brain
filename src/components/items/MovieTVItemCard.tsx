@@ -53,12 +53,15 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
 
   const hasMultipleImages = imageUrls.length > 1;
   const hasSingleImage = imageUrls.length === 1;
-  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
+  const [cardWidth, setCardWidth] = useState(isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18);
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Thumbnail or Content Preview */}
         {videoUrl && player ? (
           <View style={{ position: 'relative' }}>
@@ -88,7 +91,7 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
               setCurrentImageIndex(newIndex);
             }}
             scrollEventThrottle={16}
-            style={{ width: '100%' }}
+            style={{ width: cardWidth }}
           >
             {imageUrls.map((imageUrl, index) => (
               <Image

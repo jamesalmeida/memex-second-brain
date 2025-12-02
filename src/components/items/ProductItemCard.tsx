@@ -25,8 +25,7 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-
-  const cardWidth = screenWidth / 2 - 18;
+  const [cardWidth, setCardWidth] = useState(screenWidth / 2 - 18);
 
   // Check if this is an Amazon product by URL
   const isAmazon = isAmazonUrl(item.url);
@@ -61,11 +60,14 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[
-          styles.card,
-          isDarkMode && styles.cardDark,
-          isAmazon && styles.cardAmazon
-        ]}>
+        <View
+          style={[
+            styles.card,
+            isDarkMode && styles.cardDark,
+            isAmazon && styles.cardAmazon
+          ]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Product Media - Carousel or Single Image */}
           {hasMultipleImages ? (
             <>
@@ -74,6 +76,7 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
+                style={{ width: cardWidth }}
                 onMomentumScrollEnd={(event) => {
                   const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
                   setCurrentImageIndex(newIndex);

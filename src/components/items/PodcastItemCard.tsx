@@ -49,7 +49,7 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
     return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
   })();
 
-  const cardWidth = screenWidth / 2 - 18;
+  const [cardWidth, setCardWidth] = useState(screenWidth / 2 - 18);
   const hasMultipleImages = imageUrls.length > 1;
   const hasSingleImage = imageUrls.length === 1;
 
@@ -82,7 +82,10 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Purple accent border for podcast branding */}
           <View style={styles.accentBorder} />
 
@@ -94,6 +97,7 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
+                style={{ width: cardWidth }}
                 onMomentumScrollEnd={(event) => {
                   const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
                   setCurrentImageIndex(newIndex);

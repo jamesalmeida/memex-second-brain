@@ -24,6 +24,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [cardWidth, setCardWidth] = useState(screenWidth / 2 - 18);
 
   // Get video URL and metadata from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
@@ -54,12 +55,14 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
 
   const hasMultipleImages = imageUrls.length > 1;
   const hasSingleImage = imageUrls.length === 1;
-  const cardWidth = screenWidth / 2 - 18;
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Thumbnail or Content Preview */}
         {videoUrl && player ? (
           <View style={{ position: 'relative' }}>
@@ -89,7 +92,7 @@ const DefaultItemCard = observer(({ item, onPress, onLongPress, disabled }: Defa
               setCurrentImageIndex(newIndex);
             }}
             scrollEventThrottle={16}
-            style={{ width: '100%' }}
+            style={{ width: cardWidth }}
           >
             {imageUrls.map((imageUrl, index) => (
               <Image
