@@ -15,7 +15,6 @@ interface ItemViewHeaderProps {
   isDarkMode: boolean;
   placeholder?: string;
   style?: TextStyle;
-  hasImage?: boolean;
   onAddImage?: () => void;
   onChangeContentType?: () => void;
   onMoveToSpace?: () => void;
@@ -34,7 +33,6 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
   isDarkMode,
   placeholder = 'Title',
   style,
-  hasImage = true,
   onAddImage,
   onChangeContentType,
   onMoveToSpace,
@@ -151,11 +149,9 @@ const ItemViewHeader: React.FC<ItemViewHeaderProps> = ({
                 <Button onPress={() => handleMenuAction('changeContentType')}>
                   Change Content Type
                 </Button>
-                {!hasImage && (
-                  <Button onPress={() => handleMenuAction('addImage')}>
-                    Add Image
-                  </Button>
-                )}
+                <Button onPress={() => handleMenuAction('addImage')}>
+                  Add Image
+                </Button>
                 <Button onPress={() => handleMenuAction('moveToSpace')}>
                   Move to Space
                 </Button>

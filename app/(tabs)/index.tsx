@@ -7,6 +7,7 @@ import { useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS } from 'r
 import Animated from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
+import { itemTypeMetadataStore } from '../../src/stores/itemTypeMetadata';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import { syncStatusStore } from '../../src/stores/syncStatus';
@@ -161,6 +162,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       }
     });
   }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
+
+  // Track metadata changes to force FlashList re-renders when images are added/removed
+  const metadataVersion = itemTypeMetadataStore.typeMetadata.get().length;
 
   const getItemsForSpace = useCallback((spaceId: string) => {
     return displayItems.filter(item => item.space_id === spaceId && !item.is_archived);
@@ -471,6 +475,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             data={displayItems}
             renderItem={renderItem}
             keyExtractor={item => item.id}
+            extraData={metadataVersion}
             masonry
             numColumns={2}
             contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
@@ -495,6 +500,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
               data={getItemsForSpace(space.id)}
               renderItem={renderItem}
               keyExtractor={item => item.id}
+              extraData={metadataVersion}
               masonry
               numColumns={2}
               contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
@@ -519,6 +525,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
             data={displayItems}
             renderItem={renderItem}
             keyExtractor={item => item.id}
+            extraData={metadataVersion}
             masonry
             numColumns={2}
             contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}

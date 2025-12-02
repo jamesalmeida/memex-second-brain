@@ -96,24 +96,36 @@ const HeroMediaSection = observer(({
   const imageUrls = useMemo(() => {
     const images = [...metadataImageUrls];
 
-    // Prepend thumbnail if it exists and isn't already in the metadata images
-    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
+    // Prepend thumbnail if it exists, is a valid URL, and isn't already in the metadata images
+    if (item.thumbnail_url &&
+        typeof item.thumbnail_url === 'string' &&
+        item.thumbnail_url.trim() !== '' &&
+        item.thumbnail_url.startsWith('http') &&
+        !images.includes(item.thumbnail_url)) {
       images.unshift(item.thumbnail_url);
     }
 
-    return images;
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && typeof url === 'string' && url.trim() !== '' && url.startsWith('http'));
   }, [item.thumbnail_url, metadataImageUrls]);
 
-  const hasMultipleImages = imageUrls.length > 1;
-  const hasSingleImage = imageUrls.length === 1;
+  // Track failed image URLs
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
+
+  // Filter out images that failed to load
+  const displayableImages = imageUrls.filter(url => !failedImageUrls.has(url));
+
+  // Calculate display states based on displayable images (excludes failed ones)
+  const hasMultipleImages = displayableImages.length > 1;
+  const hasSingleImage = displayableImages.length === 1;
 
   // Check if this is an X post without media (skip rendering if flag is set)
-  if (skipForTextOnlyXPosts && item.content_type === 'x' && !videoUrl && (!imageUrls || imageUrls.length === 0)) {
+  if (skipForTextOnlyXPosts && item.content_type === 'x' && !videoUrl && displayableImages.length === 0) {
     return null;
   }
 
-  // Hide HeroMediaSection completely when there's no image and no video
-  if (!videoUrl && (!imageUrls || imageUrls.length === 0)) {
+  // Hide HeroMediaSection completely when there's no displayable image and no video
+  if (!videoUrl && displayableImages.length === 0) {
     return null;
   }
 
@@ -167,7 +179,7 @@ const HeroMediaSection = observer(({
               style={{ width: CONTENT_WIDTH, height: CONTENT_WIDTH }}
               contentContainerStyle={{ height: CONTENT_WIDTH }}
             >
-              {imageUrls!.map((imageUrl, index) => (
+              {displayableImages.map((imageUrl, index) => (
                 <View key={index} style={{ position: 'relative' }}>
                   <ImageWithActions
                     source={{ uri: imageUrl }}
@@ -184,12 +196,22 @@ const HeroMediaSection = observer(({
                     canAddAnother
                     canRemove
                     onImageAdd={onImageAdd}
+                    onError={() => {
+                      // Track failed images so they get filtered out
+                      setFailedImageUrls(prev => new Set(prev).add(imageUrl));
+                    }}
                     onImageRemove={() => {
-                      // If this is the thumbnail, use thumbnail remove handler
-                      if (imageUrl === item.thumbnail_url) {
+                      // Only treat as thumbnail if both are valid strings that match
+                      const isThumbnail = imageUrl &&
+                                          item.thumbnail_url &&
+                                          typeof item.thumbnail_url === 'string' &&
+                                          item.thumbnail_url.trim() !== '' &&
+                                          imageUrl === item.thumbnail_url;
+
+                      if (isThumbnail) {
                         onThumbnailRemove();
                       } else {
-                        // Otherwise it's a metadata image
+                        // It's a metadata image
                         onImageRemove(imageUrl);
                       }
                     }}
@@ -202,7 +224,7 @@ const HeroMediaSection = observer(({
           </View>
           {/* Dots indicator */}
           <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]}>
-            {imageUrls!.map((_, index) => (
+            {displayableImages.map((_, index) => (
               <View
                 key={index}
                 style={[
@@ -218,25 +240,36 @@ const HeroMediaSection = observer(({
         /* Single Image */
         <View style={{ position: 'relative' }}>
           <ImageWithActions
-            source={{ uri: imageUrls![0] }}
-            imageUrl={imageUrls![0]}
+            source={{ uri: displayableImages[0] }}
+            imageUrl={displayableImages[0]}
             style={[styles.heroMedia, imageStyle]}
             contentFit="contain"
             canAddAnother
             canRemove
             onImageAdd={onImageAdd}
+            onError={() => {
+              // Track failed images so they get filtered out
+              setFailedImageUrls(prev => new Set(prev).add(displayableImages[0]));
+            }}
             onImageRemove={() => {
-              // If this is the thumbnail, use thumbnail remove handler
-              if (imageUrls![0] === item.thumbnail_url) {
+              // Only treat as thumbnail if both are valid strings that match
+              const currentImageUrl = displayableImages[0];
+              const isThumbnail = currentImageUrl &&
+                                  item.thumbnail_url &&
+                                  typeof item.thumbnail_url === 'string' &&
+                                  item.thumbnail_url.trim() !== '' &&
+                                  currentImageUrl === item.thumbnail_url;
+
+              if (isThumbnail) {
                 onThumbnailRemove();
               } else {
-                // Otherwise it's a metadata image
-                onImageRemove(imageUrls![0]);
+                // It's a metadata image
+                onImageRemove(currentImageUrl);
               }
             }}
           />
           {/* Optional overlay */}
-          {renderOverlay && renderOverlay(imageUrls![0])}
+          {renderOverlay && renderOverlay(displayableImages[0])}
         </View>
       ) : (
         /* Placeholder */

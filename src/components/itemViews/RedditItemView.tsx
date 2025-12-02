@@ -519,10 +519,6 @@ const RedditItemView = observer(({
     }
   };
 
-  // Calculate hasImage for ItemViewHeader
-  const metadataImages = itemTypeMetadataComputed.getImageUrls(itemToDisplay.id);
-  const hasImage = (metadataImages && metadataImages.length > 0) || !!itemToDisplay.thumbnail_url;
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -535,7 +531,6 @@ const RedditItemView = observer(({
         onClose={() => onClose?.()}
         isDarkMode={isDarkMode}
         placeholder="Title"
-        hasImage={hasImage}
         onAddImage={() => imageUploadModalRef.current?.open()}
         onChangeContentType={() => setShowTypeModal(true)}
         onMoveToSpace={() => setShowSpaceModal(true)}

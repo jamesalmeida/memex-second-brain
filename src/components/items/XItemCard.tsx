@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { expandedItemUIStore } from '../../stores/expandedItemUI';
 import { Item } from '../../types';
 import { formatDate, extractUsername } from '../../utils/itemCardHelpers';
@@ -31,19 +31,19 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
 
   // Get video URL and metadata from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
-  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
 
-  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
-  const imageUrls = useMemo(() => {
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
     const images = [...metadataImageUrls];
-
-    // Prepend thumbnail if it exists and isn't already in the metadata images
-    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
-      images.unshift(item.thumbnail_url);
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
     }
-
-    return images;
-  }, [item.thumbnail_url, metadataImageUrls]);
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
+  })();
 
   // Set up video player if item has video
   // Grid view: Always muted, only autoplays if setting is enabled

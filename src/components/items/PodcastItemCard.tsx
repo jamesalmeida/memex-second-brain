@@ -1,9 +1,9 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { itemMetadataComputed } from '../../stores/itemMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain } from '../../utils/itemCardHelpers';
@@ -35,19 +35,19 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
   // Get metadata
   const author = itemMetadataComputed.getAuthor(item.id);
   const siteIconUrl = itemTypeMetadataComputed.getSiteIconUrl(item.id);
-  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
 
-  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
-  const imageUrls = useMemo(() => {
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
     const images = [...metadataImageUrls];
-
-    // Prepend thumbnail if it exists and isn't already in the metadata images
-    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
-      images.unshift(item.thumbnail_url);
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
     }
-
-    return images;
-  }, [item.thumbnail_url, metadataImageUrls]);
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
+  })();
 
   const cardWidth = screenWidth / 2 - 18;
   const hasMultipleImages = imageUrls.length > 1;

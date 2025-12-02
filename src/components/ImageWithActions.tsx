@@ -23,6 +23,7 @@ export interface ImageWithActionsProps {
   imageUrl?: string; // For cases where source is a number (local asset)
   children?: ReactNode;
   enableFullScreenOnPress?: boolean;
+  onError?: () => void;
 }
 
 export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
@@ -39,6 +40,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
   imageUrl,
   children,
   enableFullScreenOnPress = true,
+  onError,
 }) => {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
@@ -309,6 +311,7 @@ export const ImageWithActions: React.FC<ImageWithActionsProps> = ({
               style={style}
               contentFit={contentFit}
               placeholder={placeholder}
+              onError={onError}
             />
             {children}
           </View>

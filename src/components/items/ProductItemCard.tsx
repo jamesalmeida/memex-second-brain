@@ -1,9 +1,9 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain, getContentTypeIcon } from '../../utils/itemCardHelpers';
 import { isAmazonUrl } from '../../utils/urlHelpers';
@@ -31,23 +31,32 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
   // Check if this is an Amazon product by URL
   const isAmazon = isAmazonUrl(item.url);
 
-  // Get image URLs from item type metadata
-  const metadataImageUrls = itemTypeMetadataComputed.getImageUrls(item.id) || [];
+  // Track failed image URLs so we can filter them out
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
 
-  // Combine thumbnail_url with metadata images (if thumbnail exists and not already in metadata)
-  const imageUrls = useMemo(() => {
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
     const images = [...metadataImageUrls];
-
-    // Prepend thumbnail if it exists and isn't already in the metadata images
-    if (item.thumbnail_url && !images.includes(item.thumbnail_url)) {
-      images.unshift(item.thumbnail_url);
+    // Only add thumbnail if it's a valid URL
+    if (thumbnailUrl &&
+        typeof thumbnailUrl === 'string' &&
+        thumbnailUrl.trim() !== '' &&
+        thumbnailUrl.startsWith('http') &&
+        !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
     }
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && typeof url === 'string' && url.trim() !== '' && url.startsWith('http'));
+  })();
 
-    return images;
-  }, [item.thumbnail_url, metadataImageUrls]);
+  // Filter out images that failed to load
+  const displayableImages = imageUrls.filter(url => !failedImageUrls.has(url));
 
-  const hasMultipleImages = imageUrls.length > 1;
-  const hasSingleImage = imageUrls.length === 1;
+  const hasMultipleImages = displayableImages.length > 1;
+  const hasSingleImage = displayableImages.length === 1;
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
@@ -71,9 +80,9 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
                 }}
                 scrollEventThrottle={16}
               >
-                {imageUrls.map((imageUrl, index) => (
+                {displayableImages.map((imageUrl, index) => (
                   <Image
-                    key={index}
+                    key={imageUrl}
                     source={{ uri: imageUrl }}
                     style={[
                       styles.thumbnail,
@@ -90,17 +99,15 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
                       }
                     }}
                     onError={() => {
-                      // If first image fails to load, show placeholder
-                      if (index === 0) {
-                        setImageLoadError(true);
-                      }
+                      // Track failed images so they get filtered out
+                      setFailedImageUrls(prev => new Set(prev).add(imageUrl));
                     }}
                   />
                 ))}
               </ScrollView>
               {/* Dots indicator */}
               <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-                {imageUrls.map((_, index) => (
+                {displayableImages.map((_, index) => (
                   <View
                     key={index}
                     style={[
@@ -113,25 +120,30 @@ const ProductItemCard = observer(({ item, onPress, onLongPress, disabled, forceT
               </View>
             </>
           ) : hasSingleImage && !imageLoadError ? (
-            <Image
-              source={{ uri: imageUrls[0] }}
-              style={[
-                styles.thumbnail,
-                imageHeight ? { height: imageHeight } : null
-              ]}
-              contentFit="cover"
-              onLoad={(e: any) => {
-                if (e.source && e.source.width && e.source.height) {
-                  const aspectRatio = e.source.height / e.source.width;
-                  const calculatedHeight = cardWidth * aspectRatio;
-                  const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
-                  setImageHeight(finalHeight);
-                }
-              }}
-              onError={() => {
-                setImageLoadError(true);
-              }}
-            />
+            <View style={styles.mediaContainer}>
+              <Image
+                source={{ uri: displayableImages[0] }}
+                style={[
+                  styles.thumbnail,
+                  { width: cardWidth },
+                  imageHeight ? { height: imageHeight } : { height: 200 }
+                ]}
+                contentFit="cover"
+                onLoad={(e: any) => {
+                  if (e.source && e.source.width && e.source.height) {
+                    const aspectRatio = e.source.height / e.source.width;
+                    const calculatedHeight = cardWidth * aspectRatio;
+                    const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                    setImageHeight(finalHeight);
+                  }
+                }}
+                onError={() => {
+                  // Track failed image
+                  setFailedImageUrls(prev => new Set(prev).add(displayableImages[0]));
+                  setImageLoadError(true);
+                }}
+              />
+            </View>
           ) : (
             <View style={[styles.placeholder, { backgroundColor: isAmazon ? '#FF990015' : '#007AFF15' }]}>
               <Text style={styles.placeholderIcon}>{getContentTypeIcon(item.content_type)}</Text>
@@ -221,6 +233,10 @@ const styles = StyleSheet.create({
   },
   placeholderIcon: {
     fontSize: 32,
+  },
+  mediaContainer: {
+    position: 'relative',
+    width: '100%',
   },
   typeBadge: {
     position: 'absolute',
