@@ -79,7 +79,7 @@
     "@babel/plugin-transform-export-namespace-from": "^7.27.1",
     "@types/base-64": "^1.0.2",
     "@types/react": "~19.1.10",
-    "supabase": "^2.54.11",
+    "supabase": "^2.65.2",
     "typescript": "~5.9.2"
   },
   "private": true
