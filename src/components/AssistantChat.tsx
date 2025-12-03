@@ -37,8 +37,12 @@ import {
 import { openai } from '../services/openai';
 import {
   ASSISTANT_TOOLS,
+  ARCHITECT_TOOLS,
   ASSISTANT_SYSTEM_PROMPT_WITH_TOOLS,
+  ARCHITECT_SYSTEM_PROMPT,
   executeTool,
+  isArchitectCommand,
+  extractArchitectMessage,
 } from '../services/assistantTools';
 import { useToast } from '../contexts/ToastContext';
 import { COLORS } from '../constants';
@@ -76,23 +80,36 @@ const AssistantChat = observer(() => {
   const handleSend = async () => {
     if (!inputText.trim() || isSending) return;
 
-    const userMessage = inputText.trim();
+    const rawMessage = inputText.trim();
     setInputText('');
     assistantActions.setSending(true);
+
+    // Check if this is an architect command
+    const isArchitect = isArchitectCommand(rawMessage);
+    const userMessage = isArchitect ? extractArchitectMessage(rawMessage) : rawMessage;
+    const displayMessage = isArchitect ? `/architect ${userMessage}` : userMessage;
+
+    // Select tools and system prompt based on mode
+    const tools = isArchitect ? ARCHITECT_TOOLS : ASSISTANT_TOOLS;
+    const baseSystemPrompt = isArchitect ? ARCHITECT_SYSTEM_PROMPT : ASSISTANT_SYSTEM_PROMPT_WITH_TOOLS;
+
+    if (isArchitect) {
+      console.log('[AssistantChat] Architect mode activated');
+    }
 
     try {
       // Ensure we have a conversation
       await assistantActions.ensureConversation();
 
-      // Add user message
+      // Add user message (show the full command including /architect)
       await assistantActions.addMessage({
         role: 'user',
-        content: userMessage,
+        content: displayMessage,
       });
 
       // Build messages array for API with tools
       const currentMessages = assistantComputed.currentMessages();
-      const systemPrompt = ASSISTANT_SYSTEM_PROMPT_WITH_TOOLS.replace(
+      const systemPrompt = baseSystemPrompt.replace(
         '{{CURRENT_TIME}}',
         new Date().toISOString()
       );
@@ -102,7 +119,10 @@ const AssistantChat = observer(() => {
         { role: 'system', content: systemPrompt },
         ...currentMessages.map(m => ({
           role: m.role,
-          content: m.content,
+          // Strip /architect prefix from user messages when sending to API
+          content: m.role === 'user' && isArchitectCommand(m.content)
+            ? extractArchitectMessage(m.content)
+            : m.content,
         })),
       ];
 
@@ -115,10 +135,10 @@ const AssistantChat = observer(() => {
       while (toolRounds < MAX_TOOL_ROUNDS) {
         console.log(`[AssistantChat] Tool round ${toolRounds + 1}/${MAX_TOOL_ROUNDS}`);
 
-        // Call OpenAI API with tools
+        // Call OpenAI API with tools (architect mode uses extended tools)
         const completion = await openai.createChatCompletionWithTools(
           apiMessages,
-          ASSISTANT_TOOLS,
+          tools,
           {
             model: selectedModel,
             temperature: 0.7,
@@ -319,6 +339,7 @@ const AssistantChat = observer(() => {
           'What have I saved recently?',
           'Remember that I prefer dark mode',
           'Search my bookmarks for AI articles',
+          '/architect Show me memory stats',
         ].map((suggestion, index) => (
           <TouchableOpacity
             key={index}
