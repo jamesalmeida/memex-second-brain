@@ -2,7 +2,7 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ItemTypeMetadata } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { itemsStore } from './items';
+// Note: itemsStore is imported lazily in getImageUrlsForItem to avoid circular dependency
 
 interface ItemTypeMetadataState {
   typeMetadata: ItemTypeMetadata[];
@@ -42,7 +42,9 @@ export const itemTypeMetadataComputed = {
   // This is the recommended method for ItemCard components - handles reactivity automatically
   getImageUrlsForItem: (itemId: string): string[] => {
     const metadataUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId)?.data?.image_urls || [];
-    const item = itemsStore.items.get().find(i => i.id === itemId);
+    // Lazy require to avoid circular dependency with items.ts
+    const { itemsStore } = require('./items');
+    const item = itemsStore.items.get().find((i: { id: string; thumbnail_url?: string }) => i.id === itemId);
     const thumbnailUrl = item?.thumbnail_url;
 
     const images = [...metadataUrls];
