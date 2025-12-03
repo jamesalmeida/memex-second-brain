@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { itemMetadataComputed } from '../../stores/itemMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain } from '../../utils/itemCardHelpers';
@@ -21,6 +21,9 @@ interface PodcastItemCardProps {
 const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: PodcastItemCardProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Get podcast-specific metadata
   const audioUrl = itemTypeMetadataComputed.getAudioUrl(item.id);
@@ -33,7 +36,22 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
   const author = itemMetadataComputed.getAuthor(item.id);
   const siteIconUrl = itemTypeMetadataComputed.getSiteIconUrl(item.id);
 
-  const cardWidth = screenWidth / 2 - 18;
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
+    const images = [...metadataImageUrls];
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
+    }
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
+  })();
+
+  const [cardWidth, setCardWidth] = useState(screenWidth / 2 - 18);
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
 
   // Format duration from seconds to MM:SS or HH:MM:SS
   const formatDuration = (seconds: number | undefined) => {
@@ -64,15 +82,73 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Purple accent border for podcast branding */}
           <View style={styles.accentBorder} />
 
-          {/* Podcast Artwork */}
-          {item.thumbnail_url ? (
+          {/* Podcast Artwork - Carousel or Single Image */}
+          {hasMultipleImages ? (
+            <>
+              <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={{ width: cardWidth }}
+                onMomentumScrollEnd={(event) => {
+                  const newIndex = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+                  setCurrentImageIndex(newIndex);
+                }}
+                scrollEventThrottle={16}
+              >
+                {imageUrls.map((imageUrl, index) => (
+                  <Image
+                    key={index}
+                    source={{ uri: imageUrl }}
+                    style={[
+                      styles.artwork,
+                      { width: cardWidth },
+                      imageHeight ? { height: imageHeight } : null
+                    ]}
+                    contentFit="cover"
+                    onLoad={(e: any) => {
+                      if (index === 0 && e.source && e.source.width && e.source.height) {
+                        const aspectRatio = e.source.height / e.source.width;
+                        const calculatedHeight = cardWidth * aspectRatio;
+                        const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
+                        setImageHeight(finalHeight);
+                      }
+                    }}
+                    onError={() => {
+                      // If first image fails to load, show placeholder
+                      if (index === 0) {
+                        setImageLoadError(true);
+                      }
+                    }}
+                  />
+                ))}
+              </ScrollView>
+              {/* Dots indicator */}
+              <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
+                {imageUrls.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.dot,
+                      isDarkMode && styles.dotDark,
+                      index === currentImageIndex && (isDarkMode ? styles.activeDotDark : styles.activeDot)
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          ) : hasSingleImage && !imageLoadError ? (
             <View style={styles.artworkContainer}>
               <Image
-                source={{ uri: item.thumbnail_url }}
+                source={{ uri: imageUrls[0] }}
                 style={[
                   styles.artwork,
                   imageHeight ? { height: imageHeight } : null
@@ -85,6 +161,9 @@ const PodcastItemCard = observer(({ item, onPress, onLongPress, disabled }: Podc
                     const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
                     setImageHeight(finalHeight);
                   }
+                }}
+                onError={() => {
+                  setImageLoadError(true);
                 }}
               />
             </View>
@@ -266,5 +345,39 @@ const styles = StyleSheet.create({
   },
   dateDark: {
     color: '#666666',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotsContainerDark: {
+    // No additional styles needed, but kept for consistency
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 2,
+  },
+  dotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  activeDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDotDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

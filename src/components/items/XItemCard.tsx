@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { expandedItemUIStore } from '../../stores/expandedItemUI';
 import { Item } from '../../types';
 import { formatDate, extractUsername } from '../../utils/itemCardHelpers';
@@ -25,12 +25,25 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   const autoplayEnabled = expandedItemUIStore.autoplayXVideos.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Get video URL and image URLs from item type metadata
+  // Get video URL and metadata from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
-  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
+    const images = [...metadataImageUrls];
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
+    }
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
+  })();
 
   // Set up video player if item has video
   // Grid view: Always muted, only autoplays if setting is enabled
@@ -76,6 +89,11 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
     }
   }, [player, videoUrl]);
 
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
+  const [cardWidth, setCardWidth] = useState(isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18);
+  const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
+
   // Calculate video height based on actual aspect ratio
   const videoHeight = useMemo(() => {
     if (videoDimensions) {
@@ -85,10 +103,6 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
     // Fallback while dimensions are loading
     return 200;
   }, [videoDimensions, mediaWidth]);
-
-  const hasMultipleImages = imageUrls && imageUrls.length > 1;
-  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
-  const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
   const metadataForItem = itemMetadataComputed.getMetadataForItem(item.id);
   const username = metadataForItem?.username || extractUsername(item);
 
@@ -99,7 +113,10 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* X Icon Badge - Top Right */}
           <View style={styles.xIconContainer}>
             <Text style={[styles.xIcon, isDarkMode && styles.xIconDark]}>𝕏</Text>
@@ -149,13 +166,14 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
+                style={{ width: mediaWidth }}
                 onMomentumScrollEnd={(event) => {
                   const newIndex = Math.round(event.nativeEvent.contentOffset.x / mediaWidth);
                   setCurrentImageIndex(newIndex);
                 }}
                 scrollEventThrottle={16}
               >
-                {imageUrls!.map((imageUrl, index) => (
+                {imageUrls.map((imageUrl, index) => (
                   <Image
                     key={index}
                     source={{ uri: imageUrl }}
@@ -168,13 +186,19 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                         setImageHeight(calculatedHeight);
                       }
                     }}
+                    onError={() => {
+                      // If first image fails to load, hide images
+                      if (index === 0) {
+                        setImageLoadError(true);
+                      }
+                    }}
                   />
                 ))}
               </ScrollView>
             </View>
             {/* Dots indicator */}
             <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-              {imageUrls!.map((_, index) => (
+              {imageUrls.map((_, index) => (
                 <View
                   key={index}
                   style={[
@@ -186,7 +210,7 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
               ))}
             </View>
           </>
-        ) : imageUrls && imageUrls.length === 1 ? (
+        ) : hasSingleImage && !imageLoadError ? (
           <View style={styles.mediaContainer}>
             <Image
               source={{ uri: imageUrls[0] }}
@@ -198,6 +222,9 @@ const XItemCard = observer(({ item, onPress, onLongPress, disabled }: XItemCardP
                   const calculatedHeight = mediaWidth * aspectRatio;
                   setImageHeight(calculatedHeight);
                 }
+              }}
+              onError={() => {
+                setImageLoadError(true);
               }}
             />
           </View>

@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import RadialActionMenu from './RadialActionMenu';
 
@@ -21,10 +21,24 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Get video URL from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
+
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
+    const images = [...metadataImageUrls];
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
+    }
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
+  })();
 
   // Set up video player
   const player = useVideoPlayer(videoUrl || null, player => {
@@ -36,11 +50,9 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
     }
   });
 
-  // Get image URLs from item type metadata
-  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
-
-  const hasMultipleImages = imageUrls && imageUrls.length > 1;
-  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
+  const [cardWidth, setCardWidth] = useState(isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18);
   const mediaWidth = cardWidth - 24; // Account for 12px padding on each side
 
   // Extract subreddit from author field (format: "r/subreddit")
@@ -54,7 +66,10 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Reddit Icon Badge - Top Right */}
           <View style={styles.redditIconContainer}>
             <Text style={[styles.redditIcon, isDarkMode && styles.redditIconDark]}>🤖</Text>
@@ -101,13 +116,14 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                     horizontal
                     pagingEnabled
                     showsHorizontalScrollIndicator={false}
+                    style={{ width: mediaWidth }}
                     onMomentumScrollEnd={(event) => {
                       const newIndex = Math.round(event.nativeEvent.contentOffset.x / mediaWidth);
                       setCurrentImageIndex(newIndex);
                     }}
                     scrollEventThrottle={16}
                   >
-                    {imageUrls!.map((imageUrl, index) => (
+                    {imageUrls.map((imageUrl, index) => (
                       <Image
                         key={index}
                         source={{ uri: imageUrl }}
@@ -120,13 +136,19 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                             setImageHeight(calculatedHeight);
                           }
                         }}
+                        onError={() => {
+                          // If first image fails to load, hide images
+                          if (index === 0) {
+                            setImageLoadError(true);
+                          }
+                        }}
                       />
                     ))}
                   </ScrollView>
                 </View>
                 {/* Dots indicator */}
                 <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-                  {imageUrls!.map((_, index) => (
+                  {imageUrls.map((_, index) => (
                     <View
                       key={index}
                       style={[
@@ -138,7 +160,7 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                   ))}
                 </View>
               </>
-            ) : imageUrls && imageUrls.length === 1 ? (
+            ) : hasSingleImage && !imageLoadError ? (
               <View style={styles.mediaContainer}>
                 <Image
                   source={{ uri: imageUrls[0] }}
@@ -151,20 +173,8 @@ const RedditItemCard = observer(({ item, onPress, onLongPress, disabled }: Reddi
                       setImageHeight(calculatedHeight);
                     }
                   }}
-                />
-              </View>
-            ) : item.thumbnail_url ? (
-              <View style={styles.mediaContainer}>
-                <Image
-                  source={{ uri: item.thumbnail_url }}
-                  style={[styles.media, imageHeight ? { height: imageHeight } : { height: 200 }]}
-                  contentFit="cover"
-                  onLoad={(e: any) => {
-                    if (e.source && e.source.width && e.source.height) {
-                      const aspectRatio = e.source.height / e.source.width;
-                      const calculatedHeight = mediaWidth * aspectRatio;
-                      setImageHeight(calculatedHeight);
-                    }
+                  onError={() => {
+                    setImageLoadError(true);
                   }}
                 />
               </View>

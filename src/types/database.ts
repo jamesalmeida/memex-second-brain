@@ -10,6 +10,50 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      assistant_memories: {
+        Row: {
+          id: string
+          user_id: string
+          kind: string
+          title: string
+          body: string
+          importance: number
+          tags: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind: string
+          title: string
+          body: string
+          importance?: number
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: string
+          title?: string
+          body?: string
+          importance?: number
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_memories_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       chat_messages: {
         Row: {
           chat_id: string

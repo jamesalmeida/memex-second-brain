@@ -2,6 +2,7 @@ import { observable } from '@legendapp/state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ItemTypeMetadata } from '../types';
 import { STORAGE_KEYS } from '../constants';
+// Note: itemsStore is imported lazily in getImageUrlsForItem to avoid circular dependency
 
 interface ItemTypeMetadataState {
   typeMetadata: ItemTypeMetadata[];
@@ -35,6 +36,23 @@ export const itemTypeMetadataComputed = {
   getImageUrls: (itemId: string): string[] | undefined => {
     const metadata = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId);
     return metadata?.data?.image_urls;
+  },
+
+  // Get merged image URLs for an item (thumbnail_url + metadata image_urls)
+  // This is the recommended method for ItemCard components - handles reactivity automatically
+  getImageUrlsForItem: (itemId: string): string[] => {
+    const metadataUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === itemId)?.data?.image_urls || [];
+    // Lazy require to avoid circular dependency with items.ts
+    const { itemsStore } = require('./items');
+    const item = itemsStore.items.get().find((i: { id: string; thumbnail_url?: string }) => i.id === itemId);
+    const thumbnailUrl = item?.thumbnail_url;
+
+    const images = [...metadataUrls];
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
+    }
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
   },
 
   // Get site icon URL for an item (stored when favicon was available)

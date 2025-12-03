@@ -19,7 +19,8 @@ import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpac
 import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
 import ChatSheet from '../../src/components/ChatSheet';
 import HomeScreen from './index';
-import SpacesScreen from './spaces';
+import SpacesScreen from './spacesGrid';
+import AssistantScreen from './assistant';
 import { Item } from '../../src/types';
 import { itemsActions } from '../../src/stores/items';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
@@ -399,9 +400,9 @@ const TabLayout = observer(() => {
                   />
                 </View>
 
-                {/* Spaces View */}
+                {/* Assistant Chat View */}
                 <View style={styles.viewContainer} pointerEvents={currentView === 'spaces' ? 'auto' : 'none'}>
-                  <SpacesScreen onSpaceOpen={setCurrentSpaceId} onSpaceClose={() => setCurrentSpaceId(null)} />
+                  <AssistantScreen />
                 </View>
               </Animated.View>
             </GestureDetector>

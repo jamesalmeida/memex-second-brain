@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../../stores/theme';
-import { itemTypeMetadataComputed } from '../../stores/itemTypeMetadata';
+import { itemTypeMetadataComputed, itemTypeMetadataStore } from '../../stores/itemTypeMetadata';
 import { Item } from '../../types';
 import { formatDate, getDomain, getContentTypeIcon, getContentTypeColor } from '../../utils/itemCardHelpers';
 import RadialActionMenu from './RadialActionMenu';
@@ -22,11 +22,24 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
   const isDarkMode = themeStore.isDarkMode.get();
   const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Get video URL and image URLs from item type metadata
+  // Get video URL and metadata from item type metadata
   const videoUrl = itemTypeMetadataComputed.getVideoUrl(item.id);
-  const imageUrls = itemTypeMetadataComputed.getImageUrls(item.id);
+
+  // Get merged image URLs - access observables directly for reactivity
+  const metadataImageUrls = itemTypeMetadataStore.typeMetadata.get().find(m => m.item_id === item.id)?.data?.image_urls || [];
+  const thumbnailUrl = item.thumbnail_url;
+
+  const imageUrls = (() => {
+    const images = [...metadataImageUrls];
+    if (thumbnailUrl && !images.includes(thumbnailUrl)) {
+      images.unshift(thumbnailUrl);
+    }
+    // Filter out empty, null, undefined, or invalid URLs
+    return images.filter(url => url && url.trim() !== '' && url.startsWith('http'));
+  })();
 
   // Set up video player if item has video
   const player = useVideoPlayer(videoUrl || null, player => {
@@ -38,13 +51,17 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
     }
   });
 
-  const hasMultipleImages = imageUrls && imageUrls.length > 1;
-  const cardWidth = isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18;
+  const hasMultipleImages = imageUrls.length > 1;
+  const hasSingleImage = imageUrls.length === 1;
+  const [cardWidth, setCardWidth] = useState(isDarkMode ? screenWidth / 2 - 14 : screenWidth / 2 - 18);
 
   return (
     <RadialActionMenu item={item} onPress={onPress} disabled={disabled}>
       <View style={[styles.shadowContainer, isDarkMode && styles.shadowContainerDark]}>
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <View
+          style={[styles.card, isDarkMode && styles.cardDark]}
+          onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+        >
           {/* Thumbnail or Content Preview */}
         {videoUrl && player ? (
           <View style={{ position: 'relative' }}>
@@ -74,9 +91,9 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
               setCurrentImageIndex(newIndex);
             }}
             scrollEventThrottle={16}
-            style={{ width: '100%' }}
+            style={{ width: cardWidth }}
           >
-            {imageUrls!.map((imageUrl, index) => (
+            {imageUrls.map((imageUrl, index) => (
               <Image
                 key={index}
                 source={{ uri: imageUrl }}
@@ -93,12 +110,18 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
                     setImageHeight(finalHeight);
                   }
                 }}
+                onError={() => {
+                  // If first image fails to load, show placeholder
+                  if (index === 0) {
+                    setImageLoadError(true);
+                  }
+                }}
               />
             ))}
           </ScrollView>
           {/* Dots indicator */}
           <View style={[styles.dotsContainer, isDarkMode && styles.dotsContainerDark]} pointerEvents="none">
-            {imageUrls!.map((_, index) => (
+            {imageUrls.map((_, index) => (
               <View
                 key={index}
                 style={[
@@ -110,10 +133,10 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
             ))}
           </View>
         </>
-      ) : item.thumbnail_url ? (
+      ) : hasSingleImage && !imageLoadError ? (
         <View>
           <Image
-            source={{ uri: item.thumbnail_url }}
+            source={{ uri: imageUrls[0] }}
             style={[
               styles.thumbnail,
               imageHeight ? { height: imageHeight } : null
@@ -126,6 +149,9 @@ const MovieTVItemCard = observer(({ item, onPress, onLongPress, disabled }: Movi
                 const finalHeight = Math.min(calculatedHeight, cardWidth * 1.5);
                 setImageHeight(finalHeight);
               }
+            }}
+            onError={() => {
+              setImageLoadError(true);
             }}
           />
         </View>
