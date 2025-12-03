@@ -85,25 +85,24 @@ const BottomNavigation = observer(({
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger
-          name="spaces"
+          name="assistant"
           onPress={() => {
             const timestamp = new Date().toISOString();
-            console.log('📱 [BottomNav] Chats tab pressed at:', timestamp);
+            console.log('📱 [BottomNav] Chat tab pressed at:', timestamp);
             onViewChange('spaces');
           }}
           onTouchStart={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Chats tab TOUCH START at:', timestamp);
+            console.log('👆 [BottomNav] Chat tab TOUCH START at:', timestamp);
             console.log('👆 [BottomNav] Touch coords:', e.nativeEvent.pageX, e.nativeEvent.pageY);
           }}
           onTouchEnd={(e) => {
             const timestamp = new Date().toISOString();
-            console.log('👆 [BottomNav] Chats tab TOUCH END at:', timestamp);
+            console.log('👆 [BottomNav] Chat tab TOUCH END at:', timestamp);
           }}
         >
-          {/* <Icon src={<VectorIcon family={MaterialIcons} name="cube-outline" />} selectedColor={COLORS.warning} /> */}
-          <Icon src={<VectorIcon family={Ionicons} name="cube-outline" />} selectedColor={COLORS.warning} />
-          <Label selectedStyle={{ color: COLORS.warning }}>Chats</Label>
+          <Icon src={<VectorIcon family={Ionicons} name="chatbubble-ellipses-outline" />} selectedColor={COLORS.warning} />
+          <Label selectedStyle={{ color: COLORS.warning }}>Chat</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
 

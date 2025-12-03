@@ -82,6 +82,21 @@ export interface OpenAIError {
   error: string;
 }
 
+// Tool-related types for function calling
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolCompletionResult extends ChatCompletion {
+  tool_calls?: ToolCall[];
+  finish_reason?: string;
+}
+
 // OpenAI API helpers
 export const openai = {
   async createChatCompletion(
@@ -347,6 +362,80 @@ export const openai = {
       return null;
     } catch (error) {
       console.error('OpenAI Vision API error:', error);
+      return null;
+    }
+  },
+
+  // Create chat completion with tools (function calling)
+  async createChatCompletionWithTools(
+    messages: ChatMessage[],
+    tools: any[],
+    options: {
+      model?: string;
+      temperature?: number;
+      max_tokens?: number;
+      tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
+    } = {}
+  ): Promise<ToolCompletionResult | null> {
+    if (!API.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not configured');
+      return null;
+    }
+
+    try {
+      const requestBody: any = {
+        model: options.model || 'gpt-4o-mini',
+        messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.max_tokens || 1500,
+      };
+
+      // Add tools if provided
+      if (tools && tools.length > 0) {
+        requestBody.tools = tools;
+        requestBody.tool_choice = options.tool_choice || 'auto';
+      }
+
+      console.log('[OpenAI] Sending request with tools:', tools.map(t => t.function.name).join(', '));
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        let errorDetails = '';
+        try {
+          const errorData = await response.json();
+          errorDetails = JSON.stringify(errorData, null, 2);
+          console.error('OpenAI API error response:', errorData);
+        } catch (parseError) {
+          errorDetails = await response.text();
+          console.error('OpenAI API error (raw):', errorDetails);
+        }
+        throw new Error(`OpenAI API error: ${response.status} - ${errorDetails}`);
+      }
+
+      const data = await response.json();
+
+      // Extract tool calls if present
+      const choice = data.choices?.[0];
+      if (choice?.message?.tool_calls) {
+        console.log('[OpenAI] Tool calls received:', choice.message.tool_calls.map((tc: any) => tc.function.name).join(', '));
+        return {
+          ...data,
+          tool_calls: choice.message.tool_calls,
+          finish_reason: choice.finish_reason,
+        };
+      }
+
+      return data;
+    } catch (error) {
+      console.error('OpenAI API error:', error);
       return null;
     }
   },
