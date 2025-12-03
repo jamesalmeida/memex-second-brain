@@ -252,6 +252,20 @@ export interface UserSettings {
 
 // Global admin settings that apply to ALL users
 // Only one row exists in the database
+export type MemoryKind = 'preference' | 'person' | 'fact' | 'task' | 'project' | 'general';
+
+export interface AssistantMemory {
+  id: string;
+  user_id: string;
+  kind: MemoryKind;
+  title: string;
+  body: string;
+  importance: number;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AdminSettings {
   id: string;
   // AI Automation Settings
