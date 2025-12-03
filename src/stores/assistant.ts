@@ -1,9 +1,8 @@
 import { observable } from '@legendapp/state';
-import { persistObservable } from '@legendapp/state/persist';
-import { ObservablePersistAsyncStorage } from '@legendapp/state/persist-plugins/async-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import { supabase } from '../services/supabase';
+import { STORAGE_KEYS } from '../constants';
 
 // Types for assistant chat
 export interface AssistantMessage {
@@ -57,16 +56,32 @@ const initialState: AssistantState = {
 // Create observable store
 export const assistantStore = observable<AssistantState>(initialState);
 
-// Persist to AsyncStorage
-persistObservable(assistantStore, {
-  local: 'memex-assistant-store',
-  pluginLocal: ObservablePersistAsyncStorage,
-  localOptions: {
-    asyncStorage: {
-      AsyncStorage,
-    },
-  },
-});
+// Helper to save conversations to AsyncStorage
+const saveConversations = async (conversations: AssistantConversation[]) => {
+  try {
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.ASSISTANT_CONVERSATIONS,
+      JSON.stringify(conversations)
+    );
+  } catch (error) {
+    console.error('🤖 [Assistant] Error saving conversations:', error);
+  }
+};
+
+// Load conversations from AsyncStorage
+const loadConversations = async (): Promise<AssistantConversation[]> => {
+  try {
+    const saved = await AsyncStorage.getItem(STORAGE_KEYS.ASSISTANT_CONVERSATIONS);
+    if (saved) {
+      const conversations = JSON.parse(saved);
+      console.log(`🤖 [Assistant] Loaded ${conversations.length} conversations from storage`);
+      return conversations;
+    }
+  } catch (error) {
+    console.error('🤖 [Assistant] Error loading conversations:', error);
+  }
+  return [];
+};
 
 // Computed values
 export const assistantComputed = {
@@ -90,6 +105,12 @@ export const assistantComputed = {
 
 // Actions
 export const assistantActions = {
+  // Initialize store by loading from AsyncStorage
+  init: async () => {
+    const conversations = await loadConversations();
+    assistantStore.conversations.set(conversations);
+  },
+
   // Create a new conversation
   createConversation: async (title?: string): Promise<AssistantConversation> => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -104,8 +125,12 @@ export const assistantActions = {
       updated_at: new Date().toISOString(),
     };
 
-    assistantStore.conversations.set(prev => [...prev, conversation]);
+    const updatedConversations = [...assistantStore.conversations.get(), conversation];
+    assistantStore.conversations.set(updatedConversations);
     assistantStore.currentConversationId.set(conversation.id);
+
+    // Save to AsyncStorage
+    await saveConversations(updatedConversations);
 
     console.log('🤖 [Assistant] Created new conversation:', conversation.id);
     return conversation;
@@ -117,7 +142,7 @@ export const assistantActions = {
   },
 
   // Add a message to current conversation
-  addMessage: (message: Omit<AssistantMessage, 'id' | 'created_at'>): AssistantMessage => {
+  addMessage: async (message: Omit<AssistantMessage, 'id' | 'created_at'>): Promise<AssistantMessage> => {
     const currentId = assistantStore.currentConversationId.get();
     if (!currentId) {
       throw new Error('No current conversation');
@@ -129,70 +154,84 @@ export const assistantActions = {
       created_at: new Date().toISOString(),
     };
 
-    assistantStore.conversations.set(prev =>
-      prev.map(conv => {
-        if (conv.id === currentId) {
-          return {
-            ...conv,
-            messages: [...conv.messages, newMessage],
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return conv;
-      })
-    );
+    const updatedConversations = assistantStore.conversations.get().map(conv => {
+      if (conv.id === currentId) {
+        return {
+          ...conv,
+          messages: [...conv.messages, newMessage],
+          updated_at: new Date().toISOString(),
+        };
+      }
+      return conv;
+    });
+
+    assistantStore.conversations.set(updatedConversations);
+
+    // Save to AsyncStorage
+    await saveConversations(updatedConversations);
 
     console.log('🤖 [Assistant] Added message:', newMessage.role, newMessage.id);
     return newMessage;
   },
 
   // Update conversation title
-  updateTitle: (conversationId: string, title: string) => {
-    assistantStore.conversations.set(prev =>
-      prev.map(conv => {
-        if (conv.id === conversationId) {
-          return {
-            ...conv,
-            title,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return conv;
-      })
-    );
+  updateTitle: async (conversationId: string, title: string) => {
+    const updatedConversations = assistantStore.conversations.get().map(conv => {
+      if (conv.id === conversationId) {
+        return {
+          ...conv,
+          title,
+          updated_at: new Date().toISOString(),
+        };
+      }
+      return conv;
+    });
+
+    assistantStore.conversations.set(updatedConversations);
+
+    // Save to AsyncStorage
+    await saveConversations(updatedConversations);
   },
 
   // Delete a conversation
-  deleteConversation: (conversationId: string) => {
-    assistantStore.conversations.set(prev =>
-      prev.filter(conv => conv.id !== conversationId)
+  deleteConversation: async (conversationId: string) => {
+    const updatedConversations = assistantStore.conversations.get().filter(
+      conv => conv.id !== conversationId
     );
+
+    assistantStore.conversations.set(updatedConversations);
 
     // If deleted conversation was current, clear it
     if (assistantStore.currentConversationId.get() === conversationId) {
       assistantStore.currentConversationId.set(null);
     }
 
+    // Save to AsyncStorage
+    await saveConversations(updatedConversations);
+
     console.log('🤖 [Assistant] Deleted conversation:', conversationId);
   },
 
   // Clear all messages in current conversation
-  clearCurrentConversation: () => {
+  clearCurrentConversation: async () => {
     const currentId = assistantStore.currentConversationId.get();
     if (!currentId) return;
 
-    assistantStore.conversations.set(prev =>
-      prev.map(conv => {
-        if (conv.id === currentId) {
-          return {
-            ...conv,
-            messages: [],
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return conv;
-      })
-    );
+    const updatedConversations = assistantStore.conversations.get().map(conv => {
+      if (conv.id === currentId) {
+        return {
+          ...conv,
+          messages: [],
+          updated_at: new Date().toISOString(),
+        };
+      }
+      return conv;
+    });
+
+    assistantStore.conversations.set(updatedConversations);
+
+    // Save to AsyncStorage
+    await saveConversations(updatedConversations);
 
     console.log('🤖 [Assistant] Cleared conversation:', currentId);
   },
@@ -228,3 +267,8 @@ export const assistantActions = {
     return assistantActions.createConversation();
   },
 };
+
+// Auto-initialize on module load
+assistantActions.init().catch(error => {
+  console.error('🤖 [Assistant] Failed to initialize:', error);
+});

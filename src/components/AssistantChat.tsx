@@ -34,7 +34,7 @@ import {
   assistantComputed,
   AssistantMessage,
 } from '../stores/assistant';
-import { openai, ToolCall } from '../services/openai';
+import { openai } from '../services/openai';
 import {
   ASSISTANT_TOOLS,
   ASSISTANT_SYSTEM_PROMPT_WITH_TOOLS,
@@ -85,7 +85,7 @@ const AssistantChat = observer(() => {
       await assistantActions.ensureConversation();
 
       // Add user message
-      assistantActions.addMessage({
+      await assistantActions.addMessage({
         role: 'user',
         content: userMessage,
       });
@@ -207,7 +207,7 @@ const AssistantChat = observer(() => {
 
       if (finalResponse) {
         // Add assistant response
-        assistantActions.addMessage({
+        await assistantActions.addMessage({
           role: 'assistant',
           content: finalResponse,
           metadata: {
@@ -221,18 +221,18 @@ const AssistantChat = observer(() => {
           const title = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
           const conversation = assistantComputed.currentConversation();
           if (conversation) {
-            assistantActions.updateTitle(conversation.id, title);
+            await assistantActions.updateTitle(conversation.id, title);
           }
         }
       } else {
-        assistantActions.addMessage({
+        await assistantActions.addMessage({
           role: 'assistant',
           content: 'I apologize, but I could not generate a response at this time. Please try again.',
         });
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      assistantActions.addMessage({
+      await assistantActions.addMessage({
         role: 'assistant',
         content: 'An error occurred. Please check your API key and try again.',
       });
