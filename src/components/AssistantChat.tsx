@@ -11,6 +11,7 @@ import {
   Platform,
   Pressable,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -56,6 +57,7 @@ const AssistantChat = observer(() => {
   const { showToast } = useToast();
 
   const [inputText, setInputText] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -66,6 +68,22 @@ const AssistantChat = observer(() => {
   // Initialize conversation on mount
   useEffect(() => {
     assistantActions.ensureConversation();
+  }, []);
+
+  // Track keyboard visibility for input positioning
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
   // Scroll to bottom when messages change
@@ -427,7 +445,13 @@ const AssistantChat = observer(() => {
         style={[
           styles.inputContainer,
           isDarkMode && styles.inputContainerDark,
-          { paddingBottom: Math.max(insets.bottom, 10) },
+          {
+            // When keyboard hidden: add 80px for bottom nav clearance
+            // When keyboard shown: just use safe area (keyboard covers nav)
+            paddingBottom: keyboardVisible
+              ? Math.max(insets.bottom, 10)
+              : Math.max(insets.bottom, 10) + 80,
+          },
         ]}
       >
         <View style={styles.inputRow}>
