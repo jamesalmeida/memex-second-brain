@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { observer } from '@legendapp/state/react';
@@ -28,6 +28,27 @@ const BottomNavigation = observer(({
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const { openDrawer } = useDrawer();
+
+  // Use refs to ensure callbacks always have current values
+  // SwiftUI's onTapGesture may cache the callback
+  const currentViewRef = useRef(currentView);
+  const onAddPressRef = useRef(onAddPress);
+  const onAttachPressRef = useRef(onAttachPress);
+
+  // Keep refs updated
+  currentViewRef.current = currentView;
+  onAddPressRef.current = onAddPress;
+  onAttachPressRef.current = onAttachPress;
+
+  // Stable callback that reads from refs
+  const handleRightButtonPress = useCallback(() => {
+    console.log('📎 [BottomNav] Right button pressed, currentView:', currentViewRef.current);
+    if (currentViewRef.current === 'everything') {
+      onAddPressRef.current();
+    } else {
+      onAttachPressRef.current?.();
+    }
+  }, []);
 
   // if (!visible) return null;
 
@@ -124,7 +145,7 @@ const BottomNavigation = observer(({
             modifiers={[
               frame({ width: 60, height: 60 }),
               glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
-              onTapGesture(currentView === 'everything' ? onAddPress : (onAttachPress || (() => {})))
+              onTapGesture(handleRightButtonPress)
             ]}
           >
             <Image

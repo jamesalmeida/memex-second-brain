@@ -155,7 +155,10 @@ const TabLayout = observer(() => {
     if (pathname.includes('/spaces') && currentView !== 'spaces') {
       console.log('✅ Switching to spaces view');
       setCurrentView('spaces');
-    } else if (pathname === '/(tabs)' || pathname === '/' && currentView !== 'everything') {
+    } else if (pathname.includes('/assistant') && currentView !== 'spaces') {
+      console.log('✅ Switching to chat/assistant view');
+      setCurrentView('spaces'); // Chat tab uses 'spaces' view state
+    } else if ((pathname === '/(tabs)' || pathname === '/') && currentView !== 'everything') {
       console.log('✅ Switching to everything view');
       setCurrentView('everything');
     }
@@ -595,23 +598,23 @@ const TabLayout = observer(() => {
         <ReorderSpacesSheet
           ref={reorderSpacesSheetRef}
         />
-        <AttachmentSheet
-          ref={attachmentSheetRef}
-          onPhotoSelected={(uri) => {
-            console.log('📎 [TabLayout] Photo selected:', uri);
-            // TODO: Handle photo attachment in chat
-            showToast({
-              message: 'Photo selected! Integration coming soon.',
-              type: 'success',
-              duration: 2000,
-            });
-          }}
-        />
       </View>
 
-        {/* Chat Sheet Modal - absolute container with higher z-index so it sits above everything */}
+        {/* Chat-related sheets - higher z-index so they appear above everything */}
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
           <ChatSheet ref={chatSheetRef} />
+          <AttachmentSheet
+            ref={attachmentSheetRef}
+            onPhotoSelected={(uri) => {
+              console.log('📎 [TabLayout] Photo selected:', uri);
+              // TODO: Handle photo attachment in chat
+              showToast({
+                message: 'Photo selected! Integration coming soon.',
+                type: 'success',
+                duration: 2000,
+              });
+            }}
+          />
         </View>
       </View>
     </BottomSheetModalProvider>
