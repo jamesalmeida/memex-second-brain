@@ -9,12 +9,16 @@ interface FilterState {
   sortOrder: SortOrder;
   selectedContentType: ContentType | null;
   selectedTags: string[];
+  selectedSpaceId: string | null;
+  showArchived: boolean;
 }
 
 const initialState: FilterState = {
   sortOrder: 'recent',
   selectedContentType: null,
   selectedTags: [],
+  selectedSpaceId: null,
+  showArchived: false,
 };
 
 export const filterStore = observable(initialState);
@@ -24,10 +28,14 @@ export const filterComputed = {
   sortOrder: () => filterStore.sortOrder.get(),
   selectedContentType: () => filterStore.selectedContentType.get(),
   selectedTags: () => filterStore.selectedTags.get(),
+  selectedSpaceId: () => filterStore.selectedSpaceId.get(),
+  showArchived: () => filterStore.showArchived.get(),
   hasActiveFilters: () => {
     const type = filterStore.selectedContentType.get();
     const tags = filterStore.selectedTags.get();
-    return type !== null || tags.length > 0;
+    const spaceId = filterStore.selectedSpaceId.get();
+    const archived = filterStore.showArchived.get();
+    return type !== null || tags.length > 0 || spaceId !== null || archived;
   },
   /**
    * Filter items based on content type only (not tags).
@@ -110,10 +118,42 @@ export const filterActions = {
     await filterActions.persist();
   },
 
+  // Space filter
+  setSelectedSpace: async (spaceId: string | null) => {
+    filterStore.selectedSpaceId.set(spaceId);
+    // When selecting a space, turn off archive view
+    if (spaceId !== null) {
+      filterStore.showArchived.set(false);
+    }
+    await filterActions.persist();
+  },
+
+  clearSelectedSpace: async () => {
+    filterStore.selectedSpaceId.set(null);
+    await filterActions.persist();
+  },
+
+  // Archive filter
+  setShowArchived: async (show: boolean) => {
+    filterStore.showArchived.set(show);
+    // When showing archive, clear space selection
+    if (show) {
+      filterStore.selectedSpaceId.set(null);
+    }
+    await filterActions.persist();
+  },
+
+  toggleArchived: async () => {
+    const current = filterStore.showArchived.get();
+    await filterActions.setShowArchived(!current);
+  },
+
   // Clear all filters
   clearAll: async () => {
     filterStore.selectedContentType.set(null);
     filterStore.selectedTags.set([]);
+    filterStore.selectedSpaceId.set(null);
+    filterStore.showArchived.set(false);
     // Keep sort order
     await filterActions.persist();
   },
@@ -125,6 +165,8 @@ export const filterActions = {
         sortOrder: filterStore.sortOrder.get(),
         selectedContentType: filterStore.selectedContentType.get(),
         selectedTags: filterStore.selectedTags.get(),
+        selectedSpaceId: filterStore.selectedSpaceId.get(),
+        showArchived: filterStore.showArchived.get(),
       };
       await AsyncStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(state));
     } catch (error) {
@@ -140,6 +182,8 @@ export const filterActions = {
         filterStore.sortOrder.set(parsed.sortOrder || 'recent');
         filterStore.selectedContentType.set(parsed.selectedContentType || null);
         filterStore.selectedTags.set(parsed.selectedTags || []);
+        filterStore.selectedSpaceId.set(parsed.selectedSpaceId || null);
+        filterStore.showArchived.set(parsed.showArchived || false);
       }
     } catch (error) {
       console.error('Error loading filter state:', error);
