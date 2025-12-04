@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
@@ -307,6 +308,37 @@ const AssistantChat = observer(() => {
     );
   };
 
+  const handleRenameChat = () => {
+    const currentConversation = assistantComputed.currentConversation();
+    if (!currentConversation) return;
+
+    const currentTitle = currentConversation.title || 'New Chat';
+
+    Alert.prompt(
+      'Rename Chat',
+      'Enter a new name for this chat:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Rename',
+          onPress: (newTitle: string | undefined) => {
+            if (newTitle && newTitle.trim()) {
+              assistantActions.updateTitle(currentConversation.id, newTitle.trim());
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              showToast({
+                message: 'Chat renamed',
+                type: 'success',
+                duration: 2000,
+              });
+            }
+          },
+        },
+      ],
+      'plain-text',
+      currentTitle
+    );
+  };
+
   const handleCopyMessage = async (content: string) => {
     try {
       await Clipboard.setStringAsync(content);
@@ -403,17 +435,32 @@ const AssistantChat = observer(() => {
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
               />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleClearChat}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialIcons
-                name="delete-outline"
-                size={24}
-                color={isDarkMode ? '#FFFFFF' : '#000000'}
-              />
-            </TouchableOpacity>
+            <Host>
+              <ContextMenu>
+                <ContextMenu.Trigger>
+                  <TouchableOpacity
+                    style={styles.headerButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <MaterialIcons
+                      name="more-vert"
+                      size={24}
+                      color={isDarkMode ? '#FFFFFF' : '#000000'}
+                    />
+                  </TouchableOpacity>
+                </ContextMenu.Trigger>
+                <ContextMenu.Items>
+                  <Button onPress={handleRenameChat}>
+                    Rename Chat
+                  </Button>
+                  <Button onPress={handleClearChat} role="destructive">
+                    Clear Chat
+                  </Button>
+                </ContextMenu.Items>
+              </ContextMenu>
+            </Host>
           </View>
         </View>
       </View>
@@ -428,6 +475,7 @@ const AssistantChat = observer(() => {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {messages.length === 0 ? (
           renderWelcome()
@@ -449,8 +497,8 @@ const AssistantChat = observer(() => {
             // When keyboard hidden: add 80px for bottom nav clearance
             // When keyboard shown: just use safe area (keyboard covers nav)
             paddingBottom: keyboardVisible
-              ? Math.max(insets.bottom, 10)
-              : Math.max(insets.bottom, 10) + 80,
+              ? Math.max(insets.bottom, 10) - 20
+              : Math.max(insets.bottom, 10) + 65,
           },
         ]}
       >

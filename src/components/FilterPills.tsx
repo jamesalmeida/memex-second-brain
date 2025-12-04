@@ -4,28 +4,41 @@ import { observer } from '@legendapp/state/react';
 import { Ionicons } from '@expo/vector-icons';
 import { themeStore } from '../stores/theme';
 import { filterStore, filterActions } from '../stores/filter';
+import { spacesComputed } from '../stores/spaces';
 import { ContentType } from '../types';
 
-// Map content types to display names
-const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
+// Map content types to display names (partial - only commonly filtered types)
+const CONTENT_TYPE_LABELS: Partial<Record<ContentType, string>> = {
   bookmark: 'Bookmark',
   youtube: 'YouTube',
+  youtube_short: 'YouTube Short',
   x: 'X/Twitter',
   instagram: 'Instagram',
   reddit: 'Reddit',
   note: 'Note',
   movie: 'Movie',
-  tv: 'TV Show',
+  tv_show: 'TV Show',
   product: 'Product',
+  podcast: 'Podcast',
+  article: 'Article',
+  book: 'Book',
+  image: 'Image',
+  video: 'Video',
 };
 
 const FilterPills = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
+  const selectedSpaceId = filterStore.selectedSpaceId.get();
+  const showArchived = filterStore.showArchived.get();
+  const spaces = spacesComputed.activeSpaces();
+
+  // Get selected space name
+  const selectedSpace = selectedSpaceId ? spaces.find(s => s.id === selectedSpaceId) : null;
 
   // Don't render anything if no filters are active
-  if (!selectedContentType && selectedTags.length === 0) {
+  if (!selectedContentType && selectedTags.length === 0 && !selectedSpaceId && !showArchived) {
     return null;
   }
 
@@ -37,6 +50,14 @@ const FilterPills = observer(() => {
     filterActions.toggleTag(tag);
   };
 
+  const handleRemoveSpace = () => {
+    filterActions.clearSelectedSpace();
+  };
+
+  const handleRemoveArchive = () => {
+    filterActions.setShowArchived(false);
+  };
+
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <ScrollView
@@ -44,6 +65,53 @@ const FilterPills = observer(() => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Space filter pill */}
+        {selectedSpace && (
+          <View style={[styles.pill, styles.spacePill, isDarkMode && styles.pillDark]}>
+            <Text style={[styles.pillText, isDarkMode && styles.pillTextDark]}>
+              Space: {selectedSpace.name}
+            </Text>
+            <TouchableOpacity
+              onPress={handleRemoveSpace}
+              style={styles.removeButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="close-circle"
+                size={16}
+                color={isDarkMode ? '#8E8E93' : '#666'}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Archive filter pill */}
+        {showArchived && (
+          <View style={[styles.pill, styles.archivePill, isDarkMode && styles.pillDark]}>
+            <Ionicons
+              name="archive-outline"
+              size={14}
+              color={isDarkMode ? '#F2F2F7' : '#333'}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.pillText, isDarkMode && styles.pillTextDark]}>
+              Archive
+            </Text>
+            <TouchableOpacity
+              onPress={handleRemoveArchive}
+              style={styles.removeButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="close-circle"
+                size={16}
+                color={isDarkMode ? '#8E8E93' : '#666'}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Content type filter pill */}
         {selectedContentType && (
           <View style={[styles.pill, isDarkMode && styles.pillDark]}>
             <Text style={[styles.pillText, isDarkMode && styles.pillTextDark]}>
@@ -63,6 +131,7 @@ const FilterPills = observer(() => {
           </View>
         )}
 
+        {/* Tag filter pills */}
         {selectedTags.map((tag) => (
           <View key={tag} style={[styles.pill, styles.tagPill, isDarkMode && styles.pillDark]}>
             <Text style={[styles.pillText, isDarkMode && styles.pillTextDark]}>
@@ -120,6 +189,12 @@ const styles = StyleSheet.create({
   },
   tagPill: {
     // Could add different styling for tags if needed
+  },
+  spacePill: {
+    backgroundColor: '#007AFF20',
+  },
+  archivePill: {
+    backgroundColor: '#FF950020',
   },
   pillText: {
     fontSize: 14,

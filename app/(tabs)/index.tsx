@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Dimensions, ScrollView, PanResponder, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Dimensions, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,20 +14,14 @@ import { syncStatusStore } from '../../src/stores/syncStatus';
 import { pendingItemsStore } from '../../src/stores/pendingItems';
 import { processingItemsComputed } from '../../src/stores/processingItems';
 import ItemCard from '../../src/components/items/ItemCard';
-// Expanded item view is now rendered at the tab layout level overlay
 import { Item } from '../../src/types';
 import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
-import { spacesComputed, spacesActions } from '../../src/stores/spaces';
-import HeaderBar, { HeaderTabConfig } from '../../src/components/HeaderBar';
-import { useDrawer } from '../../src/contexts/DrawerContext';
-import { DrawerContentBody } from '../../src/components/DrawerContent';
+import { spacesComputed } from '../../src/stores/spaces';
+import SimpleHeader from '../../src/components/SimpleHeader';
 import FilterPills from '../../src/components/FilterPills';
-import { SPECIAL_SPACES } from '../../src/constants';
 
 const { width: screenWidth } = Dimensions.get('window');
-const ITEM_WIDTH = (screenWidth - 36) / 2; // 2 columns with padding
-const EDGE_SWIPE_WIDTH_EVERYTHING = 30; // Narrower drawer swipe area on Everything tab to avoid intercepting taps
 
 interface HomeScreenProps {
   onExpandedItemOpen?: () => void;
@@ -35,9 +29,6 @@ interface HomeScreenProps {
 }
 
 const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeScreenProps = {}) => {
-  // Get drawer from context directly instead of via props
-  const { registerNavigateToSpaceHandler, registerNavigateToEverythingHandler } = useDrawer();
-
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const allItems = itemsStore.items.get();
@@ -45,8 +36,9 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
+  const selectedSpaceId = filterStore.selectedSpaceId.get();
+  const showArchived = filterStore.showArchived.get();
   const [refreshing, setRefreshing] = useState(false);
-  // Expanded item is controlled at the TabLayout overlay via expandedItemUI store
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
   const isInitialMount = useRef(true);
@@ -99,37 +91,19 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       return;
     }
     listRef.current?.scrollToOffset({ offset: -insets.top, animated: true });
-  }, [selectedContentType, selectedTags, sortOrder, insets.top]);
+  }, [selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, insets.top]);
 
-  // Spaces and pager state
-  const spaces = spacesComputed.activeSpaces();
-  const [selectedPage, setSelectedPage] = useState(1); // 0 = Drawer, 1 = Everything, 2..n = spaces
-  const pagerRef = useRef<ScrollView>(null);
-  const [isPagerScrollEnabled, setIsPagerScrollEnabled] = useState(true);
-
-  // Shared value for scroll position to animate header underline
-  const scrollOffsetX = useSharedValue(screenWidth); // Start at page 1 (Everything)
-
-  const tabs: HeaderTabConfig[] = useMemo(() => [
-    { key: 'drawer', icon: 'hamburger' },
-    { key: 'everything', label: 'Everything' },
-    ...spaces.map(space => ({
-      key: `space-${space.id}`,
-      label: space.name,
-    })),
-    { key: 'archive', label: 'Archive', icon: 'archive', isArchive: true },
-  ], [spaces]);
-
-  // Check if Archive space is selected
-  const isArchiveView = selectedPage === tabs.length - 1 && tabs[tabs.length - 1]?.key === 'archive';
-
-  // Filter items based on filters and sort order
+  // Filter items based on all filter criteria
   const displayItems = useMemo(() => {
-    // For Archive view, show only archived items
-    // For normal views, exclude archived items
-    let filtered = isArchiveView
+    // First filter by archive status
+    let filtered = showArchived
       ? allItems.filter(item => !item.is_deleted && item.is_archived)
       : allItems.filter(item => !item.is_deleted && !item.is_archived);
+
+    // Apply space filter
+    if (selectedSpaceId !== null) {
+      filtered = filtered.filter(item => item.space_id === selectedSpaceId);
+    }
 
     // Apply content type filter (single selection)
     if (selectedContentType !== null) {
@@ -161,99 +135,10 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, isArchiveView]);
+  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived]);
 
   // Track metadata changes to force FlashList re-renders when images are added/removed
   const metadataVersion = itemTypeMetadataStore.typeMetadata.get().length;
-
-  const getItemsForSpace = useCallback((spaceId: string) => {
-    return displayItems.filter(item => item.space_id === spaceId && !item.is_archived);
-  }, [displayItems]);
-
-  const scrollToPage = useCallback((index: number, animated = true) => {
-    setSelectedPage(index);
-    pagerRef.current?.scrollTo({ x: index * screenWidth, animated });
-    if (index <= 1) {
-      spacesActions.setSelectedSpace(null);
-    } else {
-      const space = spaces[index - 2];
-      if (space) spacesActions.setSelectedSpace(space);
-    }
-  }, [spaces]);
-
-  const drawerPanResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_evt, gestureState) => {
-      const { dx, dy } = gestureState;
-      return Math.abs(dx) > Math.abs(dy) && dx < -10;
-    },
-    onPanResponderRelease: (_evt, gestureState) => {
-      if (gestureState.dx < -40 || gestureState.vx < -0.2) {
-        scrollToPage(1);
-      }
-    },
-    onPanResponderTerminate: (_evt, gestureState) => {
-      if (gestureState.dx < -40 || gestureState.vx < -0.2) {
-        scrollToPage(1);
-      }
-    },
-  }), [scrollToPage]);
-
-  useEffect(() => {
-    const id = setTimeout(() => {
-      pagerRef.current?.scrollTo({ x: screenWidth, animated: false });
-    }, 0);
-    return () => clearTimeout(id);
-  }, []);
-
-  // Handler for navigating to a specific space by ID
-  const handleNavigateToSpace = useCallback((spaceId: string) => {
-    // Check if it's the Archive space
-    if (spaceId === SPECIAL_SPACES.ARCHIVE_ID) {
-      // Archive is the last tab
-      scrollToPage(tabs.length - 1);
-      return;
-    }
-
-    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
-    if (spaceIndex !== -1) {
-      // +2 because index 0 is Drawer, 1 is Everything
-      scrollToPage(spaceIndex + 2);
-    }
-  }, [spaces, scrollToPage, tabs.length]);
-
-  // Register the navigate to space handler
-  useEffect(() => {
-    registerNavigateToSpaceHandler(handleNavigateToSpace);
-  }, [registerNavigateToSpaceHandler, handleNavigateToSpace]);
-
-  // Register the navigate to EVERYTHING handler
-  useEffect(() => {
-    const handleNavigateToEverything = () => {
-      scrollToPage(1);
-    };
-    registerNavigateToEverythingHandler(handleNavigateToEverything);
-  }, [registerNavigateToEverythingHandler, scrollToPage]);
-
-  const handlePageChange = useCallback((e: any) => {
-    const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
-    if (page !== selectedPage) {
-      setSelectedPage(page);
-      if (page <= 1) {
-        spacesActions.setSelectedSpace(null);
-      } else {
-        const space = spaces[page - 2];
-        if (space) spacesActions.setSelectedSpace(space);
-      }
-    }
-  }, [selectedPage, spaces]);
-
-  const handleScroll = useCallback((e: any) => {
-    scrollOffsetX.value = e.nativeEvent.contentOffset.x;
-  }, [scrollOffsetX]);
-
-  const handleHamburgerPress = useCallback((previousIndex: number) => {
-    scrollToPage(previousIndex);
-  }, [scrollToPage]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -291,12 +176,12 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     </View>
   );
 
-  const EmptyState = ({ spaceId, isArchive }: { spaceId?: string; isArchive?: boolean }) => {
+  const EmptyState = () => {
     const hasActiveFilters = filterComputed.hasActiveFilters();
     const isSyncing = syncStatusStore.isSyncing.get();
 
     // Special case for Archive view
-    if (isArchive) {
+    if (showArchived) {
       return (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyTitle, isDarkMode && styles.emptyTitleDark]}>
@@ -311,8 +196,8 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
     // Determine if there are items that COULD be shown (before filtering)
     let unfilteredItems = allItems.filter(item => !item.is_deleted && !item.is_archived);
-    if (spaceId) {
-      unfilteredItems = unfilteredItems.filter(item => item.space_id === spaceId);
+    if (selectedSpaceId) {
+      unfilteredItems = unfilteredItems.filter(item => item.space_id === selectedSpaceId);
     }
     const hasAnyItems = unfilteredItems.length > 0;
 
@@ -354,7 +239,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }
 
     // Default empty state (no items at all)
-    const emptyMessage = getEmptyStateMessage(spaceId ? 'space' : 'home');
+    const emptyMessage = getEmptyStateMessage(selectedSpaceId ? 'space' : 'home');
     return (
       <View style={styles.emptyContainer}>
         <Text style={[styles.emptyTitle, isDarkMode && styles.emptyTitleDark]}>
@@ -413,13 +298,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <HeaderBar
-        tabs={tabs}
-        selectedIndex={selectedPage}
-        onTabPress={scrollToPage}
-        scrollOffset={scrollOffsetX}
-        onHamburgerPress={handleHamburgerPress}
-      />
+      <SimpleHeader />
 
       <FilterPills />
 
@@ -432,119 +311,28 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         </Animated.View>
       )}
 
-      <ScrollView
-        ref={pagerRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={handlePageChange}
-        scrollEnabled={isPagerScrollEnabled && !shouldDisableScroll}
-        onTouchStart={(e) => {
-          // On the Everything tab, give drawer edge swipe precedence over pager
-          if (selectedPage === 1) {
-            const touchX = e.nativeEvent.pageX ?? 0;
-            // Use wider swipe area for Everything tab (150px)
-            if (touchX <= EDGE_SWIPE_WIDTH_EVERYTHING) {
-              setIsPagerScrollEnabled(false);
-            } else if (!isPagerScrollEnabled) {
-              setIsPagerScrollEnabled(true);
-            }
-          }
-        }}
-        onTouchEnd={() => {
-          if (!isPagerScrollEnabled) setIsPagerScrollEnabled(true);
-        }}
-        onTouchCancel={() => {
-          if (!isPagerScrollEnabled) setIsPagerScrollEnabled(true);
-        }}
-      >
-        {/* Page 0: Drawer */}
-        <View
-          style={{ width: screenWidth, height: '100%' }}
-          {...drawerPanResponder.panHandlers}
-        >
-          <DrawerContentBody />
-        </View>
-
-        {/* Page 1: Everything */}
-        <View style={{ width: screenWidth }}>
-          <FlashList
-            ref={listRef}
-            data={displayItems}
-            renderItem={renderItem}
-            keyExtractor={item => item.id}
-            extraData={metadataVersion}
-            masonry
-            numColumns={2}
-            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={!shouldDisableScroll}
-            ListEmptyComponent={EmptyState}
-            contentInsetAdjustmentBehavior="automatic"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-              />
-            }
+      {/* Single FlashList - filtering is done via filter store */}
+      <FlashList
+        ref={listRef}
+        data={displayItems}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        extraData={metadataVersion}
+        masonry
+        numColumns={2}
+        contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!shouldDisableScroll}
+        ListEmptyComponent={EmptyState}
+        contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
           />
-        </View>
-
-        {/* Pages 2..n: one per space */}
-        {spaces.map(space => (
-          <View key={space.id} style={{ width: screenWidth }}>
-            <FlashList
-              data={getItemsForSpace(space.id)}
-              renderItem={renderItem}
-              keyExtractor={item => item.id}
-              extraData={metadataVersion}
-              masonry
-              numColumns={2}
-              contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
-              showsVerticalScrollIndicator={false}
-              scrollEnabled={!shouldDisableScroll}
-              ListEmptyComponent={() => <EmptyState spaceId={space.id} />}
-              contentInsetAdjustmentBehavior="automatic"
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-                />
-              }
-            />
-          </View>
-        ))}
-
-        {/* Page n+1: Archive */}
-        <View style={{ width: screenWidth }}>
-          <FlashList
-            data={displayItems}
-            renderItem={renderItem}
-            keyExtractor={item => item.id}
-            extraData={metadataVersion}
-            masonry
-            numColumns={2}
-            contentContainerStyle={[styles.listContent, { paddingHorizontal: isDarkMode ? -4 : 4 }]}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={!shouldDisableScroll}
-            ListEmptyComponent={() => <EmptyState isArchive={true} />}
-            contentInsetAdjustmentBehavior="automatic"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-              />
-            }
-          />
-        </View>
-      </ScrollView>
-
-      {/* Expanded Item View moved to TabLayout overlay */}
+        }
+      />
     </View>
   );
 });
