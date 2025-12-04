@@ -496,8 +496,8 @@ const AssistantChat = observer(() => {
             // When keyboard hidden: add 80px for bottom nav clearance
             // When keyboard shown: just use safe area (keyboard covers nav)
             paddingBottom: keyboardVisible
-              ? Math.max(insets.bottom, 10)
-              : Math.max(insets.bottom, 10) + 80,
+              ? Math.max(insets.bottom, 10) - 20
+              : Math.max(insets.bottom, 10) + 65,
           },
         ]}
       >
