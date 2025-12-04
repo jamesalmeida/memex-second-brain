@@ -475,6 +475,7 @@ const AssistantChat = observer(() => {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {messages.length === 0 ? (
           renderWelcome()
