@@ -18,6 +18,7 @@ import CreateSpaceSheet from '../../src/components/CreateSpaceSheet';
 import EditSpaceSheet, { EditSpaceSheetRef } from '../../src/components/EditSpaceSheet';
 import ReorderSpacesSheet, { ReorderSpacesSheetRef } from '../../src/components/ReorderSpacesSheet';
 import ChatSheet from '../../src/components/ChatSheet';
+import AttachmentSheet from '../../src/components/AttachmentSheet';
 import HomeScreen from './index';
 import SpacesScreen from './spacesGrid';
 import AssistantScreen from './assistant';
@@ -27,7 +28,9 @@ import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { useDrawer } from '../../src/contexts/DrawerContext';
 import { spacesComputed } from '../../src/stores/spaces';
+import { filterActions } from '../../src/stores/filter';
 import { useToast } from '../../src/contexts/ToastContext';
+import { SPECIAL_SPACES } from '../../src/constants';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -52,7 +55,7 @@ const TabLayout = observer(() => {
   const { shouldDisableScroll } = useRadialMenu();
 
   // Register settings handler and sync view with drawer context
-  const { registerSettingsHandler, registerAdminHandler, registerTagManagerHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, setCurrentView: setDrawerView } = useDrawer();
+  const { registerSettingsHandler, registerAdminHandler, registerTagManagerHandler, registerCreateSpaceHandler, registerEditSpaceHandler, registerReorderSpacesHandler, registerNavigateToSpaceHandler, registerNavigateToEverythingHandler, setCurrentView: setDrawerView } = useDrawer();
   // Register create space handler
   const handleCreateSpacePress = useCallback(() => {
     console.log('➕ [TabLayout] handleCreateSpacePress called');
@@ -91,6 +94,35 @@ const TabLayout = observer(() => {
     registerReorderSpacesHandler(handleReorderSpacesPress);
   }, [registerReorderSpacesHandler, handleReorderSpacesPress]);
 
+  // Register navigate to space handler (uses filter system)
+  const handleNavigateToSpace = useCallback((spaceId: string) => {
+    console.log('🧭 [TabLayout] handleNavigateToSpace called for space:', spaceId);
+    // Check if it's the Archive space
+    if (spaceId === SPECIAL_SPACES.ARCHIVE_ID) {
+      filterActions.setShowArchived(true);
+    } else {
+      filterActions.setSelectedSpace(spaceId);
+    }
+    // Make sure we're on the Everything tab
+    setCurrentView('everything');
+  }, []);
+
+  useEffect(() => {
+    registerNavigateToSpaceHandler(handleNavigateToSpace);
+  }, [registerNavigateToSpaceHandler, handleNavigateToSpace]);
+
+  // Register navigate to Everything handler (clears space filter)
+  const handleNavigateToEverything = useCallback(() => {
+    console.log('🧭 [TabLayout] handleNavigateToEverything called');
+    filterActions.clearSelectedSpace();
+    filterActions.setShowArchived(false);
+    setCurrentView('everything');
+  }, []);
+
+  useEffect(() => {
+    registerNavigateToEverythingHandler(handleNavigateToEverything);
+  }, [registerNavigateToEverythingHandler, handleNavigateToEverything]);
+
   // Sync currentView with drawer context for dynamic swipeEdgeWidth
   useEffect(() => {
     setDrawerView(currentView);
@@ -109,6 +141,7 @@ const TabLayout = observer(() => {
   const editSpaceSheetRef = useRef<EditSpaceSheetRef>(null);
   const reorderSpacesSheetRef = useRef<ReorderSpacesSheetRef>(null);
   const chatSheetRef = useRef<BottomSheet>(null);
+  const attachmentSheetRef = useRef<BottomSheet>(null);
   const expandedItemSheetRef = useRef<BottomSheet>(null);
 
   // Dismiss keyboard on mount
@@ -292,6 +325,11 @@ const TabLayout = observer(() => {
     }
   };
 
+  const handleAttachPress = () => {
+    console.log('📎 [TabLayout] handleAttachPress called');
+    attachmentSheetRef.current?.snapToIndex(0);
+  };
+
   const handleViewChange = (view: 'everything' | 'spaces') => {
     console.log('🏠🏠🏠 handleViewChange called - setting currentView to:');
     // Close any open sheets when switching views
@@ -413,6 +451,7 @@ const TabLayout = observer(() => {
         currentView={currentView}
         onViewChange={handleViewChange}
         onAddPress={handleAddPress}
+        onAttachPress={handleAttachPress}
         visible={!isExpandedItemOpen}
       />
 
@@ -555,6 +594,18 @@ const TabLayout = observer(() => {
         />
         <ReorderSpacesSheet
           ref={reorderSpacesSheetRef}
+        />
+        <AttachmentSheet
+          ref={attachmentSheetRef}
+          onPhotoSelected={(uri) => {
+            console.log('📎 [TabLayout] Photo selected:', uri);
+            // TODO: Handle photo attachment in chat
+            showToast({
+              message: 'Photo selected! Integration coming soon.',
+              type: 'success',
+              duration: 2000,
+            });
+          }}
         />
       </View>
 

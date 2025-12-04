@@ -3,9 +3,11 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { observer } from '@legendapp/state/react';
 import { Host, ContextMenu, Button, Submenu, Switch } from '@expo/ui/swift-ui';
 import { filterStore, filterActions, filterComputed } from '../stores/filter';
-import { CONTENT_TYPES } from '../constants';
+import { CONTENT_TYPES, SPECIAL_SPACES } from '../constants';
 import { ContentType } from '../types';
 import { itemsStore } from '../stores/items';
+import { spacesComputed } from '../stores/spaces';
+import { useDrawer } from '../contexts/DrawerContext';
 
 interface FilterContextMenuTriggerProps {
   children: ReactNode;
@@ -16,7 +18,11 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
   const sortOrder = filterStore.sortOrder.get();
   const selectedContentType = filterStore.selectedContentType.get();
   const selectedTags = filterStore.selectedTags.get();
+  const selectedSpaceId = filterStore.selectedSpaceId.get();
+  const showArchived = filterStore.showArchived.get();
   const allItems = itemsStore.items.get();
+  const spaces = spacesComputed.activeSpaces();
+  const { onReorderSpacesPress } = useDrawer();
 
   const contentTypeStats = useMemo(() => {
     const counts: Record<ContentType, number> = {} as Record<ContentType, number>;
@@ -66,6 +72,30 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
           <Button onPress={() => filterActions.clearAll()}>
             Reset
           </Button>
+
+          {/* Space Filter Submenu */}
+          <Submenu button={<Button>Space</Button>}>
+            <Button onPress={() => {
+              filterActions.setSelectedSpace(null);
+              filterActions.setShowArchived(false);
+            }}>
+              {!selectedSpaceId && !showArchived ? '✓ All Spaces' : 'All Spaces'}
+            </Button>
+            {spaces.map((space) => (
+              <Button
+                key={space.id}
+                onPress={() => filterActions.setSelectedSpace(space.id)}
+              >
+                {selectedSpaceId === space.id ? `✓ ${space.name}` : space.name}
+              </Button>
+            ))}
+            <Button onPress={() => filterActions.setShowArchived(true)}>
+              {showArchived ? '✓ Archive' : 'Archive'}
+            </Button>
+            <Button onPress={onReorderSpacesPress}>
+              Manage Spaces...
+            </Button>
+          </Submenu>
 
           <Button onPress={() => filterActions.setSortOrder('recent')}>
             {sortOrder === 'recent' ? '✓ Recently Added' : 'Recently Added'}

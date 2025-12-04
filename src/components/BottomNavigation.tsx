@@ -8,12 +8,13 @@ import { Host, ZStack, Image } from '@expo/ui/swift-ui';
 import { frame, glassEffect, onTapGesture } from '@expo/ui/swift-ui/modifiers';
 import { themeStore } from '../stores/theme';
 import { COLORS } from '../constants';
-import { FilterContextMenuTrigger } from './FilterContextMenuTrigger';
+import { useDrawer } from '../contexts/DrawerContext';
 
 interface BottomNavigationProps {
   currentView: 'everything' | 'spaces';
   onViewChange: (view: 'everything' | 'spaces') => void;
   onAddPress: () => void;
+  onAttachPress?: () => void;
   visible?: boolean;
 }
 
@@ -21,10 +22,12 @@ const BottomNavigation = observer(({
   currentView,
   onViewChange,
   onAddPress,
+  onAttachPress,
   visible = true,
 }: BottomNavigationProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
+  const { openDrawer } = useDrawer();
 
   // if (!visible) return null;
 
@@ -41,20 +44,21 @@ const BottomNavigation = observer(({
           { bottom: insets.bottom - 20 },
         ]}
       >
-        <FilterContextMenuTrigger hostStyle={{ width: 60, height: 60 }}>
+        <Host style={{ width: 60, height: 60 }}>
           <ZStack
             modifiers={[
               frame({ width: 60, height: 60 }),
-              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' })
+              glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
+              onTapGesture(openDrawer)
             ]}
           >
             <Image
-              systemName="line.3.horizontal.decrease"
+              systemName="line.3.horizontal"
               size={24}
               color={iconColor}
             />
           </ZStack>
-        </FilterContextMenuTrigger>
+        </Host>
       </View>
 
       {/* Native Tabs with Liquid Glass Effect */}
@@ -106,7 +110,8 @@ const BottomNavigation = observer(({
         </NativeTabs.Trigger>
       </NativeTabs>
 
-      {/* Add Item Button - Bottom Right */}
+      {/* Context-Specific Action Button - Bottom Right */}
+      {/* Everything tab: Add item (+), Chat tab: Attach (paperclip) */}
       <View
         style={[
           styles.glassButtonHost,
@@ -119,11 +124,11 @@ const BottomNavigation = observer(({
             modifiers={[
               frame({ width: 60, height: 60 }),
               glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'circle' }),
-              onTapGesture(onAddPress)
+              onTapGesture(currentView === 'everything' ? onAddPress : (onAttachPress || (() => {})))
             ]}
           >
             <Image
-              systemName="plus"
+              systemName={currentView === 'everything' ? 'plus' : 'paperclip'}
               size={24}
               color={iconColor}
             />
