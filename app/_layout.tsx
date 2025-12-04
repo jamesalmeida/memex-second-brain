@@ -89,7 +89,7 @@ const RootLayoutContent = observer(() => {
       drawerType="slide"
       drawerStyle={{
         backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-        width: SCREEN_WIDTH,
+        width: SCREEN_WIDTH * 0.9,
       }}
       overlayStyle={{
         backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
