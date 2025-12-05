@@ -76,8 +76,7 @@ const ChatSheet = observer(
     const [showManualSuggestions, setShowManualSuggestions] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
-    // const snapPoints = useMemo(() => ['90%'], []);
-    const snapPoints = ['90%'];
+    const snapPoints = useMemo(() => ['90%'], []);
     const selectedModel = aiSettingsComputed.selectedModel();
 
     // Reset input state when switching items/chats
