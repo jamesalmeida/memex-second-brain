@@ -95,7 +95,10 @@ const SimpleHeader = observer(({ onFilterPress }: SimpleHeaderProps) => {
   };
 
   const handleBlur = () => {
-    setIsSearching(false);
+    // Only exit search mode if the input is empty
+    if (localSearchText.length === 0) {
+      setIsSearching(false);
+    }
   };
 
   return (
