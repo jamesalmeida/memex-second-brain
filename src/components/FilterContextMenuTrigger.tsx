@@ -97,13 +97,6 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
             </Button>
           </Submenu>
 
-          <Button onPress={() => filterActions.setSortOrder('recent')}>
-            {sortOrder === 'recent' ? '✓ Recently Added' : 'Recently Added'}
-          </Button>
-          <Button onPress={() => filterActions.setSortOrder('oldest')}>
-            {sortOrder === 'oldest' ? '✓ Oldest First' : 'Oldest First'}
-          </Button>
-
           <Submenu button={<Button>Type</Button>}>
             {(Object.keys(CONTENT_TYPES) as ContentType[]).map((contentType) => {
               const isSelected = selectedContentType === contentType;
@@ -150,6 +143,13 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
               </Button>
             )}
           </Submenu>
+
+          <Button onPress={() => filterActions.setSortOrder('recent')}>
+            {sortOrder === 'recent' ? '✓ Recently Added' : 'Recently Added'}
+          </Button>
+          <Button onPress={() => filterActions.setSortOrder('oldest')}>
+            {sortOrder === 'oldest' ? '✓ Oldest First' : 'Oldest First'}
+          </Button>
         </ContextMenu.Items>
       </ContextMenu>
     </Host>
