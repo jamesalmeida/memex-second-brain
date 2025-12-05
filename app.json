@@ -20,7 +20,7 @@
       },
       "supportsTablet": true,
       "bundleIdentifier": "com.jamesalmeida.memex",
-      "buildNumber": "2025.12.03.2",
+      "buildNumber": "2025.12.05.1",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "This app needs local network access to connect to the Metro development server.",
         "ITSAppUsesNonExemptEncryption": false,
