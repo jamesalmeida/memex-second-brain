@@ -11,6 +11,7 @@ interface FilterState {
   selectedTags: string[];
   selectedSpaceId: string | null;
   showArchived: boolean;
+  searchQuery: string;
 }
 
 const initialState: FilterState = {
@@ -19,6 +20,7 @@ const initialState: FilterState = {
   selectedTags: [],
   selectedSpaceId: null,
   showArchived: false,
+  searchQuery: '',
 };
 
 export const filterStore = observable(initialState);
@@ -30,12 +32,14 @@ export const filterComputed = {
   selectedTags: () => filterStore.selectedTags.get(),
   selectedSpaceId: () => filterStore.selectedSpaceId.get(),
   showArchived: () => filterStore.showArchived.get(),
+  searchQuery: () => filterStore.searchQuery.get(),
   hasActiveFilters: () => {
     const type = filterStore.selectedContentType.get();
     const tags = filterStore.selectedTags.get();
     const spaceId = filterStore.selectedSpaceId.get();
     const archived = filterStore.showArchived.get();
-    return type !== null || tags.length > 0 || spaceId !== null || archived;
+    const query = filterStore.searchQuery.get();
+    return type !== null || tags.length > 0 || spaceId !== null || archived || query.length > 0;
   },
   /**
    * Filter items based on space only.
@@ -195,12 +199,24 @@ export const filterActions = {
     await filterActions.setShowArchived(!current);
   },
 
+  // Search query
+  setSearchQuery: (query: string) => {
+    filterStore.searchQuery.set(query);
+    // Don't persist search queries
+  },
+
+  clearSearchQuery: () => {
+    filterStore.searchQuery.set('');
+    // Don't persist search queries
+  },
+
   // Clear all filters
   clearAll: async () => {
     filterStore.selectedContentType.set(null);
     filterStore.selectedTags.set([]);
     filterStore.selectedSpaceId.set(null);
     filterStore.showArchived.set(false);
+    filterStore.searchQuery.set('');
     // Keep sort order
     await filterActions.persist();
   },

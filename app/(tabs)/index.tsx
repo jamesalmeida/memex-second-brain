@@ -38,6 +38,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const selectedTags = filterStore.selectedTags.get();
   const selectedSpaceId = filterStore.selectedSpaceId.get();
   const showArchived = filterStore.showArchived.get();
+  const searchQuery = filterStore.searchQuery.get();
   const [refreshing, setRefreshing] = useState(false);
   const listRef = useRef<FlashList<Item>>(null);
   const previousItemCount = useRef(allItems.length);
@@ -91,7 +92,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       return;
     }
     listRef.current?.scrollToOffset({ offset: -insets.top, animated: true });
-  }, [selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, insets.top]);
+  }, [selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, searchQuery, insets.top]);
 
   // Filter items based on all filter criteria
   const displayItems = useMemo(() => {
@@ -124,6 +125,26 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
       });
     }
 
+    // Apply search query filter
+    if (searchQuery && searchQuery.trim().length > 0) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(item => {
+        // Search in URL
+        if (item.url?.toLowerCase().includes(query)) return true;
+
+        // Search in title (if it exists)
+        if (item.title && item.title.toLowerCase().includes(query)) return true;
+
+        // Search in tags
+        if (item.tags?.some(tag => tag.toLowerCase().includes(query))) return true;
+
+        // Search in content type
+        if (item.content_type?.toLowerCase().includes(query)) return true;
+
+        return false;
+      });
+    }
+
     // Sort by created_at based on sortOrder
     return filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
@@ -135,7 +156,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived]);
+  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, searchQuery]);
 
   // Track metadata changes to force FlashList re-renders when images are added/removed
   const metadataVersion = itemTypeMetadataStore.typeMetadata.get().length;
