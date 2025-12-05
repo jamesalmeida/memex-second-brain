@@ -12,6 +12,7 @@ import {
   Pressable,
   Alert,
   Keyboard,
+  Share,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Host, ContextMenu, Button } from '@expo/ui/swift-ui';
@@ -19,6 +20,8 @@ import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -59,6 +62,7 @@ const AssistantChat = observer(() => {
 
   const [inputText, setInputText] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showManualSuggestions, setShowManualSuggestions] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -308,6 +312,153 @@ const AssistantChat = observer(() => {
     );
   };
 
+  const handleShareChat = async () => {
+    const currentConversation = assistantComputed.currentConversation();
+    if (!currentConversation || messages.length === 0) {
+      showToast({
+        message: 'No messages to share',
+        type: 'error',
+        duration: 2000,
+      });
+      return;
+    }
+
+    try {
+      // Format the conversation
+      let shareText = `Chat: ${currentConversation.title || 'New Chat'}\n`;
+      shareText += `Date: ${new Date().toLocaleDateString()}\n`;
+      shareText += `Model: ${selectedModel}\n`;
+      shareText += `\n${'='.repeat(50)}\n\n`;
+
+      messages.forEach((msg) => {
+        if (msg.role !== 'system') {
+          const timestamp = new Date(msg.created_at).toLocaleTimeString();
+          const sender = msg.role === 'user' ? 'You' : 'AI';
+          shareText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+        }
+      });
+
+      // Share text using iOS share sheet
+      const result = await Share.share({
+        message: shareText,
+      });
+
+      if (result.action === Share.sharedAction) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.error('Error sharing chat:', error);
+      showToast({
+        message: 'Failed to share chat',
+        type: 'error',
+        duration: 2000,
+      });
+    }
+  };
+
+  const handleExportChat = async () => {
+    const currentConversation = assistantComputed.currentConversation();
+    if (!currentConversation || messages.length === 0) {
+      showToast({
+        message: 'No messages to export',
+        type: 'error',
+        duration: 2000,
+      });
+      return;
+    }
+
+    try {
+      // Format the conversation
+      let exportText = `Chat: ${currentConversation.title || 'New Chat'}\n`;
+      exportText += `Date: ${new Date().toLocaleDateString()}\n`;
+      exportText += `Model: ${selectedModel}\n`;
+      exportText += `\n${'='.repeat(50)}\n\n`;
+
+      messages.forEach((msg) => {
+        if (msg.role !== 'system') {
+          const timestamp = new Date(msg.created_at).toLocaleTimeString();
+          const sender = msg.role === 'user' ? 'You' : 'AI';
+          exportText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+        }
+      });
+
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        // Fallback to copying to clipboard
+        await Clipboard.setStringAsync(exportText);
+        showToast({
+          message: 'Sharing not available. Copied to clipboard instead.',
+          type: 'success',
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Create a temporary file and share it
+      const file = new File(Paths.document, 'assistant-chat-export.txt');
+      if (file.exists) {
+        file.delete();
+      }
+      file.create();
+      file.write(exportText);
+      await Sharing.shareAsync(file.uri);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Error exporting chat:', error);
+      showToast({
+        message: 'Failed to export chat',
+        type: 'error',
+        duration: 2000,
+      });
+    }
+  };
+
+  const handleCopyToClipboard = async () => {
+    const currentConversation = assistantComputed.currentConversation();
+    if (!currentConversation || messages.length === 0) {
+      showToast({
+        message: 'No messages to copy',
+        type: 'error',
+        duration: 2000,
+      });
+      return;
+    }
+
+    try {
+      // Format the conversation
+      let copyText = `Chat: ${currentConversation.title || 'New Chat'}\n`;
+      copyText += `Date: ${new Date().toLocaleDateString()}\n`;
+      copyText += `Model: ${selectedModel}\n`;
+      copyText += `\n${'='.repeat(50)}\n\n`;
+
+      messages.forEach((msg) => {
+        if (msg.role !== 'system') {
+          const timestamp = new Date(msg.created_at).toLocaleTimeString();
+          const sender = msg.role === 'user' ? 'You' : 'AI';
+          copyText += `[${timestamp}] ${sender}:\n${msg.content}\n\n`;
+        }
+      });
+
+      // Copy to clipboard
+      await Clipboard.setStringAsync(copyText);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast({
+        message: 'Chat copied to clipboard',
+        type: 'success',
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Error copying chat:', error);
+      showToast({
+        message: 'Failed to copy chat',
+        type: 'error',
+        duration: 2000,
+      });
+    }
+  };
+
   const handleRenameChat = () => {
     const currentConversation = assistantComputed.currentConversation();
     if (!currentConversation) return;
@@ -376,37 +527,43 @@ const AssistantChat = observer(() => {
     );
   };
 
-  const renderWelcome = () => (
-    <View style={styles.welcomeContainer}>
-      <Text style={[styles.welcomeTitle, isDarkMode && styles.welcomeTitleDark]}>
-        Memex Assistant
-      </Text>
-      <Text style={[styles.welcomeSubtitle, isDarkMode && styles.welcomeSubtitleDark]}>
-        Your personal AI assistant for knowledge management
-      </Text>
-      <View style={styles.suggestionContainer}>
-        {[
-          'What have I saved recently?',
-          'Remember that I prefer dark mode',
-          'Search my bookmarks for AI articles',
-          '/architect Show me memory stats',
-        ].map((suggestion, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[styles.suggestionPill, isDarkMode && styles.suggestionPillDark]}
-            onPress={() => {
-              setInputText(suggestion);
-              inputRef.current?.focus();
-            }}
-          >
-            <Text style={[styles.suggestionText, isDarkMode && styles.suggestionTextDark]}>
-              {suggestion}
-            </Text>
-          </TouchableOpacity>
-        ))}
+  const renderWelcome = () => {
+    const suggestions = [
+      'What have I saved recently?',
+      'Help me organize my saved items',
+      'What features can you help me with?',
+      '/architect Show me memory stats',
+      'Search my bookmarks for AI articles',
+      'Suggest items I should review',
+    ];
+
+    return (
+      <View style={styles.welcomeContainer}>
+        <Text style={[styles.welcomeTitle, isDarkMode && styles.welcomeTitleDark]}>
+          Memex Assistant
+        </Text>
+        <Text style={[styles.welcomeSubtitle, isDarkMode && styles.welcomeSubtitleDark]}>
+          Your personal AI assistant for knowledge management
+        </Text>
+        <View style={styles.suggestionContainer}>
+          {suggestions.map((suggestion, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.suggestionPill, isDarkMode && styles.suggestionPillDark]}
+              onPress={() => {
+                setInputText(suggestion);
+                inputRef.current?.focus();
+              }}
+            >
+              <Text style={[styles.suggestionText, isDarkMode && styles.suggestionTextDark]}>
+                {suggestion}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -452,6 +609,18 @@ const AssistantChat = observer(() => {
                   </TouchableOpacity>
                 </ContextMenu.Trigger>
                 <ContextMenu.Items>
+                  <Button onPress={() => setShowManualSuggestions(!showManualSuggestions)}>
+                    {showManualSuggestions ? 'Hide Suggestions' : 'Show Suggestions'}
+                  </Button>
+                  <Button onPress={handleShareChat}>
+                    Share Chat
+                  </Button>
+                  <Button onPress={handleExportChat}>
+                    Export Chat
+                  </Button>
+                  <Button onPress={handleCopyToClipboard}>
+                    Copy to Clipboard
+                  </Button>
                   <Button onPress={handleRenameChat}>
                     Rename Chat
                   </Button>
@@ -502,6 +671,45 @@ const AssistantChat = observer(() => {
           },
         ]}
       >
+        {/* Suggestion Pills */}
+        {showManualSuggestions && !isSending && messages.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pillsContainer}
+            style={styles.pillsScrollView}
+          >
+            {[
+              'What have I saved recently?',
+              'Help me organize my saved items',
+              'What features can you help me with?',
+              '/architect Show me memory stats',
+              'Search my bookmarks for AI articles',
+              'Suggest items I should review',
+            ].map((suggestion, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.suggestionPillSmall,
+                  isDarkMode && styles.suggestionPillSmallDark,
+                ]}
+                onPress={() => {
+                  setInputText(suggestion);
+                  inputRef.current?.focus();
+                }}
+                disabled={isSending}
+              >
+                <Text style={[
+                  styles.suggestionPillTextSmall,
+                  isDarkMode && styles.suggestionPillTextSmallDark,
+                ]}>
+                  {suggestion}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         <View style={styles.inputRow}>
           <TextInput
             ref={inputRef}
@@ -828,6 +1036,34 @@ const styles = StyleSheet.create({
   inputContainerDark: {
     backgroundColor: '#1C1C1E',
     borderTopColor: '#38383A',
+  },
+  pillsScrollView: {
+    marginBottom: 12,
+  },
+  pillsContainer: {
+    paddingRight: 16,
+    gap: 8,
+  },
+  suggestionPillSmall: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E7',
+  },
+  suggestionPillSmallDark: {
+    backgroundColor: '#2C2C2E',
+    borderColor: '#38383A',
+  },
+  suggestionPillTextSmall: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  suggestionPillTextSmallDark: {
+    color: COLORS.primary,
   },
   inputRow: {
     flexDirection: 'row',
