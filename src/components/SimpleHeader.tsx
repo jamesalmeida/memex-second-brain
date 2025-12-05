@@ -64,11 +64,11 @@ const SimpleHeader = observer(({ onFilterPress }: SimpleHeaderProps) => {
 
   useEffect(() => {
     Animated.timing(clearButtonOpacity, {
-      toValue: localSearchText.length > 0 && isSearching ? 1 : 0,
+      toValue: isSearching ? 1 : 0,
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }, [localSearchText, isSearching]);
+  }, [isSearching]);
 
   const handleTitlePress = () => {
     setIsSearching(true);
