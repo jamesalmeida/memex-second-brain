@@ -190,10 +190,14 @@ const TagsManagerModal = observer(({
     const lower = trimmed.toLowerCase();
     if (normalizedSelectedKeys.includes(lower)) {
       setQuery('');
+      // Refocus the input to keep keyboard visible
+      setTimeout(() => inputRef.current?.focus(), 50);
       return;
     }
     setSelectedTags(prev => [...prev, trimmed]);
     setQuery('');
+    // Refocus the input to keep keyboard visible after adding tag
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
