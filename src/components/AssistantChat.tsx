@@ -100,11 +100,8 @@ const AssistantChat = observer(() => {
     }
   }, [messages.length]);
 
-  const handleSend = async () => {
-    if (!inputText.trim() || isSending) return;
-
-    const rawMessage = inputText.trim();
-    setInputText('');
+  const sendMessage = async (messageText: string) => {
+    const rawMessage = messageText.trim();
     assistantActions.setSending(true);
 
     // Check if this is an architect command
@@ -282,6 +279,18 @@ const AssistantChat = observer(() => {
     } finally {
       assistantActions.setSending(false);
     }
+  };
+
+  const handleSend = async () => {
+    if (!inputText.trim() || isSending) return;
+    setInputText('');
+    await sendMessage(inputText.trim());
+  };
+
+  const handleSuggestionPress = async (suggestion: string) => {
+    if (isSending) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await sendMessage(suggestion);
   };
 
   const handleNewChat = () => {
@@ -550,10 +559,8 @@ const AssistantChat = observer(() => {
             <TouchableOpacity
               key={index}
               style={[styles.suggestionPill, isDarkMode && styles.suggestionPillDark]}
-              onPress={() => {
-                setInputText(suggestion);
-                inputRef.current?.focus();
-              }}
+              onPress={() => handleSuggestionPress(suggestion)}
+              disabled={isSending}
             >
               <Text style={[styles.suggestionText, isDarkMode && styles.suggestionTextDark]}>
                 {suggestion}
@@ -693,10 +700,7 @@ const AssistantChat = observer(() => {
                   styles.suggestionPillSmall,
                   isDarkMode && styles.suggestionPillSmallDark,
                 ]}
-                onPress={() => {
-                  setInputText(suggestion);
-                  inputRef.current?.focus();
-                }}
+                onPress={() => handleSuggestionPress(suggestion)}
                 disabled={isSending}
               >
                 <Text style={[
