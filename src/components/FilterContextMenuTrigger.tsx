@@ -24,11 +24,25 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
   const spaces = spacesComputed.activeSpaces();
   const { onReorderSpacesPress } = useDrawer();
 
-  const contentTypeStats = useMemo(() => {
-    const counts: Record<ContentType, number> = {} as Record<ContentType, number>;
+  const spaceStats = useMemo(() => {
+    const counts: Record<string, number> = {};
     const activeItems = allItems.filter(item => !item.is_deleted && !item.is_archived);
 
     activeItems.forEach(item => {
+      if (item.space_id) {
+        counts[item.space_id] = (counts[item.space_id] || 0) + 1;
+      }
+    });
+
+    return counts;
+  }, [allItems]);
+
+  const contentTypeStats = useMemo(() => {
+    const counts: Record<ContentType, number> = {} as Record<ContentType, number>;
+    // Filter by space if a space is selected
+    const filteredItems = filterComputed.getItemsFilteredBySpace(allItems);
+
+    filteredItems.forEach(item => {
       if (item.content_type) {
         // Combine podcast and podcast_episode counts under 'podcast'
         if (item.content_type === 'podcast_episode') {
@@ -40,11 +54,11 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
     });
 
     return counts;
-  }, [allItems]);
+  }, [allItems, selectedSpaceId]);
 
   const tagStats = useMemo(() => {
-    // Only show tags from items matching the current content type filter
-    const filteredItems = filterComputed.getItemsFilteredByContentType(allItems);
+    // Only show tags from items matching the current space AND content type filters
+    const filteredItems = filterComputed.getItemsFilteredBySpaceAndContentType(allItems);
 
     const counts: Record<string, number> = {};
     filteredItems.forEach(item => {
@@ -59,7 +73,7 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
     return Object.entries(counts)
       .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .reverse();
-  }, [allItems, selectedContentType]);
+  }, [allItems, selectedContentType, selectedSpaceId]);
 
   return (
     <Host style={hostStyle}>
@@ -81,14 +95,18 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
             }}>
               {!selectedSpaceId && !showArchived ? '✓ All Spaces' : 'All Spaces'}
             </Button>
-            {spaces.map((space) => (
-              <Button
-                key={space.id}
-                onPress={() => filterActions.setSelectedSpace(space.id)}
-              >
-                {selectedSpaceId === space.id ? `✓ ${space.name}` : space.name}
-              </Button>
-            ))}
+            {spaces.map((space) => {
+              const count = spaceStats[space.id] || 0;
+              const label = count > 0 ? `${space.name} (${count})` : space.name;
+              return (
+                <Button
+                  key={space.id}
+                  onPress={() => filterActions.setSelectedSpace(space.id)}
+                >
+                  {selectedSpaceId === space.id ? `✓ ${label}` : label}
+                </Button>
+              );
+            })}
             <Button onPress={() => filterActions.setShowArchived(true)}>
               {showArchived ? '✓ Archive' : 'Archive'}
             </Button>
