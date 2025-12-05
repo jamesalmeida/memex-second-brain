@@ -171,8 +171,8 @@ const TabLayout = observer(() => {
       console.log('🔔 [TabLayout] chatSheetRef.current exists?', !!chatSheetRef.current);
       if (value) {
         console.log('🔔 [TabLayout] Calling expand()...');
-        // Use snapToIndex for more reliable opening
-        chatSheetRef.current?.snapToIndex(0);
+        // Use expand() to ensure sheet opens to full configured height
+        chatSheetRef.current?.expand();
       } else {
         console.log('🔔 [TabLayout] Calling close()...');
         chatSheetRef.current?.close();
@@ -182,7 +182,7 @@ const TabLayout = observer(() => {
     // Initialize if already open
     if (chatUIStore.isOpen.get()) {
       console.log('🔔 [TabLayout] Chat already open on mount, expanding...');
-      chatSheetRef.current?.snapToIndex(0);
+      chatSheetRef.current?.expand();
     }
 
     return unsubscribe;
