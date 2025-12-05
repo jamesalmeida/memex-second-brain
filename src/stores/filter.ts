@@ -38,8 +38,55 @@ export const filterComputed = {
     return type !== null || tags.length > 0 || spaceId !== null || archived;
   },
   /**
+   * Filter items based on space only.
+   * This is useful for showing only relevant types and tags in the filter UI.
+   */
+  getItemsFilteredBySpace: (items: Item[]) => {
+    const selectedSpaceId = filterStore.selectedSpaceId.get();
+
+    // Filter out deleted and archived items
+    let filtered = items.filter(item => !item.is_deleted && !item.is_archived);
+
+    // Apply space filter if active
+    if (selectedSpaceId !== null) {
+      filtered = filtered.filter(item => item.space_id === selectedSpaceId);
+    }
+
+    return filtered;
+  },
+  /**
+   * Filter items based on space and content type (not tags).
+   * This is useful for showing only relevant tags in the filter UI.
+   */
+  getItemsFilteredBySpaceAndContentType: (items: Item[]) => {
+    const selectedContentType = filterStore.selectedContentType.get();
+    const selectedSpaceId = filterStore.selectedSpaceId.get();
+
+    // Filter out deleted and archived items
+    let filtered = items.filter(item => !item.is_deleted && !item.is_archived);
+
+    // Apply space filter if active
+    if (selectedSpaceId !== null) {
+      filtered = filtered.filter(item => item.space_id === selectedSpaceId);
+    }
+
+    // Apply content type filter if active
+    if (selectedContentType !== null) {
+      filtered = filtered.filter(item => {
+        // Treat 'podcast' and 'podcast_episode' as equivalent
+        if (selectedContentType === 'podcast') {
+          return item.content_type === 'podcast' || item.content_type === 'podcast_episode';
+        }
+        return item.content_type === selectedContentType;
+      });
+    }
+
+    return filtered;
+  },
+  /**
    * Filter items based on content type only (not tags).
    * This is useful for showing only relevant tags in the filter UI.
+   * @deprecated Use getItemsFilteredBySpaceAndContentType instead for proper cascading filters
    */
   getItemsFilteredByContentType: (items: Item[]) => {
     const selectedContentType = filterStore.selectedContentType.get();
