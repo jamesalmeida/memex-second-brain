@@ -116,20 +116,25 @@ const FilterContextMenuTriggerComponent = ({ children, hostStyle }: FilterContex
           </Submenu>
 
           <Submenu button={<Button>Type</Button>}>
-            {(Object.keys(CONTENT_TYPES) as ContentType[]).map((contentType) => {
-              const isSelected = selectedContentType === contentType;
-              const config = CONTENT_TYPES[contentType];
-              const count = contentTypeStats[contentType] || 0;
-              const label = count > 0 ? `${config.label} (${count})` : config.label;
-              return (
-                <Button
-                  key={contentType}
-                  onPress={() => filterActions.selectContentType(contentType)}
-                >
-                  {isSelected ? `✓ ${label}` : label}
-                </Button>
-              );
-            })}
+            {(Object.keys(CONTENT_TYPES) as ContentType[])
+              .filter((contentType) => {
+                const count = contentTypeStats[contentType] || 0;
+                return count > 0;
+              })
+              .map((contentType) => {
+                const isSelected = selectedContentType === contentType;
+                const config = CONTENT_TYPES[contentType];
+                const count = contentTypeStats[contentType] || 0;
+                const label = count > 0 ? `${config.label} (${count})` : config.label;
+                return (
+                  <Button
+                    key={contentType}
+                    onPress={() => filterActions.selectContentType(contentType)}
+                  >
+                    {isSelected ? `✓ ${label}` : label}
+                  </Button>
+                );
+              })}
             {selectedContentType !== null && (
               <Button onPress={() => filterActions.clearContentType()}>
                 Clear
