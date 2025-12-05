@@ -53,6 +53,7 @@ const DrawerContentInner = observer(() => {
               name="grid-view"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
+              style={styles.menuIcon}
             />
             <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
               Everything
@@ -60,7 +61,7 @@ const DrawerContentInner = observer(() => {
           </TouchableOpacity>
 
           {/* Spaces with New Space button */}
-          <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+          <View style={styles.sectionHeader}>
             <TouchableOpacity
               style={styles.spacesButton}
               onPress={() => setIsSpacesModalVisible(true)}
@@ -69,6 +70,7 @@ const DrawerContentInner = observer(() => {
                 name="box"
                 size={24}
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
+                style={styles.menuIcon}
               />
               <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
                 Spaces
@@ -82,6 +84,7 @@ const DrawerContentInner = observer(() => {
                 name="add"
                 size={16}
                 color="#FFFFFF"
+                style={styles.menuIcon}
               />
               <Text style={[styles.addButtonText, isDarkMode && styles.addButtonTextDark]}>
                 New Space
@@ -98,6 +101,7 @@ const DrawerContentInner = observer(() => {
               name="label"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
+              style={styles.menuIcon}
             />
             <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
               Manage Tags
@@ -113,6 +117,7 @@ const DrawerContentInner = observer(() => {
               name="touch-app"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
+              style={styles.menuIcon}
             />
             <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
               Action Button
@@ -128,6 +133,7 @@ const DrawerContentInner = observer(() => {
               name="settings"
               size={24}
               color={isDarkMode ? '#FFFFFF' : '#000000'}
+              style={styles.menuIcon}
             />
             <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
               Settings
@@ -144,6 +150,7 @@ const DrawerContentInner = observer(() => {
                 name="build"
                 size={24}
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
+                style={styles.menuIcon}
               />
               <Text style={[styles.menuText, isDarkMode && styles.menuTextDark]}>
                 Admin
@@ -193,6 +200,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+    paddingTop: 14,
   },
   section: {
     marginBottom: 12,
@@ -202,6 +210,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     marginRight: 5,
+    marginBottom: 10,
+    marginTop: 10,
   },
   spacesButton: {
     flexDirection: 'row',
@@ -213,7 +223,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    marginLeft: 'auto',
+    marginLeft: 12,
     backgroundColor: COLORS.primary,
     gap: 4,
   },
@@ -234,13 +244,18 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingHorizontal: 0,
     borderRadius: 8,
+    marginBottom: 10,
+  },
+  menuIcon: {
+    // backgroundColor: 'blue',
   },
   menuText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 19,
+    fontWeight: '700',
     color: '#000000',
     marginLeft: 10,
     textTransform: 'uppercase',
+    // backgroundColor: 'red',
   },
   menuTextDark: {
     color: '#FFFFFF',
