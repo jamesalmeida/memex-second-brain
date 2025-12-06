@@ -745,10 +745,12 @@ You have access to the following tools:
    - Specific content they might have stored
    - Questions that might be answered by their saved content
 
-   IMPORTANT: When you call search_items, the items will automatically be displayed as interactive cards in the chat. In your response:
+   IMPORTANT: When you call search_items, ALL returned items will be displayed as interactive cards in the chat. In your response:
    - Simply introduce the items naturally (e.g., "Here are some items you saved recently:")
    - Do NOT list out the items in your text response - they will appear as cards
    - The user can tap on these cards to view the full item details
+   - ONLY request the number of items (via limit parameter) that you want to show - all results will be displayed as cards
+   - If you only want to highlight 3 relevant items, set limit to 3, not 5
 
 2. **create_memory**: Save important information about the user for future conversations. Use this when:
    - The user explicitly says "remember that..." or "you should know..."

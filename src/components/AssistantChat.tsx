@@ -797,12 +797,6 @@ const MessageBubble = observer(({ message, isUser, isDarkMode, time, onCopy, onI
   const scale = useSharedValue(1);
   const items = (message.metadata as any)?.items as Item[] | undefined;
 
-  // Debug logging
-  if (!isUser && message.metadata) {
-    console.log('[MessageBubble] Message metadata:', JSON.stringify(message.metadata).substring(0, 200));
-    console.log('[MessageBubble] Items count:', items?.length || 0);
-  }
-
   const handleLongPress = () => {
     scale.value = withSequence(
       withTiming(1.05, { duration: 100 }),
