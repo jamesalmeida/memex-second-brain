@@ -51,6 +51,9 @@ import {
 } from '../services/assistantTools';
 import { useToast } from '../contexts/ToastContext';
 import { COLORS } from '../constants';
+import { Item } from '../types';
+import ItemCard from './items/ItemCard';
+import { expandedItemUIActions } from '../stores/expandedItemUI';
 
 // Maximum number of tool call rounds to prevent infinite loops
 const MAX_TOOL_ROUNDS = 5;
@@ -150,6 +153,7 @@ const AssistantChat = observer(() => {
       let finalResponse: string | null = null;
       let finalModel: string | null = null;
       let finalTokens: { prompt: number; completion: number; total: number } | null = null;
+      let itemsToDisplay: any[] = [];
 
       // Agentic loop - continue until we get a non-tool response or hit max rounds
       while (toolRounds < MAX_TOOL_ROUNDS) {
@@ -194,6 +198,19 @@ const AssistantChat = observer(() => {
 
               const result = await executeTool(toolCall.function.name, args);
               console.log(`[AssistantChat] Tool result:`, result.substring(0, 200));
+
+              // Check if this is a search_items result with items to display
+              if (toolCall.function.name === 'search_items') {
+                try {
+                  const parsedResult = JSON.parse(result);
+                  if (parsedResult.items && parsedResult.items.length > 0 && parsedResult.display_as_cards) {
+                    itemsToDisplay = parsedResult.items;
+                    console.log('[AssistantChat] Found items to display as cards:', itemsToDisplay.length);
+                  }
+                } catch (parseError) {
+                  console.error('[AssistantChat] Error parsing tool result:', parseError);
+                }
+              }
 
               // Add tool result to messages
               apiMessages.push({
@@ -246,13 +263,14 @@ const AssistantChat = observer(() => {
       }
 
       if (finalResponse) {
-        // Add assistant response
+        // Add assistant response with items metadata if available
         await assistantActions.addMessage({
           role: 'assistant',
           content: finalResponse,
           metadata: {
             model: finalModel || selectedModel,
             tokens: finalTokens || undefined,
+            items: itemsToDisplay.length > 0 ? itemsToDisplay : undefined,
           },
         });
 
@@ -513,6 +531,11 @@ const AssistantChat = observer(() => {
     }
   };
 
+  const handleItemPress = (item: Item) => {
+    console.log('[AssistantChat] Item pressed:', item.id);
+    expandedItemUIActions.openExpandedItem(item);
+  };
+
   const renderMessage = (message: AssistantMessage, index: number) => {
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
@@ -532,6 +555,7 @@ const AssistantChat = observer(() => {
         isDarkMode={isDarkMode}
         time={time}
         onCopy={handleCopyMessage}
+        onItemPress={handleItemPress}
       />
     );
   };
@@ -754,10 +778,12 @@ interface MessageBubbleProps {
   isDarkMode: boolean;
   time: string;
   onCopy: (content: string) => void;
+  onItemPress?: (item: Item) => void;
 }
 
-const MessageBubble = observer(({ message, isUser, isDarkMode, time, onCopy }: MessageBubbleProps) => {
+const MessageBubble = observer(({ message, isUser, isDarkMode, time, onCopy, onItemPress }: MessageBubbleProps) => {
   const scale = useSharedValue(1);
+  const items = (message.metadata as any)?.items as Item[] | undefined;
 
   const handleLongPress = () => {
     scale.value = withSequence(
@@ -799,6 +825,24 @@ const MessageBubble = observer(({ message, isUser, isDarkMode, time, onCopy }: M
           </Text>
         </Animated.View>
       </Pressable>
+
+      {/* Render item cards if available */}
+      {items && items.length > 0 && (
+        <View style={styles.itemCardsContainer}>
+          {items.map((item: Item) => (
+            <View key={item.id} style={styles.itemCardWrapper}>
+              <ItemCard
+                item={item}
+                onPress={(item) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onItemPress?.(item);
+                }}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
       <Text style={[styles.messageTime, isDarkMode && styles.messageTimeDark]}>
         {message.metadata?.model && !isUser && `${message.metadata.model} • `}
         {time}
@@ -1007,6 +1051,14 @@ const styles = StyleSheet.create({
   },
   messageTimeDark: {
     color: '#666666',
+  },
+  itemCardsContainer: {
+    marginTop: 8,
+    gap: 8,
+    width: '100%',
+  },
+  itemCardWrapper: {
+    width: '100%',
   },
   typingContainer: {
     alignItems: 'flex-start',

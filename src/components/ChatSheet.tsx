@@ -48,6 +48,8 @@ import { useToast } from '../contexts/ToastContext';
 import { Item, ItemChat, ChatMessage, VideoTranscript } from '../types';
 import { COLORS } from '../constants';
 import uuid from 'react-native-uuid';
+import ItemCard from './items/ItemCard';
+import { expandedItemUIActions } from '../stores/expandedItemUI';
 
 interface ChatSheetProps {
   onOpen?: () => void;
@@ -849,6 +851,11 @@ const ChatSheet = observer(
       return <TypingIndicator isDarkMode={isDarkMode} />;
     };
 
+    const handleItemPress = (item: Item) => {
+      console.log('[ChatSheet] Item pressed:', item.id);
+      expandedItemUIActions.openExpandedItem(item);
+    };
+
     const renderMessage = (message: ChatMessage, index: number) => {
       const isUser = message.role === 'user';
       const isSystem = message.role === 'system';
@@ -871,6 +878,7 @@ const ChatSheet = observer(
           time={time}
           modelName={modelName}
           onCopy={handleCopyMessage}
+          onItemPress={handleItemPress}
         />
       );
     };
@@ -1059,10 +1067,12 @@ interface MessageBubbleProps {
   time: string;
   modelName?: string;
   onCopy: (content: string) => void;
+  onItemPress?: (item: Item) => void;
 }
 
-const MessageBubble = observer(({ message, isUser, isDarkMode, time, modelName, onCopy }: MessageBubbleProps) => {
+const MessageBubble = observer(({ message, isUser, isDarkMode, time, modelName, onCopy, onItemPress }: MessageBubbleProps) => {
   const scale = useSharedValue(1);
+  const items = (message.metadata as any)?.items as Item[] | undefined;
 
   const handleLongPress = () => {
     // Animate scale: grow to 1.05, then back to 1.0
@@ -1105,6 +1115,24 @@ const MessageBubble = observer(({ message, isUser, isDarkMode, time, modelName, 
           </Text>
         </Animated.View>
       </Pressable>
+
+      {/* Render item cards if available */}
+      {items && items.length > 0 && (
+        <View style={styles.itemCardsContainer}>
+          {items.map((item: Item) => (
+            <View key={item.id} style={styles.itemCardWrapper}>
+              <ItemCard
+                item={item}
+                onPress={(item) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onItemPress?.(item);
+                }}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
       <Text style={[styles.messageTime, isDarkMode && styles.messageTimeDark]}>
         {modelName && !isUser && `${modelName} • `}
         {time}
@@ -1333,6 +1361,14 @@ const styles = StyleSheet.create({
   },
   messageTimeDark: {
     color: '#666666',
+  },
+  itemCardsContainer: {
+    marginTop: 8,
+    gap: 8,
+    width: '100%',
+  },
+  itemCardWrapper: {
+    width: '100%',
   },
   typingContainer: {
     alignItems: 'flex-start',

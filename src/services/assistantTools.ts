@@ -16,7 +16,7 @@ export const ASSISTANT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'search_items',
-      description: "Search the user's saved items in Memex by title, description, content, or tags. Use this when the user asks about things they've saved.",
+      description: "Search the user's saved items in Memex by title, description, content, or tags. Returns item data that can be displayed as interactive cards. Use this when the user asks about things they've saved.",
       parameters: {
         type: 'object',
         properties: {
@@ -27,6 +27,10 @@ export const ASSISTANT_TOOLS = [
           limit: {
             type: 'number',
             description: 'Maximum number of results to return (default: 5, max: 10)',
+          },
+          display_as_cards: {
+            type: 'boolean',
+            description: 'If true, the items will be displayed as interactive cards in the chat (default: true)',
           },
         },
         required: ['query'],
@@ -228,7 +232,7 @@ export const ARCHITECT_TOOLS = [
 // Tool execution handlers
 export const toolHandlers = {
   // Search user's saved items
-  search_items: async (args: { query: string; limit?: number }): Promise<string> => {
+  search_items: async (args: { query: string; limit?: number; display_as_cards?: boolean }): Promise<string> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -236,6 +240,7 @@ export const toolHandlers = {
       }
 
       const limit = Math.min(args.limit || 5, 10);
+      const displayAsCards = args.display_as_cards !== false; // Default to true
       const { data, error } = await db.searchItems(user.id, args.query, limit, 0);
 
       if (error) {
@@ -246,25 +251,19 @@ export const toolHandlers = {
       if (!data || data.length === 0) {
         return JSON.stringify({
           message: 'No items found matching the query',
-          items: []
+          items: [],
+          display_as_cards: false,
         });
       }
 
-      // Format items for the assistant
-      const formattedItems = data.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        url: item.url,
-        content_type: item.content_type,
-        description: item.desc?.substring(0, 200),
-        tags: item.tags,
-        created_at: item.created_at,
-      }));
+      // Return full item data for card display
+      const result = {
+        message: `Found ${data.length} item(s)`,
+        items: data,
+        display_as_cards: displayAsCards,
+      };
 
-      return JSON.stringify({
-        message: `Found ${formattedItems.length} item(s)`,
-        items: formattedItems,
-      });
+      return JSON.stringify(result);
     } catch (error) {
       console.error('[AssistantTools] Error in search_items:', error);
       return JSON.stringify({ error: 'An error occurred while searching items' });
@@ -735,6 +734,11 @@ You have access to the following tools:
    - Specific content they might have stored
    - Questions that might be answered by their saved content
 
+   IMPORTANT: When you call search_items, the items will automatically be displayed as interactive cards in the chat. In your response:
+   - Simply introduce the items naturally (e.g., "Here are some items you saved recently:")
+   - Do NOT list out the items in your text response - they will appear as cards
+   - The user can tap on these cards to view the full item details
+
 2. **create_memory**: Save important information about the user for future conversations. Use this when:
    - The user explicitly says "remember that..." or "you should know..."
    - The user shares significant preferences (e.g., "I prefer X over Y")
@@ -748,7 +752,7 @@ You have access to the following tools:
 
 Guidelines:
 - Be helpful, concise, and conversational
-- When searching items, summarize what you found in a natural way
+- When searching items, introduce them with a brief sentence, then let the cards display
 - When creating memories, confirm what you're remembering
 - Don't create duplicate memories about the same thing
 - If you don't find relevant items or memories, say so honestly
