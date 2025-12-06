@@ -56,8 +56,8 @@ const ItemTagsSheet = observer(
     const listTranslate = useSharedValue(-8);
     const caretValue = useSharedValue(1);
 
-    // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ['85%'], []);
+    // Snap points for the bottom sheet - same as ChatSheet for consistent height
+    const snapPoints = useMemo(() => ['90%'], []);
 
     // Render backdrop
     const renderBackdrop = useCallback(
@@ -353,6 +353,8 @@ const ItemTagsSheet = observer(
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         topInset={50}
+        keyboardBehavior="extend"
+        android_keyboardInputMode="adjustResize"
         backgroundStyle={[
           styles.sheetBackground,
           isDarkMode && styles.sheetBackgroundDark,
@@ -361,9 +363,6 @@ const ItemTagsSheet = observer(
           styles.handleIndicator,
           isDarkMode && styles.handleIndicatorDark,
         ]}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
         onChange={async (index) => {
           if (index === -1) {
             // Sheet is closing - save changes
