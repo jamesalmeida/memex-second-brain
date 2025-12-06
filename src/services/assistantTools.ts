@@ -256,11 +256,22 @@ export const toolHandlers = {
         });
       }
 
-      // Return full item data for card display
+      // For display: Store full items in a special marker that AssistantChat can extract
+      // For API: Return only minimal summary data to avoid token bloat
+      const minimalItems = data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        content_type: item.content_type,
+        created_at: item.created_at,
+      }));
+
       const result = {
         message: `Found ${data.length} item(s)`,
-        items: data,
+        items: minimalItems,
         display_as_cards: displayAsCards,
+        // Special marker for AssistantChat to extract full items
+        __full_items__: data,
       };
 
       return JSON.stringify(result);

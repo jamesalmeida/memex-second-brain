@@ -95,6 +95,8 @@ export interface ToolCall {
 export interface ToolCompletionResult extends ChatCompletion {
   tool_calls?: ToolCall[];
   finish_reason?: string;
+  wasAutoSwitched?: boolean;
+  autoSwitchReason?: string;
 }
 
 // OpenAI API helpers
@@ -383,8 +385,22 @@ export const openai = {
     }
 
     try {
+      // Estimate token count and auto-switch model if needed
+      const tokenEstimate = estimateMessageTokens(messages);
+      console.log(`📊 [Tools] Estimated context size: ${tokenEstimate.estimatedTokens.toLocaleString()} tokens`);
+
+      const requestedModel = options.model || 'gpt-4o-mini';
+      const { model: selectedModel, reason, autoSwitched } = getRecommendedModel(
+        tokenEstimate.estimatedTokens,
+        requestedModel
+      );
+
+      if (autoSwitched) {
+        console.log(`🔄 [Tools] ${reason}`);
+      }
+
       const requestBody: any = {
-        model: options.model || 'gpt-4o-mini',
+        model: selectedModel,
         messages,
         temperature: options.temperature || 0.7,
         max_tokens: options.max_tokens || 1500,
@@ -430,10 +446,16 @@ export const openai = {
           ...data,
           tool_calls: choice.message.tool_calls,
           finish_reason: choice.finish_reason,
+          wasAutoSwitched: autoSwitched,
+          autoSwitchReason: reason,
         };
       }
 
-      return data;
+      return {
+        ...data,
+        wasAutoSwitched: autoSwitched,
+        autoSwitchReason: reason,
+      };
     } catch (error) {
       console.error('OpenAI API error:', error);
       return null;

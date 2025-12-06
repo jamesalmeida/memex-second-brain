@@ -196,23 +196,30 @@ const AssistantChat = observer(() => {
               const args = JSON.parse(toolCall.function.arguments);
               console.log(`[AssistantChat] Executing tool: ${toolCall.function.name}`, args);
 
-              const result = await executeTool(toolCall.function.name, args);
+              let result = await executeTool(toolCall.function.name, args);
               console.log(`[AssistantChat] Tool result:`, result.substring(0, 200));
 
               // Check if this is a search_items result with items to display
               if (toolCall.function.name === 'search_items') {
                 try {
                   const parsedResult = JSON.parse(result);
-                  if (parsedResult.items && parsedResult.items.length > 0 && parsedResult.display_as_cards) {
-                    itemsToDisplay = parsedResult.items;
+
+                  // Extract full items if available (before sending minimal data to API)
+                  if (parsedResult.__full_items__ && parsedResult.__full_items__.length > 0 && parsedResult.display_as_cards) {
+                    itemsToDisplay = parsedResult.__full_items__;
                     console.log('[AssistantChat] Found items to display as cards:', itemsToDisplay.length);
+
+                    // Remove __full_items__ from result to avoid sending large data to API
+                    delete parsedResult.__full_items__;
+                    // Re-stringify the cleaned result
+                    result = JSON.stringify(parsedResult);
                   }
                 } catch (parseError) {
                   console.error('[AssistantChat] Error parsing tool result:', parseError);
                 }
               }
 
-              // Add tool result to messages
+              // Add tool result to messages (with __full_items__ removed if it was present)
               apiMessages.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,
