@@ -190,14 +190,10 @@ const TagsManagerModal = observer(({
     const lower = trimmed.toLowerCase();
     if (normalizedSelectedKeys.includes(lower)) {
       setQuery('');
-      // Refocus the input to keep keyboard visible
-      setTimeout(() => inputRef.current?.focus(), 50);
       return;
     }
     setSelectedTags(prev => [...prev, trimmed]);
     setQuery('');
-    // Refocus the input to keep keyboard visible after adding tag
-    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -373,6 +369,12 @@ const TagsManagerModal = observer(({
         isDarkMode={isDarkMode}
       />
 
+      <ScrollView
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
             <View
               style={[
                 styles.inputRow,
@@ -469,6 +471,7 @@ const TagsManagerModal = observer(({
           <Text style={styles.doneButtonText}>Done</Text>
         )}
       </Pressable>
+      </ScrollView>
     </BaseModal>
   );
 });
@@ -476,6 +479,9 @@ const TagsManagerModal = observer(({
 export default TagsManagerModal;
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+  },
   measureContainer: {
     position: 'absolute',
     opacity: 0,
