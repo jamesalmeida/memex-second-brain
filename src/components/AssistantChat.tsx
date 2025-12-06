@@ -271,6 +271,11 @@ const AssistantChat = observer(() => {
 
       if (finalResponse) {
         // Add assistant response with items metadata if available
+        console.log('[AssistantChat] Adding message with items:', itemsToDisplay.length);
+        if (itemsToDisplay.length > 0) {
+          console.log('[AssistantChat] Items to display:', itemsToDisplay.map(i => ({ id: i.id, title: i.title })));
+        }
+
         await assistantActions.addMessage({
           role: 'assistant',
           content: finalResponse,
@@ -791,6 +796,12 @@ interface MessageBubbleProps {
 const MessageBubble = observer(({ message, isUser, isDarkMode, time, onCopy, onItemPress }: MessageBubbleProps) => {
   const scale = useSharedValue(1);
   const items = (message.metadata as any)?.items as Item[] | undefined;
+
+  // Debug logging
+  if (!isUser && message.metadata) {
+    console.log('[MessageBubble] Message metadata:', JSON.stringify(message.metadata).substring(0, 200));
+    console.log('[MessageBubble] Items count:', items?.length || 0);
+  }
 
   const handleLongPress = () => {
     scale.value = withSequence(
