@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import TagsManagerModal from './TagsManagerModal';
+import ItemTagsSheet from './ItemTagsSheet';
 
 export interface TagsEditorProps {
   tags: string[];
@@ -15,11 +16,11 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
   const isDarkMode = themeStore.isDarkMode.get();
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const overlayPulse = useRef(new Animated.Value(0)).current;
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const tagsSheetRef = useRef<BottomSheet & { openWithTags?: (tags: string[]) => void }>(null);
 
   const resolvedButtonLabel = useMemo(() => buttonLabel || '✨ Generate Tags', [buttonLabel]);
 
@@ -47,24 +48,19 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
     outputRange: [0.25, 0.55],
   });
 
-  const handleOpenModal = () => {
-    setIsModalVisible(true);
+  const handleOpenSheet = () => {
+    if (tagsSheetRef.current?.openWithTags) {
+      tagsSheetRef.current.openWithTags(tags);
+    }
+    tagsSheetRef.current?.snapToIndex(0);
   };
 
-  const handleModalCancel = () => {
-    if (isSubmitting) return;
-    setIsModalVisible(false);
-  };
-
-  const handleModalDone = async (nextTags: string[]) => {
-    setIsSubmitting(true);
-    setIsModalVisible(false);
+  const handleSheetDone = async (nextTags: string[]) => {
     setIsUpdating(true);
     try {
       await Promise.resolve(onChangeTags(nextTags));
     } finally {
       setIsUpdating(false);
-      setIsSubmitting(false);
     }
   };
 
@@ -93,7 +89,7 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
             <TouchableOpacity
               key={`${tag}-${index}`}
               style={[styles.tagChip, isDarkMode && styles.tagChipDark]}
-              onPress={handleOpenModal}
+              onPress={handleOpenSheet}
               activeOpacity={0.8}
             >
               <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>{tag}</Text>
@@ -102,7 +98,7 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
 
           <TouchableOpacity
             style={[styles.addTagButton, isDarkMode && styles.addTagButtonDark]}
-            onPress={handleOpenModal}
+            onPress={handleOpenSheet}
           >
             <Text style={[styles.addTagButtonText, isDarkMode && styles.addTagButtonTextDark]}>
               + {tags.length > 0 ? 'Manage Tags' : 'Add Tag'}
@@ -143,12 +139,11 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
         )}
       </View>
 
-      <TagsManagerModal
-        visible={isModalVisible}
-        initialTags={tags}
-        onCancel={handleModalCancel}
-        onDone={handleModalDone}
-        isSubmitting={isSubmitting}
+      <ItemTagsSheet
+        ref={tagsSheetRef}
+        onOpen={() => setIsSheetOpen(true)}
+        onClose={() => setIsSheetOpen(false)}
+        onDone={handleSheetDone}
       />
     </View>
   );
