@@ -27,17 +27,20 @@ import { itemsActions } from '../../src/stores/items';
 import ExpandedItemView from '../../src/components/ExpandedItemView';
 import { expandedItemUIStore, expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { useDrawer } from '../../src/contexts/DrawerContext';
+import { ItemTagsProvider, useItemTags } from '../../src/contexts/ItemTagsContext';
 import { spacesComputed } from '../../src/stores/spaces';
 import { filterActions } from '../../src/stores/filter';
 import { useToast } from '../../src/contexts/ToastContext';
 import { SPECIAL_SPACES } from '../../src/constants';
+import ItemTagsSheet from '../../src/components/ItemTagsSheet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const TabLayout = observer(() => {
+const TabLayoutContent = observer(() => {
   const isDarkMode = themeStore.isDarkMode.get();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const { tagsSheetRef, onDoneCallbackRef } = useItemTags();
   const { showToast } = useToast();
   const [currentView, setCurrentView] = useState<'everything' | 'spaces'>('everything');
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
@@ -615,11 +618,28 @@ const TabLayout = observer(() => {
               });
             }}
           />
+          <ItemTagsSheet
+            ref={tagsSheetRef}
+            onDone={async (tags) => {
+              if (onDoneCallbackRef.current) {
+                await Promise.resolve(onDoneCallbackRef.current(tags));
+                onDoneCallbackRef.current = null;
+              }
+            }}
+          />
         </View>
       </View>
     </BottomSheetModalProvider>
   );
 });
+
+const TabLayout = () => {
+  return (
+    <ItemTagsProvider>
+      <TabLayoutContent />
+    </ItemTagsProvider>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

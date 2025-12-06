@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
-import BottomSheet from '@gorhom/bottom-sheet';
 import { observer } from '@legendapp/state/react';
 import { themeStore } from '../stores/theme';
-import ItemTagsSheet from './ItemTagsSheet';
+import { useItemTags } from '../contexts/ItemTagsContext';
 
 export interface TagsEditorProps {
   tags: string[];
@@ -14,13 +13,12 @@ export interface TagsEditorProps {
 
 const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: TagsEditorProps) => {
   const isDarkMode = themeStore.isDarkMode.get();
+  const { openTagsSheet } = useItemTags();
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const overlayPulse = useRef(new Animated.Value(0)).current;
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const tagsSheetRef = useRef<BottomSheet & { openWithTags?: (tags: string[]) => void }>(null);
 
   const resolvedButtonLabel = useMemo(() => buttonLabel || '✨ Generate Tags', [buttonLabel]);
 
@@ -49,19 +47,14 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
   });
 
   const handleOpenSheet = () => {
-    if (tagsSheetRef.current?.openWithTags) {
-      tagsSheetRef.current.openWithTags(tags);
-    }
-    tagsSheetRef.current?.snapToIndex(0);
-  };
-
-  const handleSheetDone = async (nextTags: string[]) => {
-    setIsUpdating(true);
-    try {
-      await Promise.resolve(onChangeTags(nextTags));
-    } finally {
-      setIsUpdating(false);
-    }
+    openTagsSheet(tags, async (nextTags: string[]) => {
+      setIsUpdating(true);
+      try {
+        await Promise.resolve(onChangeTags(nextTags));
+      } finally {
+        setIsUpdating(false);
+      }
+    });
   };
 
   const handleGenerate = async () => {
@@ -139,12 +132,6 @@ const TagsEditor = observer(({ tags, onChangeTags, generateTags, buttonLabel }: 
         )}
       </View>
 
-      <ItemTagsSheet
-        ref={tagsSheetRef}
-        onOpen={() => setIsSheetOpen(true)}
-        onClose={() => setIsSheetOpen(false)}
-        onDone={handleSheetDone}
-      />
     </View>
   );
 });
