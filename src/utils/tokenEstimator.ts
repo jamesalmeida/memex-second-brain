@@ -19,7 +19,16 @@ export interface TokenEstimate {
  * Estimate token count from text content
  * Uses conservative estimate based on content characteristics
  */
-export function estimateTokens(text: string): TokenEstimate {
+export function estimateTokens(text: string | null | undefined): TokenEstimate {
+  // Handle null/undefined content (e.g., tool call messages)
+  if (!text) {
+    return {
+      estimatedTokens: 0,
+      wordCount: 0,
+      characterCount: 0,
+    };
+  }
+
   const characterCount = text.length;
   const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
 
@@ -54,7 +63,7 @@ export function estimateTokens(text: string): TokenEstimate {
 /**
  * Estimate tokens for an array of chat messages
  */
-export function estimateMessageTokens(messages: Array<{ role: string; content: string }>): TokenEstimate {
+export function estimateMessageTokens(messages: Array<{ role: string; content: string | null | undefined }>): TokenEstimate {
   // Each message has overhead for role, formatting, etc.
   const MESSAGE_OVERHEAD = 4; // tokens per message for formatting
 
