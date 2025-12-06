@@ -1366,9 +1366,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 8,
     width: '100%',
+    alignItems: 'flex-start',
   },
   itemCardWrapper: {
-    width: '100%',
+    width: '60%',
   },
   typingContainer: {
     alignItems: 'flex-start',
