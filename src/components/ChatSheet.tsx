@@ -853,7 +853,7 @@ const ChatSheet = observer(
 
     const handleItemPress = (item: Item) => {
       console.log('[ChatSheet] Item pressed:', item.id);
-      expandedItemUIActions.openExpandedItem(item);
+      expandedItemUIActions.expandItem(item);
     };
 
     const renderMessage = (message: ChatMessage, index: number) => {
