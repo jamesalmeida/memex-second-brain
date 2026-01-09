@@ -34,6 +34,7 @@ import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { spacesComputed } from '../../src/stores/spaces';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { processingItemsComputed } from '../../src/stores/processingItems';
+import { itemTypeMetadataComputed } from '../../src/stores/itemTypeMetadata';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -317,6 +318,7 @@ const SpaceDetailScreen = observer(() => {
                 data={filteredItems}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
+                extraData={itemTypeMetadataComputed.metadataVersion()}
                 numColumns={2}
                 columnWrapperStyle={styles.row}
                 contentContainerStyle={styles.listContent}

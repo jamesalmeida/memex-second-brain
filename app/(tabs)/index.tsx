@@ -7,7 +7,7 @@ import { useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS } from 'r
 import Animated from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
-import { itemTypeMetadataStore } from '../../src/stores/itemTypeMetadata';
+import { itemTypeMetadataComputed } from '../../src/stores/itemTypeMetadata';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import { syncStatusStore } from '../../src/stores/syncStatus';
@@ -159,7 +159,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, searchQuery]);
 
   // Track metadata changes to force FlashList re-renders when images are added/removed
-  const metadataVersion = itemTypeMetadataStore.typeMetadata.get().length;
+  const metadataVersion = itemTypeMetadataComputed.metadataVersion();
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

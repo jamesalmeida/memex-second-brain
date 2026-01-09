@@ -7,11 +7,14 @@ import { STORAGE_KEYS } from '../constants';
 interface ItemTypeMetadataState {
   typeMetadata: ItemTypeMetadata[];
   isLoading: boolean;
+  // Version counter that increments on any metadata change - used by FlashList to trigger re-renders
+  metadataVersion: number;
 }
 
 const initialState: ItemTypeMetadataState = {
   typeMetadata: [],
   isLoading: false,
+  metadataVersion: 0,
 };
 
 export const itemTypeMetadataStore = observable(initialState);
@@ -20,6 +23,8 @@ export const itemTypeMetadataStore = observable(initialState);
 export const itemTypeMetadataComputed = {
   typeMetadata: () => itemTypeMetadataStore.typeMetadata.get(),
   isLoading: () => itemTypeMetadataStore.isLoading.get(),
+  // Version counter for FlashList extraData - triggers re-renders when metadata changes
+  metadataVersion: () => itemTypeMetadataStore.metadataVersion.get(),
   
   // Get type metadata for a specific item
   getTypeMetadataForItem: (itemId: string): ItemTypeMetadata | undefined => {
@@ -96,6 +101,8 @@ export const itemTypeMetadataComputed = {
 export const itemTypeMetadataActions = {
   setTypeMetadata: async (typeMetadata: ItemTypeMetadata[]) => {
     itemTypeMetadataStore.typeMetadata.set(typeMetadata);
+    // Increment version to trigger FlashList re-renders
+    itemTypeMetadataStore.metadataVersion.set(itemTypeMetadataStore.metadataVersion.get() + 1);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(typeMetadata));
     } catch (error) {
@@ -118,6 +125,8 @@ export const itemTypeMetadataActions = {
     }
 
     itemTypeMetadataStore.typeMetadata.set(updatedMetadata);
+    // Increment version to trigger FlashList re-renders
+    itemTypeMetadataStore.metadataVersion.set(itemTypeMetadataStore.metadataVersion.get() + 1);
 
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(updatedMetadata));
@@ -135,6 +144,8 @@ export const itemTypeMetadataActions = {
     const updatedMetadata = currentMetadata.filter(m => m.item_id !== itemId);
 
     itemTypeMetadataStore.typeMetadata.set(updatedMetadata);
+    // Increment version to trigger FlashList re-renders
+    itemTypeMetadataStore.metadataVersion.set(itemTypeMetadataStore.metadataVersion.get() + 1);
 
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.ITEM_TYPE_METADATA, JSON.stringify(updatedMetadata));
