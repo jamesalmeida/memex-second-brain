@@ -206,50 +206,106 @@ export const extractYouTubeData = async (url: string) => {
 export const getYouTubeTranscript = async (videoId: string): Promise<{ transcript: string; language: string }> => {
   try {
     console.log('Fetching transcript for video ID:', videoId);
-    
+
     const youtube = await getInnertubeInstance();
-    const info = await youtube.getInfo(videoId);
-    
-    // Get the transcript using the proper API
-    const transcriptInfo = await info.getTranscript();
-    
-    if (!transcriptInfo || !transcriptInfo.transcript) {
-      throw new Error('No transcript available for this video');
-    }
-    
-    // Navigate the proper structure: TranscriptInfo -> Transcript -> TranscriptSearchPanel -> TranscriptSegmentList
-    const segments = transcriptInfo.transcript.content?.body?.initial_segments;
-    
-    if (!segments || segments.length === 0) {
-      throw new Error('No transcript segments available');
-    }
-    
-    // Combine all transcript segments into a single text
-    // Use toString() method on Text objects for proper text extraction
-    const fullTranscript = segments
-      .filter((segment: any) => segment.snippet) // Filter out any non-transcript segments
-      .map((segment: any) => {
-        // Check if snippet has toString method (Text class) or direct text property
-        if (segment.snippet.toString) {
-          return segment.snippet.toString();
-        } else if (segment.snippet.text) {
-          return segment.snippet.text;
+
+    // First try the standard method
+    try {
+      const info = await youtube.getInfo(videoId);
+      const transcriptInfo = await info.getTranscript();
+
+      if (transcriptInfo?.transcript?.content?.body?.initial_segments) {
+        const segments = transcriptInfo.transcript.content.body.initial_segments;
+
+        if (segments && segments.length > 0) {
+          const fullTranscript = segments
+            .filter((segment: any) => segment.snippet)
+            .map((segment: any) => {
+              if (segment.snippet.toString) {
+                return segment.snippet.toString();
+              } else if (segment.snippet.text) {
+                return segment.snippet.text;
+              }
+              return '';
+            })
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (fullTranscript) {
+            const language = transcriptInfo.selectedLanguage || 'en';
+            console.log(`Transcript fetched via standard API: ${fullTranscript.length} characters, language: ${language}`);
+            return { transcript: fullTranscript, language };
+          }
         }
-        return '';
+      }
+    } catch (standardError) {
+      console.log('Standard transcript method failed, trying caption URL workaround:', standardError);
+    }
+
+    // Workaround: Use getBasicInfo and fetch caption URLs directly
+    // This bypasses YouTube's bot detection on the /get_transcript endpoint
+    console.log('Attempting caption URL workaround...');
+    const basicInfo = await youtube.getBasicInfo(videoId);
+
+    // Access streaming data which contains caption tracks
+    const streamingData = (basicInfo as any).streaming_data;
+    const captionTracks = (basicInfo as any).captions?.caption_tracks
+      || streamingData?.captions?.playerCaptionsTracklistRenderer?.captionTracks
+      || [];
+
+    if (!captionTracks || captionTracks.length === 0) {
+      throw new Error('No caption tracks available for this video');
+    }
+
+    // Find the best caption track (prefer English, then any available)
+    let selectedTrack = captionTracks.find((track: any) =>
+      track.languageCode === 'en' || track.language_code === 'en'
+    );
+    if (!selectedTrack) {
+      selectedTrack = captionTracks[0];
+    }
+
+    const captionUrl = selectedTrack.baseUrl || selectedTrack.base_url;
+    if (!captionUrl) {
+      throw new Error('No caption URL found in track');
+    }
+
+    console.log('Fetching captions from URL:', captionUrl);
+
+    // Fetch the timedtext XML directly
+    const response = await fetch(captionUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch captions: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+
+    // Parse the XML to extract transcript text
+    // The format is: <transcript><text start="0" dur="5.2">Caption text</text>...</transcript>
+    const textMatches = xmlText.match(/<text[^>]*>([^<]*)<\/text>/g);
+
+    if (!textMatches || textMatches.length === 0) {
+      throw new Error('No caption text found in response');
+    }
+
+    const fullTranscript = textMatches
+      .map(match => {
+        // Extract text content and decode HTML entities
+        const textContent = match.replace(/<text[^>]*>/, '').replace(/<\/text>/, '');
+        return decodeHTMLEntities(textContent);
       })
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
-    
+
     if (!fullTranscript) {
       throw new Error('Transcript is empty');
     }
-    
-    // Get the selected language using the proper getter
-    const language = transcriptInfo.selectedLanguage || 'en';
-    
-    console.log(`Transcript fetched successfully: ${fullTranscript.length} characters, language: ${language}`);
-    
+
+    const language = selectedTrack.languageCode || selectedTrack.language_code || 'en';
+    console.log(`Transcript fetched via caption URL: ${fullTranscript.length} characters, language: ${language}`);
+
     return {
       transcript: fullTranscript,
       language,
@@ -259,3 +315,16 @@ export const getYouTubeTranscript = async (videoId: string): Promise<{ transcrip
     throw error;
   }
 };
+
+// Helper function to decode HTML entities in caption text
+function decodeHTMLEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec))
+    .replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
