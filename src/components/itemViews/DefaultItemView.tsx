@@ -868,28 +868,6 @@ const DefaultItemView = observer(({
           </View>
         )}
 
-        {/* Type Selector */}
-        <View style={styles.typeSection}>
-          <Text style={[styles.typeSectionLabel, isDarkMode && styles.typeSectionLabelDark]}>
-            CONTENT TYPE
-          </Text>
-          <TouchableOpacity
-            style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
-            onPress={() => setShowTypeModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.selectedType}>
-              <Text style={styles.typeIcon}>
-                {contentTypeOptions.find(t => t.type === selectedType)?.icon || '📎'}
-              </Text>
-              <Text style={[styles.typeName, isDarkMode && styles.typeNameDark]}>
-                {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
-              </Text>
-            </View>
-            <Text style={styles.chevron}>▼</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Image Descriptions Section (for items with images) */}
         {(() => {
           const imageUrls = itemTypeMetadataComputed.getImageUrls(itemToDisplay?.id || '');

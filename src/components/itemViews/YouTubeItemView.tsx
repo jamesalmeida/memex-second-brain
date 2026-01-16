@@ -578,7 +578,6 @@ const YouTubeItemView = observer(({
 
       {/* YouTube Video Embed or Thumbnail */}
       {getYouTubeVideoId(itemToDisplay?.url) && (
-        console.log('🔍 [YouTubeItemView] YouTube video ID:', getYouTubeVideoId(itemToDisplay.url)),
         <View style={styles.videoContainer}>
           {useThumbnail ? (
             // Thumbnail Mode: Show thumbnail with play button, tap opens YouTube app
@@ -829,28 +828,6 @@ const YouTubeItemView = observer(({
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Type Selector */}
-        <View style={styles.typeSection}>
-          <Text style={[styles.typeSectionLabel, isDarkMode && styles.typeSectionLabelDark]}>
-            CONTENT TYPE
-          </Text>
-          <TouchableOpacity
-            style={[styles.typeSelector, isDarkMode && styles.typeSelectorDark]}
-            onPress={() => setShowTypeModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.selectedType}>
-              <Text style={styles.typeIcon}>
-                {contentTypeOptions.find(t => t.type === selectedType)?.icon || '📎'}
-              </Text>
-              <Text style={[styles.typeName, isDarkMode && styles.typeNameDark]}>
-                {contentTypeOptions.find(t => t.type === selectedType)?.label || 'Unknown'}
-              </Text>
-            </View>
-            <Text style={styles.chevron}>▼</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Thumbnail / Images Section */}
         {(() => {
