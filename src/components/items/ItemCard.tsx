@@ -18,9 +18,23 @@ interface ItemCardProps {
   onLongPress?: (item: Item) => void;
 }
 
+/**
+ * Check if item has enough metadata to display the actual card
+ * Items with title + (description OR thumbnail) can show immediately while enriching
+ */
+function hasBasicMetadata(item: Item): boolean {
+  const hasTitle = item.title && item.title !== item.url && !item.title.startsWith('http');
+  const hasDescription = item.desc && item.desc.length > 0;
+  const hasThumbnail = item.thumbnail_url && item.thumbnail_url.length > 0;
+  return hasTitle && (hasDescription || hasThumbnail);
+}
+
 const ItemCard = observer(({ item, onPress, onLongPress }: ItemCardProps) => {
-  // Check if item is currently being processed
-  if (processingItemsComputed.isProcessing(item.id)) {
+  const isProcessing = processingItemsComputed.isProcessing(item.id);
+
+  // Only show ProcessingItemCard if item is being processed AND lacks basic metadata
+  // Items with metadata will show the actual card while enrichment happens in background
+  if (isProcessing && !hasBasicMetadata(item)) {
     return <ProcessingItemCard title={item.title || item.url} />;
   }
 

@@ -3,23 +3,26 @@ import { View, Text, StyleSheet, RefreshControl, Dimensions, TouchableOpacity } 
 import { FlashList } from '@shopify/flash-list';
 import { observer } from '@legendapp/state/react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
 import { themeStore } from '../../src/stores/theme';
 import { itemsStore, itemsActions } from '../../src/stores/items';
 import { itemTypeMetadataComputed } from '../../src/stores/itemTypeMetadata';
 import { expandedItemUIActions } from '../../src/stores/expandedItemUI';
 import { filterStore, filterActions, filterComputed } from '../../src/stores/filter';
 import { syncStatusStore } from '../../src/stores/syncStatus';
-import { pendingItemsStore } from '../../src/stores/pendingItems';
+import { pendingItemsStore, PendingItemDisplay } from '../../src/stores/pendingItems';
 import { processingItemsComputed } from '../../src/stores/processingItems';
 import ItemCard from '../../src/components/items/ItemCard';
+import ProcessingItemCard from '../../src/components/items/ProcessingItemCard';
 import { Item } from '../../src/types';
 import { getEmptyStateMessage } from '../../src/utils/mockData';
 import { useRadialMenu } from '../../src/contexts/RadialMenuContext';
 import { spacesComputed } from '../../src/stores/spaces';
 import SimpleHeader from '../../src/components/SimpleHeader';
 import FilterPills from '../../src/components/FilterPills';
+import { useToast } from '../../src/contexts/ToastContext';
+
+// Union type for items that can be displayed in the grid
+type DisplayItem = Item | { _isPending: true; pending: PendingItemDisplay };
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -40,9 +43,12 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   const showArchived = filterStore.showArchived.get();
   const searchQuery = filterStore.searchQuery.get();
   const [refreshing, setRefreshing] = useState(false);
-  const listRef = useRef<FlashList<Item>>(null);
+  const listRef = useRef<any>(null);
   const previousItemCount = useRef(allItems.length);
+  const previousPendingCount = useRef(0);
+  const lastToastTimestamp = useRef(0);
   const isInitialMount = useRef(true);
+  const { showToast } = useToast();
 
   // Get radial menu state to disable scroll when menu is active
   const { shouldDisableScroll } = useRadialMenu();
@@ -68,6 +74,34 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     initializeFilters();
     initializePendingItems();
   }, []);
+
+  // Show toast when new pending items are detected
+  const activePendingItems = useMemo(() => {
+    return pendingItems.filter(p => p.status === 'pending' || p.status === 'processing');
+  }, [pendingItems]);
+
+  useEffect(() => {
+    const currentCount = activePendingItems.length;
+    const previousCount = previousPendingCount.current;
+    const now = Date.now();
+
+    // Show toast only when new pending items appear
+    // Use timestamp debounce (2 seconds) to prevent duplicate toasts from rapid state updates
+    if (currentCount > previousCount && currentCount > 0) {
+      const timeSinceLastToast = now - lastToastTimestamp.current;
+      if (timeSinceLastToast > 2000) {
+        const newCount = currentCount - previousCount;
+        lastToastTimestamp.current = now;
+        showToast({
+          message: `${newCount} new ${newCount === 1 ? 'item' : 'items'} from Share Sheet`,
+          type: 'info',
+          duration: 3000,
+        });
+      }
+    }
+
+    previousPendingCount.current = currentCount;
+  }, [activePendingItems.length, showToast]);
 
   // Expanded item is orchestrated by TabLayout; no local subscription needed here
 
@@ -95,7 +129,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
   }, [selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, searchQuery, insets.top]);
 
   // Filter items based on all filter criteria
-  const displayItems = useMemo(() => {
+  const displayItems = useMemo((): DisplayItem[] => {
     // First filter by archive status
     let filtered = showArchived
       ? allItems.filter(item => !item.is_deleted && item.is_archived)
@@ -146,7 +180,7 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     }
 
     // Sort by created_at based on sortOrder
-    return filtered.sort((a, b) => {
+    const sortedItems = filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
 
@@ -156,7 +190,21 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
         return dateA - dateB; // Oldest first
       }
     });
-  }, [allItems, pendingItems, selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, searchQuery]);
+
+    // Add pending items as skeleton cards at the top (only if not in archived view and no filters)
+    // Skip showing skeleton cards if we're in archived view or have search/filter active
+    if (!showArchived && !searchQuery && selectedContentType === null && selectedTags.length === 0) {
+      const pendingCards: DisplayItem[] = activePendingItems.map(pending => ({
+        _isPending: true as const,
+        pending,
+      }));
+
+      // Put pending items at the top
+      return [...pendingCards, ...sortedItems];
+    }
+
+    return sortedItems;
+  }, [allItems, activePendingItems, selectedContentType, selectedTags, sortOrder, selectedSpaceId, showArchived, searchQuery]);
 
   // Track metadata changes to force FlashList re-renders when images are added/removed
   const metadataVersion = itemTypeMetadataComputed.metadataVersion();
@@ -187,15 +235,44 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     console.log('Item long pressed:', item.title);
   };
 
-  const renderItem = ({ item }: { item: Item }) => (
-    <View style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}>
-      <ItemCard
-        item={item}
-        onPress={handleItemPress}
-        onLongPress={handleItemLongPress}
-      />
-    </View>
-  );
+  // Helper to check if item is a pending placeholder
+  const isPendingItem = (item: DisplayItem): item is { _isPending: true; pending: PendingItemDisplay } => {
+    return '_isPending' in item && item._isPending === true;
+  };
+
+  // Helper to extract URL title for display
+  const extractUrlTitle = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      // Return hostname without www
+      return urlObj.hostname.replace('www.', '');
+    } catch {
+      // If URL parsing fails, return truncated URL
+      return url.length > 30 ? url.substring(0, 30) + '...' : url;
+    }
+  };
+
+  const renderItem = ({ item }: { item: DisplayItem }) => {
+    // Handle pending placeholder items - show ProcessingItemCard
+    if (isPendingItem(item)) {
+      return (
+        <View style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}>
+          <ProcessingItemCard title={extractUrlTitle(item.pending.url)} />
+        </View>
+      );
+    }
+
+    // Regular item
+    return (
+      <View style={{ width: '100%', paddingHorizontal: 4, paddingBottom: 8 }}>
+        <ItemCard
+          item={item}
+          onPress={handleItemPress}
+          onLongPress={handleItemLongPress}
+        />
+      </View>
+    );
+  };
 
   const EmptyState = () => {
     const hasActiveFilters = filterComputed.hasActiveFilters();
@@ -273,71 +350,18 @@ const HomeScreen = observer(({ onExpandedItemOpen, onExpandedItemClose }: HomeSc
     );
   };
 
-  // Count processing items
-  const processingCount = useMemo(() => {
-    return pendingItems.filter(p => p.status === 'pending' || p.status === 'processing').length;
-  }, [pendingItems]);
-
-  // Animated banner height with minimum display time
-  const bannerHeight = useSharedValue(0);
-  const [showBanner, setShowBanner] = useState(false);
-  const bannerShowTimestamp = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (processingCount > 0) {
-      // Show banner
-      if (!showBanner) {
-        setShowBanner(true);
-        bannerShowTimestamp.current = Date.now();
-        bannerHeight.value = withTiming(40, {
-          duration: 300,
-          easing: Easing.out(Easing.ease),
-        });
-      }
-    } else if (showBanner) {
-      // Hide banner with minimum display time (500ms)
-      const elapsed = bannerShowTimestamp.current ? Date.now() - bannerShowTimestamp.current : 500;
-      const delay = Math.max(0, 500 - elapsed);
-
-      setTimeout(() => {
-        bannerHeight.value = withTiming(0, {
-          duration: 300,
-          easing: Easing.in(Easing.ease),
-        }, () => {
-          // After animation completes, hide the component
-          // Use runOnJS to safely call state setter from animation callback
-          runOnJS(setShowBanner)(false);
-        });
-      }, delay);
-    }
-  }, [processingCount, showBanner]);
-
-  const bannerStyle = useAnimatedStyle(() => ({
-    height: bannerHeight.value,
-    overflow: 'hidden',
-  }));
-
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <SimpleHeader />
 
       <FilterPills />
 
-      {/* Processing count badge with slide animation */}
-      {showBanner && (
-        <Animated.View style={[bannerStyle, styles.processingBanner, isDarkMode && styles.processingBannerDark]}>
-          <Text style={[styles.processingText, isDarkMode && styles.processingTextDark]}>
-            Processing {processingCount} {processingCount === 1 ? 'item' : 'items'}...
-          </Text>
-        </Animated.View>
-      )}
-
       {/* Single FlashList - filtering is done via filter store */}
       <FlashList
         ref={listRef}
         data={displayItems}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => isPendingItem(item) ? `pending-${item.pending.id}` : item.id}
         extraData={metadataVersion}
         masonry
         numColumns={2}
@@ -436,25 +460,5 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
     fontWeight: '300',
-  },
-  processingBanner: {
-    backgroundColor: '#FFF9E6',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE082',
-  },
-  processingBannerDark: {
-    backgroundColor: '#332800',
-    borderBottomColor: '#665000',
-  },
-  processingText: {
-    fontSize: 13,
-    color: '#F57C00',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  processingTextDark: {
-    color: '#FFB74D',
   },
 });

@@ -27,11 +27,25 @@ export interface ProcessItemResult {
 }
 
 const SHARE_EXTENSION_REMOTE_CHECKS = 3;
-const SHARE_EXTENSION_MAX_WAIT_MS = 8000;
-const SHARE_EXTENSION_POLL_INTERVAL_MS = 400;
+const SHARE_EXTENSION_MAX_WAIT_MS = 12000; // Wait up to 12s for Edge Function to create item
+const SHARE_EXTENSION_POLL_INTERVAL_MS = 500; // Check every 500ms
+
+/**
+ * Check if an item has sufficient metadata to display without "Processing" card
+ * If true, we can show the actual card and run enrichment silently in background
+ */
+function hasBasicMetadata(item: Item): boolean {
+  const hasTitle = item.title && item.title !== item.url && !item.title.startsWith('http');
+  const hasDescription = item.desc && item.desc.length > 0;
+  const hasThumbnail = item.thumbnail_url && item.thumbnail_url.length > 0;
+
+  // For share extension items, having title + (description OR thumbnail) is enough
+  // to show the card immediately while enriching in background
+  return hasTitle && (hasDescription || hasThumbnail);
+}
 
 function findItemInStoreByUrl(url: string, userId: string): Item | undefined {
-  return itemsStore.items.get().find(i => i.url === url && i.user_id === userId);
+  return itemsStore.items.get().find(i => i.url === url && i.user_id === userId && !i.is_deleted);
 }
 
 function normalizeRemoteItem(remoteItem: any): Item {
@@ -68,6 +82,7 @@ async function fetchExistingItemFromSupabase(url: string, userId: string): Promi
       .select('*')
       .eq('user_id', userId)
       .eq('url', normalizedUrl)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -191,51 +206,69 @@ export async function processItem(params: ProcessItemParams): Promise<ProcessIte
         }
 
         if (!itemId) {
-          // Create new item
-          itemId = uuid.v4() as string;
-          created = true;
-          
-          let provisionalTitle = trimmedUrl;
-          try {
-            provisionalTitle = new URL(trimmedUrl).hostname.replace('www.', '');
-          } catch {
-            // Invalid URL, use as-is
+          // Final check: query Supabase one more time to prevent race conditions
+          // The Edge Function might have created the item while we were waiting
+          const finalCheck = await fetchExistingItemFromSupabase(trimmedUrl, userId);
+          if (finalCheck) {
+            item = finalCheck;
+            itemId = finalCheck.id;
+            created = false;
+            console.log(`✅ [ItemProcessingService] Found item on final check (race condition prevented): ${itemId}`);
+          } else {
+            // Create new item
+            itemId = uuid.v4() as string;
+            created = true;
+
+            let provisionalTitle = trimmedUrl;
+            try {
+              provisionalTitle = new URL(trimmedUrl).hostname.replace('www.', '');
+            } catch {
+              // Invalid URL, use as-is
+            }
+
+            const now = new Date().toISOString();
+            item = {
+              id: itemId,
+              user_id: userId,
+              title: provisionalTitle,
+              url: trimmedUrl,
+              desc: content || '',
+              thumbnail_url: '',
+              content_type: 'bookmark',
+              domain: new URL(trimmedUrl).hostname,
+              created_at: now,
+              updated_at: now,
+              is_archived: false,
+              is_favorite: false,
+              space_id: spaceId || null,
+            };
+
+            console.log(`✨ [ItemProcessingService] Creating new item: ${itemId} (source: ${source})`);
+
+            // Add to store and sync to database
+            await itemsActions.addItemWithSync(item);
+            console.log(`✅ [ItemProcessingService] Created item: ${itemId}`);
           }
-
-          const now = new Date().toISOString();
-          item = {
-            id: itemId,
-            user_id: userId,
-            title: provisionalTitle,
-            url: trimmedUrl,
-            desc: content || '',
-            thumbnail_url: '',
-            content_type: 'bookmark',
-            domain: new URL(trimmedUrl).hostname,
-            created_at: now,
-            updated_at: now,
-            is_archived: false,
-            is_favorite: false,
-            space_id: spaceId || null,
-          };
-
-          console.log(`✨ [ItemProcessingService] Creating new item: ${itemId} (source: ${source})`);
-
-          // Add to store and sync to database
-          await itemsActions.addItemWithSync(item);
-          console.log(`✅ [ItemProcessingService] Created item: ${itemId}`);
         }
       }
     }
 
-    // Add to processing store (shows ProcessingItemCard)
+    // Always add to processing store - this tracks enrichment state
+    // ItemCard will decide whether to show ProcessingItemCard or actual card based on metadata
+    // Expanded views use this state to show processing overlays on enrichment-dependent sections
     processingItemsActions.add(itemId);
-    console.log(`⏳ [ItemProcessingService] Starting processing for item: ${itemId}`);
+
+    const itemHasMetadata = item && hasBasicMetadata(item);
+    if (itemHasMetadata) {
+      console.log(`🚀 [ItemProcessingService] Item has metadata, card will show while enriching in background: ${itemId}`);
+    } else {
+      console.log(`⏳ [ItemProcessingService] Item lacks metadata, will show Processing card: ${itemId}`);
+    }
 
     // Get admin preferences for pipeline
     const youtubeSource = adminSettingsComputed.youtubeSource();
     const youtubeTranscriptSource = adminSettingsComputed.youtubeTranscriptSource();
-    
+
     console.log(`🔧 [ItemProcessingService] YouTube source: ${youtubeSource}, transcript source: ${youtubeTranscriptSource}`);
 
     // Run the enrichment pipeline
@@ -301,10 +334,11 @@ export async function processItem(params: ProcessItemParams): Promise<ProcessIte
       created,
     };
   } finally {
-    // Always remove from processing store when done
+    // Only remove from processing store if we added it
+    // (i.e., the item didn't have basic metadata)
     if (itemId) {
+      // Always try to remove - it's a no-op if not present
       processingItemsActions.remove(itemId);
-      console.log(`🧹 [ItemProcessingService] Removed item from processing store: ${itemId}`);
     }
   }
 }

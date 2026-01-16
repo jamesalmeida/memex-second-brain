@@ -139,5 +139,46 @@ Required in `.env` or `.env.local`:
 - Check auth flow including sign up, sign in, and session persistence
 - Ensure data syncs properly when coming back online
 
-## Version Control
-- After making changes always include a short commit message that the user could choose to use to commit that work if they are ready to do it themselves manually. 
+## Version Control & Change Tracking
+
+### Session Change Tracking
+**IMPORTANT**: Throughout each coding session, maintain a running summary of all changes made. This helps create accurate commit messages and provides visibility into what was modified.
+
+After completing each significant change or fix:
+1. Mentally note the files modified and what was changed
+2. When asked to commit OR at natural stopping points, provide a summary of all changes
+
+### Commit Message Format
+Use conventional commit format:
+```
+<type>: <short description>
+
+<detailed changes as bullet points>
+```
+
+**Types**: `feat` (new feature), `fix` (bug fix), `refactor`, `style`, `docs`, `chore`
+
+### When User Asks to Commit
+Provide a ready-to-use commit message summarizing ALL changes made since the last commit, grouped logically:
+
+```
+feat: Add share sheet processing improvements
+
+- Add toast notification for new pending items from share sheet
+- Add skeleton cards for pending items in grid view
+- Fix duplicate item creation between Edge Function and client
+- Fix duplicate toast notifications with timestamp debounce
+- Remove old yellow processing banner
+- Add processing overlays for TLDR and transcript sections during enrichment
+- Fix re-saving deleted URLs (exclude is_deleted items from duplicate checks)
+
+Files modified:
+- app/(tabs)/index.tsx
+- src/services/itemProcessingService.ts
+- src/components/itemViews/components/EnrichingOverlay.tsx
+- src/components/itemViews/components/ItemViewTldr.tsx
+- supabase/functions/process-pending-item/index.ts
+```
+
+### Current Session Changes
+When starting work on a new branch or feature, proactively track changes as they're made so a complete summary is always available.

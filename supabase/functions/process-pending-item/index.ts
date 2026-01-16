@@ -156,6 +156,46 @@ serve(async (req) => {
       console.log('[ProcessPendingItem] Status updated to processing');
     }
 
+    // Check if an item with this URL already exists for this user (prevent duplicates)
+    const { data: existingItems, error: checkError } = await supabase
+      .from('items')
+      .select('id, title')
+      .eq('user_id', user_id)
+      .eq('url', url)
+      .eq('is_deleted', false)
+      .limit(1)
+
+    if (checkError) {
+      console.warn('[ProcessPendingItem] Error checking for existing item:', checkError)
+    }
+
+    // If item already exists, skip creation and mark pending as completed
+    if (existingItems && existingItems.length > 0) {
+      console.log('[ProcessPendingItem] Item already exists, skipping creation:', existingItems[0].id)
+
+      // Mark pending item as completed (item was already created by client or previous run)
+      await supabase
+        .from('pending_items')
+        .update({
+          status: 'completed',
+          processed_at: new Date().toISOString()
+        })
+        .eq('id', pending_item_id)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          item_id: existingItems[0].id,
+          title: existingItems[0].title,
+          skipped: true, // Indicate this was a duplicate
+        }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+
     // Extract metadata
     const metadata = await extractMetadata(url)
 

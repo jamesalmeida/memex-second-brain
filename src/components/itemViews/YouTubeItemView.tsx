@@ -939,7 +939,11 @@ const YouTubeItemView = observer(({
                   THUMBNAIL
                 </Text>
                 <TouchableOpacity
-                  style={[styles.thumbnailSelector, isDarkMode && styles.thumbnailSelectorDark]}
+                  style={[
+                    styles.thumbnailSelector,
+                    isDarkMode && styles.thumbnailSelectorDark,
+                    showThumbnail && styles.thumbnailSelectorExpanded,
+                  ]}
                   onPress={() => setShowThumbnail(!showThumbnail)}
                   activeOpacity={0.7}
                 >
@@ -952,7 +956,7 @@ const YouTubeItemView = observer(({
                 </TouchableOpacity>
 
                 {showThumbnail && (
-                  <View style={[styles.thumbnailContent, isDarkMode && styles.thumbnailContentDark]}>
+                  <View style={[styles.thumbnailContent, styles.thumbnailContentConnected, isDarkMode && styles.thumbnailContentDark]}>
                     <ImageWithActions
                       source={{ uri: itemToDisplay.thumbnail_url }}
                       imageUrl={itemToDisplay.thumbnail_url}
@@ -993,7 +997,11 @@ const YouTubeItemView = observer(({
           ) : (
             <Animated.View style={{ opacity: transcriptOpacity }}>
               <TouchableOpacity
-                style={[styles.transcriptSelector, isDarkMode && styles.transcriptSelectorDark]}
+                style={[
+                  styles.transcriptSelector,
+                  isDarkMode && styles.transcriptSelectorDark,
+                  showTranscript && styles.transcriptSelectorExpanded,
+                ]}
                 onPress={() => setShowTranscript(!showTranscript)}
                 activeOpacity={0.7}
               >
@@ -1006,17 +1014,17 @@ const YouTubeItemView = observer(({
               </TouchableOpacity>
 
               {showTranscript && (
-                <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
-                  <View style={styles.transcriptTopBar}>
-                    <TouchableOpacity onPress={() => setShowTimestamps(!showTimestamps)} activeOpacity={0.7}>
-                      <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
-                        {showTimestamps ? 'Show Plain Text' : 'Show Timestamps'}
-                      </Text>
-                    </TouchableOpacity>
-                    <View style={styles.transcriptTopBarRight}>
+                <View style={[styles.transcriptContent, styles.transcriptContentConnected, isDarkMode && styles.transcriptContentDark]}>
+                  {/* Only show top bar with timestamps/SRT options if segments are available (SerpAPI provides these, youtubei.js does not) */}
+                  {transcriptSegments && transcriptSegments.length > 0 && (
+                    <View style={styles.transcriptTopBar}>
+                      <TouchableOpacity onPress={() => setShowTimestamps(!showTimestamps)} activeOpacity={0.7}>
+                        <Text style={[styles.transcriptSelectorText, isDarkMode && styles.transcriptSelectorTextDark]}>
+                          {showTimestamps ? 'Show Plain Text' : 'Show Timestamps'}
+                        </Text>
+                      </TouchableOpacity>
                       <TouchableOpacity onPress={async () => {
-                        const srt = (transcriptSegments && transcriptSegments.length > 0)
-                        ? transcriptSegments.map((s, idx) => {
+                        const srt = transcriptSegments.map((s, idx) => {
                             const toTS = (ms: number) => {
                               const total = Math.max(0, Math.floor(ms));
                               const h = String(Math.floor(total / 3600000)).padStart(2, '0');
@@ -1028,22 +1036,14 @@ const YouTubeItemView = observer(({
                             const start = toTS(s.startMs);
                             const end = toTS((s.endMs ?? (s.startMs + 2000)));
                             return `${idx + 1}\n${start} --> ${end}\n${s.text}\n`;
-                          }).join('\n')
-                        : transcript;
+                          }).join('\n');
                       await Clipboard.setStringAsync(srt);
                       showToast({ message: 'SRT copied to clipboard', type: 'success' });
                     }} activeOpacity={0.7}>
                         <Text style={[styles.transcriptSelectorText, { color: '#007AFF' }]}>Copy SRT</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.transcriptCopyButton}
-                        onPress={copyTranscriptToClipboard}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.transcriptCopyButtonText}>📋</Text>
-                      </TouchableOpacity>
                     </View>
-                  </View>
+                  )}
                   <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
                     {!showTimestamps || !transcriptSegments || transcriptSegments.length === 0 ? (
                       <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
@@ -1074,6 +1074,13 @@ const YouTubeItemView = observer(({
                     <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
                       {transcriptStats.chars.toLocaleString()} chars • {transcriptStats.words.toLocaleString()} words • ~{transcriptStats.readTime} min read
                     </Text>
+                    <TouchableOpacity
+                      style={styles.transcriptCopyButton}
+                      onPress={copyTranscriptToClipboard}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.transcriptCopyButtonText}>📋</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               )}
@@ -1471,6 +1478,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
     borderColor: '#3C3C3E',
   },
+  thumbnailSelectorExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
   thumbnailSelectorText: {
     fontSize: 14,
     color: '#333',
@@ -1486,6 +1498,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+  },
+  thumbnailContentConnected: {
+    marginTop: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopWidth: 0,
   },
   thumbnailContentDark: {
     backgroundColor: '#2C2C2E',
@@ -1556,6 +1574,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
     borderColor: '#3C3C3E',
   },
+  transcriptSelectorExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
   transcriptSelectorText: {
     fontSize: 14,
     color: '#333',
@@ -1572,6 +1595,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     position: 'relative',
+  },
+  transcriptContentConnected: {
+    marginTop: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopWidth: 0,
   },
   transcriptContentDark: {
     backgroundColor: '#2C2C2E',
@@ -1616,6 +1645,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: 'rgba(245, 245, 245, 0.95)',
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -1631,8 +1663,8 @@ const styles = StyleSheet.create({
   transcriptFooterText: {
     fontSize: 12,
     color: '#666',
-    textAlign: 'center',
     fontWeight: '500',
+    flex: 1,
   },
   transcriptFooterTextDark: {
     color: '#999',

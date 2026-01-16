@@ -998,7 +998,11 @@ const XItemView = observer(({
             ) : (
               <Animated.View style={{ opacity: transcriptOpacity }}>
                 <TouchableOpacity
-                  style={[styles.transcriptSelector, isDarkMode && styles.transcriptSelectorDark]}
+                  style={[
+                    styles.transcriptSelector,
+                    isDarkMode && styles.transcriptSelectorDark,
+                    showTranscript && styles.transcriptSelectorExpanded,
+                  ]}
                   onPress={() => setShowTranscript(!showTranscript)}
                   activeOpacity={0.7}
                 >
@@ -1011,24 +1015,24 @@ const XItemView = observer(({
                 </TouchableOpacity>
 
                 {showTranscript && (
-                  <View style={[styles.transcriptContent, isDarkMode && styles.transcriptContentDark]}>
+                  <View style={[styles.transcriptContent, styles.transcriptContentConnected, isDarkMode && styles.transcriptContentDark]}>
                     <ScrollView style={styles.transcriptScrollView} showsVerticalScrollIndicator={false}>
                       <Text style={[styles.transcriptText, isDarkMode && styles.transcriptTextDark]}>
                         {transcript}
                       </Text>
                     </ScrollView>
-                    <TouchableOpacity
-                      style={styles.transcriptCopyButton}
-                      onPress={copyTranscriptToClipboard}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.transcriptCopyButtonText}>📋</Text>
-                    </TouchableOpacity>
 
                     <View style={[styles.transcriptFooter, isDarkMode && styles.transcriptFooterDark]}>
                       <Text style={[styles.transcriptFooterText, isDarkMode && styles.transcriptFooterTextDark]}>
                         {transcriptStats.chars.toLocaleString()} chars • {transcriptStats.words.toLocaleString()} words • ~{transcriptStats.readTime} min read
                       </Text>
+                      <TouchableOpacity
+                        style={styles.transcriptCopyButton}
+                        onPress={copyTranscriptToClipboard}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.transcriptCopyButtonText}>📋</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 )}
@@ -1629,6 +1633,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
     borderColor: '#3C3C3E',
   },
+  transcriptSelectorExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
   transcriptSelectorText: {
     fontSize: 14,
     color: '#333',
@@ -1645,6 +1654,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     position: 'relative',
+  },
+  transcriptContentConnected: {
+    marginTop: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopWidth: 0,
   },
   transcriptContentDark: {
     backgroundColor: '#2C2C2E',
@@ -1663,9 +1678,6 @@ const styles = StyleSheet.create({
     color: '#CCC',
   },
   transcriptCopyButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
     width: 36,
     height: 36,
     borderRadius: 8,
@@ -1681,6 +1693,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: 'rgba(245, 245, 245, 0.95)',
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -1696,8 +1711,8 @@ const styles = StyleSheet.create({
   transcriptFooterText: {
     fontSize: 12,
     color: '#666',
-    textAlign: 'center',
     fontWeight: '500',
+    flex: 1,
   },
   transcriptFooterTextDark: {
     color: '#999',

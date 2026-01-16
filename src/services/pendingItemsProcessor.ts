@@ -10,21 +10,25 @@ import { itemProcessingQueue } from './itemProcessingQueue';
 
 /**
  * Check if an item needs processing based on its metadata completeness
+ * More lenient check - having title + (description OR thumbnail) is sufficient
+ * to show the card, though enrichment may still run in background
  */
 function shouldProcessItem(item: { title?: string; url: string; desc?: string; thumbnail_url?: string }): boolean {
-  // If item has minimal metadata, it needs processing
-  const hasTitle = item.title && item.title !== item.url;
+  const hasTitle = item.title && item.title !== item.url && !item.title.startsWith('http');
   const hasDescription = item.desc && item.desc.length > 0;
   const hasThumbnail = item.thumbnail_url && item.thumbnail_url.length > 0;
 
-  // If item is missing key metadata, it needs processing
-  if (!hasTitle || !hasDescription || !hasThumbnail) {
-    console.log(`🔍 [PendingProcessor] Item needs processing (missing metadata)`);
+  // Item is displayable if it has title + either description or thumbnail
+  // The card can show while enrichment happens in background
+  const isDisplayable = hasTitle && (hasDescription || hasThumbnail);
+
+  if (!isDisplayable) {
+    console.log(`🔍 [PendingProcessor] Item needs processing (missing basic metadata)`);
     return true;
   }
 
-  // Item appears to have been processed already
-  console.log(`✅ [PendingProcessor] Item already has metadata, skipping`);
+  // Item has enough metadata to display - enrichment can happen silently
+  console.log(`✅ [PendingProcessor] Item has basic metadata, will enrich silently`);
   return false;
 }
 

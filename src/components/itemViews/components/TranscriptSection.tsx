@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated as RNAni
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import SectionHeader from './SectionHeader';
+import EnrichingOverlay from './EnrichingOverlay';
 
 export interface TranscriptSegment {
   text: string;
@@ -19,6 +20,7 @@ interface TranscriptSectionProps {
   showToast?: (message: { message: string; type: 'success' | 'error' }) => void;
   enableTimestamps?: boolean; // YouTube-style features
   enableSrtExport?: boolean;  // YouTube-style features
+  isEnriching?: boolean; // True when item is still being enriched in background
 }
 
 const TranscriptSection: React.FC<TranscriptSectionProps> = ({
@@ -30,6 +32,7 @@ const TranscriptSection: React.FC<TranscriptSectionProps> = ({
   showToast,
   enableTimestamps = false,
   enableSrtExport = false,
+  isEnriching = false,
 }) => {
   const [showTranscript, setShowTranscript] = useState(false);
   const [showTimestamps, setShowTimestamps] = useState(false);
@@ -111,11 +114,25 @@ const TranscriptSection: React.FC<TranscriptSectionProps> = ({
     return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
   };
 
+  // Show enriching overlay when item is being enriched and has no transcript yet
+  const showEnrichingOverlay = isEnriching && !transcriptExists;
+
   return (
     <View style={styles.section}>
       <SectionHeader label="TRANSCRIPT" isDarkMode={isDarkMode} />
 
-      {!transcriptExists ? (
+      {/* Enriching overlay - blocks interaction while processing */}
+      {showEnrichingOverlay && (
+        <View style={styles.overlayContainer}>
+          <EnrichingOverlay
+            visible={showEnrichingOverlay}
+            isDarkMode={isDarkMode}
+            message="Fetching transcript..."
+          />
+        </View>
+      )}
+
+      {!transcriptExists && !showEnrichingOverlay ? (
         <RNAnimated.View style={{ opacity: buttonOpacity }}>
           <TouchableOpacity
             style={[
@@ -230,6 +247,13 @@ export default TranscriptSection;
 const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
+  },
+  overlayContainer: {
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+    position: 'relative',
+    overflow: 'hidden',
   },
   generateButton: {
     paddingVertical: 12,

@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { observer } from '@legendapp/state/react';
 import { Item } from '../../../types';
 import { itemsActions } from '../../../stores/items';
+import { processingItemsComputed } from '../../../stores/processingItems';
 import { openai } from '../../../services/openai';
 import { buildItemContext } from '../../../services/contextBuilder';
+import EnrichingOverlay from './EnrichingOverlay';
 
 interface TldrSectionProps {
   item: Item;
   isDarkMode: boolean;
+  isEnriching?: boolean; // Optional override - if not provided, checks processingItemsStore
 }
 
-const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
+const TldrSection: React.FC<TldrSectionProps> = observer(({ item, isDarkMode, isEnriching }) => {
+  // Check if item is being enriched - use prop if provided, otherwise check store
+  const isItemEnriching = isEnriching ?? processingItemsComputed.isProcessing(item.id);
   const [tldr, setTldr] = useState<string>(item.tldr || '');
   const [isGeneratingTldr, setIsGeneratingTldr] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
@@ -79,11 +85,20 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
     }
   };
 
+  // Show enriching overlay when item is being enriched and has no TLDR yet
+  const showEnrichingOverlay = isItemEnriching && !tldr;
+
   return (
     <View style={[styles.tldrContainer, isDarkMode && styles.tldrContainerDark]}>
       <Text style={[styles.tldrLabel, isDarkMode && styles.tldrLabelDark]}>
         TLDR
       </Text>
+      {/* Enriching overlay - blocks interaction while processing */}
+      <EnrichingOverlay
+        visible={showEnrichingOverlay}
+        isDarkMode={isDarkMode}
+        message="Generating TLDR..."
+      />
       {tldr ? (
         <View>
           <View style={styles.tldrContent}>
@@ -138,7 +153,7 @@ const TldrSection: React.FC<TldrSectionProps> = ({ item, isDarkMode }) => {
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   tldrContainer: {
