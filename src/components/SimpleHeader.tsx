@@ -106,7 +106,8 @@ const SimpleHeader = observer(({ onFilterPress }: SimpleHeaderProps) => {
       <View style={styles.content}>
         <View style={styles.titleContainer}>
           {!isSearching ? (
-            <TouchableOpacity onPress={handleTitlePress} activeOpacity={0.7}>
+            <TouchableOpacity onPress={handleTitlePress} activeOpacity={0.7} style={styles.titleRow}>
+              <MaterialIcons name="search" size={24} color={textColor} style={styles.searchIcon} />
               <Text style={[styles.title, { color: textColor }]}>{title}</Text>
             </TouchableOpacity>
           ) : (
@@ -187,6 +188,13 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
     marginRight: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   title: {
     fontSize: 28,
